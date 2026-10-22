@@ -62,9 +62,13 @@ workflow keeps up to date by itself. We don't touch it.)
    - **ordinary changes**: Claude brings the branch up to date with
      `develop` if it's behind, then turns on *auto-merge*, and GitHub
      merges it when the tests pass;
-   - **tax figures or what the app computes, the database, the StartOS
-     package, anything that goes to Start9, and releases**: they wait for
-     the owner to say **"merge"**.
+   - **tax figures or what the app computes, the database**: every
+     figures check too. If no figure moves, Claude merges. If a figure
+     moves on purpose, the owner first gets a plain-words before-and-after
+     (which figures, by how much, why) and approves that, not the code. A
+     figure that moves by mistake is fixed, never put to the owner;
+   - **the StartOS package, anything that goes to Start9, and releases**:
+     they wait for the owner to say **"merge"**.
 
 ## 1b. Big work
 

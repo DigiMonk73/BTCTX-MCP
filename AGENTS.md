@@ -26,8 +26,10 @@ Branches).
 
 - BitcoinTX holds the owner's real tax records, and its figures go on IRS
   forms: a wrong number is a real-world problem. So a change to tax figures
-  gets the full review, the before-and-after comparison and the owner's
-  "merge" ("Reviews").
+  gets the full review, the re-check and every figures check, and moves a
+  figure only on purpose, with a plain-words before-and-after the owner
+  approves ("Reviews": the figures rule). The owner isn't asked to judge
+  code: Claude is.
 - The owner's real ledger is the installed Mac app's data. Never test on it,
   run a script against it or point the AI connector at it; use temp
   databases, `make preview` or the StartOS test VM, and run a Mac build
@@ -41,7 +43,9 @@ Branches).
 ## Who does what
 
 - **The owner** (DigiMonk73) decides: releases, anything sent to Start9,
-  and changes in what the app does or computes. The owner is not a
+  changes in what the app does or computes (agreed before they're
+  written), and any figure moved on purpose (by its plain-words
+  before-and-after, never by reading code). The owner is not a
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
@@ -654,7 +658,7 @@ make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
-make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
+make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
 make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
@@ -935,7 +939,31 @@ depends on the change:
 |---|---|
 | Docs, process, tooling | One review; another round only for a blocker |
 | App code | A review, then a re-check of the fixes |
-| Tax figures or what the app computes, the database, the StartOS package or anything that reaches Start9, releases | A review and a re-check, plus the before-and-after comparison of what the app produces (`scripts/equivalence_check.py`) when figures could move; then the owner's "merge" |
+| Tax figures or what the app computes, the database | A review and a re-check, plus every figures check: the reference ledger's figures (`test_seed_ledger.py`), the independent second calculation (`scripts/independent_figures.py`) and the before-and-after comparison of what the app produces (`scripts/equivalence_check.py`); the database also a backup and restore tried on a 1.x ledger. Then the figures rule, below |
+| The StartOS package, releases, anything sent to Start9 | A review and a re-check; then the owner's "merge" in chat (for Start9: before it's sent) |
+
+**The figures rule.** Be extremely careful with anything that affects
+figures; the owner isn't asked to review code:
+
+- **No figure moves**, and every check is green: Claude merges, without
+  asking the owner. This is for changes not meant to move any figure (a
+  refactor, a dependency, wording, a screen).
+- **A figure moves on purpose** (a `tax-figures` fix, a new rule): before
+  it merges, the owner gets a plain-words before-and-after on the pull
+  request and in chat: which figures, for which ledgers and tax years, by
+  how much, why, and the tax rule behind it. The owner approves that
+  explanation, not the code. What counts is the intent, not whether the
+  test ledgers happen to show it: a fix meant to change any user's figure
+  (a duplicate check, a price, a box) gets the before-and-after even when
+  `equivalence_check` finds no difference, shown on a ledger built to
+  show it.
+- **A figure moves that nobody meant to move**: stop, find out why and fix
+  it; never ask the owner to judge it. If the move turns out to be right
+  (a bug the change uncovered), it becomes a figure moved on purpose,
+  above.
+
+A change in what the app does for the owner is still agreed with them
+before it's written.
 
 Claude posts the review on the pull request, then fixes every finding (a bug
 fix with a test that fails on the old code) or answers it there with the
@@ -962,9 +990,11 @@ updates a branch by itself, and GitHub refuses to merge one that's behind
 ("Branches"). During big work the lead does all of this
 ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
-These pull requests get auto-merge only after the owner's "merge" in chat:
-a change in tax figures or what the app computes, the database, the StartOS
-package or anything that reaches Start9, and releases. A change in what the
+A change in tax figures or what the app computes, or the database, follows
+the figures rule ("Reviews"): auto-merge when no figure moves and every
+check is green; after the owner's OK on the before-and-after when a figure
+moves on purpose. The StartOS package, releases and anything sent to Start9
+get auto-merge only after the owner's "merge" in chat. A change in what the
 app does for the owner is agreed with them before it's written, not at
 merge time. Dependabot's pull requests go the same way, after Claude has
 read their changelogs; what else they need before merging, and what to do
@@ -1038,9 +1068,9 @@ one session. Claude suggests this setup when a request is that big.
   No plan mode by default: plan mode's plan stays in that session, while
   the issue's checklist is seen by all.
 - **The main session** carries the owner's decisions to the sessions, on
-  their issues or by a message to one that's running. A "merge" is
-  quoted on its pull request, with the date, by the session the owner
-  said it to. The main session starts the next session when what it
+  their issues or by a message to one that's running. The owner's
+  "merge", or OK on a before-and-after, is quoted on its pull request,
+  with the date, by the session the owner said it to. The main session starts the next session when what it
   waits for is done, and keeps #41's "Next", linking to the umbrella
   issue instead of repeating its order.
 - **The footprint and merge plan** (owner, 2026-10-12): planned up front,
