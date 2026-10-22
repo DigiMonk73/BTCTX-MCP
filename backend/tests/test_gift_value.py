@@ -219,12 +219,13 @@ def test_a_day_priced_value_is_offered_at_the_hour(auth_client, monkeypatch):
     tx = gift(auth_client)
     assert tx["price_moment"] == "day"
     stub_prices_at(monkeypatch, price_of)
+    from backend.services.account import read_book
     from backend.services.hourly_review import _priced_values
     from backend.models.transaction import Transaction
     from backend.database import get_db
     from backend.main import app
     db = next(app.dependency_overrides[get_db]())
-    assert [f for f, _, _ in _priced_values(db.get(Transaction, tx["id"]))] == ["fmv_usd"]
+    assert [f for f, _, _ in _priced_values(db.get(Transaction, tx["id"]), read_book(db))] == ["fmv_usd"]
     db.close()
     # Its tax year's totals name what moves (Settings, cli review, the AI's review_ledger)
     from backend.services.review import year_line
