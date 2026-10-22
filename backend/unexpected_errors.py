@@ -10,7 +10,9 @@ rules"; #204, #422, #430).
   sentence (500) and is logged so. Starlette's own handler answers too,
   but raises the error again for the server, which then logs the whole
   trace at ERROR ("Exception in ASGI application"). A save a restore's
-  swap refused (database.was_replaced) says so instead (503).
+  swap refused (database.was_replaced) says so instead (503), and so does
+  one that waited past SQLite's 5 s for the write lock (database.is_busy:
+  an import held it), in the imports' words (503, #478).
 """
 
 from __future__ import annotations
@@ -21,12 +23,13 @@ from urllib.parse import quote
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from backend.database import was_replaced
+from backend.database import is_busy, was_replaced
 
 logger = logging.getLogger(__name__)
 
 UNEXPECTED = "Something unexpected went wrong. BitcoinTX's log says what."
 REPLACED = "A restore replaced the database while this was being saved, so it wasn't saved. Check, then try again."
+BUSY = "BitcoinTX was busy saving something else, and nothing was changed. Try again."
 
 
 def log_unexpected(what: str, error: Exception, log: logging.Logger = logger, then: str = "") -> None:
@@ -59,6 +62,9 @@ class UnexpectedErrorMiddleware:
             if was_replaced(error):
                 logger.warning("%s not saved: a restore replaced the database meanwhile", what)
                 answer = JSONResponse({"detail": REPLACED}, status_code=503)
+            elif is_busy(error):
+                logger.warning("%s: the database was busy, nothing changed", what)
+                answer = JSONResponse({"detail": BUSY}, status_code=503)
             else:
                 log_unexpected(what, error)
                 answer = JSONResponse({"detail": UNEXPECTED}, status_code=500)

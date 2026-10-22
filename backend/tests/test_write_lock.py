@@ -3,7 +3,8 @@ SQLite's write lock, taken with database.take_write_lock (#402) by Delete
 All, the hourly prices' apply and a login's timezone fill. Each takes it at
 its own step and holds it until it ends, and answers a database another
 save keeps locked in its own words: Delete All's 503 and log line, the
-apply's 503, the fill's False.
+apply's 503, the fill's False. Any other save that waits past it (the
+transaction form's, an edit, a deletion) answers busy too (#478).
 """
 
 import logging
@@ -12,17 +13,20 @@ from contextlib import contextmanager
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from backend.database import is_busy, take_write_lock
+from backend.database import get_db, is_busy, take_write_lock
+from backend.main import app
 from backend.models.app_setting import AppSetting
 from backend.models.transaction import Transaction
 from backend.schemas.transaction import TransactionCreate
-from backend.services import hourly_review, tax_time, transaction, wipe
+from backend.services import first_run, hourly_review, tax_time, transaction, wipe
 from backend.services.transaction import create_transaction_record
-from backend.tests.conftest import init_test_db, remove_temp_db, temp_db_file
+from backend.tests.conftest import default_login, init_test_db, remove_temp_db, temp_db_file
+from backend.unexpected_errors import BUSY
 
 WAIT = 0.1  # seconds a session here waits for the lock (5 in the app)
 NY = "America/New_York"
@@ -227,3 +231,51 @@ def test_the_timezone_fill_holds_the_lock_from_its_check_to_its_save(session, da
     assert seen == [("_never_chosen", True), ("_ledger_is_empty", True), ("set_tax_timezone", True)]
     assert not locked_elsewhere(database)
     assert session.get(AppSetting, tax_time.SETTING_KEY).value == NY
+
+
+@pytest.fixture
+def browser(database, auth_client):
+    """A browser logged in to the app over that database, whose saves wait
+    WAIT for the write lock."""
+    engine = create_engine(f"sqlite:///{database}", connect_args={"check_same_thread": False, "timeout": WAIT})
+    sessions = sessionmaker(bind=engine)
+
+    def override():
+        db = sessions()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    previous = app.dependency_overrides[get_db]
+    app.dependency_overrides[get_db] = override
+    first_run.clear_code()
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    yield client
+    first_run.clear_code()
+    app.dependency_overrides[get_db] = previous
+    engine.dispose()
+
+
+CHANGES = {
+    "save": lambda client, tx_id: client.post("/api/transactions", json=DEPOSIT),
+    "edit": lambda client, tx_id: client.put(f"/api/transactions/{tx_id}", json={"amount": "200"}),
+    "delete": lambda client, tx_id: client.delete(f"/api/transactions/{tx_id}"),
+}
+
+
+@pytest.mark.parametrize("change", list(CHANGES))
+def test_a_save_that_waited_past_the_lock_answers_busy(browser, database, caplog, change):
+    """#478: the transaction form's save made while an import held the lock
+    answered the fixed 500 ("Something unexpected went wrong") and logged
+    an ERROR, where the imports say busy; an edit and a deletion too."""
+    tx_id = browser.post("/api/transactions", json=DEPOSIT).json()["id"]
+    before = browser.get("/api/transactions").json()
+    with held(database), caplog.at_level(logging.WARNING):
+        r = CHANGES[change](browser, tx_id)
+    assert (r.status_code, r.json()) == (503, {"detail": BUSY})
+    said = f"{r.request.method} {r.request.url.path}: the database was busy, nothing changed"
+    assert [(rec.name, rec.levelno, rec.getMessage()) for rec in caplog.records if rec.name.startswith("backend")] == [
+        ("backend.unexpected_errors", logging.WARNING, said)]
+    assert browser.get("/api/transactions").json() == before

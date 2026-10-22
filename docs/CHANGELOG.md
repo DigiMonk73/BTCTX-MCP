@@ -54,6 +54,15 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **A save that meets a busy database says so** (#478). A transaction
+  saved, edited or deleted while something else held the database for
+  more than 5 seconds (a long import, or an AI assistant adding many rows)
+  waited, as it should, then failed with "Something unexpected went wrong.
+  BitcoinTX's log says what.", and the log had an error. It now says
+  "BitcoinTX was busy saving something else, and nothing was changed. Try
+  again.", as the imports do, and the log has a warning. Nothing was ever
+  half saved: only the message changes. The AI connector shows the same
+  words.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
