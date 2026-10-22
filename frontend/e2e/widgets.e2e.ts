@@ -162,3 +162,16 @@ test("converter, date mode: an hour with no price stored says the day's price st
   await expect(sidebar.getByText("$50,123.00", { exact: true })).toBeVisible();
   await expect(note).toHaveCount(0);
 });
+
+test("converter: the dollar figure is the cent BitcoinTX would save, a half cent to the even cent (#578)", async ({ authedPage: page }) => {
+  const sidebar = page.getByRole("complementary");
+  const field = (label: string) => sidebar.getByLabel(label, { exact: true });
+  await sidebar.getByRole("button", { name: "Manual" }).click();
+  await expect(sidebar.getByLabel("BTC price (USD)")).toHaveValue("60000");
+  await sidebar.getByLabel("BTC price (USD)").fill("96281.61");
+  await field("BTC").fill("0.5"); // $48,140.805
+  await expect(field("USD")).toHaveValue("48140.8");
+  await sidebar.getByLabel("BTC price (USD)").fill("96283.7");
+  await field("Sats").fill("15000000"); // $14,442.555
+  await expect(field("USD")).toHaveValue("14442.56");
+});

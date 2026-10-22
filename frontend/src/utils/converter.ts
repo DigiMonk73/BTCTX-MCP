@@ -65,6 +65,42 @@ export function satsFromUsd(usd: string, price: number): number | null {
 }
 
 /**
+ * A typed BTC amount's worth at a price, as the USD field writes it (#578):
+ * exact from the digits, to the cent, an exact half cent to the even cent,
+ * as the server works a value out from a price (Decimal's quantize), so the
+ * converter shows the cent BitcoinTX would save. As floats, 0.5 BTC at
+ * $96,281.61 is $48,140.81, where $48,140.805 is $48,140.80. "": no amount
+ * or no price.
+ */
+export function usdFromBtc(btc: string, price: number): string {
+  return usdText(btc, 0, price);
+}
+
+/** A typed number of satoshis' worth at a price, as usdFromBtc writes it. */
+export function usdFromSats(sats: string, price: number): string {
+  return usdText(sats, 8, price);
+}
+
+// The typed amount, `places` decimal places under a bitcoin, at the price
+function usdText(text: string, places: number, price: number): string {
+  const amount = typedDigits(text);
+  const perBtc = typedDigits(String(price));
+  if (!amount || !perBtc || !amount.digits || !perBtc.digits) return "";
+  if (amount.huge || perBtc.huge) {
+    const usd = (Number(text) / 10 ** places) * price;
+    return usd ? String(Math.round(usd * 100) / 100) : "";
+  }
+  // cents: amount × price × 100, each its digits over a power of ten
+  const shift = 2 - amount.places - places - perBtc.places;
+  const product = amount.digits * perBtc.digits;
+  const cents = shift >= 0 ? product * 10n ** BigInt(shift) : nearest(product, 10n ** BigInt(-shift));
+  const size = cents < 0n ? -cents : cents;
+  // As the field wrote a number of dollars: "48140.8", "150", "0"
+  const dollars = `${size / 100n}.${String(size % 100n).padStart(2, "0")}`.replace(/\.?0+$/, "");
+  return cents < 0n ? `-${dollars}` : dollars;
+}
+
+/**
  * A number field's text exactly: its digits (signed) over 10^places. huge:
  * an exponent far past all the bitcoin there is, or far under a satoshi,
  * where exactness means nothing and writing out the digits could take more

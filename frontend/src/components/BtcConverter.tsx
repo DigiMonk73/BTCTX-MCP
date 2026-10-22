@@ -4,7 +4,9 @@ import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
-import { dayPriceNote, historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
+import {
+  dayPriceNote, historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd, usdFromBtc, usdFromSats,
+} from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
@@ -92,9 +94,6 @@ const BtcConverter: React.FC = () => {
 
   // The field typed in last: the other two are worked out from it
   const [lastChangedField, setLastChangedField] = useState<Field>(null);
-
-  // BTC to the satoshi as plain digits (btcText: 1 sat is "0.00000001", never "1e-8"), USD to the cent.
-  const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
   // Whether public sites go through Tor, for the source line: read again when a
   // choice is saved, unknown meanwhile (only the newest read counts)
@@ -198,10 +197,10 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setBtcValue(value);
       const btcNum = parseFloat(value) || 0;
-      const usdNum = btcNum * btcPrice;
       const sats = btcNum ? satsFromBtc(value) : null;
 
-      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
+      // USD to the cent BitcoinTX would save (#578)
+      setUsdValue(usdFromBtc(value, btcPrice));
       setSatsValue(sats === null ? "" : sats.toString());
 
       if (updateLastField) {
@@ -216,10 +215,10 @@ const BtcConverter: React.FC = () => {
       setSatsValue(value);
       const satsNum = parseFloat(value) || 0;
       const btcNum = satsNum / SATS_PER_BTC;
-      const usdNum = btcNum * btcPrice;
 
+      // BTC to the satoshi as plain digits (btcText: 1 sat is "0.00000001", never "1e-8")
       setBtcValue(btcNum ? btcText(btcNum) : "");
-      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
+      setUsdValue(usdFromSats(value, btcPrice));
 
       if (updateLastField) {
         setLastChangedField("SATS");

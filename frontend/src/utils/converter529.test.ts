@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { satsFromBtc, satsFromUsd } from "./converter";
+import { satsFromBtc, satsFromUsd, usdFromBtc, usdFromSats } from "./converter";
 
 // The converter counts from the typed digits, and an exact half satoshi goes to the even
 // count: the rule BitcoinTX keeps for a value worked out from a price (AGENTS.md, "Prices"; #556)
@@ -54,5 +54,40 @@ describe("a typed BTC amount's half satoshi goes to the even count too (#529)", 
   it("rounds anything past a half to the nearest, as before", () => {
     expect(satsFromBtc("0.1234567850001")).toBe(12_345_679);
     expect(satsFromBtc("0.1234567849999")).toBe(12_345_678);
+  });
+});
+
+// The server works a value out from a price as Decimal(price × amount).quantize(CENT): exact, an
+// exact half cent to the even cent. The converter shows the cent BitcoinTX would save (#578)
+describe("the converter's dollar figure is exact, a half cent to the even cent (#578)", () => {
+  it("rounds an exact half cent to the even cent, down and up", () => {
+    expect(usdFromBtc("0.5", 96_281.61)).toBe("48140.8"); // 48,140.805; floats said 48,140.81
+    expect(usdFromBtc("0.15", 96_283.7)).toBe("14442.56"); // 14,442.555; floats said 14,442.55
+    expect(usdFromSats("50000000", 96_281.61)).toBe("48140.8");
+    expect(usdFromSats("15000000", 96_283.7)).toBe("14442.56");
+  });
+
+  it("counts amounts floats get wrong that aren't a half cent", () => {
+    // 118,873,418,683.2249…; floats said 118,873,418,683.23
+    expect(usdFromBtc("1234567.89012345", 96_287.47)).toBe("118873418683.22");
+    expect(usdFromSats("123456789012345", 96_287.47)).toBe("118873418683.22");
+  });
+
+  it("writes the figure as the field did: no trailing zeros, 0 for less than half a cent", () => {
+    expect(usdFromBtc("1", 50_000)).toBe("50000");
+    expect(usdFromBtc("0.00001", 60_000)).toBe("0.6");
+    expect(usdFromSats("250000", 60_000)).toBe("150");
+    expect(usdFromSats("1", 60_000)).toBe("0"); // $0.0006
+    expect(usdFromBtc("-0.5", 96_281.61)).toBe("-48140.8");
+    expect(usdFromBtc("5e-1", 96_281.61)).toBe("48140.8");
+  });
+
+  it("is no figure without an amount or a price", () => {
+    for (const text of ["", "0", "-0", ".", "abc"]) {
+      expect(usdFromBtc(text, 60_000), text).toBe("");
+      expect(usdFromSats(text, 60_000), text).toBe("");
+    }
+    expect(usdFromBtc("1", 0)).toBe("");
+    expect(usdFromSats("1", 0)).toBe("");
   });
 });

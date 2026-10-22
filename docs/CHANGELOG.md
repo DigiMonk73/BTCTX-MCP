@@ -69,8 +69,14 @@ All notable changes to BitcoinTX are documented in this file.
   sats, one fewer than it showed). A BTC amount typed with more than 8
   decimals that is exactly halfway between two satoshis goes to the even
   one too, where it went up: 0.000000025 BTC is 2 sats (it showed 3), and
-  0.000000005 BTC is 0. Only the converter's display changes: nothing it
-  shows is saved. 1.2.9.
+  0.000000005 BTC is 0. The dollar figure it shows from BTC or sats follows
+  the same rule: worked out exactly, an exact half cent to the even cent,
+  as BitcoinTX saves a value worked out from a price, so it shows the cent
+  BitcoinTX would save. 0.5 BTC at $96,281.61 ($48,140.805) is $48,140.80,
+  where it showed $48,140.81; 0.15 BTC at $96,283.70 ($14,442.555) is
+  $14,442.56, where it showed $14,442.55. Only the converter's display
+  changes: nothing it shows is saved. 1.2.9 (the dollar figure, 0.9.2 to
+  1.2.9).
 - **The Sats Converter's Date mode says when it shows the day's price for
   an hour** (#555). With an hour chosen that BitcoinTX has no price stored
   for, it showed the day's price (that UTC day's 00:00 price) just as it
