@@ -1,6 +1,6 @@
 // Leaving the page with unsaved changes in the transaction panel asks first
-// (#536): the browser's Back button and a page link get the panel's own
-// "Discard changes?", a reload the browser's question. Nothing is asked
+// (#536): the browser's Back button, a page link and Logout get the panel's
+// own "Discard changes?", a reload the browser's question. Nothing is asked
 // when nothing changed or once the transaction is saved, and an answer of
 // Discard changes always lets the user go.
 import { test, expect, createTx, listTx, openAddForm, saveForm } from "./fixtures";
@@ -124,4 +124,67 @@ test("a reload with unsaved changes gets the browser's question", async ({ authe
   await expect(page.getByRole("button", { name: "Add Transaction" })).toBeVisible();
   await expect(addPanel(page)).toHaveCount(0);
   expect(asked).toEqual(["beforeunload"]);
+});
+
+test("Logout with unsaved changes asks Discard changes? first, and sends nothing before the answer", async ({
+  authedPage: page,
+}) => {
+  const browserAsked: string[] = [];
+  page.on("dialog", (d) => {
+    browserAsked.push(d.message());
+    void d.accept();
+  });
+  let logouts = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/logout")) logouts++;
+  });
+  await openAddForm(page, "Deposit");
+  await page.getByLabel("Account", { exact: true }).selectOption("Bank");
+  const logout = page.getByRole("link", { name: "Logout" });
+
+  // Under the overlay, but the keyboard reaches it
+  await logout.focus();
+  await page.keyboard.press("Enter");
+  await expect(question(page)).toBeVisible();
+  await page.getByRole("button", { name: "Go back" }).click();
+  await expect(question(page)).toHaveCount(0);
+  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  expect((await page.request.get("/api/transactions")).status()).toBe(200); // still logged in
+  expect(logouts).toBe(0);
+
+  await logout.focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Discard changes" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  expect((await page.request.get("/api/transactions")).status()).toBe(401);
+  expect(logouts).toBe(1);
+  expect(browserAsked).toEqual([]); // one question, the panel's: not "Are you sure…?" as well
+});
+
+test.describe("no price source chosen yet: the price card's link", () => {
+  test.use({ priceSource: "unset" });
+  const link = (page: Page) => page.getByRole("link", { name: "Choose a source" });
+
+  test("leaves no history entry of the browser's own, so Back from unsaved changes still asks", async ({
+    authedPage: page,
+  }) => {
+    // An entry the router didn't make: it can't undo a Back onto one
+    await link(page).click();
+    await openAddForm(page, "Deposit");
+    await page.getByLabel("Account", { exact: true }).selectOption("Bank");
+    await page.goBack();
+    await expect(question(page)).toBeVisible();
+    await page.getByRole("button", { name: "Discard changes" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(dashboard(page)).toBeVisible();
+  });
+
+  test("still goes to the card, the keyboard with it", async ({ authedPage: page }) => {
+    await link(page).focus();
+    await page.keyboard.press("Enter");
+    const title = page.getByRole("heading", { name: "Bitcoin prices" });
+    await expect(title).toBeFocused();
+    await expect(title).toBeInViewport();
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
 });

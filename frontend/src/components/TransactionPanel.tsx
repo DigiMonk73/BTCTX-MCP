@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useBlocker, type BlockerFunction } from "react-router-dom";
 import { X } from "lucide-react";
+import { ReportUnsavedChanges } from "../contexts/unsavedChanges";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
 
@@ -53,8 +54,10 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
   const leaving = useBlocker(leavesWithChanges);
   const askDiscard = showDiscardModal || leaving.state === "blocked";
 
-  // A reload, closing the tab or Back out of the app: only the browser's own
-  // question can stop those
+  // While there are unsaved changes: a reload, closing the tab or Back out of
+  // the app get the browser's question (only its own can stop those), and
+  // the header's Logout leaves the asking to this panel
+  const reportUnsaved = useContext(ReportUnsavedChanges);
   useEffect(() => {
     if (!hasUnsavedChanges) return;
     const askBrowser = (e: BeforeUnloadEvent) => {
@@ -62,8 +65,12 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
       e.returnValue = true; // Chrome before 119 asks only when this is set
     };
     window.addEventListener("beforeunload", askBrowser);
-    return () => window.removeEventListener("beforeunload", askBrowser);
-  }, [hasUnsavedChanges]);
+    reportUnsaved(true);
+    return () => {
+      window.removeEventListener("beforeunload", askBrowser);
+      reportUnsaved(false);
+    };
+  }, [hasUnsavedChanges, reportUnsaved]);
 
   // Go back: the panel stays as it is, and so does the page
   const keepEditing = useCallback(() => {

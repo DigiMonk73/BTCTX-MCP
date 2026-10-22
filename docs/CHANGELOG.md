@@ -60,11 +60,15 @@ All notable changes to BitcoinTX are documented in this file.
   lost; only Escape, a click outside the panel and its close button asked.
   Now Back, Forward and a page link reached with the keyboard ask the same
   "Discard changes?": Go back keeps the panel as it was, Discard changes
-  goes where you were going. A reload, closing the tab or Back to a page
-  outside BitcoinTX gets the browser's own question. Nothing is asked when
-  nothing changed, or once the transaction is saved. Nothing saved was
-  ever lost or changed. (The Mac app has no Back button; this is for
-  BitcoinTX in a browser.)
+  goes where you were going. Logout asks it too, as its only question,
+  before you're logged out: Go back keeps you logged in with your changes.
+  A reload, closing the tab or Back to a page outside BitcoinTX gets the
+  browser's own question. Nothing is asked when nothing changed, or once
+  the transaction is saved. Nothing saved was ever lost or changed. (The
+  Mac app has no Back button; this is for BitcoinTX in a browser.) The
+  Dashboard's "Choose a source" or "Confirm now" link now scrolls to the
+  price question and moves the keyboard there without adding a browser
+  history entry, which Back couldn't have asked about.
 
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2
