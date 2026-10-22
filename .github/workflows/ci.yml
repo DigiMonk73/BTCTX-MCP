@@ -7,18 +7,24 @@ name: CI
 # and the macOS app build. A pull request's run tests the branch merged with
 # its base, so pushing a branch that has one doesn't run the same suite twice
 # (owner, 2026-10-13). A branch without a pull request: the pre-push hook's
-# checks, or a run on demand from the Actions tab.
+# checks, or a run on demand from the Actions tab. Every pull request runs
+# all of it, whatever its base (develop, staging, 2.0). A merge into staging
+# or 2.0, which don't ask a branch to be up to date, runs it again on the
+# result, so changes that only break together show up within the hour, not
+# at the daily merge into develop (AGENTS.md, "Branches").
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, staging, "2.0"]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Only a pull request's older run is cancelled: a push to develop or main is
-  # each merged commit's only run, and releases take their downloads from it.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A pull request's older run is cancelled, and so is an older run of
+  # staging or 2.0 (the newest run tests every change merged there). A push
+  # to develop or main is each merged commit's only run, and releases take
+  # their downloads from it.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/2.0' }}
 
 permissions:
   contents: read

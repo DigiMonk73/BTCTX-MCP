@@ -279,6 +279,17 @@ All notable changes to BitcoinTX are documented in this file.
   passed", now stands for every required job, so `develop`'s ruleset
   requires only it and a renamed or split job no longer needs the ruleset
   changed. Nothing in the app changes.
+- **A `staging` branch: pull requests no longer wait in line** (the
+  owner's idea, 2026-10-22). Changes merge into `staging` as soon as their
+  review is done and the whole suite passes, with no wait to be up to
+  date; every merge there runs the suite again on the result. Once a day,
+  `staging` comes into `develop` by one pull request that runs the whole
+  suite on everything together and merges with a merge commit, so each
+  change keeps its own commit; `develop` stays as strict as before. Only
+  an urgent fix (a security advisory) goes straight into `develop`.
+  Dependabot targets `staging`. Pushes to `2.0` (once it exists) run the
+  suite too. AGENTS.md, "Branches" and "Pull requests";
+  `docs/HOW-CHANGES-FLOW.md`.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

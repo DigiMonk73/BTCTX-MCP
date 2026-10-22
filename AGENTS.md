@@ -66,10 +66,26 @@ carry its `Co-Authored-By` line.
 
 ## Branches
 
-- **`develop`**: all work, arriving by pull request
-  (`gh pr create --base develop`) from a short-lived branch named for the
-  change ("Pull requests"). Never commit on a local `develop`: GitHub
-  refuses the push.
+- **`staging`**: where changes gather during the day, each by pull request
+  (`gh pr create --base staging`) from a short-lived branch named for the
+  change ("Pull requests"), squash-merged once "CI passed" (the whole suite)
+  has passed, with no wait to be up to date: so pull requests never queue.
+  Every merge into it runs the whole suite again on the result (`ci.yml`'s
+  push trigger), so changes that only break together show the same hour; a
+  red `staging` is fixed before anything else merges into it. Dependabot
+  targets it. Never commit on a local `staging`.
+- **`develop`**: everything tested together. Once a day (or when the owner
+  asks), `staging` comes in by one pull request, "staging into develop,
+  <date>" (`gh pr create --base develop --head staging`), merged with a
+  merge commit (`gh pr merge N --merge`), never a squash, so each change
+  keeps its own commit, once "CI passed" has passed on it, up to date with
+  `develop`. Then `develop` goes back into `staging` by a second pull
+  request, "develop into staging, <date>", merged the same way, so both
+  hold the same code. Only an urgent fix (a security advisory that turns
+  CI's audit red, a broken CI) comes straight into `develop` by a pull
+  request of its own, squash-merged after the same checks, and reaches
+  `staging` by the next "develop into staging". Never commit on a local
+  `develop`: GitHub refuses the push.
 - **`main`**: released code only; it is what users get (the `:main` Docker
   image; releases are cut from it). Never commit on `main`, never
   force-push or rewind it. It moves only by fast-forwarding to GitHub's
@@ -945,16 +961,20 @@ comments end "— Grok (Cursor)".
 
 ## Pull requests
 
-Every change, Claude's included, goes into `develop` by pull request, filled
+Every change, Claude's included, goes into `staging` by pull request (an
+urgent fix straight into `develop`: "Branches"), filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
 for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
 when "CI passed" passes (if it already has, GitHub refuses
-`--auto`; the same command without `--auto` merges it at once). A branch
-behind `develop` is brought up to date first (`gh pr update-branch N`,
-which merges `develop` in, or `git merge origin/develop` and a push; a
-Dependabot pull request: comment
+`--auto`; the same command without `--auto` merges it at once). `staging`
+doesn't ask a branch to be up to date, so a reviewed pull request merges as
+soon as its checks pass; one that conflicts with what merged before it gets
+`staging` merged in first. A pull request into `develop` (the daily
+"staging into develop", an urgent fix) is brought up to date first
+(`gh pr update-branch N`, which merges `develop` in, or `git merge
+origin/develop` and a push; a Dependabot pull request: comment
 "@dependabot rebase" instead, since Dependabot stops maintaining a
 branch once anyone else commits to it, and it rewrites only its own
 branch) and merges only once its checks pass again: auto-merge never
@@ -971,10 +991,10 @@ read their changelogs; what else they need before merging, and what to do
 when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
 request merges" and the two sections after it.
 
-A branch that falls behind `develop` gets `develop` merged into it, never a
+A branch that falls behind its base gets the base merged into it, never a
 rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
-pushed branch is not rewritten, and the squash keeps `develop` clean
-anyway.
+pushed branch is not rewritten, and the squash keeps `staging` and
+`develop` clean anyway.
 
 ## Big work: a main session and numbered sessions
 

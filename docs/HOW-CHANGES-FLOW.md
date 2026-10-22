@@ -12,7 +12,8 @@ the glossary at the end.
 Our changes go **out**:
 
 ```
-this computer ──push──▶ short branch ──pull request──▶ develop
+this computer ──push──▶ short branch ──pull request──▶ staging
+staging ──once a day, one pull request, full tests──▶ develop
 develop ──main catches up──▶ main ──release──▶ GitHub release + mirror
 mirror ──pull request──▶ Start9's copy ──Start9 publishes──▶ Community Beta
 Community Beta ──owner asks Start9──▶ main store
@@ -41,7 +42,12 @@ workflow keeps up to date by itself. We don't touch it.)
 
 ## Our branches
 
-- **`develop`**: where all work lands, by pull request.
+- **`staging`**: where changes gather during the day, each by pull
+  request, with the full tests but no waiting in line.
+- **`develop`**: everything tested together: `staging` comes in once a
+  day by one pull request, the full tests run again, and it merges with
+  a merge commit, so each change keeps its own commit. An urgent fix (a
+  security advisory) comes straight into `develop`.
 - **`main`**: released code only, what users get. It moves only by
   *fast-forwarding* to `develop`: at a release, or when everything new is
   only docs, tests or tooling. Never pulled from Start9.
@@ -55,16 +61,21 @@ workflow keeps up to date by itself. We don't touch it.)
 2. Claude works on this computer, in its own folder (a *worktree*), and
    runs the tests.
 3. Claude pushes a short branch to GitHub and opens a pull request into
-   `develop`.
+   `staging`.
 4. GitHub runs the full set of tests. A fresh Claude reviewer reads the
    change; Claude fixes what it finds, or answers it on the pull request.
 5. Once the review has nothing open:
-   - **ordinary changes**: Claude brings the branch up to date with
-     `develop` if it's behind, then turns on *auto-merge*, and GitHub
-     merges it when the tests pass;
+   - **ordinary changes**: Claude turns on *auto-merge*, and GitHub
+     merges it into `staging` when the tests pass (no waiting for the
+     ones ahead of it);
    - **tax figures or what the app computes, the database, the StartOS
      package, anything that goes to Start9, and releases**: they wait for
      the owner to say **"merge"**.
+6. Once a day (or when the owner asks), Claude opens one pull request
+   from `staging` into `develop`. GitHub runs the full tests on everything
+   together, and it merges with a merge commit. A second pull request
+   then brings `develop` back into `staging`, so the next day starts from
+   the same code.
 
 ## 1b. Big work
 
