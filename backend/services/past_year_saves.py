@@ -1,21 +1,36 @@
-"""The dry run before a save that changes an earlier tax year (5.8).
+"""The past-year warning's save (5.8).
 
 An add, an edit or a delete is applied on a scratch copy. When that moves
 the figures of a year before this one, the save raises PastYearsChange and
 nothing is written until the same request comes back with that answer's
-fingerprint.
+fingerprint. That confirmed save takes the write lock, copies the ledger
+as it was, and commits only while the fingerprint still matches.
 """
 
+import logging
+import sqlite3
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.database import scratch_copy
+from backend.database import scratch_copy, take_write_lock
+from backend.migrate import (
+    AI_CHANGE_LABEL,
+    AI_COPIES_KEPT,
+    PRE_CHANGE_COPIES_KEPT,
+    PRE_CHANGE_KIND,
+    PRE_CHANGE_LABEL,
+    backup_sqlite,
+    sqlite_file,
+)
 from backend.models.transaction import Transaction
-from backend.services import recalculated, tax_time, year_changes
+from backend.services import hourly_prices, recalculated, tax_time, year_changes
 from backend.services import transaction as tx_service
 from backend.services.past_years import PastYearsChange, warning
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -137,14 +152,68 @@ def _recalculated(live: Session, tz, stored: dict) -> tuple[dict, str | None]:
     return replayed, None
 
 
+# How each write says it saved nothing, as its route says it
+NOT_SAVED = {"add": "Not added", "edit": "Not changed", "delete": "Not deleted"}
+
+
 def save(write: Write, db: Session, confirm: str | None, ai: bool):
-    """Save the write, or raise the 409 when it changes an earlier year and
-    confirm isn't that answer's fingerprint. A matching fingerprint is
-    checked again, then saved."""
+    """Save the write. Sent with confirm, it always takes the confirmed
+    path (the lock, a copy, the comparison again), even when that then
+    finds nothing earlier to ask about: a confirm can't be sent blind.
+    Without one, the dry run's 409, or the save."""
+    if confirm is not None:
+        # No price is asked for under the lock (#442): one the write still
+        # needs rolls it back, is found with the lock free, and it runs again
+        return hourly_prices.with_prices_found(db, lambda: _confirmed(write, db, confirm, ai))
     asked = check(write, db, ai)
     if asked is not None and confirm != asked.body["confirm"]:
         raise asked
     return _plain(write, db)
+
+
+def _confirmed(write: Write, db: Session, confirm: str, ai: bool):
+    """The write and its comparison again, under the write lock and after
+    a copy of the ledger as it was. Commits only while confirm is still
+    that comparison's fingerprint: the owner saves what they were shown."""
+    if not take_write_lock(db):
+        raise HTTPException(
+            status_code=503,
+            detail=f"{NOT_SAVED[write.kind]}: BitcoinTX was busy saving something else. Try again.",
+        )
+    copy = _copy_first(write, db, ai)
+    try:
+        asked, result = measured(write, db, db, ai)
+    except BaseException:
+        if copy is not None:
+            copy.unlink(missing_ok=True)  # a price it needs, or the save's own refusal: nothing saved, so no copy
+        raise
+    if asked is not None and asked.body["confirm"] != confirm:
+        db.rollback()
+        raise asked
+    db.commit()
+    if isinstance(result, Transaction):
+        db.refresh(result)
+    return result
+
+
+def _copy_first(write: Write, db: Session, ai: bool) -> Path | None:
+    """The ledger as it was, before the confirmed write: a pre-change copy
+    with a login, a fresh AI copy with the AI key. None when there is no
+    file to copy. A copy that fails saves nothing."""
+    db_path = sqlite_file(db.get_bind())
+    if db_path is None:
+        return None
+    try:
+        if ai:
+            return backup_sqlite(db_path, AI_CHANGE_LABEL, kind="ai", keep=AI_COPIES_KEPT)
+        return backup_sqlite(db_path, PRE_CHANGE_LABEL, kind=PRE_CHANGE_KIND, keep=PRE_CHANGE_COPIES_KEPT)
+    except (OSError, sqlite3.Error) as e:
+        db.rollback()
+        logger.error("No copy before a confirmed save (%s): nothing saved", type(e).__name__)
+        raise HTTPException(
+            status_code=500,
+            detail=f"{NOT_SAVED[write.kind]}: BitcoinTX couldn't make its copy of the database first.",
+        ) from e
 
 
 def _plain(write: Write, db: Session):

@@ -141,7 +141,7 @@ def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Requ
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
+    if not request.session.get("user_id") and confirm is None:  # the AI key; a confirmed write makes its own
         _copy_before_ai_changes(db, "Not changed")
     updated_tx = _through_the_warning(
         past_year_saves.Write("edit", transaction_id, tx.model_dump(exclude_unset=True)),
@@ -185,7 +185,7 @@ def delete_transaction(transaction_id: int, request: Request, confirm: str | Non
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
+    if not request.session.get("user_id") and confirm is None:  # the AI key; a confirmed write makes its own
         _copy_before_ai_changes(db, "Not deleted")
     success = _through_the_warning(
         past_year_saves.Write("delete", transaction_id), request, db, confirm)
