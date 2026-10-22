@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "../api";
+import { csvExportName } from "../utils/csvExport";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
 import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup, restoreOutcome } from "../utils/encryptedBackup";
@@ -16,8 +17,7 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
 
     try {
       const res = await api.get("/backup/csv", { responseType: "blob" });
-      const date = new Date().toISOString().split("T")[0];
-      const outcome = await downloadMessage(new Blob([res.data]), `btctx_transactions_${date}.csv`, "csv", "CSV export");
+      const outcome = await downloadMessage(new Blob([res.data]), csvExportName(new Date()), "csv", "CSV export");
       if (outcome) setMessage(outcome);
     } catch {
       setMessage("Failed to export CSV.");

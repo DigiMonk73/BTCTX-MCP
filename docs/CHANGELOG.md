@@ -68,6 +68,17 @@ All notable changes to BitcoinTX are documented in this file.
   server's reason, as the rest of Settings does: a timezone your browser
   lists that BitcoinTX's timezone data doesn't know yet, or a busy
   database. The timezone in use stays until a save succeeds.
+- **Small wording fixes from 1.2.9's checks** (#534):
+  - The CSV export's file name has the date on your device's clock: one
+    made at 9:37 pm on October 18 in Chicago was named for October 19,
+    the date in UTC.
+  - The Sell form's hint under Gross Proceeds says "BitcoinTX takes the
+    fee off to give the net proceeds." (it spoke of "the backend").
+  - The hint under Bitcoin Wallet points to Settings → About BitcoinTX,
+    the section's name.
+  - The Mac app says it needs macOS 11 or later (it said 10.15). It's
+    built for Apple silicon only, and every Apple-silicon Mac has macOS 11
+    or later, so nothing changes for anyone.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

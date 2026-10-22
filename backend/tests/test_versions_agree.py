@@ -26,6 +26,15 @@ def test_macos_app_version():
     assert re.findall(r'"CFBundle(?:Short)?Version(?:String)?": "([^"]+)"', spec) == [VERSION, VERSION]
 
 
+def test_macos_apps_minimum_is_what_its_binary_needs():
+    """The app is built on Apple silicon, arm64 only, whose binary needs
+    macOS 11 (every Apple-silicon Mac has it): the bundle said 10.15, and the
+    docs with it (#534)."""
+    spec = read("desktop/BitcoinTX.spec")
+    assert re.findall(r'"LSMinimumSystemVersion": "([^"]+)"', spec) == ["11.0"]
+    assert "minimum macOS 11.0," in " ".join(read("docs/MACOS_DESKTOP_APP.md").split())
+
+
 def test_startos_image_tag():
     manifest = read("startos/startos/manifest/index.ts")
     assert re.findall(r"dockerTag: '([^']+)'", manifest) == [f"ghcr.io/digimonk73/btctx-mcp:v{VERSION}"]
