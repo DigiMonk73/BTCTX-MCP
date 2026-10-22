@@ -36,18 +36,21 @@ All notable changes to BitcoinTX are documented in this file.
   made differs.
 - **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
   web framework BitcoinTX's server is built on, and lucide-react 1.61.0
-  (from 1.55.0), the web app's icons (Dependabot's #538, #544 and #559,
-  taken together). Bug fixes and small additions: nothing BitcoinTX
-  relies on works differently. Starlette 1.8 was read against BitcoinTX's
+  (from 1.55.0), the web app's icons (Dependabot's #544 and #559, taken
+  together). Mostly bug fixes. Starlette 1.8 was read against BitcoinTX's
   security rules (the size limit on a request, the cross-site guard,
-  sessions, the web app's files), and they hold: a file being sent now
-  stops when the browser goes away; a session that drops a value says
-  `Vary: Cookie`; a POST to the web app's pages, refused as before (405),
-  names the methods they take (`Allow: GET, HEAD`); and it needs Python
-  3.11, BitcoinTX's minimum since #546. The icons BitcoinTX shows are
-  drawn the same. The tools that check the code moved with them: Ruff
-  0.17.2 (from 0.17.0), typescript-eslint 8.71.2 (from 8.71.1) and Vitest
-  5.0.5 (from 5.0.4). Nothing changes on screen or in any figure.
+  sessions, the web app's files), and one change needed BitcoinTX to
+  follow it: a file being sent now reads the request's body as it goes,
+  to see the browser leave. So a request for the web page or one of its
+  scripts that came with a body past the 5 MB limit (no browser sends
+  one) was cut off in the middle of the file, with an error in the log.
+  Now such a body is refused (413) when it passes the limit before the
+  answer starts, and thrown away once the file is on its way, which is
+  then sent whole (`backend/body_limit.py`, #589). Also, a POST to the web
+  app's pages, refused as before (405), names the methods they take
+  (`Allow: GET, HEAD`), and Starlette needs Python 3.11, BitcoinTX's
+  minimum since #546. The icons BitcoinTX shows are drawn the same.
+  Nothing changes on screen or in any figure.
 
 ### Fixed
 - **A spend's network fee goes in the Form 8949 box its Broker form
@@ -234,6 +237,11 @@ All notable changes to BitcoinTX are documented in this file.
   `react-hooks/set-state-in-effect` stays off until 2.0's screens
   (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
   Node.js 22.13 or newer, the README's minimum (it said 18).
+- **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
+  8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
+  Python and TypeScript code and run the web app's unit tests. Fixes
+  only, and the code needed no change. Tooling only: nothing changes in
+  the app.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
