@@ -63,6 +63,21 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **Leaving the page with an unsaved transaction asks first** (#536). With
+  changes not yet saved in the Add or Edit Transaction panel, the
+  browser's Back button left the page at once, and what was typed was
+  lost; only Escape, a click outside the panel and its close button asked.
+  Now Back, Forward and a page link reached with the keyboard ask the same
+  "Discard changes?": Go back keeps the panel as it was, Discard changes
+  goes where you were going. Logout asks it too, as its only question,
+  before you're logged out: Go back keeps you logged in with your changes.
+  A reload, closing the tab or Back to a page outside BitcoinTX gets the
+  browser's own question. Nothing is asked when nothing changed, or once
+  the transaction is saved. Nothing saved was ever lost or changed. (The
+  Mac app has no Back button; this is for BitcoinTX in a browser.) The
+  Dashboard's "Choose a source" or "Confirm now" link now scrolls to the
+  price question and moves the keyboard there without adding a browser
+  history entry, which Back couldn't have asked about.
 - **A save that meets a busy database says so** (#478). A transaction
   saved, edited or deleted while something else held the database for
   more than 5 seconds (a long import, or an AI assistant adding many rows)

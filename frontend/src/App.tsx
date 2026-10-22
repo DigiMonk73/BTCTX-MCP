@@ -14,6 +14,7 @@ import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import LoginPage from './pages/Login';
+import LogoutPage from './pages/Logout';
 import RegisterPage from './pages/Register';
 
 // Components
@@ -24,8 +25,8 @@ import ToastContainer from './components/ToastContainer';
 import { ToastProvider } from './contexts/ToastContext';
 
 /**
- * The app's pages. All but login and registration need a signed-in user
- * (PrivateRoute); any other address goes to the dashboard.
+ * The app's pages. All but login, logout and registration need a signed-in
+ * user (PrivateRoute); any other address goes to the dashboard.
  */
 const App: React.FC = () => {
   return (
@@ -86,6 +87,7 @@ const App: React.FC = () => {
           />
 
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/logout" element={<LogoutPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
