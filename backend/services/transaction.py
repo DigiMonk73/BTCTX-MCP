@@ -75,6 +75,13 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
     return hourly_prices.with_prices_found(db, lambda: _create(tx_data, db, auto_commit), tx_data)
 
 
+def apply_create(tx_data: dict, db: Session) -> Transaction:
+    """The save commits it; the past-year warning (5.8) runs the same path
+    on a scratch copy for its dry run, and under the write lock when
+    confirmed."""
+    return _create(tx_data, db, auto_commit=False)
+
+
 def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
     ensure_fee_account_exists(db)
     _prepare_input(tx_data, db)
@@ -453,7 +460,10 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
     return hourly_prices.with_prices_found(db, lambda: _update(transaction_id, tx_data, db), tx_data)
 
 
-def _update(transaction_id: int, tx_data: dict, db: Session):
+def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction | None:
+    """The save commits it; the past-year warning (5.8) runs the same path
+    on a scratch copy for its dry run, and under the write lock when
+    confirmed. It completes tx_data in place: each run takes its own copy."""
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
@@ -484,9 +494,14 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
         f"Running scorched earth re-lot."
     )
     _recalculate_past(tx, past, db)
+    return tx
 
-    db.commit()
-    db.refresh(tx)
+
+def _update(transaction_id: int, tx_data: dict, db: Session):
+    tx = apply_update(transaction_id, tx_data, db)
+    if tx is not None:
+        db.commit()
+        db.refresh(tx)
     return tx
 
 
@@ -1098,7 +1113,10 @@ def delete_transaction_record(transaction_id: int, db: Session):
     return hourly_prices.with_prices_found(db, lambda: _delete(transaction_id, db))
 
 
-def _delete(transaction_id: int, db: Session) -> bool:
+def apply_delete(transaction_id: int, db: Session) -> bool:
+    """The save commits it; the past-year warning (5.8) runs the same path
+    on a scratch copy for its dry run, and under the write lock when
+    confirmed."""
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
@@ -1111,16 +1129,22 @@ def _delete(transaction_id: int, db: Session) -> bool:
     try:
         recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
-        db.rollback()
         if isinstance(e, AccountMissing):
             raise
         why = _why_short(past, db) if e.status_code == 400 else ""
-        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
+        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}") from e
+    return True
+
+
+def _delete(transaction_id: int, db: Session) -> bool:
+    try:
+        deleted = apply_delete(transaction_id, db)
     except Exception:
         db.rollback()
         raise
-    db.commit()
-    return True
+    if deleted:
+        db.commit()
+    return deleted
 
 
 def _why_short(past: list[Transaction] | None, db: Session) -> str:
