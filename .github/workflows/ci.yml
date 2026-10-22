@@ -39,8 +39,8 @@ jobs:
       fail-fast: false
       matrix:
         # 3.11 = oldest supported (from source and the AI connector, #546),
-        # 3.13 = Docker, StartOS and the Mac app (#284, #425). py3.11 and
-        # py3.13 are required checks on develop: keep these job names.
+        # 3.13 = Docker, StartOS and the Mac app (#284, #425). Both are in
+        # "CI passed" (below), the one check develop's ruleset requires.
         python: ["3.11", "3.13"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -61,10 +61,13 @@ jobs:
         run: ruff check .
       - name: Static compatibility checks
         run: python backend/tests/pre_commit_tests.py --no-api
+      # pytest-xdist: one worker per core. Each test has its own temp
+      # database and data folder, so they run side by side (3,184 tests in
+      # 83 s on 12 cores, against 16 min one at a time)
       - name: Full test suite (incl. slow stress tests)
         run: |
           mkdir -p frontend/dist
-          pytest -q --durations=10
+          pytest -q -n auto --durations=10
 
   frontend:
     name: Frontend lint + tests + build
@@ -110,14 +113,21 @@ jobs:
   e2e:
     # Playwright click-through tests of every UI flow against the real
     # backend (temp database, stubbed prices). Chromium runs in a US and a
-    # UTC+ timezone; WebKit (the Mac app's engine) runs the US set.
-    name: Click-through tests (${{ matrix.browser }})
+    # UTC+ timezone; WebKit (the Mac app's engine) runs the US set. Each
+    # test starts its own server on a fresh database, so the specs split
+    # across machines (--shard) as they are; each machine keeps one worker.
+    name: Click-through tests (${{ matrix.browser }} ${{ matrix.shard }})
     needs: frontend
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        browser: [chromium, webkit]
+        include:
+          - { browser: chromium, shard: 1/3 }
+          - { browser: chromium, shard: 2/3 }
+          - { browser: chromium, shard: 3/3 }
+          - { browser: webkit, shard: 1/2 }
+          - { browser: webkit, shard: 2/2 }
     env:
       E2E_SKIP_BUILD: "1"
       BTCTX_PYTHON: python
@@ -139,20 +149,26 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
         working-directory: frontend
+      # The browser builds, kept between runs for the same lock (the
+      # system packages they need are installed every time)
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ matrix.browser }}-${{ hashFiles('frontend/package-lock.json') }}
       - run: npx playwright install --with-deps ${{ matrix.browser }}
         working-directory: frontend
       - name: Run (Chromium, Chicago + Tokyo)
         if: matrix.browser == 'chromium'
-        run: npx playwright test --project=chicago --project=tokyo
+        run: npx playwright test --project=chicago --project=tokyo --shard=${{ matrix.shard }}
         working-directory: frontend
       - name: Run (WebKit, Chicago)
         if: matrix.browser == 'webkit'
-        run: E2E_WEBKIT=1 npx playwright test --project=webkit
+        run: E2E_WEBKIT=1 npx playwright test --project=webkit --shard=${{ matrix.shard }}
         working-directory: frontend
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
-          name: playwright-report-${{ matrix.browser }}
+          name: playwright-report-${{ matrix.browser }}-${{ strategy.job-index }}
           path: |
             frontend/playwright-report
             frontend/test-results
@@ -384,3 +400,18 @@ jobs:
             BitcoinTX-macOS.zip
             BitcoinTX-macOS.dmg
           retention-days: 7
+
+  # The one check develop's ruleset requires: every job above but the macOS
+  # build and its audit (they run, as before, without blocking a merge).
+  # A job is required by being listed here, so renaming or splitting one
+  # never needs the ruleset changed.
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [python, frontend, smoke, e2e, docker, startos, startos-pack, audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every required job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'

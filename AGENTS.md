@@ -85,16 +85,16 @@ GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
 `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
-squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required; Python tests run on
-3.11 and 3.13, both required, since #546), on a branch that's up
+squash-merged, once `ci.yml`'s one required check, "CI passed", has
+passed ("Protect develop"; it needs every job except the macOS build and
+the macOS dependency audit, which run but aren't required; Python tests
+run on 3.11 and 3.13, both in it, since #546), on a branch that's up
 to date with `develop` ("Require branches to be up to date before
 merging", on since 2026-10-17, the owner's choice), so a pull request's
 checks have run on everything already merged.
-Renaming or removing a CI job (changing a Python version in the test matrix
-renames one) blocks every pull request until the owner updates that list; a
-new job isn't required until it's added there. A release tag (`v*`) can't
+A job is required by being in "CI passed"'s `needs` (`ci.yml`), so renaming,
+splitting or adding one changes no ruleset; only a rename of "CI passed"
+itself would. A release tag (`v*`) can't
 be moved or deleted by anyone ("Protect release tags", since 2026-10-18,
 the owner's choice), so each release's code stays at its tag to roll back
 to; the release workflow still creates new ones. If unsure, branch from
@@ -950,7 +950,7 @@ in from `.github/pull_request_template.md`: what and why, a plain-words line
 for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
-when the 10 required checks pass (if they already have, GitHub refuses
+when "CI passed" passes (if it already has, GitHub refuses
 `--auto`; the same command without `--auto` merges it at once). A branch
 behind `develop` is brought up to date first (`gh pr update-branch N`,
 which merges `develop` in, or `git merge origin/develop` and a push; a

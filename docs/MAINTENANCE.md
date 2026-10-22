@@ -176,13 +176,13 @@ merge into `develop`. Nothing reaches `main` before a release.
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff, pip-audit and uv. A new pinned
+  allows only pytest, pytest-xdist, hypothesis, ruff, pip-audit and uv. A new pinned
   dev tool goes on that list; never one a lock holds (anyio comes from
   `backend/requirements.txt`), or this pip entry would edit the lock.
 
 ### Before a Dependabot pull request merges
 
-The 10 required checks gate every merge, and Claude reads the release notes
+"CI passed", the one required check, gates every merge, and Claude reads the release notes
 first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
 - **The Mac app.** Its build and launch check runs on each pull request,
