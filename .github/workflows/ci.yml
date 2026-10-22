@@ -113,10 +113,7 @@ jobs:
     # UTC+ timezone; WebKit (the Mac app's engine) runs the US set.
     name: Click-through tests (${{ matrix.browser }})
     needs: frontend
-    # Pinned while ubuntu-latest moves to 26.04, which Playwright supports
-    # only from 1.61: remove the pin (back to ubuntu-latest) once a run of
-    # this job on ubuntu-latest (26.04) is green, both browsers.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:

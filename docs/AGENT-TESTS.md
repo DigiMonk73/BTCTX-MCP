@@ -324,7 +324,7 @@ Start from the `clean` snapshot.
   every golden figure as before.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Bitcoin Wallet`: expect the
-  hint "One self-custody wallet: see Settings → About." under it. Switch to
+  hint "One self-custody wallet: see Settings → About BitcoinTX." under it. Switch to
   Account `Exchange`, Currency `BTC`, Source **Rebate**, `0.0001` BTC on `2025-04-01`, cost basis
   `6`, and save. Expect: Exchange (BTC) 0.15010000, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged
@@ -1162,8 +1162,5 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   dollar amount comes to exactly halfway between two satoshis.
 - #533: saving the tax timezone in Settings, when it fails, says only
   "Could not save the timezone.", not why.
-- #535: with your own Mempool, a second price lookup made while the first
-  is still downloading the Mempool's history answers "No BTC price is
-  available …" (422); a retry works.
 - #536: the browser's Back button leaves an unsaved transaction without
   asking "Discard changes?".

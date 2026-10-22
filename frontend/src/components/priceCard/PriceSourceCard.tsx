@@ -72,7 +72,8 @@ const PriceSourceCard: React.FC<Props> = ({ variant }) => {
 
   return (
     <section className={`price-card${firstRun ? " card first-run" : ""}`} aria-labelledby="price-card-title">
-      <Heading id="price-card-title" className="price-card-title">
+      {/* Focusable by script: the dashboard's "Choose a source" puts the keyboard here */}
+      <Heading id="price-card-title" className="price-card-title" tabIndex={-1}>
         {view.title}
       </Heading>
       {view.confirming && <p className="price-help">{CONFIRM_WHY}</p>}
