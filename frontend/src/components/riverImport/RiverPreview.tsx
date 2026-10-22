@@ -1,4 +1,5 @@
 import React from "react";
+import { problemText } from "../../utils/importProblem";
 import { importableRows, type EditableRow } from "../../utils/riverImport";
 import RiverRow from "./RiverRow";
 
@@ -49,7 +50,7 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
           <ul tabIndex={0} aria-label="Errors">
             {preview.errors.map((err, idx) => (
               <li key={idx} className="import-error-item">
-                Row {err.row_number}: {err.message}
+                {problemText(err)}
               </li>
             ))}
           </ul>
@@ -62,7 +63,7 @@ const RiverPreview: React.FC<RiverPreviewProps> = ({
           <ul tabIndex={0} aria-label="Warnings">
             {preview.warnings.map((warn, idx) => (
               <li key={idx} className="import-warning-item">
-                Row {warn.row_number}: {warn.message}
+                {problemText(warn)}
               </li>
             ))}
           </ul>
