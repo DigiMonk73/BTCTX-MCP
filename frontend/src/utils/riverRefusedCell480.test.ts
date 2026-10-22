@@ -2,7 +2,8 @@
 // a typed Cost Basis of "1,200") was said with no row or column: "Input
 // should be a valid decimal", twice over for two cells. The 422 places a
 // cell by its index among the rows sent, not the file's row, so the message
-// names the file's row the preview showed and the column it's in.
+// names the row's number in the file (the header is row 1, as the preview's
+// lists number rows) and the column it's in.
 import { AxiosError, AxiosHeaders, type AxiosResponse } from "axios";
 import { describe, expect, it } from "vitest";
 import { detailOr } from "./apiError";

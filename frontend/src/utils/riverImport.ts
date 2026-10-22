@@ -135,9 +135,10 @@ const COLUMN_HEADS = new Map([
 
 /** Where in the file a cell the server refused is (#480). Its 422 places
  * the cell among the rows sent (["body", "rows", i, field]), which aren't
- * the file's rows, so the place is the file's row the preview showed and
- * the cell's column, "Row 6 (Cost Basis)"; for a field no column shows,
- * the row alone. */
+ * the file's rows, so the place is the row's number in the file (the
+ * header is row 1, as the preview's lists and the import's other refusals
+ * number rows) and the cell's column, "Row 6 (Cost Basis)"; for a field
+ * no column shows, the row alone. */
 export function refusedCellPlace(sent: { row_number: number }[]): InputPlace {
   return ([where, list, index, field]) => {
     const row = where === "body" && list === "rows" && typeof index === "number" ? sent[index] : undefined;

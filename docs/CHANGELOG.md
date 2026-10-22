@@ -66,16 +66,18 @@ All notable changes to BitcoinTX are documented in this file.
   amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit, and
   "Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)" for a
   near amount. It now says "Same dollar amount as tx #1 (Deposit
-  $500.00)" and "(Withdrawal $1,500.00)". Wording only: the row is flagged,
-  and saved unless you remove it, as before; a bitcoin row's note is
-  unchanged.
+  $500.00)" and "(Withdrawal $1,500.00)". A dollar row already recorded
+  is left out "(the same type, accounts, dollar amount, …)", no longer
+  "BTC amount". Wording only: each row is flagged, saved or left out as
+  before; a bitcoin row's words are unchanged.
 - **River's Import says which row and column it refused** (#480). When
   Import refused a cell the server couldn't read (a Cost Basis typed
   `1,200`, a Fee of `abc`), its message said only "Input should be a
   valid decimal", once per cell, without saying where. It now names the
-  file's row the preview shows and the column: "Row 6 (Cost Basis): Input
-  should be a valid decimal". Nothing is saved, and the preview keeps
-  every edit, as before.
+  cell's row by its number in the file, the header being row 1 (as the
+  preview's lists of errors and warnings number rows), and its column:
+  "Row 6 (Cost Basis): Input should be a valid decimal". Nothing is
+  saved, and the preview keeps every edit, as before.
 - **The import previews say an error about the whole file without "Row
   0:"** (#534). River's preview said "Row 0: This does not look like a
   River bitcoin-activity CSV. Missing columns: …", and the CSV import's
