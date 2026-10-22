@@ -85,8 +85,9 @@ All notable changes to BitcoinTX are documented in this file.
   again, look in Transactions around its date for it listed twice, and
   delete the extra one (Ledger Review doesn't look for duplicates). If a
   Delete All or Create account failed that way and your transactions
-  were gone later, the copy made just before is in `backups/`
-  (`btctx-before-delete-all-….db`).
+  were gone later: in 1.2.9, the copy made just before is in `backups/`
+  (`btctx-before-delete-all-….db`); before 1.2.9 no such copy was made, so
+  restore your last backup.
 - **Settings says why the tax timezone wasn't saved** (#533). It said
   "Could not save the timezone." whatever went wrong; it now gives the
   server's reason, as the rest of Settings does: a timezone your browser
