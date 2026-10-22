@@ -63,6 +63,11 @@ All notable changes to BitcoinTX are documented in this file.
   again.", as the imports do, and the log has a warning. Nothing was ever
   half saved: only the message changes. The AI connector shows the same
   words.
+- **Settings says why the tax timezone wasn't saved** (#533). It said
+  "Could not save the timezone." whatever went wrong; it now gives the
+  server's reason, as the rest of Settings does: a timezone your browser
+  lists that BitcoinTX's timezone data doesn't know yet, or a busy
+  database. The timezone in use stays until a save succeeds.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

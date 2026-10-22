@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useToast } from "../contexts/useToast";
 import {
-  browserTimezone, canSaveTimezone, getTaxTimezone, setTaxTimezone, timezoneSuggestion, type TaxTimezone,
+  browserTimezone, canSaveTimezone, getTaxTimezone, setTaxTimezone, timezoneNotSaved, timezoneSuggestion,
+  type TaxTimezone,
 } from "../utils/taxTimezone";
 
 /**
@@ -36,8 +37,8 @@ const TaxTimezoneSetting: React.FC = () => {
       const tz = await setTaxTimezone(selected);
       setTaxTimezoneState(tz);
       toast.success(`Tax timezone set to ${tz.timezone}. Gains were recalculated.`);
-    } catch {
-      toast.error("Could not save the timezone.");
+    } catch (err) {
+      toast.error(timezoneNotSaved(err));
     } finally {
       setSaving(false);
     }
