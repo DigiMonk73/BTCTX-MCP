@@ -272,13 +272,25 @@ From `backend/requirements.in`:
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
 
-Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
+Frontend (from `frontend/package.json`): React 19, Vite 8 (its build target
+pinned to Safari 15 in `frontend/vite.config.ts`, for the Mac app's WebKit:
+Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
 `frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
 Docker frontend build and CI use Node 24.
-`@playwright/test` is pinned exactly to match the browsers preinstalled in
-cloud sessions (see `docs/TESTING.md`): don't bump it on its own. start-sdk:
-see `startos/UPDATING.md`.
+`@playwright/test` is pinned exactly (1.64.1 since 2026-10-21, for Ubuntu
+26.04, which Playwright supports from 1.61) and bumped only on purpose,
+never by Dependabot: a bump runs `npx tsc -b`, `npx tsc -p e2e` (the specs,
+which `tsc -b` leaves out), `npm run lint`, `npm test`
+and both click-through suites (`npx playwright test --project=chicago
+--project=tokyo`, then `E2E_WEBKIT=1 npx playwright test --project=webkit`)
+after `npx playwright install chromium webkit`, reads Playwright's release
+notes for every version in between, and lets CI's two `e2e` jobs decide on
+Linux. The browsers each version needs come with that install, so nothing
+else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
+`ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
+WebKit's suite runs on a Mac only from macOS 15
+(Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
 
 ### Deferred upgrades
 
@@ -289,7 +301,6 @@ take the upgrade.
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
 | `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
 
 ---

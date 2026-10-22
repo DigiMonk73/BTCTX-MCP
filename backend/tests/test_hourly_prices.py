@@ -11,6 +11,7 @@ The BTC price when an hour began (#144, PR 2; services/hourly_prices.py):
 Every outside service is faked.
 """
 
+import logging
 import random
 import time
 from collections import OrderedDict
@@ -411,6 +412,24 @@ def test_the_day_lookup_after_the_hour_lookup_gets_the_mempool_servers_day(sites
     sites.mempool = live_rows(first, NOW)  # hourly only from 1 March: its first 31 days aren't live hours
     priced = hp.price_at(db, utc("2026-03-10T05:00Z"))
     assert priced.moment == "day" and priced.usd == D(70000 + (at("2026-03-10T00:00Z") // HOUR) % 7)
+    assert len(sites.requests) == 1
+
+
+def test_the_mempools_history_is_logged_once_whichever_lookup_downloads_it(sites, db, monkeypatch, caplog):
+    """#557: the log names where each download of past prices came from
+    (the StartOS docs, AGENT-TESTS PRC-4), but the mempool server's history
+    downloaded by an hour lookup was never named, nor by the day lookup that
+    took its kept answer next."""
+    monkeypatch.setattr(price_history, "find_prices", real_find_prices)
+    use(price_source="mempool", mempool_url=NODE)
+    sites.mempool = live_rows(at("2025-10-01T00:00Z"), NOW)
+    with caplog.at_level(logging.INFO, logger=price_history.__name__):
+        priced = hp.price_at(db, utc("2026-03-17T07:10Z"))  # the hour: its lookup downloads the history
+        assert (priced.moment, priced.source) == ("hour", "mempool")
+        assert price_history.daily_price(db, utc("2026-03-01T00:00Z")) > 0  # the day: the kept answer
+    days = len(price_history.midnight_prices(sites.mempool))
+    assert [r.getMessage() for r in caplog.records if "mempool server" in r.getMessage()] == [
+        f"Price history from your mempool server: {days} days"]
     assert len(sites.requests) == 1
 
 

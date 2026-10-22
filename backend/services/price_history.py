@@ -86,7 +86,7 @@ def try_again_now() -> None:
 def reset_state() -> None:
     """Forget when downloads last ran (tests)."""
     _state.update(full_failed_at=-1e9, latest_day=None, latest_failed_at=-1e9,
-                  mempool_at=-1e9, mempool_base=None, mempool_rows=[])
+                  mempool_at=-1e9, mempool_base=None, mempool_rows=[], mempool_answered=threading.Event())
 
 
 reset_state()
@@ -256,17 +256,38 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     The own mempool server's whole USD history, and whether it was just
     asked: one request at most every 10 minutes; its answer is kept that
     long, so the day and hour lookups (services/hourly_prices.py) share it.
-    An answer is kept only while it's the last asked (_asked_last, #473).
+    A lookup made while that request is under way waits for its answer, at
+    most LOOKUP_SECONDS, then looks again with the settings in use: a save
+    may have come meanwhile (#535, #437). An answer is kept only while it's
+    the last asked (_asked_last, #473).
     """
-    with _mempool_lock:  # read under it: the last lookup to read the address is the last asked
-        base, now = outbound.current().own_node, time.monotonic()
-        if not base:
-            _state.update(mempool_base=None, mempool_rows=[])
+    deadline = time.monotonic() + LOOKUP_SECONDS
+    while True:
+        with _mempool_lock:  # read under it: the last lookup to read the address is the last asked
+            base, now = outbound.current().own_node, time.monotonic()
+            if not base:
+                _state.update(mempool_base=None, mempool_rows=[])
+                return [], False
+            answered = _state["mempool_answered"]
+            kept = base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS
+            if kept and answered.is_set():
+                return _state["mempool_rows"], False
+            refuse_if_held()  # a save holding SQLite's write lock neither asks nor waits (#426)
+            if not kept:
+                answered = threading.Event()
+                _state.update(mempool_at=now, mempool_base=base, mempool_rows=[], mempool_answered=answered)
+                break
+        # Under way in another lookup's thread and event loop (_run): waited for in a thread of its own
+        if not await asyncio.to_thread(answered.wait, max(deadline - time.monotonic(), 0)):
             return [], False
-        if base == _state["mempool_base"] and now - _state["mempool_at"] < RETRY_SECONDS:
-            return _state["mempool_rows"], False
-        refuse_if_held()
-        _state.update(mempool_at=now, mempool_base=base, mempool_rows=[])
+    try:
+        return await _answer(base, now)
+    finally:
+        answered.set()  # its answer kept (or not, #473): each lookup waiting for it looks again
+
+
+async def _answer(base: str, now: float) -> tuple[list[dict], bool]:
+    """The answer to the request to `base` made at `now`, kept while it's the last asked."""
     try:
         async with outbound.own_node_client(timeout=outbound.HISTORY_TIMEOUT) as client:
             resp = await client.get(base + MEMPOOL_HISTORY_PATH, params={"currency": "USD"})
@@ -283,6 +304,8 @@ async def own_node_rows() -> tuple[list[dict], bool]:
     with _mempool_lock:
         if _asked_last(base, now):
             _state["mempool_rows"] = rows
+    # Whichever lookup asked, the day's or the hour's: the log names each download's source (#557)
+    logger.info("Price history from your mempool server: %d days", len(midnight_prices(rows)))
     return rows, True
 
 
@@ -300,11 +323,8 @@ def _asked_last(base: str, at: float) -> bool:
 async def own_node_history() -> dict[date, tuple]:
     """The own mempool server's 00:00 UTC prices (own_node_rows): from its
     answer just asked, or the one kept from an hour lookup a moment ago."""
-    rows, fresh = await own_node_rows()
-    prices = midnight_prices(rows)
-    if fresh:
-        logger.info("Price history from your mempool server: %d days", len(prices))
-    return prices
+    rows, _ = await own_node_rows()
+    return midnight_prices(rows)
 
 
 async def find_prices(day: date, full: bool) -> tuple[dict[date, tuple], bool]:
@@ -434,8 +454,8 @@ _held = contextvars.ContextVar("btctx_requests_held", default=False)
 
 
 class RequestHeld(Exception):
-    """A request about to go out for a lookup whose requests are held: the
-    lookup raises PriceNeeded instead."""
+    """A request about to go out (or be waited for) for a lookup whose
+    requests are held: the lookup raises PriceNeeded instead."""
 
 
 def requests_wait(db: Session) -> bool:
@@ -458,8 +478,9 @@ def requests_held(db: Session) -> Iterator[None]:
 
 
 def refuse_if_held() -> None:
-    """Where a request is about to go out: none for a lookup whose requests
-    are held (requests_held)."""
+    """Where a request is about to go out, or a wait for another lookup's
+    (own_node_rows): neither for a lookup whose requests are held
+    (requests_held)."""
     if _held.get():
         raise RequestHeld
 
