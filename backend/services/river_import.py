@@ -42,7 +42,13 @@ from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal, decimal_comma_note, number_limits, unreadable_csv
+from backend.services.csv_import import (
+    _amount_currency,
+    _parse_decimal,
+    decimal_comma_note,
+    number_limits,
+    unreadable_csv,
+)
 from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
@@ -752,9 +758,22 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
     proposal.discrepancy = (
-        f"Same BTC amount as tx #{best.id} ({best.type} {btc_text(best.amount or 0)} BTC), "
+        f"Same {'dollar' if _in_dollars(best) else 'BTC'} amount as tx #{best.id} ({_type_and_amount(best)}), "
         f"{'; '.join(what)}: it may be the same transaction"
     )
+
+
+def _in_dollars(tx: Transaction) -> bool:
+    """Whether its amount is dollars: the AI's rows can be dollar deposits,
+    withdrawals and transfers, beside River's bitcoin ones (#525)."""
+    return _amount_currency(tx.type, tx.from_account_id, tx.to_account_id) == "USD"
+
+
+def _type_and_amount(tx: Transaction) -> str:
+    """A transaction as a note names it: "Deposit $500.00", "Buy 0.00030000 BTC"."""
+    if _in_dollars(tx):
+        return f"{tx.type} ${Decimal(tx.amount or 0):,.2f}"
+    return f"{tx.type} {btc_text(tx.amount or 0)} BTC"
 
 
 def _when_recorded(proposal: RiverProposal, tx: Transaction, tz) -> str:
@@ -792,7 +811,6 @@ def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     proposal.near_amount = True
     proposal.discrepancy = (
-        f"Likely the same event as tx #{best.id} "
-        f"({best.type} {btc_text(best.amount or 0)} BTC) recorded with a "
+        f"Likely the same event as tx #{best.id} ({_type_and_amount(best)}) recorded with a "
         f"different amount"
     )

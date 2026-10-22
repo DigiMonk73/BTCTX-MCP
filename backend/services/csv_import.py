@@ -119,6 +119,13 @@ class ParseResult:
         """True when there are rows and no errors (warnings are fine)."""
         return len(self.errors) == 0 and len(self.transactions) > 0
 
+    @property
+    def rows_in_file(self) -> int:
+        """The file's data rows, read or refused, each once however many
+        errors it has (#479), as River's preview counts them (#455); an
+        error about the whole file is row 0."""
+        return len({p.row_number for p in self.previews} | {e.row_number for e in self.errors if e.row_number > 0})
+
 
 def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
     """

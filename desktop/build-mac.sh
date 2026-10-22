@@ -4,7 +4,7 @@
 #
 # Prerequisites:
 #   - Python 3.11+ with pip (brew install python@3.13)
-#   - Node.js 18+ with npm
+#   - Node.js 22.13+ with npm (the README's minimum; CI and Docker use 24)
 #
 # Usage:
 #   ./desktop/build-mac.sh
