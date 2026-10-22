@@ -68,7 +68,6 @@ new features go into 2.0, below. No dates are promised.
 
 ## Later
 
-- [ ] Column-mapping UI for arbitrary exchange CSVs, with saved presets
 - [ ] Specific-lot identification (per account, as the IRS has required
       since 2025; for exchange lots it must match the standing order you gave
       the broker). FIFO is the default today.
@@ -91,3 +90,6 @@ promotion request).
       reports by account. BitcoinTX 1.x is deliberately limited to one
       self-custody wallet and one exchange account (#86). No dates
       promised; meanwhile 1.x stays in maintenance.
+- [ ] **An importer for any exchange's CSV**, with ready-made mappings
+      for common exchanges and mappings you save, into a ledger that
+      already has transactions (#338; the 2.0 plan's B5b, #567).
