@@ -183,8 +183,8 @@ All notable changes to BitcoinTX are documented in this file.
   frontend's lock lists under axios but the built web app never includes.
 - **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
   which Playwright supports from 1.61; the click-through tests and their
-  config needed no change. CI's click-through job stays on Ubuntu 24.04
-  until a run on `ubuntu-latest` (26.04) is green. `docs/TESTING.md` no
+  config needed no change; CI's click-through job is back on
+  `ubuntu-latest` (26.04) with it (#574). `docs/TESTING.md` no
   longer says cloud sessions have Chromium preinstalled: Anthropic's list
   of their tools names no Playwright browsers. Tooling only: nothing
   changes in the app.
