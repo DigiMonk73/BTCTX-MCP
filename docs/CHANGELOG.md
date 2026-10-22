@@ -7,7 +7,7 @@ All notable changes to BitcoinTX are documented in this file.
 ### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
-  now says "multiple": the one-wallet notice (Settings → About, the
+  now says "multiple": the one-wallet notice (Settings → About BitcoinTX, the
   README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
   the StartOS instructions and store description, the roadmap and the 2.0
   plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
