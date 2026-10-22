@@ -7,11 +7,11 @@ name: CI
 # and the macOS app build. A pull request's run tests the branch merged with
 # its base, so pushing a branch that has one doesn't run the same suite twice
 # (owner, 2026-10-13). A branch without a pull request: the pre-push hook's
-# checks, or a run on demand from the Actions tab. Every pull request runs
-# all of it, whatever its base (develop, staging, 2.0). A merge into staging
-# or 2.0, which don't ask a branch to be up to date, runs it again on the
-# result, so changes that only break together show up within the hour, not
-# at the daily merge into develop (AGENTS.md, "Branches").
+# checks, or a run on demand from the Actions tab. A pull request into
+# develop or main runs all of it; one into staging or 2.0 runs the medium
+# set ("CI passed", below), and every merge there runs all of it on the
+# result, so a night's batch of pull requests gets the full set as it merges
+# (AGENTS.md, "Branches").
 on:
   push:
     branches: [develop, main, staging, "2.0"]
@@ -124,6 +124,9 @@ jobs:
     # across machines (--shard) as they are; each machine keeps one worker.
     name: Click-through tests (${{ matrix.browser }} ${{ matrix.shard }})
     needs: frontend
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0, run on every merge there and into develop
+    if: github.event_name != 'pull_request' || github.base_ref == 'develop' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -182,6 +185,9 @@ jobs:
 
   docker:
     name: Docker image + container smoke
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0, run on every merge there and into develop
+    if: github.event_name != 'pull_request' || github.base_ref == 'develop' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -282,6 +288,9 @@ jobs:
 
   startos-pack:
     name: StartOS package pack (x86_64, image from this commit)
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0, run on every merge there and into develop
+    if: github.event_name != 'pull_request' || github.base_ref == 'develop' || github.base_ref == 'main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -346,6 +355,9 @@ jobs:
 
   audit-macos:
     name: Dependency vulnerability audit (macOS)
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0, run on every merge there and into develop
+    if: github.event_name != 'pull_request' || github.base_ref == 'develop' || github.base_ref == 'main'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -360,6 +372,9 @@ jobs:
     # Pull requests too, so packaging breaks show up before a merge; not a
     # required check, so a macOS hiccup never blocks one. Free on public repos.
     needs: [python, frontend]
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0, run on every merge there and into develop
+    if: github.event_name != 'pull_request' || github.base_ref == 'develop' || github.base_ref == 'main'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -407,10 +422,20 @@ jobs:
             BitcoinTX-macOS.dmg
           retention-days: 7
 
-  # The one check develop's ruleset requires: every job above but the macOS
-  # build and its audit (they run, as before, without blocking a merge).
-  # A job is required by being listed here, so renaming or splitting one
-  # never needs the ruleset changed.
+  # The one check the rulesets require: every job above but the macOS build
+  # and its audit (they run, as before, without blocking a merge). A job is
+  # required by being listed here, so renaming or splitting one never needs
+  # a ruleset changed.
+  #
+  # The medium set (the owner's choice, 2026-10-22): a pull request into
+  # staging or 2.0 runs the Python suite on both versions (every tax and
+  # figures test among them), lint, the frontend, the smoke test, the
+  # StartOS checks and the audit, so a night's batch of pull requests clears
+  # side by side within GitHub's runner limits. The rest (click-through,
+  # Docker, the StartOS pack, macOS) is skipped there and runs on every merge
+  # into staging or 2.0 and on every pull request into develop or main: the
+  # full set. Only those jobs can be skipped, and only there; anything else
+  # skipped (a job whose need failed) fails this check.
   ci-passed:
     name: CI passed
     if: always()
@@ -420,4 +445,9 @@ jobs:
       - name: Every required job passed
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
+          MEDIUM: ${{ github.event_name == 'pull_request' && github.base_ref != 'develop' && github.base_ref != 'main' }}
+        run: |
+          echo "$RESULTS" | jq -e --argjson medium "$MEDIUM" '
+            to_entries | all(.value.result == "success"
+              or ($medium and (.key == "e2e" or .key == "docker" or .key == "startos-pack")
+                  and .value.result == "skipped"))'

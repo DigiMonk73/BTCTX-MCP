@@ -42,8 +42,10 @@ workflow keeps up to date by itself. We don't touch it.)
 
 ## Our branches
 
-- **`staging`**: where changes gather during the day, each by pull
-  request, with the full tests but no waiting in line.
+- **`staging`**: where changes gather, each by its own pull request,
+  opened together in the evening's batch: they're tested side by side
+  (the Python tests, the frontend, the quick checks), never in line, and
+  every merge into `staging` runs the full tests on the result.
 - **`develop`**: everything tested together: `staging` comes in once a
   day by one pull request, the full tests run again, and it merges with
   a merge commit, so each change keeps its own commit. An urgent fix (a
@@ -60,10 +62,13 @@ workflow keeps up to date by itself. We don't touch it.)
    before it's written.
 2. Claude works on this computer, in its own folder (a *worktree*), and
    runs the tests.
-3. Claude pushes a short branch to GitHub and opens a pull request into
-   `staging`.
-4. GitHub runs the full set of tests. A fresh Claude reviewer reads the
-   change; Claude fixes what it finds, or answers it on the pull request.
+3. A fresh Claude reviewer reads the change on this computer, before
+   anything is pushed. At the end of the day Claude pushes every finished
+   change's short branch and opens its own pull request into `staging`,
+   all at once, with the review on it. Then the session stops: nobody
+   waits on the tests; the next session reads the results first thing
+   and fixes anything red before new work.
+4. GitHub runs the tests on each pull request, side by side.
 5. Once the review has nothing open:
    - **ordinary changes**: Claude turns on *auto-merge*, and GitHub
      merges it into `staging` when the tests pass (no waiting for the

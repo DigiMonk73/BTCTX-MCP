@@ -280,16 +280,21 @@ All notable changes to BitcoinTX are documented in this file.
   requires only it and a renamed or split job no longer needs the ruleset
   changed. Nothing in the app changes.
 - **A `staging` branch: pull requests no longer wait in line** (the
-  owner's idea, 2026-10-22). Changes merge into `staging` as soon as their
-  review is done and the whole suite passes, with no wait to be up to
-  date; every merge there runs the suite again on the result. Once a day,
+  owner's idea, 2026-10-22). Each change keeps its own pull request into
+  `staging`, opened with the rest in the evening's batch; they're checked
+  side by side on the medium set (the whole Python suite on both versions,
+  lint, the frontend, the smoke test, the StartOS checks, the audit) and
+  merge with no wait to be up to date; every merge there runs the full set
+  on the result. Once a day,
   `staging` comes into `develop` by one pull request that runs the whole
   suite on everything together and merges with a merge commit, so each
   change keeps its own commit; `develop` stays as strict as before. Only
   an urgent fix (a security advisory) goes straight into `develop`.
-  Dependabot targets `staging`. Pushes to `2.0` (once it exists) run the
-  suite too. AGENTS.md, "Branches" and "Pull requests";
-  `docs/HOW-CHANGES-FLOW.md`.
+  Dependabot targets `staging`. Pull requests into `2.0` (once it exists)
+  get the medium set too, and its merges the full set. Sessions push the
+  night's batch and stop, never waiting on CI, and start by reading what
+  ran overnight. AGENTS.md, "Branches", "Pull requests", "Starting a
+  session", "Ending a session"; `docs/HOW-CHANGES-FLOW.md`.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

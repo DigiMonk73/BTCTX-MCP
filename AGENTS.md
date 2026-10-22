@@ -66,14 +66,17 @@ carry its `Co-Authored-By` line.
 
 ## Branches
 
-- **`staging`**: where changes gather during the day, each by pull request
+- **`staging`**: where changes gather, each by its own pull request
   (`gh pr create --base staging`) from a short-lived branch named for the
-  change ("Pull requests"), squash-merged once "CI passed" (the whole suite)
-  has passed, with no wait to be up to date: so pull requests never queue.
-  Every merge into it runs the whole suite again on the result (`ci.yml`'s
-  push trigger), so changes that only break together show the same hour; a
-  red `staging` is fixed before anything else merges into it. Dependabot
-  targets it. Never commit on a local `staging`.
+  change, opened in the night's batch ("Pull requests"), squash-merged once
+  "CI passed" has passed on the medium set (the whole Python suite on both
+  versions, lint, the frontend, the smoke test, the StartOS checks, the
+  audit: `ci.yml`), with no wait to be up to date: so a batch's pull
+  requests run side by side, never in line. Every merge into it runs the
+  full set on the result (`ci.yml`'s push trigger: click-through, Docker,
+  the StartOS pack and the macOS app too), so the night's merges get the
+  full suite; a red `staging` is fixed before anything else merges into it.
+  Dependabot targets it. Never commit on a local `staging`.
 - **`develop`**: everything tested together. Once a day (or when the owner
   asks), `staging` comes in by one pull request, "staging into develop,
   <date>" (`gh pr create --base develop --head staging`), merged with a
@@ -961,8 +964,16 @@ comments end "— Grok (Cursor)".
 
 ## Pull requests
 
-Every change, Claude's included, goes into `staging` by pull request (an
-urgent fix straight into `develop`: "Branches"), filled
+Every change, Claude's included, goes into `staging` by a pull request of
+its own (an urgent fix straight into `develop`: "Branches"). **The nightly
+batch** (the owner, 2026-10-22): each change is written and tested on its
+own branch during the day, and its fresh review runs there, before any
+push; at the end of the day (or a good stopping point) every finished
+branch is pushed and gets its own pull request into `staging`, all at
+once, with the review posted on it and auto-merge on (one that needs the
+owner's "merge" gets auto-merge only after it). Never merge changes into
+`staging` locally: each keeps its pull request (its description, checks
+and history). Each pull request is filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
 for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
@@ -1127,7 +1138,14 @@ one session. Claude suggests this setup when a request is that big.
 
 ## Starting a session
 
-Run `make sync-check`: it brings local `main` and `develop` down from
+**First, what ran overnight** (the owner, 2026-10-22): the night's pull
+requests into `staging` and their checks, the full set on `staging`'s
+merges, and any "staging into develop" (`gh pr list --base staging`,
+`gh run list --branch staging --limit 10`, `gh pr list --base develop`).
+Tell the owner in plain words what's green and what's red, and fix
+anything red first, before any new work.
+
+Then run `make sync-check`: it brings local `main` and `develop` down from
 GitHub and says whether anything exists only on this computer: work not
 committed in any working folder, branches or commits not on GitHub,
 stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
@@ -1136,6 +1154,14 @@ stashes. Another session's unpushed branch may show up: it's theirs. Then read i
 comes from there, not from an AI tool's memory.
 
 ## Ending a session
+
+**Push, then stop: never wait on CI** (the owner, 2026-10-22). After the
+night's batch is pushed and its pull requests opened (auto-merge on where
+allowed), the session ends: no watching, polling or waiting on a pull
+request's checks, the full set on `staging`, or a "staging into develop".
+Waiting burns the owner's limits for nothing; the next session reads the
+results first thing ("Starting a session"). If something truly must be
+watched, say so to the owner, so a scheduled check or Silas does it.
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
 and the issues worked on, rewrite #41's body for the next session (dated),
