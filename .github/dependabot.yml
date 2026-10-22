@@ -101,7 +101,7 @@ updates:
       frontend:
         update-types: [minor, patch]
     ignore:
-      # Pinned to the browsers preinstalled in cloud sessions (TESTING.md)
+      # Bumped by hand, with both click-through suites (MAINTENANCE.md)
       - dependency-name: "@playwright/test"
       # Deferred major (MAINTENANCE.md): TypeScript 5;
       # @types/node follows Node 24, the version Docker and CI run

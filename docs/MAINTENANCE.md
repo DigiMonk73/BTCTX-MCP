@@ -275,9 +275,19 @@ Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
 `frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
 Docker frontend build and CI use Node 24.
-`@playwright/test` is pinned exactly to match the browsers preinstalled in
-cloud sessions (see `docs/TESTING.md`): don't bump it on its own. start-sdk:
-see `startos/UPDATING.md`.
+`@playwright/test` is pinned exactly (1.64.1 since 2026-10-21, for Ubuntu
+26.04, which Playwright supports from 1.61) and bumped only on purpose,
+never by Dependabot: a bump runs `npx tsc -b`, `npx tsc -p e2e` (the specs,
+which `tsc -b` leaves out), `npm run lint`, `npm test`
+and both click-through suites (`npx playwright test --project=chicago
+--project=tokyo`, then `E2E_WEBKIT=1 npx playwright test --project=webkit`)
+after `npx playwright install chromium webkit`, reads Playwright's release
+notes for every version in between, and lets CI's two `e2e` jobs decide on
+Linux. The browsers each version needs come with that install, so nothing
+else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
+`ubuntu-24.04` until a run on `ubuntu-latest` (26.04) is green; then it goes
+back to `ubuntu-latest` (#574). WebKit's suite runs on a Mac only from macOS 15
+(Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
 
 ### Deferred upgrades
 

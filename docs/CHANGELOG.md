@@ -60,16 +60,22 @@ All notable changes to BitcoinTX are documented in this file.
   (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
   which ReportLab needs (the reports draw no images); and certifi
   2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts. The IRS forms come out byte-identical for the reference test
+  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
+  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
+  forms come out byte-identical for the reference test
   ledger, and the Complete Tax Report's text is the same.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
   compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
   frontend's lock lists under axios but the built web app never includes.
-  CI's click-through job runs on Ubuntu 24.04 for now (#563's pin), since
-  Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
-  runners.
+- **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
+  which Playwright supports from 1.61; the click-through tests and their
+  config needed no change. CI's click-through job stays on Ubuntu 24.04
+  until a run on `ubuntu-latest` (26.04) is green. `docs/TESTING.md` no
+  longer says cloud sessions have Chromium preinstalled: Anthropic's list
+  of their tools names no Playwright browsers. Tooling only: nothing
+  changes in the app.
 - **React 19.3 and Vite 8.3** (from React 18.3 and Vite 6.4; the owner's
   decision, 2026-10-22, deferred since #425). React draws the web pages and
   Vite builds them; their type packages (`@types/react`,
