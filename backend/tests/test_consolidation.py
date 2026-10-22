@@ -21,6 +21,9 @@ from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.services.transaction import SAME_ACCOUNT_NEEDS_FEE
 from backend.tests.conftest import stub_daily_prices
 
+# 5.5's message for a dollar account sent to itself (B3)
+SAME_ACCOUNT = "A Transfer goes to another account: only a bitcoin account can send to itself (a consolidation)."
+
 CLIENT = None
 ENGINE = None
 BANK, WALLET, EXCHANGE_USD, EXCHANGE_BTC, BTC_FEES, EXTERNAL = 1, 2, 3, 4, 5, 99
@@ -183,8 +186,8 @@ def test_a_blank_fee_value_is_that_days_price_and_a_typed_one_is_kept():
     (WALLET, "0.5", "0", SAME_ACCOUNT_NEEDS_FEE),
     (WALLET, "0.5", None, SAME_ACCOUNT_NEEDS_FEE),
     (WALLET, "2.0", "0.0001", "Not enough BTC to transfer"),
-    (BANK, "100.00", "0", "Transfer => from and to must be different accounts."),
-    (EXCHANGE_USD, "100.00", "1.00", "Transfer => from and to must be different accounts."),
+    (BANK, "100.00", "0", SAME_ACCOUNT),
+    (EXCHANGE_USD, "100.00", "1.00", SAME_ACCOUNT),
 ])
 def test_what_is_refused(account, amount, fee, message):
     deposit("2023-03-01", "1.0", "20000.00")
@@ -307,7 +310,7 @@ def test_a_csv_round_trip_keeps_it():
 @pytest.mark.parametrize("row, column, message", [
     ("2025-06-01T12:00:00Z,Transfer,0.5,Wallet,Wallet,,,,BTC,,,", "fee_amount", SAME_ACCOUNT_NEEDS_FEE),
     ("2025-06-01T12:00:00Z,Transfer,100,Bank,Bank,,,,USD,,,", "to_account",
-     "Transfer must have different from_account and to_account."),
+     SAME_ACCOUNT),
 ])
 def test_a_csv_row_is_checked_like_the_form(row, column, message):
     header = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency," \

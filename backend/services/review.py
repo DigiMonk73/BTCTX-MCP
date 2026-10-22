@@ -14,6 +14,13 @@ Checks:
   side is in no balance; one between the owner's account and a missing one
   stops every replay (transaction.AccountMissing names it), so every save
   that recalculates, until it's edited into an account or deleted.
+- account_from_before_0_9_2 (5.13, the owner's decision S7): a transaction
+  naming an account made through 1.x's account API (an id from 7 to 98),
+  which only a BitcoinTX before 0.9.2 could save. 1.x's checks by number
+  left it out of income and the like; 2.0 counts it by its account's
+  currency (B3). Only the rows on the list the ledger kept at its first 2.0
+  start (`accounts_old_rows`, written by database.seed_defaults); saving
+  such a row, even unchanged, or deleting it takes it off.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -135,6 +142,12 @@ CHECKS: dict[str, tuple] = {
         "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, fix "
         "them one at a time: an edit or a delete of one goes past the others. Until the last is fixed, figures "
         "can be off, so fix them all before relying on a report.",
+    ),
+    "account_from_before_0_9_2": (
+        "Transactions in an account made through BitcoinTX's old account API",
+        "BitcoinTX 1.x left these out of income and some other checks; 2.0 counts them by their account's "
+        "currency, so their figures can differ from your 1.x reports. Check each one, and edit it into the right "
+        "account if needed. Saving it, even unchanged, takes it off this list.",
     ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",

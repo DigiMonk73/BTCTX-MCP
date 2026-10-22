@@ -144,8 +144,7 @@ def test_the_preview_says_what_each_amount_is_in_and_names_the_accounts_as_usual
 
 FEE_ACCOUNT = "Invalid account '{}'. Must be one of: Bank, Wallet, Exchange USD, Exchange BTC, External."
 USD_CENTS = "A USD amount can have at most 2 decimal places."
-ONE_CURRENCY = ("Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
-                "dollars between Bank and Exchange USD.")
+ONE_CURRENCY = "A Transfer stays in one currency: bitcoin between bitcoin accounts, dollars between dollar accounts."
 
 BLANK_FEE_CURRENCY = "A deposit fee must be in USD, the account's currency. (fee_currency is blank: the import uses BTC)"
 BTC_TRANSFER_FEE = "A transfer from this account pays its fee in BTC."
@@ -232,7 +231,7 @@ def _save_data(row: str) -> dict:
 
 # What the save says for each of the preview's reasons
 SAVE_SAYS = {FEE_ACCOUNT.format("btc fees"): "Unknown account id 5.", FEE_ACCOUNT.format("usd fees"): "Unknown account id 6.",
-             USD_CENTS: USD_CENTS, ONE_CURRENCY: "Transfer => same currency required.",
+             USD_CENTS: USD_CENTS, ONE_CURRENCY: ONE_CURRENCY,
              BLANK_FEE_CURRENCY: "A deposit fee must be in USD, the account's currency.",
              BTC_TRANSFER_FEE: "Transfer from BTC => fee must be BTC."}
 

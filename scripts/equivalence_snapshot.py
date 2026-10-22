@@ -57,8 +57,9 @@ VOLATILE_MCP_KEYS = {"file", "created"}
 # Hashes of the AI key, and of the login sessions each run opens anew.
 VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
 # Which BitcoinTX last recalculated the ledger (5.8, from 2.0): its version
-# and migration head, which differ between the two sides by design.
-UNCOMPARED_SETTINGS = ("recalculated_by",)
+# and migration head, which differ between the two sides by design. The
+# rows from before 0.9.2 (5.13, from 2.0): a ledger a 1.x start never wrote it in.
+UNCOMPARED_SETTINGS = ("recalculated_by", "accounts_old_rows")
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.

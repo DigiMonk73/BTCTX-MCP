@@ -24,6 +24,8 @@ from backend.schemas.transaction import (
     BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_storable, validate_usd_storable,
 )
 from backend.services.transaction import (
+    BUY_INTO, BUY_PAID_FROM, DEPOSIT_FROM, DEPOSIT_INTO, SELL_FROM, SELL_INTO, TRANSFER_BETWEEN,
+    TRANSFER_ONE_CURRENCY, TRANSFER_TO_ITSELF, WITHDRAWAL_FROM, WITHDRAWAL_TO,
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
     FEE_CURRENCIES, MAX_TEXT, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
     amount_problem,
@@ -801,39 +803,34 @@ def _optional_decimal(
 
 
 # Each type's account rules: (column, broken(from_id, to_id), message), in the
-# order they're reported.
+# order they're reported: 1.x's ids with the save's messages (5.5; B3's prep),
+# until account_problems asks the book (B3-3)
 _ACCOUNT_RULES = {
     "Deposit": [
-        ("from_account", lambda f, t: f != ACCOUNT_EXTERNAL, "Deposit must have from_account = 'External'."),
-        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
-         "Deposit must have to_account as an internal account (not 'External')."),
+        ("from_account", lambda f, t: f != ACCOUNT_EXTERNAL, DEPOSIT_FROM),
+        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL, DEPOSIT_INTO),
     ],
     "Withdrawal": [
-        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL,
-         "Withdrawal must have from_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXTERNAL, "Withdrawal must have to_account = 'External'."),
+        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL, WITHDRAWAL_FROM),
+        ("to_account", lambda f, t: t != ACCOUNT_EXTERNAL, WITHDRAWAL_TO),
     ],
     "Transfer": [
-        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL,
-         "Transfer must have from_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
-         "Transfer must have to_account as an internal account (not 'External')."),
+        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL, TRANSFER_BETWEEN),
+        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL, TRANSFER_BETWEEN),
         # Only Wallet or Exchange BTC can send to itself: a consolidation (#159)
-        ("to_account", lambda f, t: f == t and f not in BTC_ACCOUNTS,
-         "Transfer must have different from_account and to_account."),
+        ("to_account", lambda f, t: f == t != ACCOUNT_EXTERNAL and f not in BTC_ACCOUNTS, TRANSFER_TO_ITSELF),
         # The save's rule: one currency (#266)
         ("to_account", lambda f, t: ACCOUNT_EXTERNAL not in (f, t) and (f in BTC_ACCOUNTS) != (t in BTC_ACCOUNTS),
-         "Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
-         "dollars between Bank and Exchange USD."),
+         TRANSFER_ONE_CURRENCY),
     ],
     "Buy": [
-        ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD),
-         "Buy must have from_account = 'Bank' or 'Exchange USD'."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXCHANGE_BTC, "Buy must have to_account = 'Exchange BTC'."),
+        ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), BUY_PAID_FROM),
+        ("to_account", lambda f, t: t != ACCOUNT_EXCHANGE_BTC, BUY_INTO),
     ],
     "Sell": [
-        ("from_account", lambda f, t: f != ACCOUNT_EXCHANGE_BTC, "Sell must have from_account = 'Exchange BTC'."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXCHANGE_USD, "Sell must have to_account = 'Exchange USD'."),
+        ("from_account", lambda f, t: f != ACCOUNT_EXCHANGE_BTC, SELL_FROM),
+        ("to_account", lambda f, t: f == ACCOUNT_EXCHANGE_BTC and t != ACCOUNT_EXCHANGE_USD,
+         SELL_INTO.format(sold_from="Exchange BTC", its_usd="Exchange USD")),
     ],
 }
 

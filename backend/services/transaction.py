@@ -2651,30 +2651,47 @@ def _enforce_fee_rules(tx_data: dict, db: Session):
             )
 
 
+# The accounts each type allows, in 5.5's words: one wording for the API, the
+# form, the CSV, River and the AI. {…} is an account's current name.
+DEPOSIT_FROM = "A Deposit comes from External."
+DEPOSIT_INTO = "A Deposit goes into one of your accounts, not External."
+WITHDRAWAL_FROM = "A Withdrawal comes from one of your accounts, not External."
+WITHDRAWAL_TO = "A Withdrawal goes to External."
+TRANSFER_BETWEEN = "A Transfer is between two of your accounts, not External."
+TRANSFER_TO_ITSELF = ("A Transfer goes to another account: only a bitcoin account can send to itself "
+                      "(a consolidation).")
+TRANSFER_ONE_CURRENCY = ("A Transfer stays in one currency: bitcoin between bitcoin accounts, dollars between "
+                         "dollar accounts.")
+BUY_PAID_FROM = "A Buy is paid from a bank or from an exchange's USD account."
+BUY_INTO = "A Buy's bitcoin goes into an exchange's BTC account."
+BUY_SAME_EXCHANGE = "A Buy paid from {paid_from} goes into {its_btc}: an exchange's dollars buy only on that exchange."
+SELL_FROM = "A Sell is from an exchange's BTC account."
+SELL_INTO = "A Sell from {sold_from} goes into {its_usd}."
+
 # Each type's rules for its accounts: (broken(from_id, to_id), message), in
-# the order they're checked.
+# the order they're checked: 1.x's ids with 5.5's messages (B3's prep), until
+# account_problems asks the book (B3-2)
 _TYPE_ACCOUNT_RULES = {
     "Deposit": [
-        (lambda f, t: f != ACCOUNT_EXTERNAL, "Deposit => from must be External."),
-        (lambda f, t: not t or t == ACCOUNT_EXTERNAL, "Deposit => to must be an internal account."),
+        (lambda f, t: f != ACCOUNT_EXTERNAL, DEPOSIT_FROM),
+        (lambda f, t: not t or t == ACCOUNT_EXTERNAL, DEPOSIT_INTO),
     ],
     "Withdrawal": [
-        (lambda f, t: not f or f == ACCOUNT_EXTERNAL, "Withdrawal => from must be an internal account."),
-        (lambda f, t: t != ACCOUNT_EXTERNAL, "Withdrawal => to must be External."),
+        (lambda f, t: not f or f == ACCOUNT_EXTERNAL, WITHDRAWAL_FROM),
+        (lambda f, t: t != ACCOUNT_EXTERNAL, WITHDRAWAL_TO),
     ],
     "Transfer": [
-        (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL,
-         "Transfer => both from/to must be internal."),
+        (lambda f, t: not f or f == ACCOUNT_EXTERNAL or not t or t == ACCOUNT_EXTERNAL, TRANSFER_BETWEEN),
         # Only a BTC account can send to itself: a consolidation (#159)
-        (lambda f, t: f == t and f not in BTC_ACCOUNTS, "Transfer => from and to must be different accounts."),
+        (lambda f, t: f == t and f not in BTC_ACCOUNTS, TRANSFER_TO_ITSELF),
     ],
     "Buy": [
-        (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), "Buy => from must be Bank or Exchange USD."),
-        (lambda f, t: t != ACCOUNT_EXCHANGE_BTC, "Buy => to must be Exchange BTC."),
+        (lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD), BUY_PAID_FROM),
+        (lambda f, t: t != ACCOUNT_EXCHANGE_BTC, BUY_INTO),
     ],
     "Sell": [
-        (lambda f, t: f != ACCOUNT_EXCHANGE_BTC, "Sell => from must be Exchange BTC."),
-        (lambda f, t: t != ACCOUNT_EXCHANGE_USD, "Sell => to must be Exchange USD."),
+        (lambda f, t: f != ACCOUNT_EXCHANGE_BTC, SELL_FROM),
+        (lambda f, t: t != ACCOUNT_EXCHANGE_USD, SELL_INTO.format(sold_from="Exchange BTC", its_usd="Exchange USD")),
     ],
 }
 
@@ -2724,7 +2741,7 @@ def _enforce_transaction_type_rules(tx_data: dict, db: Session):
         db_from = db.get(Account, from_id)
         db_to = db.get(Account, to_id)
         if db_from and db_to and db_from.currency != db_to.currency:
-            raise HTTPException(400, "Transfer => same currency required.")
+            raise HTTPException(400, TRANSFER_ONE_CURRENCY)
 
 
 def delete_all_transactions(db: Session) -> int:
