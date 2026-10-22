@@ -94,10 +94,13 @@ def build(markup: str) -> None:
     SimpleDocTemplate(io.BytesIO()).build([Paragraph(markup, getSampleStyleSheet()["Normal"])])
 
 
-@pytest.mark.parametrize("src", ["{path}", "file://{path}"])
-def test_reportlab_opens_no_local_file_even_for_unescaped_markup(local_image, src):
-    with pytest.raises(OSError, match="Cannot open resource"):
+@pytest.mark.parametrize("src", ["{path}", "file://{path}", "file://localhost{path}"])
+def test_reportlab_opens_no_local_file_even_for_unescaped_markup(local_image, src, opened_or_fetched):
+    """safe_text's refusal stops the build, before anything opens the file:
+    ReportLab itself opens any path it is given, whatever its trust settings."""
+    with pytest.raises(OSError, match="The reports open no file or URL"):
         build(f'<img src="{src.format(path=local_image)}" width="4" height="4"/>')
+    assert [seen for seen in opened_or_fetched if str(local_image) in seen[1]] == []
 
 
 def test_reportlab_still_builds_the_reports_text():
