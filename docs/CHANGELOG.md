@@ -5,12 +5,13 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Security
-- **Updates of three packages BitcoinTX ships, for published security
-  advisories:** pypdf 6.21.2 (from 6.20.0), which fills the IRS forms;
-  Pillow 13.0.0 (from 12.3.0), which ReportLab uses for the tax report;
-  and certifi 2026.10.19 (from 2026.7.22), the list of certificate
-  authorities BitcoinTX trusts; and uv 0.13.5 (from 0.13.0), the tool that
-  compiles the locks, never shipped. The IRS forms come out byte-identical for
+- **Package updates for published security advisories.** What ships:
+  pypdf 6.21.2 (from 6.20.0), which fills the IRS forms; Pillow 13.0.0
+  (from 12.3.0), which ReportLab uses for the tax report; certifi
+  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
+  trusts; and follow-redirects 1.16.1 (from 1.16.0), under axios, though
+  the browser doesn't use it. Never shipped: uv 0.13.5 (from 0.13.0), the
+  tool that compiles the locks. The IRS forms come out byte-identical for
   the reference test ledger, and the Complete Tax Report's text is the
   same. CI's click-through job runs on Ubuntu 24.04 for now (#563's pin),
   since Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
