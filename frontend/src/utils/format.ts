@@ -51,7 +51,9 @@ export function formatBtc(amount: number): string {
 /** A BTC amount as plain digits, to the satoshi: 5e-8 => "0.00000005", 0.5 => "0.5".
  * JavaScript writes a number under 0.000001 in exponent form ("5e-8", #101). */
 export function btcText(amount: number): string {
-  return amount.toFixed(8).replace(/\.?0+$/, "");
+  const text = amount.toFixed(8);
+  // From 10^21 on toFixed writes exponent form too, whose zeros aren't trailing ones: 1e30 is "1e+30" (#489)
+  return text.includes("e") ? text : text.replace(/\.?0+$/, "");
 }
 
 /** A date and time as the browser's locale writes them (the import

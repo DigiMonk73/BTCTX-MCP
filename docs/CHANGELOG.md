@@ -95,22 +95,122 @@ All notable changes to BitcoinTX are documented in this file.
   (the usual case since 1.2.8), the log showed only the HTTP request. Now
   each download from your Mempool writes it once, whichever price needed
   it. Only the log changes.
+- **The Sats Converter counts exactly, a half satoshi to the even count
+  and a half cent to the even cent** (#529). It worked its figures out in
+  a computer's binary numbers, which can land a hair off: $488.93 at
+  $96,281.60 is exactly 507,812.5 sats, and came out 507,812.49999999994.
+  It now counts from the digits typed, and an amount exactly halfway goes
+  to the even one, as BitcoinTX rounds a half cent of a value worked out
+  from a price (#556). So $488.93 at $96,281.60 still shows 507,812, now
+  by that rule. **Some sats figures it shows change by one sat,** where an
+  amount is exactly halfway and the old arithmetic rounded it the other
+  way ($91.69 at $80,000 is 114,612.5 sats: 114,612, where it showed
+  114,613; $267.59 is 334,487.5: 334,488, where it showed 334,487), and for
+  very large amounts ($20,160,000,000 at $96,281.95 is 20,938,504,049,824
+  sats, one fewer than it showed). A BTC amount typed with more than 8
+  decimals that is exactly halfway between two satoshis goes to the even
+  one too, where it went up: 0.000000025 BTC is 2 sats (it showed 3), and
+  0.000000005 BTC is 0. **Some dollar figures it shows (from BTC or sats)
+  change by one cent:** they follow the same rule, so the converter shows
+  the cent BitcoinTX would save for that amount at that price. 0.5 BTC at
+  $96,281.61 ($48,140.805) is $48,140.80, where it showed $48,140.81; 0.15
+  BTC at $96,283.70 ($14,442.555) is $14,442.56, where it showed
+  $14,442.55. Only the converter's display changes: nothing it shows is
+  saved. The sats figures: 1.2.9; the dollar figures: 0.9.2 to 1.2.9.
+- **The Sats Converter's Date mode says which price it shows for an hour**
+  (#555). With an hour chosen that BitcoinTX has no price stored for, it
+  showed a day's 00:00 UTC price just as it shows an hour's, so two hours
+  of one day could show different kinds of price with nothing to tell
+  them apart. That day is the hour's day in UTC, which isn't always the
+  date picked: 23:00 on March 1 in Chicago is 05:00 UTC on March 2, so
+  it's March 2's price. Under the date and hour a line now says which
+  price shows: "Hour's price: Mar 1, 22:00 UTC", or "Day's price: Mar 2,
+  00:00 UTC", when no price is stored for that hour (which a screen
+  reader is told, and pointing at the line says). The line is there
+  whenever an hour is chosen, so the calculator below moves down a line
+  when you choose an hour instead of Day, and not while a price comes.
+  Nothing is saved. 1.2.8 and 1.2.9.
+- **An amount of 10^21 BTC or more is written whole** (#489). Far beyond
+  all the bitcoin there is, JavaScript writes such an amount in exponent
+  form, and trimming the zeros after a decimal point took the exponent's:
+  1e30 BTC was written "1e+3" (in the converter's BTC field, for one).
+  It's now "1e+30". No real amount reaches it, and nothing is saved.
+  0.9.2 to 1.2.9.
+- **The CSV import's preview counts each row once** (#479). Its "N valid
+  / M total rows" counted a row once per error, so a one-row file whose
+  row had two errors said "0 valid / 2 total rows", and an error about
+  the whole file (no rows, missing columns) counted as a row too. It now
+  counts the file's rows, as River's preview does. The count on screen
+  only: a file with any error is never imported.
+- **The AI import's note on a dollar row says dollars** (#525). When the
+  AI connector's preview flagged a dollar deposit, withdrawal or transfer
+  as a possible duplicate, its note called the dollars bitcoin: "Same BTC
+  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit, and
+  "Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)" for a
+  near amount. It now says "Same dollar amount as tx #1 (Deposit
+  $500.00)" and "(Withdrawal $1,500.00)". A dollar row already recorded
+  is left out "(the same type, accounts, dollar amount, …)", no longer
+  "BTC amount". Wording only: each row is flagged, saved or left out as
+  before; a bitcoin row's words are unchanged.
+- **River's Import says which row and column it refused** (#480). When
+  Import refused a cell the server couldn't read (a Cost Basis typed
+  `1,200`, a Fee of `abc`), its message said only "Input should be a
+  valid decimal", once per cell, without saying where. It now names the
+  cell's row by its number in the file, the header being row 1 (as the
+  preview's lists of errors and warnings number rows), and its column:
+  "Row 6 (Cost Basis): Input should be a valid decimal". Nothing is
+  saved, and the preview keeps every edit, as before.
+- **The import previews say an error about the whole file without "Row
+  0:"** (#534). River's preview said "Row 0: This does not look like a
+  River bitcoin-activity CSV. Missing columns: …", and the CSV import's
+  "Row 0: No valid transactions found in file." The message is about the
+  file, not a row, so it now stands alone; a row's errors keep their row.
+  Wording only: such a file is refused as before.
 
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2
   (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
   which ReportLab needs (the reports draw no images); and certifi
   2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts. The IRS forms come out byte-identical for the reference test
+  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
+  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
+  forms come out byte-identical for the reference test
   ledger, and the Complete Tax Report's text is the same.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
   compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
   frontend's lock lists under axios but the built web app never includes.
-  CI's click-through job runs on Ubuntu 24.04 for now (#563's pin), since
-  Playwright 1.56 can't install WebKit on GitHub's new Ubuntu 26.04
-  runners.
+- **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
+  which Playwright supports from 1.61; the click-through tests and their
+  config needed no change. CI's click-through job stays on Ubuntu 24.04
+  until a run on `ubuntu-latest` (26.04) is green. `docs/TESTING.md` no
+  longer says cloud sessions have Chromium preinstalled: Anthropic's list
+  of their tools names no Playwright browsers. Tooling only: nothing
+  changes in the app.
+- **React 19.3 and Vite 8.3** (from React 18.3 and Vite 6.4; the owner's
+  decision, 2026-10-22, deferred since #425). React draws the web pages and
+  Vite builds them; their type packages (`@types/react`,
+  `@types/react-dom` 19.3) and `@vitejs/plugin-react` 6.1, which needs
+  Vite 8, move with them. Taken now so 2.0's reworked screens, from the
+  transaction form (B6a, #351) on, are written once, on the React they'll
+  ship with, and before Vite 6's security fixes end with Vite 9. Two lines
+  of code change: `PrivateRoute.tsx` names `React.JSX.Element` (React 19's
+  types drop the global `JSX`), and `tsconfig.node.json` resolves modules
+  the `bundler` way (Vite 8 and the plugin publish their types only
+  through `exports`). Vite 8 builds with Rolldown and Lightning CSS, not
+  esbuild and Rollup, and its default target, Safari 16.4, is newer than
+  the Mac app's WebKit (Safari 15 on macOS 10.15), so
+  `frontend/vite.config.ts` keeps the build's target at Safari 15
+  (`['es2020', 'safari15']`): newer JavaScript or CSS syntax is still
+  rewritten for it. Nothing changes for users: the same screens, figures
+  and forms; the page's script is about 70 kB bigger (513 kB, 159 kB
+  compressed). Dependabot now proposes these packages' major versions
+  (`.github/dependabot.yml`), and their "Deferred upgrades" row in
+  `docs/MAINTENANCE.md` is gone. The lint check
+  `react-hooks/set-state-in-effect` stays off until 2.0's screens
+  (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
+  Node.js 22.13 or newer, the README's minimum (it said 18).
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

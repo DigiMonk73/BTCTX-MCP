@@ -171,8 +171,17 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   that no request names the day.
 - A `test.fail()` marks a known bug the test describes correctly (see
   `docs/HARDENING_FINDINGS.md`); remove it with the fix.
-- Cloud sessions have Chromium preinstalled (`PLAYWRIGHT_BROWSERS_PATH`); never
-  run `playwright install` there. Elsewhere: `npx playwright install chromium`.
+- Install the browsers once per Playwright version: `npx playwright install
+  chromium` (and `webkit` for its project). Claude Code's cloud sessions
+  (claude.ai/code) aren't known to ship Playwright's browsers: Anthropic's
+  list of their installed tools names none (checked 2026-10-21,
+  <https://code.claude.com/docs/en/cloud-environments>, "Installed tools"),
+  and Playwright's download hosts aren't on their default network
+  allowlist. So in a cloud session, check first (`ls
+  "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"` against the
+  builds `npx playwright install --dry-run chromium` names); with no
+  matching build, try `npx playwright install chromium`, and if the
+  network refuses it, leave the click-through tests to CI.
 - Failures leave a trace and screenshot in `frontend/test-results/`
   (`npx playwright show-trace …`); CI uploads them as an artifact.
 

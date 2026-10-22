@@ -178,7 +178,7 @@ def preview_import(
 
     return CSVPreviewResponse(
         success=True,
-        total_rows=len(result.previews) + len(result.errors),
+        total_rows=result.rows_in_file,
         valid_rows=len(result.previews),
         transactions=result.previews,
         errors=result.errors,
