@@ -12,9 +12,11 @@ warning's one shape (services/past_years.py).
 
 import re
 import unicodedata
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from fastapi import HTTPException
-from sqlalchemy import func
+from sqlalchemy import event, func
 from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_EXTERNAL
@@ -88,6 +90,115 @@ def is_yours(account_id: int, db: Session) -> bool:
     """One of your accounts (a bank, a wallet or an exchange's): the gate's stub (5.10, B7a)."""
     account = db.get(Account, account_id)
     return account is not None and account.kind in YOURS
+
+
+# --- the book (5.4) ---
+
+@dataclass(frozen=True)
+class BookAccount:
+    """One account as the book holds it."""
+
+    id: int
+    name: str
+    kind: str
+    currency: str
+    exchange_id: int | None = None
+
+
+class AccountBook:
+    """
+    The one place that answers what an account is (5.4): asked by id, never
+    by comparing an id with 1.x's numbers, so a second wallet or exchange
+    answers as the first does. External (99), an id no account has and None
+    are no account: no kind, no currency, never yours, never bitcoin.
+    """
+
+    def __init__(self, accounts: Iterable[BookAccount]) -> None:
+        self._by_id = {account.id: account for account in accounts}
+
+    def _get(self, account_id: int | None) -> BookAccount | None:
+        if account_id is None or account_id == ACCOUNT_EXTERNAL:
+            return None
+        return self._by_id.get(account_id)
+
+    def kind(self, account_id: int | None) -> str | None:
+        """bank, wallet, exchange or fee; None for no account."""
+        account = self._get(account_id)
+        return None if account is None else account.kind
+
+    def currency(self, account_id: int | None) -> str | None:
+        """USD or BTC; None for no account."""
+        account = self._get(account_id)
+        return None if account is None else account.currency
+
+    def is_yours(self, account_id: int | None) -> bool:
+        """A bank, a wallet or an exchange's account, hidden ones too (5.1):
+        never a fee account, External or no account."""
+        return self.kind(account_id) in YOURS
+
+    def is_btc(self, account_id: int | None) -> bool:
+        """A bitcoin account (5.1): one of yours whose currency is BTC, a
+        wallet or an exchange's BTC. The BTC fee account isn't one."""
+        return self.is_yours(account_id) and self.currency(account_id) == "BTC"
+
+    def exchange_of(self, account_id: int | None) -> int | None:
+        """The exchange an exchange's account belongs to; None for any other."""
+        account = self._get(account_id)
+        if account is None or account.kind != "exchange":
+            return None
+        return account.exchange_id
+
+    def _half(self, account_id: int | None, currency: str) -> int | None:
+        exchange_id = self.exchange_of(account_id)
+        if exchange_id is None:
+            return None
+        for account in self._by_id.values():
+            if (account.kind == "exchange" and account.exchange_id == exchange_id
+                    and account.currency == currency):
+                return account.id
+        return None
+
+    def usd_of(self, account_id: int | None) -> int | None:
+        """The USD account of the exchange `account_id` belongs to, or None."""
+        return self._half(account_id, "USD")
+
+    def btc_of(self, account_id: int | None) -> int | None:
+        """The BTC account of the exchange `account_id` belongs to, or None."""
+        return self._half(account_id, "BTC")
+
+    def name(self, account_id: int) -> str:
+        """Its current name; "External" for 99; "account N (missing)" for an
+        id no account has (the form's words, D3)."""
+        if account_id == ACCOUNT_EXTERNAL:
+            return "External"
+        account = self._get(account_id)
+        return account.name if account is not None else f"account {account_id} (missing)"
+
+
+# 1.x's six accounts, as seed_defaults makes them: what a file can name until
+# B5 (its seven reserved names), so the CSV import's book when none is given
+FIXED_BOOK = AccountBook(BookAccount(**a) for a in FIXED_ACCOUNTS)
+# The session's book, kept in Session.info until its transaction ends
+BOOK = "account_book"
+
+
+def read_book(db: Session) -> AccountBook:
+    """The book from the accounts table, read once per database transaction
+    (5.4: once per request, import, recalculation or report) and kept in the
+    session until it commits or rolls back, so an account added since is in
+    the next one."""
+    if BOOK in db.info:
+        return db.info[BOOK]
+    book = AccountBook(
+        BookAccount(a.id, a.name, a.kind, a.currency, a.exchange_id) for a in db.query(Account).all())
+    db.info[BOOK] = book
+    return book
+
+
+@event.listens_for(Session, "after_commit")
+@event.listens_for(Session, "after_rollback")
+def _forget_book(session: Session) -> None:
+    session.info.pop(BOOK, None)
 
 
 # --- names (5.1) ---
