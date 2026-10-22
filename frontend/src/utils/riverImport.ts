@@ -1,5 +1,6 @@
 // The River import's preview rows as the owner edits them, and the import
 // request built from them.
+import type { InputPlace } from "./apiError";
 
 /** One preview row plus the owner's edits. */
 export interface EditableRow {
@@ -118,4 +119,31 @@ export function importRow(r: EditableRow) {
 
 function basisFromPrice(r: EditableRow): boolean {
   return Boolean(r.proposal.basis_autofilled) && r.costBasisUsd === String(r.proposal.cost_basis_usd);
+}
+
+/** An import row's fields, by the preview's column heads. */
+const COLUMN_HEADS = new Map([
+  ["date", "Date"],
+  ["type", "Type"],
+  ["from_account", "From → To"],
+  ["to_account", "From → To"],
+  ["amount", "Amount"],
+  ["cost_basis_usd", "Cost Basis"],
+  ["proceeds_usd", "Proceeds (before fee)"],
+  ["fee_amount", "Fee"],
+]);
+
+/** Where in the file a cell the server refused is (#480). Its 422 places
+ * the cell among the rows sent (["body", "rows", i, field]), which aren't
+ * the file's rows, so the place is the row's number in the file (the
+ * header is row 1, as the preview's lists and the import's other refusals
+ * number rows) and the cell's column, "Row 6 (Cost Basis)"; for a field
+ * no column shows, the row alone. */
+export function refusedCellPlace(sent: { row_number: number }[]): InputPlace {
+  return ([where, list, index, field]) => {
+    const row = where === "body" && list === "rows" && typeof index === "number" ? sent[index] : undefined;
+    if (!row) return null;
+    const column = typeof field === "string" ? COLUMN_HEADS.get(field) : undefined;
+    return column ? `Row ${row.row_number} (${column})` : `Row ${row.row_number}`;
+  };
 }
