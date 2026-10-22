@@ -251,8 +251,8 @@ From `backend/requirements.in`:
 
 | Package | Pinned | Risk | Notes |
 |---------|--------|------|-------|
-| `fastapi` | 0.143.0 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
-| `starlette` | 1.7.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event` |
+| `fastapi` | 0.143.5 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
+| `starlette` | 1.8.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event`. From 1.8 it needs Python ≥ 3.11 (#546). After an update, read its middleware, session, `StaticFiles`, `FileResponse` and request-body changes against AGENTS.md's "Security rules" |
 | `pydantic` | 2.14.1 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
 | `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
 | `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
