@@ -1,6 +1,5 @@
 // Settings' "Wallets, exchanges and banks" (spec 5.9): what its rows and texts
 // say, worked out from the account book. Pure: no React, no api.
-import axios from "axios";
 import { formatBtc, formatUsd, parseDecimal } from "./format";
 
 export const KIND_LABEL: Record<AccountKind, string> = {
@@ -59,12 +58,4 @@ export function addHelp(kind: YourKind, name: string): string | null {
 export function pooledNote(book: AccountBook, kind: YourKind): string | null {
   if (kind === "bank") return null;
   return book.some((account) => account.kind === kind && account.in_use) ? POOLED_NOTE[kind] : null;
-}
-
-/** The past-year warning's fingerprint (5.8; B6c's stub): a 409 whose body carries
- * `confirm` asks the owner first. Null for any other refusal or error. */
-export function pastYearsConfirm(error: unknown): string | null {
-  if (!axios.isAxiosError(error) || error.response?.status !== 409) return null;
-  const confirm: unknown = (error.response.data as { confirm?: unknown } | undefined)?.confirm;
-  return typeof confirm === "string" ? confirm : null;
 }

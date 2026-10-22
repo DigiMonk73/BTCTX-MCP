@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import { extractErrorMessage } from "../utils/apiError";
-import { balanceText, pastYearsConfirm, settingsAccounts, type YourKind } from "../utils/ledgerAccounts";
+import { balanceText, settingsAccounts, type YourKind } from "../utils/ledgerAccounts";
+import { confirmed } from "../utils/pastYears";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
+import { usePastYears } from "../utils/usePastYears";
 import AccountRow from "./ledgerAccounts/AccountRow";
 import AddAccount from "./ledgerAccounts/AddAccount";
 
@@ -10,23 +12,12 @@ const ADDED: YourKind[] = ["wallet", "exchange", "bank"];
 
 const NOT_CHANGED = "Not changed.";
 
-/** A PUT through the past-year warning (5.8; B6c's stub): a 409 asking to confirm
- * shows the server's sentence, and Yes sends the same change with ?confirm=. */
-async function putConfirmed(url: string, body: object): Promise<void> {
-  try {
-    await api.put(url, body);
-  } catch (error) {
-    const confirm = pastYearsConfirm(error);
-    if (confirm === null) throw error;
-    if (!window.confirm(extractErrorMessage(error))) throw new Error(NOT_CHANGED, { cause: error });
-    await api.put(url, body, { params: { confirm } });
-  }
-}
-
 /** Settings' "Wallets, exchanges and banks" (spec 5.9): your accounts, their
  * changes and the three Add buttons. Every change is one request, then the book again. */
 const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
   const { book, failed, reload } = useAccounts();
+  // The 1099-DA switch moves boxes: through the past-year warning (5.8; B6c's stub)
+  const pastYears = usePastYears();
   const [balances, setBalances] = useState<AccountBalance[]>([]);
 
   useEffect(() => {
@@ -67,8 +58,15 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   const rename = (account: LedgerAccount, name: string) =>
     write(() => api.put(`/accounts/${account.id}`, { name }), "Renamed.");
 
-  const switch1099da = (account: LedgerAccount, sends: boolean) =>
-    write(() => putConfirmed(`/accounts/${account.id}`, { sends_1099da: sends }), "Saved.");
+  const switch1099da = (account: LedgerAccount, sends: boolean) => {
+    const url = `/accounts/${account.id}`;
+    const put = (confirm?: string) =>
+      api.put(url, { sends_1099da: sends }, confirmed(confirm));
+    return write(async () => {
+      const saved = await pastYears.through(put, false);
+      if (saved === null) throw new Error(NOT_CHANGED);
+    }, "Saved.");
+  };
 
   return (
     <div className="settings-section" role="region" aria-label="Wallets, exchanges and banks">
@@ -97,6 +95,7 @@ const LedgerAccounts: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
           ))}
         </div>
       )}
+      {pastYears.dialog}
     </div>
   );
 };
