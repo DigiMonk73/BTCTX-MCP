@@ -54,18 +54,41 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
-- **With your own Mempool, a price looked up while its history is
-  downloading is found** (#535). With **My own Mempool** chosen, the first
-  past price BitcoinTX needs (on a fresh install, or 10 minutes after the
-  last download) downloads your Mempool's whole price history. Since
-  1.2.8, a second lookup made while that download was still running found
-  no price: "No BTC price is available for …; enter the USD value
-  yourself." (422), or "No price" in the Sats Converter's Date mode, until
-  tried again. Now it waits for that download (at most 3 minutes), sends
-  no request of its own, and takes its price from it. If your Mempool's
-  address or the price choice is saved while it waits, it goes by the new
-  settings. No figure was ever wrong: a value without a price was refused,
-  never saved at $0. Nothing to do.
+- **With your own Mempool, a value priced while its history was
+  downloading could take its day's price instead of its hour's** (tax
+  figures, #535). With **My own Mempool** chosen, the first past price
+  BitcoinTX needs (on a fresh install, or 10 minutes after the last
+  download) downloads your Mempool's whole price history. A price looked up
+  while that download was still running found nothing in it:
+  - For an hour whose day's price was already stored, BitcoinTX took that
+    day's 00:00 UTC price instead of the hour's. A value it filled in then
+    was saved at that price, marked as priced at the day: an income or
+    rebate deposit's value, a spend's proceeds, a gift's, donation's or
+    lost coins' value, a network fee's value.
+  - Otherwise the value was refused until tried again: "No BTC price is
+    available for …; enter the USD value yourself." (422), or "No price"
+    in the Sats Converter's Date mode.
+  - With the backup on, such a lookup asked the public sites instead of
+    your Mempool.
+
+  Now a lookup made while the download is running waits for it (at most 3
+  minutes), sends no request of its own, and takes its price from it. If
+  your Mempool's address or the price choice is saved while it waits, it
+  goes by the new settings.
+
+  **Affected:** 1.2.8 and 1.2.9 (since hourly prices), only with your own
+  Mempool as the price source. Any tax year with a value BitcoinTX priced
+  during such a download; a value you typed is never affected. **What to
+  do:** in Settings → **Ledger Review**, click **Check again**. "Values
+  priced at the day's price that the hour would change" lists them by tax
+  year, with every other value priced at the day. A change under $1.00
+  (a small fee's value, say) isn't listed by itself, but it's in its
+  year's totals. Tick the ones listed, or a whole year, and apply them
+  (**Apply to the ticked ones**, or **Apply to all of** the year, which
+  applies the smaller changes too). A backup copy is made first, then each
+  is priced at its hour and the ledger is recalculated. For a year you've
+  already filed, the check explains the choice: whether to amend is a
+  question for a tax professional.
 - **The log names every download of your Mempool's price history**
   (#557). The line "Price history from your mempool server: N days", which
   the StartOS instructions and the release tests look for, was written
