@@ -25,10 +25,10 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_ID_TO_NAME, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.database import is_busy, take_write_lock
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
@@ -39,6 +39,7 @@ from backend.schemas.entry_import import (
     FromPrice,
     SimulatedResult,
 )
+from backend.services.account import FIXED_BOOK, AccountBook, read_book
 from backend.services import hourly_prices, price_history
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
@@ -155,8 +156,10 @@ def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
     return view
 
 
-def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
-    """Validate every row with the CSV importer's rules (dates in tax timezone `tz`)."""
+def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | None = None) -> list[PreparedRow]:
+    """Validate every row with the CSV importer's rules (dates in tax timezone
+    `tz`, accounts in the ledger's `book`; without one, 1.x's accounts)."""
+    book = book or FIXED_BOOK
     prepared: list[PreparedRow] = []
     for i, row in enumerate(rows, start=1):
         str_row = {
@@ -176,7 +179,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
         }
         # The tax timezone: a date originally acquired given with a time is
         # its date there (#185); every row's own date is already in UTC
-        tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz)
+        tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz, book)
         error_msgs = [e.message for e in errors]
 
         if tx_data is not None and row.fee_usd is not None:
@@ -190,7 +193,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             fmv = _parse_decimal(number_text(row.fmv_usd), USD_PLACES)
             if fmv is None:
                 error_msgs.append(f"fmv_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
-            elif tx_data["type"] == "Withdrawal" and tx_data["from_account_id"] not in BTC_ACCOUNTS:
+            elif tx_data["type"] == "Withdrawal" and not book.is_btc(tx_data["from_account_id"]):
                 warnings.append(dollar_withdrawal_warning(i, "fmv_usd"))  # the save drops it (#449)
             else:
                 tx_data["fmv_usd"] = fmv
@@ -212,18 +215,18 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
 
 
 # FMV autofill
-def _autofill_target(tx_data: dict[str, Any]) -> str | None:
+def _autofill_target(tx_data: dict[str, Any], book: AccountBook) -> str | None:
     """
     Which USD field (if any) should be filled from the hour's BTC price. Only
-    BTC moves: a deposit into or withdrawal from Bank or Exchange USD is in
-    USD, so its amount times the BTC price means nothing.
+    BTC moves: a deposit into or withdrawal from a dollar account is in USD,
+    so its amount times the BTC price means nothing.
     """
     tx_type = tx_data["type"]
-    if tx_type == "Deposit" and tx_data["to_account_id"] in BTC_ACCOUNTS:
+    if tx_type == "Deposit" and book.is_btc(tx_data["to_account_id"]):
         source = normalized(tx_data.get("source"))
         if source in VALUED_AT_RECEIPT and tx_data.get("cost_basis_usd") is None:
             return "cost_basis_usd"
-    elif tx_type == "Withdrawal" and tx_data["from_account_id"] in BTC_ACCOUNTS:
+    elif tx_type == "Withdrawal" and book.is_btc(tx_data["from_account_id"]):
         purpose = normalized(tx_data.get("purpose"))
         if purpose == "spent" and tx_data.get("proceeds_usd") is None:
             return "proceeds_usd"
@@ -246,10 +249,11 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     the row gets a warning.
     """
     price_cache: dict[tuple, hourly_prices.Priced | None] = {}
+    book = read_book(db)
     for p in prepared:
         if p.tx_data is None:
             continue
-        target = _autofill_target(p.tx_data)
+        target = _autofill_target(p.tx_data, book)
         if target is None:
             continue
         # An inheritance is valued on the date of death (#154), anything else at its own time
@@ -305,13 +309,13 @@ def _label(value: str | None) -> str:
     return "" if text == "n/a" else text
 
 
-def _compared(item: RiverProposal | Transaction, name: str) -> str:
+def _compared(item: RiverProposal | Transaction, name: str, book: AccountBook) -> str:
     """A row's or a transaction's source or purpose as the duplicate check
     compares it (_label): a dollar withdrawal's bitcoin purpose (Spent,
     Gift, Donation, Lost) as none, since the save keeps none (#449) and an
     older save may have left one."""
     label = _label(getattr(item, name))
-    if name == "purpose" and item.type == "Withdrawal" and item.from_account_id not in BTC_ACCOUNTS \
+    if name == "purpose" and item.type == "Withdrawal" and not book.is_btc(item.from_account_id) \
             and label in ("spent", *GIFT_LIKE_PURPOSES):
         return ""
     return label
@@ -325,11 +329,13 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     fees."""
     if tx.type != row.type:
         return [f"recorded as a {tx.type}, not a {row.type}"]
+    session = object_session(tx)  # a transaction built outside one (a test's): 1.x's accounts
+    book = read_book(session) if session is not None else FIXED_BOOK
     out = _account_differences(row, tx)
     out += [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
-        if _compared(tx, name) != _compared(row, name)
+        if _compared(tx, name, book) != _compared(row, name, book)
     ]
     if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
         out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
