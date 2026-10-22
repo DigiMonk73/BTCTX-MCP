@@ -238,11 +238,12 @@ def test_the_tax_report_lists_the_value_with_its_price(auth_client):
     from backend.database import get_db
     from backend.main import app
     from backend.models.transaction import Transaction
+    from backend.services.account import read_book
     from backend.services.reports.reporting_core import _priced_values
     from backend.services.tax_time import get_tax_timezone
     db = next(app.dependency_overrides[get_db]())
     t = db.query(Transaction).filter(Transaction.type == "Withdrawal").one()
-    [(what, usd, which)] = list(_priced_values(t, get_tax_timezone(db)))
+    [(what, usd, which)] = list(_priced_values(t, get_tax_timezone(db), read_book(db)))
     assert what == "Value (fair market value)" and str(usd) == value("2026-05-01T12:00:00Z", "0.005")
     assert which.startswith("When its hour began")
     db.close()
