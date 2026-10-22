@@ -104,10 +104,16 @@ the hashes of what it fetches for an isolated build.
    from `requirements-dev.txt`), then
    `pip install --require-hashes -r backend/requirements.txt`.
 3. Run `make check`.
-4. If the package affects PDFs (pypdf, reportlab), open a generated Form 8949,
-   Schedule D and Complete Tax Report and look at them. `make test` also
-   reads the printed forms back (`test_printed_forms.py`), but not how the
-   page looks.
+4. If the package affects PDFs (pypdf, reportlab, Pillow), open a generated
+   Form 8949, Schedule D and Complete Tax Report and look at them. `make test`
+   also reads the printed forms back (`test_printed_forms.py`), but not how the
+   page looks. Compare them with the old version's too: load the reference
+   test ledger (`scripts/seed_ledger.py`) into a throwaway server
+   (`scripts/smoke_test.py --serve`) from `develop`'s environment and from
+   the update's, print the same years' PDFs from each, and compare them byte
+   for byte (the forms) and by text (the reports, whose "Generated" time
+   differs). `scripts/equivalence_check.py` can't: it runs both sides in one
+   environment, so it never sees a package change (#571).
 5. If it's a new package used by the backend, add it to `hiddenimports` in
    `desktop/BitcoinTX.spec`.
 6. Commit one package (or one coupled group) per commit, e.g.
@@ -258,7 +264,7 @@ From `backend/requirements.in`:
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
-| `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
+| `pypdf` | 6.21.2 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
