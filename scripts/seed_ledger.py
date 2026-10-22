@@ -112,6 +112,22 @@ def log_in(c: httpx.Client, user: str, password: str, setup_code: str | None) ->
         raise SeedError(f"login failed: {r.status_code} {r.text[:300]}")
 
 
+def post_confirmed(c: httpx.Client, row: dict) -> httpx.Response:
+    """The test ledger's rows are in earlier tax years, so a 2.0 server answers
+    each with the past-year warning's 409 (5.8): it's confirmed once, with the
+    fingerprint it gives. No switch turns the warning off on a running server."""
+    r = c.post("/api/transactions", json=row)
+    if r.status_code != 409:
+        return r
+    try:
+        confirm = r.json().get("confirm")
+    except (ValueError, AttributeError):
+        return r
+    if not isinstance(confirm, str):
+        return r
+    return c.post("/api/transactions", json=row, params={"confirm": confirm})
+
+
 def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
     """Create every row on a logged-in client; refuses a ledger that isn't
     empty. Returns how many were created."""
@@ -122,7 +138,7 @@ def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     rows = ledger_rows() if rows is None else rows
     for n, row in enumerate(rows, start=1):
-        r = c.post("/api/transactions", json=row)
+        r = post_confirmed(c, row)
         if r.status_code != 200:
             raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
                             f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
