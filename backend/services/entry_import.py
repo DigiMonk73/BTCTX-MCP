@@ -44,7 +44,8 @@ from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, 
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
 from backend.services.csv_import import (
-    _parse_date, _parse_decimal, _validate_row, dollar_withdrawal_warning, number_limits, number_text,
+    _amount_currency, _parse_date, _parse_decimal, _validate_row, dollar_withdrawal_warning, number_limits,
+    number_text,
 )
 from backend.unexpected_errors import log_unexpected
 from backend.services.river_import import (
@@ -526,7 +527,10 @@ def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool) -> str:
     if again:
         return (f"Already recorded as tx #{tx_id}, besides tx #{p.not_a_duplicate_of} the user said it isn't: left "
                 f"out (the same request sent twice, or another copy of this payout in the ledger).")
-    warning = (f"Already recorded as tx #{tx_id} (the same type, accounts, BTC amount, source or purpose, a "
+    # A dollar row's amount is dollars, as the similar-row note says it (#525)
+    tx = p.tx_data
+    unit = "dollar" if _amount_currency(tx["type"], tx["from_account_id"], tx["to_account_id"]) == "USD" else "BTC"
+    warning = (f"Already recorded as tx #{tx_id} (the same type, accounts, {unit} amount, source or purpose, a "
                f"Buy's cost basis, and time): left out. If the user says it's another transaction, send it with "
                f"not_a_duplicate_of: {tx_id}.")
     if p.not_a_duplicate_of is not None:

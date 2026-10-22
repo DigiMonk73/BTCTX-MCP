@@ -4,8 +4,10 @@ duplicate, its note called the dollars bitcoin: "Same BTC amount as tx #1
 (Deposit 500.00000000 BTC)" for a $500 deposit. The note is River's
 (river_import._match_similar, and _match_roughly's "Likely the same
 event"), whose file has no dollar rows. A dollar transaction's amount is
-said as dollars; a bitcoin one's as before. Only the words: the row is
-flagged and saved as it was.
+said as dollars; a bitcoin one's as before. The warning for a row already
+recorded said "the same type, accounts, BTC amount" for a dollar row too
+(#579's review): it says "dollar amount". Only the words: each row is
+flagged, saved or left out as it was.
 
 All rows are synthetic.
 """
@@ -69,6 +71,34 @@ def test_a_dollar_withdrawal_of_a_near_amount_is_said_in_dollars(client):
     assert result["matched_transaction_id"] == recorded
     assert f"Likely the same event as tx #{recorded} (Withdrawal $1,500.00) recorded with a different amount. " \
            "Saved unless you remove it." in result["warnings"]
+
+
+def preview(client, row: dict) -> dict:
+    r = client.post("/api/import/entries/preview", json={"rows": [row]})
+    assert r.status_code == 200, r.text
+    [result] = r.json()["results"]
+    return result
+
+
+def test_a_dollar_row_already_recorded_is_said_in_dollars(client):
+    """The review's reproduction: a recorded $1,500 deposit sent again."""
+    row = dict(INCOME, amount="1500")
+    [recorded] = execute(client, [row])
+    result = preview(client, row)
+    assert (result["status"], result["matched_transaction_id"]) == ("duplicate", recorded)
+    assert result["warnings"] == [
+        f"Already recorded as tx #{recorded} (the same type, accounts, dollar amount, source or purpose, a "
+        f"Buy's cost basis, and time): left out. If the user says it's another transaction, send it with "
+        f"not_a_duplicate_of: {recorded}."
+    ]
+
+
+def test_a_bitcoin_row_already_recorded_keeps_its_words(client):
+    payout = dict(INCOME, to_account="Wallet", amount="0.002", cost_basis_usd="200.00")
+    [recorded] = execute(client, [payout])
+    result = preview(client, payout)
+    assert result["status"] == "duplicate"
+    assert result["warnings"][0].startswith(f"Already recorded as tx #{recorded} (the same type, accounts, BTC amount,")
 
 
 def test_a_bitcoin_row_keeps_its_bitcoin_note(client):
