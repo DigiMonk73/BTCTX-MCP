@@ -119,8 +119,9 @@ the hashes of what it fetches for an isolated build.
 6. Commit one package (or one coupled group) per commit, e.g.
    `deps: update sqlalchemy 2.0.54 → 2.0.55`.
 
-To roll back, restore the previous `requirements.in` and `requirements.txt`
-from git, reinstall, and rerun `make check`.
+To roll back, `git revert` the update's commit (it brings back the pins and any
+test the update changed, such as ReportLab 5's refusal tests in
+`test_hardening_edges.py`), reinstall, and rerun `make check`.
 
 The indirect packages move only when a lock is recompiled and a pin needs
 it, so they are refreshed once a month: the first Monday's weekly check
@@ -194,7 +195,9 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
 - **Figures and forms.** An update to a package marked High in "Current
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
-  (`scripts/equivalence_check.py`) and waits for the owner's "merge".
+  in two environments (step 4 of "Updating a dependency":
+  `scripts/equivalence_check.py` can't see a package change) and waits for
+  the owner's "merge".
 
 A Dependabot branch behind `develop` is brought up to date by commenting
 "@dependabot rebase" on it, never by merging `develop` into it
