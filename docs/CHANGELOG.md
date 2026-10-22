@@ -25,9 +25,9 @@ All notable changes to BitcoinTX are documented in this file.
   "current Python version (3.10…) does not satisfy Python>=3.11"; run
   `uv python install 3.13` once and restart the AI app. CI tests 3.11 and
   3.13.
-- **ReportLab 5.0.1** (from 4.5.1), which draws the Complete Tax Report and
-  the transaction history PDF. ReportLab 5 trusts no web address unless
-  told to, and 5.0.1 checks the address a redirect leads to as well.
+- **ReportLab 5.0.1** (from 4.5.1, #585), which draws the Complete Tax
+  Report and the transaction history PDF. ReportLab 5 trusts no web address
+  unless told to, and 5.0.1 checks the address a redirect leads to as well.
   BitcoinTX trusted none already, and it still opens no file and fetches
   nothing while it draws a report, whatever text the ledger holds: that
   was checked again against ReportLab 5, and the tests now also watch that
