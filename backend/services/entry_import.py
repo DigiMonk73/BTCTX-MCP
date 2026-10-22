@@ -623,7 +623,7 @@ def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromP
     the AI connector (#208): its preview and add answers say which hour and
     source each came from. None when every value was given.
     """
-    values = values_from_price(tx)
+    values = values_from_price(tx, read_book(db))
     return FromPrice(values=values, **(price_used(tx, db, years) or {})) if values else None
 
 

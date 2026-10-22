@@ -15,6 +15,7 @@ from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE, normalized
 from backend.models.account import Account, Exchange
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
+from backend.services.account import AccountBook, read_book
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
 from backend.services.transaction import cost_left, counts_as_spent
 
@@ -105,7 +106,8 @@ def get_gains_and_losses(db: Session) -> dict:
     """
     gains = _realized_gains(db.query(LotDisposal).all())
     transactions = db.query(Transaction).all()
-    proceeds = _proceeds(transactions)
+    book = read_book(db)
+    proceeds = _proceeds(transactions, book)
     deposit_usd, deposit_btc = _deposits_by_source(transactions)
     fees_usd, fees_btc = _fees(transactions)
     short_term_net = gains["short_term_gains"] - gains["short_term_losses"]
@@ -167,7 +169,7 @@ def _realized_gains(disposals: list[LotDisposal]) -> dict[str, Decimal]:
     return totals
 
 
-def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
+def _proceeds(transactions: list[Transaction], book: AccountBook) -> dict[str, Decimal]:
     """What Sells and Spent withdrawals of bitcoin brought in, after their
     fees (a BTC withdrawal of unknown purpose counts as Spent, #61; a dollar
     withdrawal is none, whatever purpose an older save left on it, #449)."""
@@ -178,7 +180,7 @@ def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
         tx_type = tx.type.lower()
         if tx_type == "sell":
             totals["sell"] += Decimal(str(tx.proceeds_usd))
-        elif tx_type == "withdrawal" and counts_as_spent(tx):
+        elif tx_type == "withdrawal" and counts_as_spent(tx, book):
             totals["spent"] += Decimal(str(tx.proceeds_usd))
     return totals
 

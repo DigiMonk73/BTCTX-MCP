@@ -22,6 +22,7 @@ from backend.schemas.transaction import (
 from backend.services import past_year_saves
 from backend.services import transaction as tx_service
 from backend.services import wipe
+from backend.services.account import read_book
 from backend.services.past_years import PastYearsChange
 from backend.database import get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
@@ -37,15 +38,14 @@ _now = time.time  # tests move the clock
 _ai_change_copy = threading.Lock()
 
 
-def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
+def _attach_utc_and_build_read_model(tx, db: Session, years: dict | None = None) -> TransactionRead:
     """The transaction as TransactionRead, its UTC times written with 'Z'
     rather than '+00:00', which values BitcoinTX filled in from a price, and
     the stored price they came from (price_used; read only, never asked for)."""
     pyd_model = TransactionRead.model_validate(tx)
     data = pyd_model.model_dump()
-    data["values_from_price"] = tx_service.values_from_price(tx)
-    if db is not None:
-        data["price_used"] = tx_service.price_used(tx, db, years)
+    data["values_from_price"] = tx_service.values_from_price(tx, read_book(db))
+    data["price_used"] = tx_service.price_used(tx, db, years)
 
     for field in ["timestamp", "created_at", "updated_at"]:
         val = data.get(field)
