@@ -2673,20 +2673,10 @@ def _enforce_transaction_type_rules(tx_data: dict, db: Session):
             raise HTTPException(400, "Transfer => same currency required.")
 
 
-def delete_all_transactions(db: Session) -> int:
-    """
-    Bulk cleanup: remove all transactions (and references).
-    Return how many were deleted.
-    """
-    count = remove_all_transactions(db)
-    db.commit()
-    return count
-
-
 def remove_all_transactions(db: Session) -> int:
     """Every transaction (and its references) removed in db's transaction,
-    uncommitted, so another change can be saved in the same commit; how
-    many."""
+    uncommitted, so another change can be saved in the same commit (Delete
+    All's caller commits: services/wipe.py); how many."""
     all_txs = db.query(Transaction).all()
     for tx in all_txs:
         db.delete(tx)
