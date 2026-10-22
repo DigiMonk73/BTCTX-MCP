@@ -38,14 +38,9 @@ def note_once(db: Session) -> None:
     if db.get(AppSetting, KEY) is not None:
         return
     old = old_accounts(db)
-    # An empty set is not an IN (): a ledger with none of these accounts stores []
-    ids = [
-        tx_id
-        for (tx_id,) in db.query(Transaction.id)
-        .filter(Transaction.from_account_id.in_(old) | Transaction.to_account_id.in_(old))
-        .order_by(Transaction.id)
-    ] if old else []
-    save_setting(db, KEY, json.dumps(ids))
+    rows = db.query(Transaction.id).filter(
+        Transaction.from_account_id.in_(old) | Transaction.to_account_id.in_(old)).order_by(Transaction.id)
+    save_setting(db, KEY, json.dumps([tx_id for (tx_id,) in rows]))
 
 
 def listed(db: Session) -> list[int]:
