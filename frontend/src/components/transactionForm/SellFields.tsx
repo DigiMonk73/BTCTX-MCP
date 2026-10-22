@@ -1,23 +1,24 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { exchangeName, sellExchanges } from "../../utils/accounts";
+import AccountPicker from "./AccountPicker";
 import BrokerReportingField from "./BrokerReportingField";
 
 /** A Sell on the exchange: the BTC sold, its gross proceeds and the fee. */
-const SellFields: React.FC = () => {
+const SellFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, formState: { errors } } = useFormContext<TransactionFormData>();
   return (
     <>
-      <div className="field">
-        <label htmlFor="tx-account">Account</label>
-        <input
-          id="tx-account"
-          type="text"
-          className="input"
-          value="Exchange"
-          {...register("account")}
-          readOnly
-        />
-      </div>
+      <AccountPicker
+        id="tx-account"
+        label="Account"
+        field="fromAccountId"
+        book={book}
+        choices={(saved) => sellExchanges(book, saved)}
+        placeholder="Select Exchange"
+        requiredMessage="Please select an exchange"
+        optionLabel={(id) => exchangeName(book, id)}
+      />
 
       <div className="field">
         <label htmlFor="tx-amount-btc">Amount BTC</label>

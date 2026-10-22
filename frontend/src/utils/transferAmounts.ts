@@ -24,20 +24,22 @@ export function pastTheCent(amount: number): boolean {
  * is the amount saved, so it must be more than 0.
  */
 export function transferAmountProblem(
-  data: Pick<TransactionFormData, "fromAccount" | "fromCurrency" | "toAccount" | "amountFrom" | "amountTo">,
+  data: Pick<TransactionFormData, "fromAccountId" | "toAccountId" | "amountFrom" | "amountTo">,
+  currency: Currency | undefined,
   field: "amountFrom" | "amountTo",
 ): string | null {
   const from = parseDecimal(data.amountFrom);
   const to = parseDecimal(data.amountTo);
-  if (data.fromCurrency === "USD" && pastTheCent(parseDecimal(data[field]))) {
+  if (currency === "USD" && pastTheCent(parseDecimal(data[field]))) {
     return "A USD amount can have at most 2 decimal places.";
   }
   if (field === "amountFrom") return null;
   if (to > from) {
     return "Amount (To) can't be more than Amount (From): it's what arrived, Amount (From) less the fee.";
   }
-  if (data.fromCurrency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
-  if (data.fromCurrency === "BTC" && data.toAccount === data.fromAccount && !(to < from)) {
+  if (currency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
+  // Only a bitcoin account sent to itself records nothing but the network fee (#159).
+  if (currency === "BTC" && data.toAccountId === data.fromAccountId && !(to < from)) {
     return "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).";
   }
   return null;

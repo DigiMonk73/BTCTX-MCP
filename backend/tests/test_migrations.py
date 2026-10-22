@@ -228,7 +228,7 @@ def test_dev_build_database_with_app_settings_keeps_its_settings(v070):
     con.close()
 
     init_db(engine_for(v070))
-    assert q(v070, "SELECT value FROM app_settings") == [("America/Denver",)]
+    assert q(v070, "SELECT value FROM app_settings WHERE key = 'tax_timezone'") == [("America/Denver",)]
 
 
 def test_foreign_database_is_refused(tmp_path):

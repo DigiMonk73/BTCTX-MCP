@@ -48,7 +48,7 @@ test("rows show account, amounts, fee, source and gain", async ({ authedPage: pa
   await expect(sell2).toContainText("Gain +$7,000.00 \u00b7 +350.00% \u00b7 Long-term");
 
   const transfer = rows.filter({ hasText: "Transfer" });
-  await expect(transfer).toContainText("Exchange \u2192 Wallet");
+  await expect(transfer).toContainText("Exchange BTC \u2192 Wallet");
   await expect(transfer).toContainText("0.50000000 BTC");
   await expect(transfer).toContainText("Fee 0.00010000 BTC");
 

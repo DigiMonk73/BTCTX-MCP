@@ -27,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
+from backend.services.account import read_book
 from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS
 from backend.routers.transaction import _copy_before_ai_changes
@@ -146,7 +147,7 @@ async def preview_entries(
     ai = _with_ai_key(request)
     _check_size(payload, ai)
 
-    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), read_book(db))
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
     await autofill_fmv(prepared, db)
@@ -214,7 +215,7 @@ async def execute_entries(
     ai = _with_ai_key(request)
     _check_size(payload, ai)
 
-    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), read_book(db))
     invalid = [p.result for p in prepared if p.result.status == STATUS_INVALID]
     if invalid:
         raise refusal(invalid)

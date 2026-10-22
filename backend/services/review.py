@@ -2,7 +2,8 @@
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
 what looks odd and what would change if the owner acts on it, and gives
-its amount with its unit (`unit`: BTC, or USD for a move of dollars).
+its amount with its unit (`unit`: BTC, or USD for a move of dollars), and
+its accounts by nickname (`accounts`, from then to; never External: B8-5).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
@@ -13,6 +14,13 @@ Checks:
   side is in no balance; one between the owner's account and a missing one
   stops every replay (transaction.AccountMissing names it), so every save
   that recalculates, until it's edited into an account or deleted.
+- account_from_before_0_9_2 (5.13, the owner's decision S7): a transaction
+  naming an account made through 1.x's account API (an id from 7 to 98),
+  which only a BitcoinTX before 0.9.2 could save. 1.x's checks by number
+  left it out of income and the like; 2.0 counts it by its account's
+  currency (B3). Only the rows on the list the ledger kept at its first 2.0
+  start (`accounts_old_rows`, written by database.seed_defaults); saving
+  such a row, even unchanged, or deleting it takes it off.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -100,13 +108,15 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, object_session
 
-from backend.constants import ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.database import scratch_copy
+from backend.models.account import Account
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
-from backend.services import hourly_prices, price_history
+from backend.services import hourly_prices, old_rows, price_history
 from backend.services.hourly_review import hourly_changes
+from backend.services.account import YOURS, AccountBook, read_book
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
@@ -114,14 +124,17 @@ from backend.unexpected_errors import log_unexpected
 
 logger = logging.getLogger(__name__)
 
-USD_ACCOUNTS = (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD)
-
 # What the check says when the dry run fails on something that isn't a
 # refusal of its own (a bug, a database error): plain words, never SQL; the
 # log has the details. Like every recalc_error, it follows "Recalculate
 # Ledger would stop with:" (the Settings panel, cli review)
 RECALC_STOPS = "Recalculate Ledger would stop with:"
 DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
+
+# account_from_before_0_9_2's item (5.13)
+OLD_ROW_ISSUE = ("Saved before 0.9.2 into an account made through the old account API; 2.0 counts it by that "
+                 "account's currency.")
+OLD_ROW_CHANGE = "Saving it, even unchanged, takes it off this list."
 
 
 # key -> (title, what the owner can do)
@@ -134,6 +147,12 @@ CHECKS: dict[str, tuple] = {
         "Recalculate Ledger. Edit each into one of your accounts, or delete it. If more than one stops saves, fix "
         "them one at a time: an edit or a delete of one goes past the others. Until the last is fixed, figures "
         "can be off, so fix them all before relying on a report.",
+    ),
+    "account_from_before_0_9_2": (
+        "Transactions in an account made through BitcoinTX's old account API",
+        "BitcoinTX 1.x left these out of income and some other checks; 2.0 counts them by their account's "
+        "currency, so their figures can differ from your 1.x reports. Check each one, and edit it into the right "
+        "account if needed. Saving it, even unchanged, takes it off this list.",
     ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
@@ -268,28 +287,42 @@ def _money(value) -> str | None:
 
 
 def _item(t: Transaction, tz, issue: str, change: str) -> dict[str, Any]:
+    sides = _sides(t)
+    in_dollars = _in_dollars(t, sides)
     return {
         "id": t.id,
         "date": as_utc(t.timestamp).astimezone(tz).strftime("%Y-%m-%d %H:%M"),
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": _money(t.amount) if _in_dollars(t) else btc_text(t.amount),
-        "unit": "USD" if _in_dollars(t) else "BTC",
+        "amount": _money(t.amount) if in_dollars else btc_text(t.amount),
+        "unit": "USD" if in_dollars else "BTC",
+        "accounts": [a.name for a in sides if a is not None],
         "realized_gain_usd": _money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
 
 
-def _in_dollars(t: Transaction) -> bool:
+def _sides(t: Transaction) -> tuple[Account | None, Account | None]:
+    """Its accounts from the book (5.13, B8-5), from then to: None for External,
+    a missing id or a fee account (the owner's accounts only)."""
+    db = object_session(t)
+
+    def yours(account_id: int | None) -> Account | None:
+        account = db.get(Account, account_id) if db is not None and account_id is not None else None
+        return account if account is not None and account.kind in YOURS else None
+
+    return yours(t.from_account_id), yours(t.to_account_id)
+
+
+def _in_dollars(t: Transaction, sides: tuple[Account | None, Account | None]) -> bool:
     """Whether its amount is dollars: a deposit, withdrawal or transfer that
-    no bitcoin account is part of, with Bank or Exchange USD on a side. A
-    Buy's and a Sell's amount is bitcoin; so, unknown, is one naming only
-    External and missing accounts."""
-    sides = (t.from_account_id, t.to_account_id)
-    return t.type not in ("Buy", "Sell") and not any(a in BTC_ACCOUNTS for a in sides) \
-        and any(a in USD_ACCOUNTS for a in sides)
+    no bitcoin account is part of, with a dollar account (a bank, an
+    exchange's USD) on a side, by the book. A Buy's and a Sell's amount is
+    bitcoin; so, unknown, is one naming only External and missing accounts."""
+    currencies = {a.currency for a in sides if a is not None}
+    return t.type not in ("Buy", "Sell") and "BTC" not in currencies and "USD" in currencies
 
 
 def _market_price(db: Session, t: Transaction, missing: list[int]):
@@ -434,10 +467,12 @@ def build_review(db: Session) -> dict[str, Any]:
         .all()
     )
     found: dict[str, list[dict[str, Any]]] = {key: [] for key in CHECKS}
+    book = read_book(db)
     for t in rows:
-        for key, item in _row_issues(t, tz):
+        for key, item in _row_issues(t, tz, book):
             found[key].append(item)
     found["account_missing"] = _account_missing_items(db, tz)
+    found["account_from_before_0_9_2"] = _old_account_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
@@ -464,11 +499,11 @@ def build_review(db: Session) -> dict[str, Any]:
     }
 
 
-def _row_issues(t: Transaction, tz):
+def _row_issues(t: Transaction, tz, book: AccountBook):
     """(check, item) for each check a withdrawal, deposit or buy fails on its own."""
-    yield from _purpose_issues(t, tz)
+    yield from _purpose_issues(t, tz, book)
     # Only bitcoin leaving has a bitcoin purpose: a dollar withdrawal's is one an older save left there (#449)
-    purpose = normalized(t.purpose) if t.from_account_id in BTC_ACCOUNTS else ""
+    purpose = normalized(t.purpose) if book.is_btc(t.from_account_id) else ""
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0 and received_known(t):  # else listed as an unknown purpose
         yield "zero_proceeds_spend", _item(
@@ -482,14 +517,12 @@ def _row_issues(t: Transaction, tz):
             t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
+    into_btc = t.type == "Deposit" and book.is_btc(t.to_account_id)
+    if into_btc and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
+    if into_btc and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
         yield "inherited_without_date", _item(t, tz, "No date of death.", "")
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
+    if into_btc and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _no_basis_item(t, tz)
     if t.type == "Buy" and _is_zero_or_blank(t.cost_basis_usd):
         yield "buy_without_basis", _no_basis_item(t, tz)
@@ -503,9 +536,9 @@ def _no_basis_item(t: Transaction, tz) -> dict[str, Any]:
     )
 
 
-def _purpose_issues(t: Transaction, tz):
+def _purpose_issues(t: Transaction, tz, book: AccountBook):
     """A BTC withdrawal with a purpose BitcoinTX doesn't know (#61)."""
-    if t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS \
+    if t.type == "Withdrawal" and book.is_btc(t.from_account_id) \
             and (normalized(t.purpose) not in KNOWN_PURPOSES or _spaced_spent_unknown(t)):
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
         yield "withdrawal_purpose_unknown", _item(
@@ -534,6 +567,23 @@ def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
     )
     return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
                   "Edit it into one of your accounts, or delete it.") for t in rows]
+
+
+def _old_account_items(db: Session, tz) -> list[dict[str, Any]]:
+    """Each row on the ledger's list from before 0.9.2 (old_rows). One that
+    also names a missing account is account_missing's, so no row is listed
+    twice."""
+    ids = old_rows.listed(db)
+    if not ids:
+        return []
+    known = known_accounts(db)
+    rows = (
+        db.query(Transaction)
+        .filter(Transaction.id.in_(ids))
+        .order_by(Transaction.timestamp, Transaction.id)
+        .all()
+    )
+    return [_item(t, tz, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows if not missing_accounts(t, known)]
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:
@@ -648,9 +698,9 @@ def _day_priced_item(t: Transaction, tz, change: dict[str, Any]) -> dict[str, An
     return item
 
 
-def _is_valued_deposit(t: Transaction) -> bool:
+def _is_valued_deposit(t: Transaction, book: AccountBook) -> bool:
     """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in DAY_VALUED
+    return t.type == "Deposit" and book.is_btc(t.to_account_id) and normalized(t.source) in DAY_VALUED
 
 
 def _is_income(t: Transaction) -> bool:
@@ -662,8 +712,9 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
     value when the price is known; the ids of those with no price go to
     `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (_is_valued_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
+        if not (_is_valued_deposit(t, book) and _is_zero_or_blank(t.cost_basis_usd)):
             continue
         income = _is_income(t)
         issue = ("Basis blank" if t.cost_basis_usd is None else "Basis $0.00") + (
@@ -688,8 +739,9 @@ def _gift_without_value_items(db: Session, rows: list[Transaction], tz, missing:
     hour's value when the price is known; the ids of those with no price go
     to `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
+        if not (t.type == "Withdrawal" and book.is_btc(t.from_account_id)
                 and normalized(t.purpose) in GIFT_LIKE_PURPOSES and _is_zero_or_blank(t.fmv_usd)):
             continue
         issue = "Value blank: the tax report lists it as not given" if t.fmv_usd is None else "Value $0.00"
@@ -710,8 +762,9 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
     (a value from a price is day_priced_values'); the ids of those with no
     price go to `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (_is_valued_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)) or t.cost_basis_from_price:
+        if not (_is_valued_deposit(t, book) and not _is_zero_or_blank(t.cost_basis_usd)) or t.cost_basis_from_price:
             continue
         market = _market_price(db, t, missing)
         if market is None:

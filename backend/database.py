@@ -122,6 +122,10 @@ def get_db():
         db.close()
 
 
+# Marks a scratch copy's session (scratch_copy): what's written there is thrown away.
+SCRATCH = "btctx_scratch_copy"
+
+
 @contextmanager
 def scratch_copy(db: Session) -> Iterator[Session]:
     """
@@ -141,6 +145,7 @@ def scratch_copy(db: Session) -> Iterator[Session]:
         try:
             scratch = Session(bind=engine)
             try:
+                scratch.info[SCRATCH] = True
                 yield scratch
             finally:
                 scratch.close()
@@ -185,22 +190,24 @@ def was_replaced(error: Exception) -> bool:
 
 
 FIXED_ACCOUNTS = [
-    {"id": 1, "name": "Bank", "currency": "USD"},
-    {"id": 2, "name": "Wallet", "currency": "BTC"},
-    {"id": 3, "name": "Exchange USD", "currency": "USD"},
-    {"id": 4, "name": "Exchange BTC", "currency": "BTC"},
-    {"id": 5, "name": "BTC Fees", "currency": "BTC"},
-    {"id": 6, "name": "USD Fees", "currency": "USD"},
+    {"id": 1, "name": "Bank", "currency": "USD", "kind": "bank", "exchange_id": None},
+    {"id": 2, "name": "Wallet", "currency": "BTC", "kind": "wallet", "exchange_id": None},
+    {"id": 3, "name": "Exchange USD", "currency": "USD", "kind": "exchange", "exchange_id": 1},
+    {"id": 4, "name": "Exchange BTC", "currency": "BTC", "kind": "exchange", "exchange_id": 1},
+    {"id": 5, "name": "BTC Fees", "currency": "BTC", "kind": "fee", "exchange_id": None},
+    {"id": 6, "name": "USD Fees", "currency": "USD", "kind": "fee", "exchange_id": None},
 ]
 
 
 def seed_defaults(bind=None) -> None:
     """
     Default user 'admin' / 'password' (only if no user exists) and the six
-    fixed accounts (IDs 1-6), tied to the first user. Idempotent.
+    fixed accounts (IDs 1-6), tied to the first user; the list of rows from
+    before 0.9.2, once (services/old_rows.py). Idempotent.
     """
     from backend.models.user import User
-    from backend.models.account import Account
+    from backend.models.account import Account, Exchange
+    from backend.services import old_rows
 
     db = sessionmaker(bind=bind or engine)()
     try:
@@ -214,14 +221,22 @@ def seed_defaults(bind=None) -> None:
             db.add(user)
             db.flush()
 
+        # Exchange 1, 1.x's exchange (spec 5.2): its accounts 3 and 4 name it
+        if db.get(Exchange, 1) is None:
+            db.add(Exchange(id=1, name="Exchange", sends_1099da=True))
         for acct in FIXED_ACCOUNTS:
             existing = db.get(Account, acct["id"])
             if existing:
-                existing.name = acct["name"]
+                # 1 to 4 keep the owner's nickname (5.1, B8-5r); the fee accounts never change theirs
+                if acct["kind"] == "fee" or not existing.name:
+                    existing.name = acct["name"]
                 existing.currency = acct["currency"]
+                existing.kind = acct["kind"]
+                existing.exchange_id = acct["exchange_id"]
                 existing.user_id = user.id
             else:
                 db.add(Account(user_id=user.id, **acct))
+        old_rows.note_once(db)
         db.commit()
 
         found_ids = {a.id for a in db.query(Account).all()}

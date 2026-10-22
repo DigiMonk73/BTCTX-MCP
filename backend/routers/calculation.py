@@ -27,7 +27,8 @@ def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> d
 
 @router.get("/accounts/balances")
 def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
-    """Every account's balance: [{"account_id", "name", "currency", "balance"}]."""
+    """Every account's balance: [{"account_id", "name", "currency", "balance",
+    "kind", "exchange_id", "exchange", "hidden"}] (5.13: the dashboard's rows by kind)."""
     results = get_all_account_balances(db)
     for item in results:
         item["balance"] = float(item["balance"])

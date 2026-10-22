@@ -1,15 +1,20 @@
-import React from "react";
-import { useFormContext, type RegisterOptions } from "react-hook-form";
+import React, { useEffect } from "react";
+import { useFormContext } from "react-hook-form";
+import {
+  accountCurrency,
+  accountKind,
+  accountName,
+  chosenId,
+  isBtcAccount,
+  transferTargets,
+  visibleAccounts,
+} from "../../utils/accounts";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
-import { transferDestinations } from "../../utils/transferAccounts";
-import { transferAmountProblem } from "../../utils/transferAmounts";
+import { btcText, parseDecimal } from "../../utils/format";
+import { dollarTransferFee, transferAmountProblem } from "../../utils/transferAmounts";
+import AccountPicker from "./AccountPicker";
 import FeeValueField from "./FeeValueField";
 
-// A BTC account sent to itself (#159): how the choice reads, and what it records
-const WITHIN_LABEL: Partial<Record<AccountType, string>> = {
-  Wallet: "Wallet: consolidate / move within the same wallet",
-  Exchange: "Exchange: move between exchanges BitcoinTX counts as one",
-};
 const WITHIN_HINT =
   "Only the network fee is recorded: it's a disposal of your oldest coins at the fee's value (Form 8949, " +
   "box I or L; C or F before 2025). Your coins, their dates and cost basis stay as they are.";
@@ -18,106 +23,62 @@ const BETWEEN_EXCHANGES_HINT =
   "A later sale at the exchange the coins moved to usually shows no basis on its 1099-DA: set that sale's " +
   "Broker form to Proceeds only.";
 
-/** The destination: a choice when a BTC account can also send to itself (#159). */
-const ToAccountField: React.FC = () => {
-  const { register, watch } = useFormContext<TransactionFormData>();
-  const fromAccount = watch("fromAccount");
-  const fromCurrency = watch("fromCurrency");
-  const toAccount = watch("toAccount");
-  const destinations = transferDestinations(fromAccount, fromCurrency);
-  const within = fromCurrency === "BTC" && !!fromAccount && toAccount === fromAccount;
-  return (
-    <div className="field">
-      <label htmlFor="tx-to-account">To Account</label>
-      {destinations.length > 1 ? (
-        <select id="tx-to-account" className="input" {...register("toAccount", { deps: ["amountTo"] })}>
-          {destinations.map((account) => (
-            <option key={account} value={account}>
-              {account === fromAccount ? WITHIN_LABEL[account] : account}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          id="tx-to-account"
-          type="text"
-          className="input"
-          {...register("toAccount")}
-          readOnly
-        />
-      )}
-      {within && <small className="field-hint">{WITHIN_HINT}</small>}
-      {within && fromAccount === "Exchange" && <small className="field-hint">{BETWEEN_EXCHANGES_HINT}</small>}
-      {!within && toAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
-    </div>
-  );
-};
+/** What left less what arrived. A bitcoin fee stays plain sats
+ * ("0.00000014", never "1.4e-7", #101); a dollar fee is the cent figure
+ * the save sends (0.30 and 0.10 are 0.2, #447). The effect depends on the
+ * currency string, never the book, so a new book object can't loop it. */
+function useTransferFee(book: AccountBook): void {
+  const { watch, setValue } = useFormContext<TransactionFormData>();
+  const currency = accountCurrency(book, chosenId(watch("fromAccountId")));
+  const amountFrom = parseDecimal(watch("amountFrom")) || 0;
+  const amountTo = parseDecimal(watch("amountTo")) || 0;
+
+  useEffect(() => {
+    if (currency === "BTC") {
+      const fee = amountFrom - amountTo;
+      setValue("fee", fee < 0 ? 0 : btcText(fee)); // "0.00000014", never "1.4e-7" (#101)
+    } else if (currency === "USD") {
+      setValue("fee", Math.max(dollarTransferFee(amountFrom, amountTo), 0)); // the one the save sends (#447)
+    }
+  }, [currency, amountFrom, amountTo, setValue]);
+}
 
 /**
- * A transfer between the user's accounts: the destination follows from the
- * source (useFieldAutofill; a BTC one can also be the same account, a
- * consolidation), and the fee is what was sent less what arrived, in bitcoin
- * or in dollars (#447).
+ * A transfer between the owner's accounts (5.13). To lists accounts of the
+ * same currency; the same account is offered only when it holds bitcoin, as
+ * a consolidation. The fee is what left less what arrived (#447, #159).
  */
-const TransferFields: React.FC = () => {
-  const { register, watch, setValue, getValues, formState: { errors } } = useFormContext<TransactionFormData>();
-  const fromAccount = watch("fromAccount");
-  const fromCurrency = watch("fromCurrency");
-  // Another source: its usual destination, not the old one. Set here, not left
-  // to useFieldAutofill: a destination select that mounts without a value
-  // takes its first option in the form's values without a re-render, and
-  // the form would show a destination it didn't know about
-  const newSource = {
-    deps: ["amountFrom", "amountTo"],  // messages about the old source go
-    onChange: () => {
-      const { fromAccount: account, fromCurrency: currency } = getValues();
-      setValue("toAccount", transferDestinations(account, currency)[0]);
-    },
-  } satisfies Pick<RegisterOptions<TransactionFormData>, "deps" | "onChange">;
+const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
+  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  useTransferFee(book);
+  const fromId = chosenId(watch("fromAccountId"));
+  const toId = chosenId(watch("toAccountId"));
+  const currency = accountCurrency(book, fromId);
+  const within = toId === fromId && isBtcAccount(book, fromId);
   return (
     <>
-      <div className="field">
-        <label htmlFor="tx-from-account">From Account</label>
-        <select
-          id="tx-from-account"
-          className="input"
-          {...register("fromAccount", { required: true, ...newSource })}
-        >
-          <option value="">Select From Account</option>
-          <option value="Bank">Bank Account</option>
-          <option value="Wallet">Bitcoin Wallet</option>
-          <option value="Exchange">Exchange</option>
-        </select>
-        {errors.fromAccount && (
-          <span className="field-error">From Account is required</span>
-        )}
-        {fromAccount === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
-      </div>
+      <AccountPicker
+        id="tx-from-account"
+        label="From Account"
+        field="fromAccountId"
+        book={book}
+        choices={(saved) => visibleAccounts(book, saved)}
+        placeholder="Select From Account"
+        requiredMessage="From Account is required"
+        deps={["amountFrom", "amountTo"]}
+      >
+        {accountKind(book, fromId) === "wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
+      </AccountPicker>
 
       <div className="field">
         <label htmlFor="tx-from-currency">From Currency</label>
-        {fromAccount === "Exchange" ? (
-          <select
-            id="tx-from-currency"
-            className="input"
-            {...register("fromCurrency", { required: true, ...newSource })}
-          >
-            <option value="">Select Currency</option>
-            <option value="USD">USD</option>
-            <option value="BTC">BTC</option>
-          </select>
-        ) : (
-          <input
-            id="tx-from-currency"
-            type="text"
-            className="input"
-            {...register("fromCurrency")}
-            readOnly
-          />
-        )}
-        {errors.fromCurrency && (
-          <span className="field-error">From Currency is required</span>
-        )}
+        <input
+          id="tx-from-currency"
+          type="text"
+          className="input"
+          value={currency ?? ""}
+          readOnly
+        />
       </div>
 
       <div className="field">
@@ -131,15 +92,38 @@ const TransferFields: React.FC = () => {
             required: "Amount (From) is required",
             valueAsNumber: true,
             deps: "amountTo",
-            validate: (_v, values) => transferAmountProblem(values, "amountFrom") ?? true,
+            validate: (_v, values) =>
+              transferAmountProblem(values, accountCurrency(book, values.fromAccountId), "amountFrom") ?? true,
           })}
         />
         {errors.amountFrom && (
-          <span className="field-error">{errors.amountFrom.message || "Amount (From) is required"}</span>
+          <span className="field-error">{errors.amountFrom.message}</span>
         )}
       </div>
 
-      <ToAccountField />
+      <AccountPicker
+        id="tx-to-account"
+        label="To Account"
+        field="toAccountId"
+        book={book}
+        choices={(saved) => transferTargets(book, fromId, saved)}
+        placeholder="Select To Account"
+        requiredMessage="To Account is required"
+        optionLabel={(id) => (id === fromId ? `Consolidation: ${accountName(book, id)}` : accountName(book, id))}
+        deps={["amountTo"]}
+      >
+        {within && (
+          <>
+            <small className="field-hint">{WITHIN_HINT}</small>
+            {accountKind(book, fromId) === "exchange" && (
+              <small className="field-hint">{BETWEEN_EXCHANGES_HINT}</small>
+            )}
+          </>
+        )}
+        {toId !== fromId && accountKind(book, toId) === "wallet" && (
+          <small className="field-hint">{ONE_WALLET_HINT}</small>
+        )}
+      </AccountPicker>
 
       <div className="field">
         <label htmlFor="tx-to-currency">To Currency</label>
@@ -147,7 +131,7 @@ const TransferFields: React.FC = () => {
           id="tx-to-currency"
           type="text"
           className="input"
-          {...register("toCurrency")}
+          value={accountCurrency(book, toId) ?? ""}
           readOnly
         />
       </div>
@@ -162,15 +146,16 @@ const TransferFields: React.FC = () => {
           {...register("amountTo", {
             required: "Amount (To) is required",
             valueAsNumber: true,
-            validate: (_v, values) => transferAmountProblem(values, "amountTo") ?? true,
+            validate: (_v, values) =>
+              transferAmountProblem(values, accountCurrency(book, values.fromAccountId), "amountTo") ?? true,
           })}
         />
         {errors.amountTo && (
-          <span className="field-error">{errors.amountTo.message || "Amount (To) is required"}</span>
+          <span className="field-error">{errors.amountTo.message}</span>
         )}
       </div>
 
-      {fromCurrency === "BTC" ? (
+      {currency === "BTC" ? (
         <>
           <div className="field">
             <label htmlFor="tx-fee-btc">Fee (BTC)</label>

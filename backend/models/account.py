@@ -5,9 +5,20 @@ the user. Transactions name it as their from or to side; the ledger lines
 built from them debit or credit it.
 """
 
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey, false, true
 from sqlalchemy.orm import relationship
 from backend.database import Base
+
+
+class Exchange(Base):
+    """An exchange (spec 5.2): its two accounts, "<name> USD" and "<name> BTC",
+    share its id. Exchange 1 is 1.x's, "Exchange"."""
+    __tablename__ = "exchanges"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(collation="NOCASE"), nullable=False, unique=True)
+    # "This exchange sends me a Form 1099-DA" (5.9): on by default
+    sends_1099da = Column(Boolean, nullable=False, default=True, server_default=true())
 
 
 class Account(Base):
@@ -21,6 +32,12 @@ class Account(Base):
 
     # "USD" or "BTC"
     currency = Column(String, nullable=False, default="USD")
+
+    # Spec 5.2: "bank", "wallet", "exchange" or "fee"; an exchange's two
+    # accounts name their exchange; a hidden one is left out of the pickers
+    kind = Column(String, nullable=True)
+    exchange_id = Column(Integer, nullable=True)  # exchanges.id
+    hidden = Column(Boolean, nullable=False, default=False, server_default=false())
 
     user = relationship(
         "User",

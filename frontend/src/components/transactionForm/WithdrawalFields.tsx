@@ -3,26 +3,25 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import BtcWithdrawalValues from "./BtcWithdrawalValues";
 import FeeValueField from "./FeeValueField";
+import { chosenId, isBtcAccount } from "../../utils/accounts";
 import { isNotSold } from "../../utils/purposes";
 
 /**
- * A withdrawal; a BTC one also has its purpose, the fee's USD value, its
- * proceeds, and for a gift, donation or loss its fair market value.
+ * A withdrawal; one from a bitcoin account also has its purpose, the fee's
+ * USD value, its proceeds, and for a gift, donation or loss its fair market
+ * value. Only bitcoin leaving is spent, given, donated or lost (#449).
  */
-const WithdrawalFields: React.FC = () => {
+const WithdrawalFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  const account = watch("account");
-  const currency = watch("currency");
+  const btc = isBtcAccount(book, chosenId(watch("fromAccountId")));
   const purpose = watch("purpose");
-  const showPurpose = account === "Wallet" || (account === "Exchange" && currency === "BTC");
-  const isBtc = currency === "BTC";
   const notSold = isNotSold(purpose);
 
   return (
     <>
-      <AccountAmountFields />
+      <AccountAmountFields book={book} field="fromAccountId" />
 
-      {showPurpose && (
+      {btc && (
         <div className="field">
           <label htmlFor="tx-purpose">Purpose (BTC only)</label>
           <select
@@ -40,7 +39,7 @@ const WithdrawalFields: React.FC = () => {
       )}
 
       <div className="field">
-        <label htmlFor="tx-fee">{isBtc ? "Fee (BTC)" : "Fee (USD)"}</label>
+        <label htmlFor="tx-fee">{btc ? "Fee (BTC)" : "Fee (USD)"}</label>
         <input
           id="tx-fee"
           type="number"
@@ -49,8 +48,8 @@ const WithdrawalFields: React.FC = () => {
           {...register("fee", { valueAsNumber: true })}
         />
       </div>
-      {isBtc && <FeeValueField />}
-      {isBtc && <BtcWithdrawalValues notSold={notSold} />}
+      {btc && <FeeValueField />}
+      {btc && <BtcWithdrawalValues notSold={notSold} />}
     </>
   );
 };

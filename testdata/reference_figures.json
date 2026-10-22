@@ -6,36 +6,60 @@
     "account_id": 1,
     "balance": "31518.00000000",
     "currency": "USD",
+    "exchange": null,
+    "exchange_id": null,
+    "hidden": false,
+    "kind": "bank",
     "name": "Bank"
    },
    {
     "account_id": 2,
     "balance": "2.99969000",
     "currency": "BTC",
+    "exchange": null,
+    "exchange_id": null,
+    "hidden": false,
+    "kind": "wallet",
     "name": "Wallet"
    },
    {
     "account_id": 3,
     "balance": "303448.59000000",
     "currency": "USD",
+    "exchange": "Exchange",
+    "exchange_id": 1,
+    "hidden": false,
+    "kind": "exchange",
     "name": "Exchange USD"
    },
    {
     "account_id": 4,
     "balance": "0.11494000",
     "currency": "BTC",
+    "exchange": "Exchange",
+    "exchange_id": 1,
+    "hidden": false,
+    "kind": "exchange",
     "name": "Exchange BTC"
    },
    {
     "account_id": 5,
     "balance": "0.00102000",
     "currency": "BTC",
+    "exchange": null,
+    "exchange_id": null,
+    "hidden": false,
+    "kind": "fee",
     "name": "BTC Fees"
    },
    {
     "account_id": 6,
     "balance": "701.21000000",
     "currency": "USD",
+    "exchange": null,
+    "exchange_id": null,
+    "hidden": false,
+    "kind": "fee",
     "name": "USD Fees"
    }
   ],

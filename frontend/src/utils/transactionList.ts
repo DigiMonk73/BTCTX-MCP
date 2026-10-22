@@ -3,6 +3,12 @@
 import { formatSignedUsd, parseDecimal } from "./format";
 import { isNotSold, listedPurpose, listedSource } from "./purposes";
 
+/** One account's history (5.13): the rows naming `accountId` on either side; every row for undefined. */
+export function byAccount(transactions: ITransaction[], accountId: number | undefined): ITransaction[] {
+  if (accountId === undefined) return transactions;
+  return transactions.filter((tx) => tx.from_account_id === accountId || tx.to_account_id === accountId);
+}
+
 /** Newest first: by date, or by when they were added (id). */
 export function sortTransactions(transactions: ITransaction[], sortMode: SortMode): ITransaction[] {
   return [...transactions].sort((a, b) => {
@@ -66,6 +72,12 @@ export function sourceOrPurpose(tx: Described): string {
 /** A Ledger Review item's amount: "0.10000000 BTC", or "$500.00" for a move of dollars. */
 export function reviewAmount(item: { amount: string; unit?: string }): string {
   return item.unit === "USD" ? `$${item.amount}` : `${item.amount} BTC`;
+}
+
+/** A Ledger Review item's accounts after its amount (5.13): " · Credit Union",
+ * " · Wallet → Kraken BTC"; "" when the server names none (an older server). */
+export function reviewAccounts(item: { accounts?: string[] }): string {
+  return item.accounts?.length ? ` · ${item.accounts.join(" \u2192 ")}` : "";
 }
 
 /** "Withdrawal (Spent)", or the type alone with no source or purpose ("Sell"),

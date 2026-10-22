@@ -2,6 +2,7 @@ import React from "react";
 import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
+import { chosenId, isBtcAccount } from "../../utils/accounts";
 import { takesOriginalDate } from "../../utils/transactionForm";
 import { useBlankPriceSource, type BlankPriceWords } from "./useBlankPriceSource";
 
@@ -83,19 +84,18 @@ const OriginalDateField: React.FC<{ inherited: boolean }> = ({ inherited }) => {
   );
 };
 
-/** A deposit; a BTC one also has its source and cost basis. */
-const DepositFields: React.FC = () => {
+/** A deposit; one into a bitcoin account also has its source and cost basis. */
+const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
   const priced = useBlankPriceSource();
-  const account = watch("account");
-  const currency = watch("currency");
-  const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
-  const showSource = account === "Wallet" || (account === "Exchange" && currency === "BTC");
+  const toAccountId = chosenId(watch("toAccountId"));
+  // Income is valued at receipt only in a bitcoin account (AGENTS.md "Income deposits").
+  const btc = isBtcAccount(book, toAccountId);
   // Income, rebates, inheritances: basis = value when acquired (the server fills a blank one)
   const source = watch("source");
   const isValued = VALUED_SOURCES.includes(source ?? "");
   // Coins already owned, a gift or an inheritance: dated from when they were first acquired (or the death)
-  const showOriginalDate = takesOriginalDate({ type: "Deposit", account, currency, source });
+  const showOriginalDate = takesOriginalDate({ type: "Deposit", toAccountId, source }, book);
   const inherited = source === "Inherited";
   // A date of death isn't a date originally acquired, nor a value at death a
   // giver's cost (#154): switching to or from Inherited asks for both again
@@ -109,9 +109,9 @@ const DepositFields: React.FC = () => {
 
   return (
     <>
-      <AccountAmountFields />
+      <AccountAmountFields book={book} field="toAccountId" />
 
-      {showSource && (
+      {btc && (
         <div className="field">
           <label htmlFor="tx-source">Source</label>
           <select
@@ -137,7 +137,7 @@ const DepositFields: React.FC = () => {
           Save without a word (#456) */}
       {showOriginalDate && <OriginalDateField key={inherited ? "death" : "acquired"} inherited={inherited} />}
 
-      {intoBtc && (
+      {btc && (
         <div className="field">
           <label htmlFor="tx-cost-basis-usd">Cost Basis (USD)</label>
           <input

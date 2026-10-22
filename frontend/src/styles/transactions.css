@@ -139,3 +139,10 @@
   .tx-edit { justify-self: end; }
   .pagination { justify-content: center; }
 }
+
+/* The list's sort and its account filter, side by side (B8-4) */
+.transactions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

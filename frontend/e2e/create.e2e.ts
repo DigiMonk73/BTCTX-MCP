@@ -86,8 +86,7 @@ test.describe("BTC deposits", () => {
     test(`deposit ${source} with a blank basis gets the price's value`, async ({ authedPage: page }) => {
       await openAddForm(page, "Deposit");
       await setWhen(page);
-      await page.getByLabel("Account").selectOption("Exchange");
-      await page.getByLabel("Currency").selectOption("BTC");
+      await page.getByLabel("Account").selectOption("Exchange BTC");
       await page.getByLabel("Amount").fill("0.01");
       await page.getByLabel("Source").selectOption(source);
       // Blank by default (it used to show 0).
@@ -131,8 +130,7 @@ test.describe("withdrawals", () => {
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
     await setWhen(page);
-    await page.getByLabel("Account").selectOption("Exchange");
-    await page.getByLabel("Currency").selectOption("BTC");
+    await page.getByLabel("Account").selectOption("Exchange BTC");
     await page.getByLabel("Amount").fill("0.1");
     await page.getByLabel("Purpose").selectOption("Spent");
     await page.getByLabel("Proceeds (USD)").fill("6000");
@@ -151,8 +149,7 @@ test.describe("withdrawals", () => {
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
     await setWhen(page);
-    await page.getByLabel("Account").selectOption("Exchange");
-    await page.getByLabel("Currency").selectOption("BTC");
+    await page.getByLabel("Account").selectOption("Exchange BTC");
     await page.getByLabel("Amount").fill("0.1");
     await page.getByLabel("Purpose").selectOption("Spent");
     await page.getByLabel("Proceeds (USD)").fill("");
@@ -164,8 +161,7 @@ test.describe("withdrawals", () => {
   test("Spent proceeds start blank; a typed 0 shows a warning", async ({ authedPage: page }) => {
     await seedFunds(page.request);
     await openAddForm(page, "Withdrawal");
-    await page.getByLabel("Account").selectOption("Exchange");
-    await page.getByLabel("Currency").selectOption("BTC");
+    await page.getByLabel("Account").selectOption("Exchange BTC");
     await page.getByLabel("Purpose").selectOption("Spent");
     await expect(page.getByLabel("Proceeds (USD)")).toHaveValue("");
     await expect(page.getByText(/Leave blank to use the BTC price when that hour began as the proceeds/)).toBeVisible();
@@ -180,8 +176,7 @@ test.describe("withdrawals", () => {
       await seedFunds(page.request);
       await openAddForm(page, "Withdrawal");
       await setWhen(page);
-      await page.getByLabel("Account").selectOption("Exchange");
-      await page.getByLabel("Currency").selectOption("BTC");
+      await page.getByLabel("Account").selectOption("Exchange BTC");
       await page.getByLabel("Amount").fill("0.1");
       await page.getByLabel("Purpose").selectOption(purpose);
       await expect(page.getByLabel("Proceeds (USD)")).not.toBeEditable();
@@ -218,9 +213,10 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   await seedFunds(page.request);
   await openAddForm(page, "Transfer");
   await setWhen(page);
-  await page.getByLabel("From Account").selectOption("Exchange");
-  await page.getByLabel("From Currency").selectOption("BTC");
-  await expect(page.getByLabel("To Account")).toHaveValue("Wallet");
+  await page.getByLabel("From Account").selectOption("Exchange BTC");
+  // Two fit, the Wallet and a consolidation, so To starts blank (D6)
+  await expect(page.getByLabel("To Account")).toHaveValue("");
+  await page.getByLabel("To Account").selectOption("Wallet");
   await expect(page.getByText("One self-custody wallet: see Settings → About.")).toBeVisible();
   await page.getByLabel("Amount (From)").fill("0.5");
   await page.getByLabel("Amount (To)").fill("0.4999");
@@ -250,8 +246,9 @@ test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", 
   await openAddForm(page, "Transfer");
   await setWhen(page);
   await page.getByLabel("From Account").selectOption("Wallet");
-  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
-  await page.getByLabel("To Account").selectOption("Wallet");
+  // Two fit, Exchange BTC and a consolidation, so To starts blank (D6)
+  await expect(page.getByLabel("To Account")).toHaveValue("");
+  await page.getByLabel("To Account").selectOption({ label: "Consolidation: Wallet" });
   await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
   await page.getByLabel("Amount (From)").fill("0.8");
   await page.getByLabel("Amount (To)").fill("0.8");
@@ -268,26 +265,27 @@ test("transfer Wallet → Wallet: a consolidation records only its fee (#159)", 
   expect(by["Wallet"]).toBe(0.9999);
   expect(by["BTC Fees"]).toBe(0.0001);
 
-  // Edited, it opens as saved; another source gets that source's usual destination
+  // Edited, it opens as saved; another source offers only its own destinations
   await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
   await expect(page.getByRole("listitem").first()).toContainText("Consolidation");
   await page.getByRole("listitem").first().getByRole("button", { name: "Edit" }).click();
-  await expect(page.getByLabel("To Account")).toHaveValue("Wallet");
+  await expect(page.getByLabel("To Account").locator("option:checked")).toHaveText("Consolidation: Wallet");
   await expect(page.getByText("Only the network fee is recorded")).toBeVisible();
   await page.getByLabel("From Account").selectOption("Bank");
-  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange USD"); // the only one: filled, read-only
   await page.getByLabel("From Account").selectOption("Wallet");
-  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await expect(page.getByLabel("To Account")).toHaveValue("");
 });
 
-test("a move between pooled exchanges is listed as Between exchanges (#159)", async ({ authedPage: page }) => {
+test("a move from Exchange BTC to itself is a Consolidation (#159, 5.5)", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await createTx(page.request, {
     type: "Transfer", timestamp: "2024-02-01T12:00:00Z", from_account_id: 4, to_account_id: 4,
     amount: "0.5", fee_amount: "0.0001", fee_currency: "BTC", fee_usd: "5.00",
   });
   await page.getByRole("link", { name: "Transactions" }).click();
-  await expect(page.getByText("Between exchanges")).toBeVisible();
+  await expect(page.getByText("Consolidation")).toBeVisible();
+  await expect(page.getByText("Between exchanges")).toHaveCount(0);
 });
 
 test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
@@ -295,7 +293,7 @@ test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
   await openAddForm(page, "Transfer");
   await setWhen(page);
   await page.getByLabel("From Account").selectOption("Bank");
-  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange USD");
   await expect(page.getByLabel("To Currency")).toHaveValue("USD");
   await page.getByLabel("Amount (From)").fill("2500");
   await page.getByLabel("Amount (To)").fill("2500");
@@ -305,7 +303,7 @@ test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
   expect(Number(tx.amount)).toBe(2500);
 });
 
-for (const [from, id] of [["Exchange", 3], ["Bank", 1]] as const) {
+for (const [from, id] of [["Exchange USD", 3], ["Bank (auto-buy)", 1]] as const) {
   test(`buy from ${from} with a USD fee`, async ({ authedPage: page }) => {
     await createTx(page.request, {
       type: "Deposit", timestamp: "2023-01-02T18:00:00Z", from_account_id: 99, to_account_id: id,
@@ -313,7 +311,7 @@ for (const [from, id] of [["Exchange", 3], ["Bank", 1]] as const) {
     });
     await openAddForm(page, "Buy");
     await setWhen(page);
-    await page.getByLabel("From Account").selectOption(from);
+    await page.getByLabel("Paid from").selectOption(from);
     await page.getByLabel("Amount USD").fill("10000");
     await page.getByLabel("Amount BTC").fill("0.2");
     await page.getByLabel("Fee (USD)").fill("25");
@@ -373,8 +371,8 @@ test("a transfer's fee value can be typed and is kept", async ({ authedPage: pag
   await seedFunds(page.request);
   await openAddForm(page, "Transfer");
   await setWhen(page);
-  await page.getByLabel("From Account").selectOption("Exchange");
-  await page.getByLabel("From Currency").selectOption("BTC");
+  await page.getByLabel("From Account").selectOption("Exchange BTC");
+  await page.getByLabel("To Account").selectOption("Wallet");
   await page.getByLabel("Amount (From)").fill("0.5");
   await page.getByLabel("Amount (To)").fill("0.4999");
   await page.getByLabel("Fee value (USD)").fill("6.25");

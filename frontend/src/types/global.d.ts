@@ -36,7 +36,29 @@ declare global {
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
+    kind: AccountKind;          // the dashboard's rows go by kind (5.13, B8-1)
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null;    // that exchange's nickname
+    hidden: boolean;
   }
+
+  // The account book (GET /api/accounts/, spec 5.9). An account is its id; `name`
+  // is the owner's nickname for it, only ever shown, never compared (Rick, 2026-10-20)
+  type AccountKind = "bank" | "wallet" | "exchange" | "fee";
+
+  interface LedgerAccount {
+    id: number;
+    name: string;
+    kind: AccountKind;
+    currency: Currency;
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null;    // that exchange's nickname
+    sends_1099da: boolean | null; // the exchange's "sends me a Form 1099-DA" switch (5.9); null on any other account
+    hidden: boolean;
+    in_use: boolean;            // a transaction names it
+  }
+
+  type AccountBook = readonly LedgerAccount[];
 
   interface AverageCostBasis {
     averageCostBasis: number;
@@ -238,8 +260,6 @@ declare global {
   // The transaction form
   type TransactionType = "Deposit" | "Withdrawal" | "Transfer" | "Buy" | "Sell";
 
-  type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
-
   type DepositSource = "N/A" | "MyBTC" | "Gift" | "Inherited" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
   // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
@@ -255,9 +275,7 @@ declare global {
     type: TransactionType;
     timestamp: string;
 
-    // Single-account
-    account?: AccountType;
-    currency?: Currency;
+    // Single-account: a Deposit or Withdrawal names its account by id
     amount?: BtcFieldValue;
     source?: DepositSource;      // for BTC deposit
     purpose?: WithdrawalPurpose; // for BTC withdrawal
@@ -266,11 +284,7 @@ declare global {
     proceeds_usd?: number;
     fmv_usd?: number;
 
-    // Transfer
-    fromAccount?: AccountType;
-    fromCurrency?: Currency;
-    toAccount?: AccountType;
-    toCurrency?: Currency;
+    // Transfer: what left and what arrived. The accounts are the ids below (5.13).
     amountFrom?: BtcFieldValue;
     amountTo?: BtcFieldValue;
 
@@ -278,8 +292,9 @@ declare global {
     amountUSD?: number;
     amountBTC?: BtcFieldValue;
 
-    // For Buy transactions: source account (Bank or Exchange)
-    buyFromAccount?: "Bank" | "Exchange";
+    // Both of the row's accounts, kept on read-back for every type (5.13).
+    fromAccountId?: number;
+    toAccountId?: number;
 
     // A Sell's proceeds as typed, before fees
     grossProceedsUSD?: number;

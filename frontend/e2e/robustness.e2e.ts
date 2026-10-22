@@ -103,7 +103,7 @@ test("Escape or a click outside closes the panel, asking first about unsaved cha
   // back, the change kept.
   await openAddForm(page, "Deposit");
   await page.getByLabel("Account", { exact: true }).evaluate(async (select: HTMLSelectElement) => {
-    select.value = "Bank";
+    select.value = [...select.options].find((option) => option.text === "Bank")!.value; // by nickname: values are ids
     select.dispatchEvent(new Event("change", { bubbles: true }));
     await Promise.resolve();
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -111,7 +111,7 @@ test("Escape or a click outside closes the panel, asking first about unsaved cha
   await expect(question).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(question).toHaveCount(0);
-  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  await expect(page.getByLabel("Account", { exact: true }).locator("option:checked")).toHaveText("Bank");
   await page.locator(".transaction-panel-overlay").click({ position: { x: 10, y: 10 } });
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(heading).toHaveCount(0);
@@ -139,7 +139,7 @@ test("on a phone the panel's close button closes it, asking first about unsaved 
   await expect(question).toBeVisible();
   await page.getByRole("button", { name: "Go back" }).click();
   await expect(question).toHaveCount(0);
-  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  await expect(page.getByLabel("Account", { exact: true }).locator("option:checked")).toHaveText("Bank");
   await close.click();
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(heading).toHaveCount(0);

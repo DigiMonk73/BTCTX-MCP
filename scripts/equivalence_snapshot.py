@@ -13,7 +13,6 @@ import hashlib
 import importlib.util
 import io
 import json
-import random
 import re
 import shutil
 import time
@@ -36,14 +35,13 @@ from backend.services.reports.complete_tax_report import generate_comprehensive_
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.transaction import recalculate_all_transactions
 from backend.tests.conftest import default_login, init_test_db, price_finder
-from backend.tests.test_golden_years import LEDGER as GOLDEN_LEDGER
-from backend.tests.test_invariants_property import draw_ledger
 from backend.tests.test_river_import import SYNTHETIC_ROWS, river_csv
 from backend.version import app_version
 from btctx_mcp import server as mcp_server
 from btctx_mcp.client import BtctxClient
 
 import equivalence_inputs as inputs
+from equivalence_ledgers_1x import GOLDEN_LEDGER, SeededDraws, draw_ledger, reference_rows_1x
 
 # This checkout's, for both sides: a release's worktree may have no testdata/
 REFERENCE_LEDGER = Path(__file__).resolve().parents[1] / "testdata" / "reference_ledger.json"
@@ -58,6 +56,10 @@ VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 VOLATILE_MCP_KEYS = {"file", "created"}
 # Hashes of the AI key, and of the login sessions each run opens anew.
 VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
+# Which BitcoinTX last recalculated the ledger (5.8, from 2.0): its version
+# and migration head, which differ between the two sides by design. The
+# rows from before 0.9.2 (5.13, from 2.0): a ledger a 1.x start never wrote it in.
+UNCOMPARED_SETTINGS = ("recalculated_by", "accounts_old_rows")
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.
@@ -134,6 +136,18 @@ def _shut_out_the_world(work: Path) -> None:
     first_run.DATA_DIR = str(work / "data")
     outbound._current = outbound.NetworkSettings(price_source="public")
     mcp_server.connector_version = app_version
+    _pinned_tax_year()
+
+
+def _pinned_tax_year() -> None:
+    """"This tax year" is 2009, before every ledger's, as the backend tests
+    pin it (5.15): 2.0's past-year warning (5.8) then never asks, and an
+    in-process write saves as it did before 2.0. A release before 2.0 has
+    no such clock (services/tax_time.current_tax_year)."""
+    from backend.services import tax_time
+
+    if hasattr(tax_time, "current_tax_year"):
+        tax_time.current_tax_year = lambda tz: 2009
 
 
 def _no_hourly_prices() -> None:
@@ -155,30 +169,10 @@ def _no_hourly_prices() -> None:
 def _ledgers():
     """(name, tax timezone, API payloads) for each ledger in the snapshot."""
     yield "golden", "America/New_York", GOLDEN_LEDGER
-    reference = json.loads(REFERENCE_LEDGER.read_text())["transactions"]
-    yield "reference", "UTC", [{k: v for k, v in tx.items() if k != "why"} for tx in reference]
+    yield "reference", "UTC", reference_rows_1x(REFERENCE_LEDGER)
     for seed in range(RANDOM_LEDGERS):
         txs, _ = draw_ledger(SeededDraws(seed), max_ops=25)
         yield f"random_{seed:02d}", RANDOM_ZONES[seed % len(RANDOM_ZONES)], txs
-
-
-class SeededDraws:
-    """Stands in for Hypothesis's `data` in draw_ledger: the same seed gives
-    the same ledger. `overrides` replaces the draw for a label."""
-
-    def __init__(self, seed: int, overrides=None):
-        self.rng = random.Random(seed)
-        self.overrides = overrides or {}
-
-    def draw(self, strategy, label=None):
-        if label in self.overrides:
-            return self.overrides[label](self.rng)
-        inner = getattr(strategy, "wrapped_strategy", strategy)
-        if getattr(inner, "elements", None) is not None:
-            return self.rng.choice(list(inner.elements))
-        if getattr(inner, "start", None) is not None:
-            return self.rng.randint(inner.start, inner.end)
-        return self.rng.random() < 0.5
 
 
 class Instance:
@@ -277,7 +271,8 @@ def database_rows(engine) -> dict:
     with engine.connect() as con:
         for table in sorted(inspect(engine).get_table_names()):
             rows = con.execute(text(f'SELECT * FROM "{table}" ORDER BY rowid')).mappings().all()
-            tables[table] = [_stable_row(table, row) for row in rows]
+            tables[table] = [_stable_row(table, row) for row in rows
+                             if not (table == "app_settings" and row["key"] in UNCOMPARED_SETTINGS)]
     return tables
 
 

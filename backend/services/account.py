@@ -1,29 +1,84 @@
 """
-Accounts: reading them, and changes to accounts other than the six fixed
-ones (database.FIXED_ACCOUNTS: Bank, Wallet, Exchange USD, Exchange BTC,
-BTC Fees, USD Fees). Those keep their name, currency and place, and are
-recreated if missing, and no other account takes their names: the ledger
-finds the fee accounts by name, and every start puts a fixed account's
-name back, which a second account of that name would stop (#289).
+Accounts: the book (spec 5.4, 5.9) and Settings' changes to it.
+
+Draft branch only (B7b-0, the Grok trial; never merged): the account API
+of 5.9, over migration 0013's columns. Any account but the fee accounts
+can be renamed (B8-5r), 1 to 4 can't be deleted, and the fee accounts
+(5, 6) can't be renamed, hidden or deleted. Two stubs stand in for later
+cards: `is_yours` is the gate of 5.10 (B7a), and `_past_years` the dry run
+of 5.8's warning for the 1099-DA switch (B6c), which answers with the
+warning's one shape (services/past_years.py).
 """
 
-from sqlalchemy.orm import Session
-from fastapi import HTTPException
+import re
+import unicodedata
+from collections.abc import Iterable
+from dataclasses import dataclass
 
-from backend.database import FIXED_ACCOUNTS
-from backend.models.account import Account
-from backend.models.transaction import Transaction
-from backend.schemas.account import AccountCreate, AccountUpdate
+from fastapi import HTTPException
+from sqlalchemy import event, func
+from sqlalchemy.orm import Session
+
+from backend.constants import ACCOUNT_EXTERNAL
+from backend.database import FIXED_ACCOUNTS, take_write_lock
+from backend.models.account import Account, Exchange
+from backend.models.app_setting import AppSetting, save_setting
+from backend.models.transaction import LedgerEntry, Transaction
+from backend.services import tax_time
+from backend.services.past_years import warning
 
 
 SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
 FIXED_NAMES = frozenset(a["name"] for a in FIXED_ACCOUNTS)
 
+YOURS = ("bank", "wallet", "exchange")
+KIND_ORDER = ("bank", "wallet", "exchange", "fee")
+CURRENCY = {"bank": "USD", "wallet": "BTC"}
+FIRST_ONES = frozenset({1, 2, 3, 4})
+FEE_ACCOUNTS = frozenset({5, 6})
+LAST_ID = "accounts_last_id"
 
-def get_all_accounts(db: Session):
-    """Every account, after putting the fixed ones right."""
-    ensure_special_accounts_exist(db)
-    return db.query(Account).all()
+# 5.1's reserved names: each always means one of 1.x's accounts in a file
+RESERVED = {"bank": "bank", "wallet": "wallet", "exchange": "exchange",
+            "exchange usd": "exchange", "exchange btc": "exchange"}
+EXTERNAL = "external"
+# 5.1: a name may hold no format character but these two, which some scripts and emoji need
+JOINERS = frozenset({"‌", "‍"})
+
+IN_USE = "This account has transactions, so it can't be deleted. Hide it instead: its history stays."
+FIRST_ONES_KEPT = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use."
+FEES_KEPT = "The fee accounts can't be deleted."
+FEES_SHOWN = "The fee accounts keep their names and can't be hidden."
+NOT_AN_EXCHANGE = "Only an exchange's accounts have this setting."
+BUSY = "BitcoinTX is busy saving something else: try again."
+
+
+def _account_row(account: Account, exchange: Exchange | None, named: set[int]) -> dict:
+    return {
+        "id": account.id, "name": account.name, "kind": account.kind, "currency": account.currency,
+        "exchange_id": account.exchange_id, "exchange": exchange.name if exchange else None,
+        "sends_1099da": exchange.sends_1099da if exchange else None,
+        "hidden": bool(account.hidden), "in_use": account.id in named,
+    }
+
+
+def _named_by_transactions(db: Session) -> set[int]:
+    """Every account a transaction names, from or to."""
+    pairs = db.query(Transaction.from_account_id, Transaction.to_account_id).distinct()
+    return {account_id for pair in pairs for account_id in pair if account_id is not None}
+
+
+def account_book(db: Session, only: set[int] | None = None) -> list[dict]:
+    """The accounts as GET /api/accounts/ lists them (5.9): banks, wallets,
+    exchanges, then the fee accounts, each by id within its kind. Writes nothing."""
+    named = _named_by_transactions(db)
+    exchanges = {e.id: e for e in db.query(Exchange).all()}
+    rows = [
+        _account_row(a, exchanges.get(a.exchange_id), named)
+        for a in db.query(Account).all()
+        if a.kind in KIND_ORDER and (only is None or a.id in only)
+    ]
+    return sorted(rows, key=lambda row: (KIND_ORDER.index(row["kind"]), row["id"]))
 
 
 def get_account_by_id(account_id: int, db: Session):
@@ -31,116 +86,315 @@ def get_account_by_id(account_id: int, db: Session):
     return db.query(Account).filter(Account.id == account_id).first()
 
 
-def create_account(account_data: AccountCreate, db: Session):
-    """A new account; the special accounts' names are refused (400)."""
-    ensure_special_accounts_exist(db)
-
-    if account_data.name in FIXED_NAMES:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot manually create one of the locked special accounts."
-        )
-
-    new_account = Account(
-        user_id=account_data.user_id,
-        name=account_data.name,
-        currency=account_data.currency,
-    )
-    db.add(new_account)
-    db.commit()
-    db.refresh(new_account)
-    return new_account
+def is_yours(account_id: int, db: Session) -> bool:
+    """One of your accounts (a bank, a wallet or an exchange's): the gate's stub (5.10, B7a)."""
+    account = db.get(Account, account_id)
+    return account is not None and account.kind in YOURS
 
 
-def update_account(account_id: int, account_data: AccountUpdate, db: Session):
+# --- the book (5.4) ---
+
+@dataclass(frozen=True)
+class BookAccount:
+    """One account as the book holds it."""
+
+    id: int
+    name: str
+    kind: str
+    currency: str
+    exchange_id: int | None = None
+
+
+class AccountBook:
     """
-    A new name or currency for the account (None when it doesn't exist); a
-    special account's are refused (400) unless unchanged, and so is a fixed
-    account's name for any other.
+    The one place that answers what an account is (5.4): asked by id, never
+    by comparing an id with 1.x's numbers, so a second wallet or exchange
+    answers as the first does. External (99), an id no account has and None
+    are no account: no kind, no currency, never yours, never bitcoin.
     """
-    account = get_account_by_id(account_id, db)
-    if not account:
+
+    def __init__(self, accounts: Iterable[BookAccount]) -> None:
+        self._by_id = {account.id: account for account in accounts}
+
+    def _get(self, account_id: int | None) -> BookAccount | None:
+        if account_id is None or account_id == ACCOUNT_EXTERNAL:
+            return None
+        return self._by_id.get(account_id)
+
+    def kind(self, account_id: int | None) -> str | None:
+        """bank, wallet, exchange or fee; None for no account."""
+        account = self._get(account_id)
+        return None if account is None else account.kind
+
+    def currency(self, account_id: int | None) -> str | None:
+        """USD or BTC; None for no account."""
+        account = self._get(account_id)
+        return None if account is None else account.currency
+
+    def is_yours(self, account_id: int | None) -> bool:
+        """A bank, a wallet or an exchange's account, hidden ones too (5.1):
+        never a fee account, External or no account."""
+        return self.kind(account_id) in YOURS
+
+    def is_btc(self, account_id: int | None) -> bool:
+        """A bitcoin account (5.1): one of yours whose currency is BTC, a
+        wallet or an exchange's BTC. The BTC fee account isn't one."""
+        return self.is_yours(account_id) and self.currency(account_id) == "BTC"
+
+    def exchange_of(self, account_id: int | None) -> int | None:
+        """The exchange an exchange's account belongs to; None for any other."""
+        account = self._get(account_id)
+        if account is None or account.kind != "exchange":
+            return None
+        return account.exchange_id
+
+    def _half(self, account_id: int | None, currency: str) -> int | None:
+        exchange_id = self.exchange_of(account_id)
+        if exchange_id is None:
+            return None
+        for account in self._by_id.values():
+            if (account.kind == "exchange" and account.exchange_id == exchange_id
+                    and account.currency == currency):
+                return account.id
         return None
-    if account_id not in SPECIAL_ACCOUNTS and account_data.name in FIXED_NAMES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot rename account #{account_id} to {account_data.name}: that is a fixed account's name."
-        )
 
-    if account_id in SPECIAL_ACCOUNTS:
-        if account_data.name is not None and account_data.name != account.name:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot rename the special account #{account_id} ({account.name})."
-            )
-        if account_data.currency is not None and account_data.currency != account.currency:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot change currency of special account #{account_id} ({account.name})."
-            )
+    def usd_of(self, account_id: int | None) -> int | None:
+        """The USD account of the exchange `account_id` belongs to, or None."""
+        return self._half(account_id, "USD")
 
-    if account_data.name is not None:
-        account.name = account_data.name
-    if account_data.currency is not None:
-        account.currency = account_data.currency
+    def btc_of(self, account_id: int | None) -> int | None:
+        """The BTC account of the exchange `account_id` belongs to, or None."""
+        return self._half(account_id, "BTC")
 
-    db.commit()
-    db.refresh(account)
-    return account
+    def name(self, account_id: int) -> str:
+        """Its current name; "External" for 99; "account N (missing)" for an
+        id no account has (the form's words, D3)."""
+        if account_id == ACCOUNT_EXTERNAL:
+            return "External"
+        account = self._get(account_id)
+        return account.name if account is not None else f"account {account_id} (missing)"
 
 
-def delete_account(account_id: int, db: Session):
-    """Delete the account (False when it doesn't exist); a special account is
-    refused (400), and so is one transactions name (409): deleting it left
-    them naming no account, and each such row stops every save that
-    recalculates (#337)."""
-    account = get_account_by_id(account_id, db)
-    if not account:
+# 1.x's six accounts, as seed_defaults makes them: what a file can name until
+# B5 (its seven reserved names), so the CSV import's book when none is given
+FIXED_BOOK = AccountBook(BookAccount(**a) for a in FIXED_ACCOUNTS)
+# The session's book, kept in Session.info until its transaction ends
+BOOK = "account_book"
+
+
+def read_book(db: Session) -> AccountBook:
+    """The book from the accounts table, read once per database transaction
+    (5.4: once per request, import, recalculation or report) and kept in the
+    session until it commits or rolls back, so an account added since is in
+    the next one."""
+    if BOOK in db.info:
+        return db.info[BOOK]
+    book = AccountBook(
+        BookAccount(a.id, a.name, a.kind, a.currency, a.exchange_id) for a in db.query(Account).all())
+    db.info[BOOK] = book
+    return book
+
+
+@event.listens_for(Session, "after_commit")
+@event.listens_for(Session, "after_rollback")
+def _forget_book(session: Session) -> None:
+    session.info.pop(BOOK, None)
+
+
+# --- names (5.1) ---
+
+def _clean_name(raw: str) -> str:
+    """Normalised: NFC, trimmed, every run of spaces one ASCII space."""
+    text = "".join(" " if unicodedata.category(c) == "Zs" else c for c in unicodedata.normalize("NFC", raw))
+    return re.sub(" +", " ", text).strip(" ")
+
+
+def _folded(name: str) -> str:
+    return _clean_name(name).casefold()
+
+
+def _on_one_line(name: str) -> bool:
+    return all(unicodedata.category(c) not in ("Cc", "Zl", "Zp") and
+               (unicodedata.category(c) != "Cf" or c in JOINERS) for c in name)
+
+
+def _refuse(detail: str) -> None:
+    raise HTTPException(status_code=400, detail=detail)
+
+
+def _its_own(renamed: Account | None, folded: str) -> bool:
+    """A reserved name given back to the account it means (5.1: ids 1 to 4 "can be
+    renamed, and renamed back"): Bank to 1, Wallet to 2, Exchange to exchange 1."""
+    if renamed is None:
         return False
+    return (folded == "bank" and renamed.id == 1) or (folded == "wallet" and renamed.id == 2) \
+        or (folded == "exchange" and renamed.exchange_id == 1)
 
-    if account_id in SPECIAL_ACCOUNTS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete special account #{account_id} ({account.name})."
-        )
-    naming = db.query(Transaction.id).filter(
-        (Transaction.from_account_id == account_id) | (Transaction.to_account_id == account_id)).count()
-    if naming:
-        raise HTTPException(status_code=409, detail=(
-            f"Not deleted: {naming} transaction{'s' if naming > 1 else ''} name{'' if naming > 1 else 's'} "
-            f"{account.name}. Move {'them' if naming > 1 else 'it'} to another account, or delete "
-            f"{'them' if naming > 1 else 'it'}, first."))
 
-    db.delete(account)
+def _check_name(db: Session, name: str, kind: str, renamed: Account | None = None) -> None:
+    """5.9's refusals for a new account's name; an exchange's also for its two accounts' names.
+    A rename (`renamed`) doesn't collide with the names it replaces."""
+    longest = 36 if kind == "exchange" else 40
+    if not 1 <= len(name) <= longest or not _on_one_line(name) or name.startswith("'"):
+        _refuse(f"A name is 1 to {longest} characters on one line.")
+    folded = name.casefold()
+    if folded == EXTERNAL:
+        _refuse("External means everything outside BitcoinTX: choose another name.")
+    if folded in RESERVED and not _its_own(renamed, folded):
+        _refuse(f"'{name}' always means your first {RESERVED[folded]} in files (CSV, River, BitcoinTX 1.x): "
+                "choose another name.")
+    own = {a.id for a in _halves(db, renamed)} if renamed else set()
+    own_exchange = renamed.exchange_id if renamed else None
+    taken = {_folded(a.name) for a in db.query(Account).all() if a.id not in own} \
+        | {_folded(e.name) for e in db.query(Exchange).all() if e.id != own_exchange}
+    wanted = {folded} | ({f"{folded} usd", f"{folded} btc"} if kind == "exchange" else set())
+    if taken & wanted:
+        _refuse(f"An account named '{name}' already exists.")
+
+
+# --- ids (5.1) ---
+
+def _next_account_id(db: Session) -> int:
+    """1 + the highest of 99, every account id, every id a transaction or a ledger
+    line names, and the last id given (never given again)."""
+    last = db.get(AppSetting, LAST_ID)
+    highest = max(
+        ACCOUNT_EXTERNAL,
+        db.query(func.max(Account.id)).scalar() or 0,
+        db.query(func.max(Transaction.from_account_id)).scalar() or 0,
+        db.query(func.max(Transaction.to_account_id)).scalar() or 0,
+        db.query(func.max(LedgerEntry.account_id)).scalar() or 0,
+        int(last.value) if last else 0,
+    )
+    return highest + 1
+
+
+def _new_account(db: Session, user_id: int, name: str, kind: str, currency: str,
+                 exchange_id: int | None = None) -> int:
+    account_id = _next_account_id(db)
+    db.add(Account(id=account_id, user_id=user_id, name=name, kind=kind, currency=currency,
+                   exchange_id=exchange_id, hidden=False))
+    db.flush()
+    save_setting(db, LAST_ID, str(account_id))
+    return account_id
+
+
+def add_account(db: Session, kind: str, raw_name: str) -> list[dict]:
+    """POST /api/accounts/ (5.9): a bank or a wallet, one account; an exchange,
+    the exchange and its two. The book's rows of what was made."""
+    name = _clean_name(raw_name)
+    if not take_write_lock(db):
+        raise HTTPException(status_code=503, detail=BUSY)
+    try:
+        _check_name(db, name, kind)
+        user_id = db.get(Account, 1).user_id
+        if kind == "exchange":
+            exchange = Exchange(id=(db.query(func.max(Exchange.id)).scalar() or 0) + 1, name=name, sends_1099da=True)
+            db.add(exchange)
+            db.flush()
+            made = {_new_account(db, user_id, f"{name} USD", kind, "USD", exchange.id),
+                    _new_account(db, user_id, f"{name} BTC", kind, "BTC", exchange.id)}
+        else:
+            made = {_new_account(db, user_id, name, kind, CURRENCY[kind])}
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return account_book(db, only=made)
+
+
+# --- changes (5.9) ---
+
+def _halves(db: Session, account: Account) -> list[Account]:
+    """The account, or both of its exchange's accounts."""
+    if account.kind != "exchange":
+        return [account]
+    return db.query(Account).filter(Account.exchange_id == account.exchange_id).all()
+
+
+def _past_years(db: Session, ids: set[int]) -> list[int]:
+    """The tax years before this one with a transaction naming one of `ids`: the
+    B6c stub's stand-in for 5.8's dry run (the boxes it could move)."""
+    tz = tax_time.get_tax_timezone(db)
+    this_year = tax_time.current_tax_year(tz)
+    rows = db.query(Transaction.timestamp).filter(
+        Transaction.from_account_id.in_(ids) | Transaction.to_account_id.in_(ids))
+    return sorted({tax_time.local_date(ts, tz).year for (ts,) in rows} - set(range(this_year, 10000)))
+
+
+def _switch_1099da(db: Session, account: Account, sends: bool, confirm: str | None) -> None:
+    """The exchange's 1099-DA setting, through 5.8's warning (B6c's stub): a change
+    that could move earlier years' boxes needs `confirm` to be its fingerprint."""
+    if account.kind != "exchange":
+        _refuse(NOT_AN_EXCHANGE)
+    exchange = db.get(Exchange, account.exchange_id)
+    if exchange.sends_1099da == sends:
+        return
+    years = _past_years(db, {a.id for a in _halves(db, account)})
+    if years:
+        asked = warning(years, [], [], f"{exchange.id}:{sends}")
+        if confirm != asked.body["confirm"]:
+            raise asked
+    exchange.sends_1099da = sends
+
+
+def _rename(db: Session, account: Account, raw_name: str) -> None:
+    """A new nickname (5.9, B8-5r): an exchange's account renames its exchange and
+    both its accounts ("<name> USD", "<name> BTC"); the fee accounts keep theirs."""
+    name = _clean_name(raw_name)
+    exchange = db.get(Exchange, account.exchange_id) if account.kind == "exchange" else None
+    # Its own name sent back (an exchange's, or the account's) changes nothing, as in 1.x
+    if name in (account.name, exchange.name if exchange else None):
+        return
+    if account.kind == "fee":
+        _refuse(FEES_SHOWN)
+    _check_name(db, name, account.kind, renamed=account)
+    if exchange is None:
+        account.name = name
+        return
+    exchange.name = name
+    for half in _halves(db, account):
+        half.name = f"{name} {half.currency}"
+
+
+def change_account(db: Session, account_id: int, hidden: bool | None, sends_1099da: bool | None,
+                   name: str | None, confirm: str | None) -> list[dict] | None:
+    """PUT /api/accounts/{id} (5.9): rename (B8-5r), hide or show, the 1099-DA
+    switch. None when it doesn't exist."""
+    account = get_account_by_id(account_id, db)
+    if not account or account.kind not in KIND_ORDER:
+        return None
+    if name is not None:
+        _rename(db, account, name)
+    if hidden is not None:
+        if account.kind == "fee":
+            _refuse(FEES_SHOWN)
+        for half in _halves(db, account):
+            half.hidden = hidden
+    if sends_1099da is not None:
+        _switch_1099da(db, account, sends_1099da, confirm)
+    db.commit()
+    return account_book(db, only={a.id for a in _halves(db, account)})
+
+
+def delete_account(account_id: int, db: Session) -> bool:
+    """DELETE /api/accounts/{id} (5.9): an account no transaction names (an
+    exchange's: the exchange and both, only when neither is named). False when
+    it doesn't exist."""
+    account = get_account_by_id(account_id, db)
+    if not account or account.kind not in KIND_ORDER:
+        return False
+    if account_id in FIRST_ONES:
+        _refuse(FIRST_ONES_KEPT)
+    if account_id in FEE_ACCOUNTS:
+        _refuse(FEES_KEPT)
+    halves = _halves(db, account)
+    if {a.id for a in halves} & _named_by_transactions(db):
+        raise HTTPException(status_code=409, detail=IN_USE)
+    exchange_id = account.exchange_id
+    for half in halves:
+        db.delete(half)
+    if exchange_id is not None:
+        db.delete(db.get(Exchange, exchange_id))
     db.commit()
     return True
-
-
-def ensure_special_accounts_exist(db: Session):
-    """Create any missing special account and put back a changed name or currency."""
-    for acc_id, info in SPECIAL_ACCOUNTS.items():
-        special_acc = get_account_by_id(acc_id, db)
-        if not special_acc:
-            new_acc = Account(
-                id=acc_id,
-                user_id=1,
-                name=info["name"],
-                currency=info["currency"],
-            )
-            db.add(new_acc)
-            try:
-                db.commit()
-                db.refresh(new_acc)
-            except Exception:
-                db.rollback()
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Failed to create special account ID={acc_id}. Possibly ID in use."
-                )
-        else:
-            if special_acc.name != info["name"]:
-                special_acc.name = info["name"]
-            if special_acc.currency != info["currency"]:
-                special_acc.currency = info["currency"]
-            db.commit()
-            db.refresh(special_acc)

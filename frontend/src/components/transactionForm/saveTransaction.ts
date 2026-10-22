@@ -2,22 +2,29 @@ import axios from "axios";
 import api from "../../api";
 import { serverReason } from "../../utils/apiError";
 import { formatUsd, parseDecimal } from "../../utils/format";
+import { confirmed } from "../../utils/pastYears";
 import { buildTransactionPayload } from "../../utils/transactionForm";
 
 /**
  * Save the form: a new transaction, or `transactionId`'s changes. Returns
- * the message to show, with the realized gain when there is one.
+ * the message to show, with the realized gain when there is one. `confirm`
+ * sends it again past the past-year warning (5.8).
  */
-export async function saveTransaction(data: TransactionFormData, transactionId?: number | null): Promise<string> {
-  const payload = buildTransactionPayload(data);
+export async function saveTransaction(
+  data: TransactionFormData,
+  book: AccountBook,
+  transactionId?: number | null,
+  confirm?: string,
+): Promise<string> {
+  const payload = buildTransactionPayload(data, book);
   if (transactionId) {
-    const response = await api.put(`/transactions/${transactionId}`, payload);
+    const response = await api.put(`/transactions/${transactionId}`, payload, confirmed(confirm));
     if (response.status !== 200) {
       throw new Error(`Update failed with status ${response.status}`);
     }
     return savedMessage("updated", response.data as ITransactionRaw);
   }
-  const response = await api.post("/transactions", payload);
+  const response = await api.post("/transactions", payload, confirmed(confirm));
   return savedMessage("created", response.data as ITransactionRaw);
 }
 

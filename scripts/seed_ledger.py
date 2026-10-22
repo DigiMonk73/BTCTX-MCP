@@ -48,6 +48,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
+# A row's notes, never sent to the server
+NOTES = ("why", "since")
 
 
 class SeedError(Exception):
@@ -57,10 +59,11 @@ class SeedError(Exception):
 # The ledger
 def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it
-    (testdata/reference_ledger.json without its "why" notes)."""
+    (testdata/reference_ledger.json without its notes: "why", and "since",
+    which marks a row 2.0 added)."""
     with open(LEDGER) as f:
         rows = json.load(f)["transactions"]
-    return [{k: v for k, v in row.items() if k != "why"} for row in rows]
+    return [{k: v for k, v in row.items() if k not in NOTES} for row in rows]
 
 
 # The server
@@ -109,6 +112,22 @@ def log_in(c: httpx.Client, user: str, password: str, setup_code: str | None) ->
         raise SeedError(f"login failed: {r.status_code} {r.text[:300]}")
 
 
+def post_confirmed(c: httpx.Client, row: dict) -> httpx.Response:
+    """The test ledger's rows are in earlier tax years, so a 2.0 server answers
+    each with the past-year warning's 409 (5.8): it's confirmed once, with the
+    fingerprint it gives. No switch turns the warning off on a running server."""
+    r = c.post("/api/transactions", json=row)
+    if r.status_code != 409:
+        return r
+    try:
+        confirm = r.json().get("confirm")
+    except (ValueError, AttributeError):
+        return r
+    if not isinstance(confirm, str):
+        return r
+    return c.post("/api/transactions", json=row, params={"confirm": confirm})
+
+
 def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
     """Create every row on a logged-in client; refuses a ledger that isn't
     empty. Returns how many were created."""
@@ -119,7 +138,7 @@ def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     rows = ledger_rows() if rows is None else rows
     for n, row in enumerate(rows, start=1):
-        r = c.post("/api/transactions", json=row)
+        r = post_confirmed(c, row)
         if r.status_code != 200:
             raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
                             f"The {n - 1} rows before it are in the ledger: delete them all before running again.")

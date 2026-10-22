@@ -331,6 +331,13 @@ def check_auth(c: httpx.Client, user: str, password: str, setup_code: str | None
 
 def create(c: httpx.Client, **data) -> dict:
     r = c.post("/api/transactions", json=data)
+    if r.status_code == 409:
+        try:
+            confirm = r.json().get("confirm")
+        except (ValueError, AttributeError):
+            confirm = None
+        if isinstance(confirm, str):
+            r = c.post("/api/transactions", json=data, params={"confirm": confirm})
     if r.status_code != 200:
         raise SmokeFailure(f"create {data['type']} failed: {r.status_code} {r.text}")
     return r.json()

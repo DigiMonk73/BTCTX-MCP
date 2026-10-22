@@ -8,6 +8,7 @@ import {
   mapTransactionToFormData,
   toDatetimeLocal,
 } from "./transactionForm";
+import { ONE_OF_EACH } from "../test/accountBooks";
 
 const sell = {
   id: 7,
@@ -25,8 +26,8 @@ const sell = {
 } as unknown as ITransaction;
 
 function editAndSave(timestamp: string): string {
-  const form = mapTransactionToFormData({ ...sell, timestamp } as ITransaction);
-  return buildTransactionPayload(form).timestamp as string;
+  const form = mapTransactionToFormData({ ...sell, timestamp } as ITransaction, ONE_OF_EACH);
+  return buildTransactionPayload(form, ONE_OF_EACH).timestamp as string;
 }
 
 describe("editing a transaction in a non-UTC timezone", () => {
@@ -35,7 +36,7 @@ describe("editing a transaction in a non-UTC timezone", () => {
   });
 
   it("shows the stored time as local time", () => {
-    const form = mapTransactionToFormData({ ...sell, timestamp: "2026-07-31T20:16:07Z" } as ITransaction);
+    const form = mapTransactionToFormData({ ...sell, timestamp: "2026-07-31T20:16:07Z" } as ITransaction, ONE_OF_EACH);
     expect(form.timestamp).toBe("2026-07-31T15:16:07");
   });
 

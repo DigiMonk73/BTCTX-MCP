@@ -84,6 +84,8 @@ for (const size of SIZES) {
 
     await page.goto("/settings");
     await shot("settings");
+    await scrollTo(page, /Wallets, exchanges and banks/);
+    await shot("settings-accounts");
     await scrollTo(page, /Privacy/);
     await shot("settings-privacy");
 

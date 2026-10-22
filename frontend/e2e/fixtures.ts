@@ -2,7 +2,7 @@
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
-import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test as base, expect, type Page, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
@@ -155,11 +155,38 @@ export async function choosePriceSource(page: Page, choice: PriceChoice) {
 
 export type TxPayload = Record<string, string | number | null>;
 
-/** Create a transaction over the API; returns the saved record. */
+/** Create a transaction over the API; returns the saved record. A row dated in an earlier tax year
+ * meets the past-year warning (spec 5.8): its 409 is confirmed once, with the fingerprint it gives. */
 export async function createTx(request: APIRequestContext, data: TxPayload) {
-  const r = await request.post("/api/transactions", { data });
+  const r = await confirmedRequest((params) => request.post("/api/transactions", { data, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   return r.json();
+}
+
+/** A write over the API through the past-year warning (spec 5.8): `send` again with the 409's fingerprint
+ * when it asks; the answer either way. */
+export async function confirmedRequest(
+  send: (params?: { confirm: string }) => Promise<APIResponse>,
+): Promise<APIResponse> {
+  const r = await send();
+  const confirm = r.status() === 409 ? (await r.json()).confirm : undefined;
+  return typeof confirm === "string" ? send({ confirm }) : r;
+}
+
+/** The past-year warning's dialog (spec 5.8). */
+export function pastYearsDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Change an earlier tax year?" });
+}
+
+/** After a save, an edit or a delete: wait until the panel closes or the past-year warning asks, and answer
+ * Save anyway when it asks. Whether it asked. */
+export async function confirmPastYears(page: Page): Promise<boolean> {
+  const panel = page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ });
+  await expect(pastYearsDialog(page).or(page.locator("body:not(:has(.transaction-panel))"))).toBeVisible();
+  if (!(await pastYearsDialog(page).isVisible())) return false;
+  await pastYearsDialog(page).getByRole("button", { name: "Save anyway (a copy is made first)" }).click();
+  await expect(panel).toHaveCount(0);
+  return true;
 }
 
 export async function listTx(request: APIRequestContext) {
@@ -275,9 +302,10 @@ export async function openAddForm(page: Page, type: string) {
   await page.getByLabel("Transaction Type").selectOption(type);
 }
 
-/** Save the open form and wait for the panel to close. */
+/** Save the open form and wait for the panel to close; a save into an earlier tax year is confirmed (5.8). */
 export async function saveForm(page: Page, button = "Save Transaction") {
   await page.getByRole("button", { name: button }).click();
+  await confirmPastYears(page);
   await expect(page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ })).toHaveCount(0);
 }
 

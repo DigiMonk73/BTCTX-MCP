@@ -10,6 +10,7 @@ import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -18,8 +19,11 @@ from backend.schemas.transaction import (
     TransactionUpdate,
     TransactionRead
 )
+from backend.services import past_year_saves
 from backend.services import transaction as tx_service
 from backend.services import wipe
+from backend.services.account import read_book
+from backend.services.past_years import PastYearsChange
 from backend.database import get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
@@ -34,15 +38,14 @@ _now = time.time  # tests move the clock
 _ai_change_copy = threading.Lock()
 
 
-def _attach_utc_and_build_read_model(tx, db: Session | None = None, years: dict | None = None) -> TransactionRead:
+def _attach_utc_and_build_read_model(tx, db: Session, years: dict | None = None) -> TransactionRead:
     """The transaction as TransactionRead, its UTC times written with 'Z'
     rather than '+00:00', which values BitcoinTX filled in from a price, and
     the stored price they came from (price_used; read only, never asked for)."""
     pyd_model = TransactionRead.model_validate(tx)
     data = pyd_model.model_dump()
-    data["values_from_price"] = tx_service.values_from_price(tx)
-    if db is not None:
-        data["price_used"] = tx_service.price_used(tx, db, years)
+    data["values_from_price"] = tx_service.values_from_price(tx, read_book(db))
+    data["price_used"] = tx_service.price_used(tx, db, years)
 
     for field in ["timestamp", "created_at", "updated_at"]:
         val = data.get(field)
@@ -88,13 +91,19 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=TransactionRead)
-def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(tx: TransactionCreate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Save a new transaction with its ledger lines and its lots or lot
-    disposals; one dated before others recalculates the ledger.
+    disposals; one dated before others recalculates the ledger. One that
+    changes an earlier tax year answers 409 and saves nothing until it's
+    sent again with confirm=<the 409's fingerprint>, after a copy of the
+    database (5.8).
     """
-    tx_data = tx.model_dump()
-    new_tx = tx_service.create_transaction_record(tx_data, db)
+    new_tx = _through_the_warning(
+        past_year_saves.Write("add", data=tx.model_dump()), request, db, confirm)
+    if isinstance(new_tx, JSONResponse):
+        return new_tx
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
     return _attach_utc_and_build_read_model(new_tx, db)
@@ -121,19 +130,24 @@ def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, db: Session = Depends(get_db)):
+def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
     transaction doesn't exist. With the AI key, its first change in an hour
     (an edit, a deletion, a recalculation, or an import that recalculates)
-    comes after an AI copy of the database.
+    comes after an AI copy of the database. One that changes an earlier tax
+    year answers 409 until confirmed, as an add does (5.8).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
+    if not request.session.get("user_id") and confirm is None:  # the AI key; a confirmed write makes its own
         _copy_before_ai_changes(db, "Not changed")
-    tx_data = tx.model_dump(exclude_unset=True)
-    updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
+    updated_tx = _through_the_warning(
+        past_year_saves.Write("edit", transaction_id, tx.model_dump(exclude_unset=True)),
+        request, db, confirm)
+    if isinstance(updated_tx, JSONResponse):
+        return updated_tx
     if not updated_tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return _attach_utc_and_build_read_model(updated_tx, db)
@@ -159,22 +173,38 @@ def delete_all_transactions_endpoint(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_transaction(transaction_id: int, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
     With the AI key, its first change in an hour (an edit, a deletion, a
     recalculation, or an import that recalculates) comes after an AI copy of
-    the database (in the backups folder).
+    the database (in the backups folder). One that changes an earlier tax
+    year answers 409 until confirmed, as an add does (5.8).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
+    if not request.session.get("user_id") and confirm is None:  # the AI key; a confirmed write makes its own
         _copy_before_ai_changes(db, "Not deleted")
-    success = tx_service.delete_transaction_record(transaction_id, db)
+    success = _through_the_warning(
+        past_year_saves.Write("delete", transaction_id), request, db, confirm)
+    if isinstance(success, JSONResponse):
+        return success
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return
+
+
+def _through_the_warning(write: past_year_saves.Write, request: Request, db: Session,
+                         confirm: str | None):
+    """The write, or 409 when it changes an earlier tax year (5.8). The AI
+    key is also warned about a pending fix; a login is not."""
+    try:
+        return past_year_saves.save(write, db, confirm, ai=not request.session.get("user_id"))
+    except PastYearsChange as asked:
+        db.rollback()
+        return JSONResponse(status_code=409, content=asked.body)
 
 
 def _made_this_hour_today(made: float) -> bool:

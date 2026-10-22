@@ -27,11 +27,12 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.database import take_write_lock
 from backend.migrate import REVIEW_COPIES_KEPT, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
+from backend.services.account import AccountBook, read_book
 from backend.services.tax_time import get_tax_timezone, local_date
 
 CENT = Decimal("0.01")
@@ -55,6 +56,7 @@ def _changes(db: Session, ids, year: int | None, price_of) -> list[dict[str, Any
     if ids is not None:
         q = q.filter(Transaction.id.in_(list(ids)))
     changes = []
+    book = read_book(db)
     for t in q.order_by(Transaction.timestamp, Transaction.id).all():
         if normalized(t.source) == INHERITED_SOURCE:
             continue  # valued at the date of death's day by rule
@@ -62,7 +64,7 @@ def _changes(db: Session, ids, year: int | None, price_of) -> list[dict[str, Any
         if year is not None and tax_year != year:
             continue
         priced = price_of(t)
-        change = _change_for(t, *priced) if priced is not None else None
+        change = _change_for(t, *priced, book) if priced is not None else None
         if change is not None:
             changes.append({"id": t.id, "tax_year": tax_year, **change})
     return changes
@@ -141,10 +143,10 @@ def _price_of(db: Session, moment, wait: bool) -> tuple[Decimal, str] | None:
         return None
 
 
-def _change_for(t: Transaction, price: Decimal, at: str) -> dict[str, Any] | None:
+def _change_for(t: Transaction, price: Decimal, at: str, book: AccountBook) -> dict[str, Any] | None:
     """What pricing a transaction's priced values at `price` (its hour's or day's) would change, or None."""
     values = {}
-    for field, old, quantity in _priced_values(t):
+    for field, old, quantity in _priced_values(t, book):
         new = (price * quantity).quantize(CENT)
         if new != Decimal(old).quantize(CENT):
             values[field] = (Decimal(old).quantize(CENT), new)
@@ -158,13 +160,13 @@ def _start(hour: int, moment: str) -> int:
     return hour if moment == "hour" else hour // 86400 * 86400
 
 
-def _priced_values(t: Transaction):
+def _priced_values(t: Transaction, book: AccountBook):
     """(field, stored value, BTC it values) for each value that came from a
     price. A withdrawal's only when bitcoin left: one an older save left on a
     dollar withdrawal (its dollars priced as BTC) is never priced again (#449)."""
-    btc_leaving = t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
+    btc_leaving = t.type == "Withdrawal" and book.is_btc(t.from_account_id)
     if t.cost_basis_from_price and t.cost_basis_usd is not None and t.type == "Deposit" \
-            and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in VALUED_AT_RECEIPT:
+            and book.is_btc(t.to_account_id) and normalized(t.source) in VALUED_AT_RECEIPT:
         yield "cost_basis_usd", t.cost_basis_usd, Decimal(t.amount)
     if t.proceeds_from_price and t.gross_proceeds_usd is not None and btc_leaving \
             and normalized(t.purpose) == "spent":

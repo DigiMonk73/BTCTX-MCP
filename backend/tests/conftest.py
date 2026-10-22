@@ -5,15 +5,19 @@ Uses FastAPI TestClient with an isolated temporary database so tests
 never touch the production database.
 """
 
+import functools
+import importlib.util
 import logging
 import os
 import pytest
 import shutil
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from decimal import Decimal
+from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
@@ -98,6 +102,27 @@ def stub_prices_at(monkeypatch, price_for, moment="hour"):
     monkeypatch.setattr(hourly_prices, "price_at", price_at)
 
 
+INDEPENDENT_FIGURES = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
+
+
+@functools.cache
+def independent_figures():
+    """scripts/independent_figures.py, loaded once for every test of it:
+    scripts/ isn't a package, and one copy keeps one set of its types."""
+    spec = importlib.util.spec_from_file_location("independent_figures", INDEPENDENT_FIGURES)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module  # its dataclasses look their module up
+    spec.loader.exec_module(module)
+    return module
+
+
+def ledger_tx(kind, when, src, dst, amount, **more):
+    """A transaction as a ledger file holds it, for the independent
+    calculation's tests: no fee unless given, a Transfer's in BTC."""
+    return {"type": kind, "timestamp": when, "from_account_id": src, "to_account_id": dst, "amount": amount,
+            "fee_amount": "0", "fee_currency": "BTC" if kind == "Transfer" else "USD", **more}
+
+
 @pytest.fixture(autouse=True)
 def _no_unhandled_error(request, caplog):
     """An error no route handled is answered as a 500 and logged by type
@@ -174,6 +199,37 @@ def _no_draft_forms(tmp_path_factory):
         mp.setattr(draft_forms, "DATA_DIR", str(tmp_path_factory.mktemp("no-drafts")))
         mp.setattr(draft_forms, "SHIPPED_DIR", tmp_path_factory.mktemp("no-shipped-drafts"))
         yield
+
+
+PINNED_TAX_YEAR = 2009  # before every year a test enters: no write changes an earlier one
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _pinned_tax_year():
+    """
+    "This tax year" is 2009 (services/tax_time.current_tax_year, the one
+    clock, 5.15): no year a test enters is before it, so no save meets the
+    past-year warning (5.8), and the suite doesn't change on its own every
+    1 January. For the whole session, so a module's ledger set up before its
+    tests is entered under it too. A test of the warning sets the year with
+    `tax_year`.
+    """
+    from backend.services import tax_time
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(tax_time, "current_tax_year", lambda tz: PINNED_TAX_YEAR)
+        yield
+
+
+@pytest.fixture
+def tax_year(monkeypatch):
+    """Set "this tax year" for a test of the past-year warning: tax_year(2026)."""
+    from backend.services import tax_time
+
+    def set_year(year: int) -> None:
+        monkeypatch.setattr(tax_time, "current_tax_year", lambda tz: year)
+
+    return set_year
 
 
 @pytest.fixture(autouse=True)

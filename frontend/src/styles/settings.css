@@ -120,3 +120,14 @@
 /* About BitcoinTX: its short paragraphs apart, not run together */
 .about-section .settings-option-subtitle + .settings-option-subtitle { margin-top: var(--space-2); }
 .about-section .note { margin-bottom: var(--space-2); }
+
+/* Wallets, exchanges and banks (B7b): each account an option row, its buttons
+   on the right; the Add buttons in a row below, an open one a column */
+.ledger-accounts { list-style: none; margin: 0; padding: 0; }
+.ledger-account-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.ledger-add { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) 0; }
+.ledger-add-form { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; max-width: 440px; }
+/* An exchange's 1099-DA switch, under its bitcoin account's kind and balance */
+.ledger-1099da { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font-size: var(--text-13); }
+/* "Hidden": a badge its own width, not the column's */
+.ledger-accounts .badge { align-self: flex-start; margin-top: var(--space-1); }

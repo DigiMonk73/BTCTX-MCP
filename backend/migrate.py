@@ -63,9 +63,18 @@ REVIEW_COPIES_KEPT = 5
 # few deletes and re-imports must not push out the pre-upgrade copy.
 DELETE_KIND = "before-delete"
 DELETE_COPIES_KEPT = 5
+# Copies before a confirmed save that changes an earlier tax year (5.8), kept
+# apart: the newest 5 and, for AI_DAYS_HELD days, the first of each day, so a
+# run of confirmed saves can't push out the copy from before the first of
+# them. Not a "before-" kind: 1.x takes every btctx-before-*.db but its own
+# kinds for a pre-upgrade copy, so after going back to 1.x such copies would
+# push out its older ones.
+PRE_CHANGE_KIND = "pre-change"
+PRE_CHANGE_COPIES_KEPT = 5
+PRE_CHANGE_LABEL = "earlier-year"
 # Every kind of copy. A kind may start with another's name ("before-delete",
 # "before"): each one's listing leaves the longer kinds' copies out.
-COPY_KINDS = ("before", DELETE_KIND, "ai", "review")
+COPY_KINDS = ("before", DELETE_KIND, "ai", "review", PRE_CHANGE_KIND)
 # A copy being written: a name no listing of copies matches.
 PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
@@ -139,7 +148,8 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = B
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
     and pre-restore; "before-delete": before every transaction is deleted;
     "ai": asked for with the AI key, or made before its changes; "review":
-    before Ledger Review's hourly check is applied) keeps its own newest
+    before Ledger Review's hourly check is applied; "pre-change": before a
+    confirmed save that changes an earlier tax year) keeps its own newest
     `keep` (and "ai" more: prune_backups), so one kind never pushes out the
     other.
 
@@ -234,7 +244,8 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before",
                   spare: Path | None = None) -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
-    copies more: _ai_copies_held) and delete the others, never `spare`: the
+    copies more: _ai_copies_held; a pre-change copy also keeps the first of
+    each day for AI_DAYS_HELD days) and delete the others, never `spare`: the
     copy just made, which a clock set back would date before older ones.
     Only files this module wrote (<stem>-<kind>-*.db) are touched. Returns
     the deleted paths.
@@ -242,6 +253,8 @@ def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before",
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
     held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
+    if kind == PRE_CHANGE_KIND:
+        held = _first_each_day(copies)
     removed = []
     for old in copies[keep:]:
         if old in held or old == spare:
@@ -264,14 +277,34 @@ def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
     from before that day's changes, with what the owner entered the days
     before).
     """
+    week = _this_week(copies)
+    prefix = f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-"
+    return set(week[-1:]) | _first_each_day(copies, prefix)
+
+
+def _this_week(copies: list[Path]) -> list[Path]:
+    """Copies dated in the last AI_DAYS_HELD UTC days, in the order given.
+
+    Callers pass backup_copies' list, newest first. The window is today and
+    the AI_DAYS_HELD - 1 UTC days before it.
+    """
     today = datetime.datetime.now(datetime.timezone.utc).date()
     since = today - datetime.timedelta(days=AI_DAYS_HELD - 1)
-    recent = [p for p in copies if _utc_day(p) >= since]
-    first_each_day: dict[datetime.date, Path] = {}
-    for p in reversed(recent):
-        if p.name.startswith(f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-"):
-            first_each_day.setdefault(_utc_day(p), p)
-    return set(recent[-1:]) | set(first_each_day.values())
+    return [p for p in copies if _utc_day(p) >= since]
+
+
+def _first_each_day(copies: list[Path], prefix: str = "") -> set[Path]:
+    """The oldest copy of each UTC day in that week whose name starts with prefix.
+
+    An empty prefix matches every name, so a pre-change kind keeps the first
+    copy of each day. The AI passes its before-changing prefix, so a copy it
+    only asked for is not that day's first.
+    """
+    oldest: dict[datetime.date, Path] = {}
+    for p in reversed(_this_week(copies)):
+        if p.name.startswith(prefix):
+            oldest.setdefault(_utc_day(p), p)
+    return set(oldest.values())
 
 
 def _utc_day(copy: Path) -> datetime.date:

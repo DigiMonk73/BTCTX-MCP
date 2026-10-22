@@ -7,8 +7,10 @@ export interface ReviewItem {
   purpose: string | null;
   source: string | null;
   amount: string;
-  /** What the amount is in: dollars for a move between Bank, Exchange USD and External */
+  /** What the amount is in: dollars for a move that names only dollar accounts and External (by the book, B8-5) */
   unit?: "BTC" | "USD";
+  /** The accounts it names, by nickname (from, to; never External); absent from an older server. */
+  accounts?: string[];
   issue: string;
   change: string;
   /** day_priced_values only: the item's tax year */

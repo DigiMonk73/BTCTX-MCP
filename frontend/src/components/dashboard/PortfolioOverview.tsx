@@ -1,5 +1,5 @@
 import React from "react";
-import { noPriceWords, type AccountTotals, type LivePrice } from "../../utils/dashboard";
+import { noPriceWords, rowFigures, type AccountTotals, type LivePrice } from "../../utils/dashboard";
 import { formatBtc, formatSignedUsd, formatUsd } from "../../utils/format";
 import FigureRow from "./FigureRow";
 
@@ -32,10 +32,9 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ totals, averageCo
   <div className="card portfolio-overview">
     <h3 className="card-title">Portfolio Overview</h3>
 
-    <FigureRow label="Bank (USD)">{formatUsd(totals.bank)}</FigureRow>
-    <FigureRow label="Exchange (USD)">{formatUsd(totals.exchangeUsd)}</FigureRow>
-    <FigureRow label="Exchange (BTC)">{formatBtc(totals.exchangeBtc)}</FigureRow>
-    <FigureRow label="Wallet (BTC)">{formatBtc(totals.wallet)}</FigureRow>
+    {totals.rows.map((row) => (
+      <FigureRow key={row.key} label={row.name}>{rowFigures(row)}</FigureRow>
+    ))}
 
     <hr />
 
