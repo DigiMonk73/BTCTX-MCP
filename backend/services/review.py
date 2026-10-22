@@ -110,13 +110,13 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, object_session
 
-from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.database import scratch_copy
 from backend.models.account import Account
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, price_history
 from backend.services.hourly_review import hourly_changes
-from backend.services.account import YOURS
+from backend.services.account import YOURS, AccountBook, read_book
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
@@ -462,8 +462,9 @@ def build_review(db: Session) -> dict[str, Any]:
         .all()
     )
     found: dict[str, list[dict[str, Any]]] = {key: [] for key in CHECKS}
+    book = read_book(db)
     for t in rows:
-        for key, item in _row_issues(t, tz):
+        for key, item in _row_issues(t, tz, book):
             found[key].append(item)
     found["account_missing"] = _account_missing_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
@@ -492,11 +493,11 @@ def build_review(db: Session) -> dict[str, Any]:
     }
 
 
-def _row_issues(t: Transaction, tz):
+def _row_issues(t: Transaction, tz, book: AccountBook):
     """(check, item) for each check a withdrawal, deposit or buy fails on its own."""
-    yield from _purpose_issues(t, tz)
+    yield from _purpose_issues(t, tz, book)
     # Only bitcoin leaving has a bitcoin purpose: a dollar withdrawal's is one an older save left there (#449)
-    purpose = normalized(t.purpose) if t.from_account_id in BTC_ACCOUNTS else ""
+    purpose = normalized(t.purpose) if book.is_btc(t.from_account_id) else ""
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0 and received_known(t):  # else listed as an unknown purpose
         yield "zero_proceeds_spend", _item(
@@ -510,14 +511,12 @@ def _row_issues(t: Transaction, tz):
             t, tz, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
+    into_btc = t.type == "Deposit" and book.is_btc(t.to_account_id)
+    if into_btc and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
         yield "original_date_missing", _item(t, tz, "No date originally acquired.", "")
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
+    if into_btc and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
         yield "inherited_without_date", _item(t, tz, "No date of death.", "")
-    if t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS \
-            and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
+    if into_btc and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _no_basis_item(t, tz)
     if t.type == "Buy" and _is_zero_or_blank(t.cost_basis_usd):
         yield "buy_without_basis", _no_basis_item(t, tz)
@@ -531,9 +530,9 @@ def _no_basis_item(t: Transaction, tz) -> dict[str, Any]:
     )
 
 
-def _purpose_issues(t: Transaction, tz):
+def _purpose_issues(t: Transaction, tz, book: AccountBook):
     """A BTC withdrawal with a purpose BitcoinTX doesn't know (#61)."""
-    if t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS \
+    if t.type == "Withdrawal" and book.is_btc(t.from_account_id) \
             and (normalized(t.purpose) not in KNOWN_PURPOSES or _spaced_spent_unknown(t)):
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
         yield "withdrawal_purpose_unknown", _item(
@@ -676,9 +675,9 @@ def _day_priced_item(t: Transaction, tz, change: dict[str, Any]) -> dict[str, An
     return item
 
 
-def _is_valued_deposit(t: Transaction) -> bool:
+def _is_valued_deposit(t: Transaction, book: AccountBook) -> bool:
     """An income or rebate deposit into a BTC account: its basis is its value at receipt."""
-    return t.type == "Deposit" and t.to_account_id in BTC_ACCOUNTS and normalized(t.source) in DAY_VALUED
+    return t.type == "Deposit" and book.is_btc(t.to_account_id) and normalized(t.source) in DAY_VALUED
 
 
 def _is_income(t: Transaction) -> bool:
@@ -690,8 +689,9 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
     value when the price is known; the ids of those with no price go to
     `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (_is_valued_deposit(t) and _is_zero_or_blank(t.cost_basis_usd)):
+        if not (_is_valued_deposit(t, book) and _is_zero_or_blank(t.cost_basis_usd)):
             continue
         income = _is_income(t)
         issue = ("Basis blank" if t.cost_basis_usd is None else "Basis $0.00") + (
@@ -716,8 +716,9 @@ def _gift_without_value_items(db: Session, rows: list[Transaction], tz, missing:
     hour's value when the price is known; the ids of those with no price go
     to `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (t.type == "Withdrawal" and t.from_account_id in BTC_ACCOUNTS
+        if not (t.type == "Withdrawal" and book.is_btc(t.from_account_id)
                 and normalized(t.purpose) in GIFT_LIKE_PURPOSES and _is_zero_or_blank(t.fmv_usd)):
             continue
         issue = "Value blank: the tax report lists it as not given" if t.fmv_usd is None else "Value $0.00"
@@ -738,8 +739,9 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
     (a value from a price is day_priced_values'); the ids of those with no
     price go to `missing`."""
     items = []
+    book = read_book(db)
     for t in rows:
-        if not (_is_valued_deposit(t) and not _is_zero_or_blank(t.cost_basis_usd)) or t.cost_basis_from_price:
+        if not (_is_valued_deposit(t, book) and not _is_zero_or_blank(t.cost_basis_usd)) or t.cost_basis_from_price:
             continue
         market = _market_price(db, t, missing)
         if market is None:
