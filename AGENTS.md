@@ -542,8 +542,9 @@ from the Transaction row alone.
   `unexpected_error`); a save a restore's swap refused answers `REPLACED`
   (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
-  (`BUSY`, 503, `database.is_busy`, #478). Two kinds still show an error in full, to the owner only: a
-  failure that stops BitcoinTX starting (`init_db`, a migration),
+  (`BUSY`, 503, `database.is_busy`, #478). Two kinds still show an error
+  in full, to the owner only: a failure that stops BitcoinTX starting
+  (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot; its Set Login Credentials and
   Recalculate Ledger actions show only the `error:` line, never the SQL
