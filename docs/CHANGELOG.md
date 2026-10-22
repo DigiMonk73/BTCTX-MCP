@@ -75,7 +75,9 @@ All notable changes to BitcoinTX are documented in this file.
   (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
   which ReportLab needs (the reports draw no images); and certifi
   2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts. The IRS forms come out byte-identical for the reference test
+  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
+  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
+  forms come out byte-identical for the reference test
   ledger, and the Complete Tax Report's text is the same.
 
 ### Development
