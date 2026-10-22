@@ -15,6 +15,20 @@ function leavingAsks(page: Page): Promise<boolean> {
   return page.evaluate(() => !window.dispatchEvent(new Event("beforeunload", { cancelable: true })));
 }
 
+/** How many logouts the page has sent so far. */
+function logoutsSent(page: Page): () => number {
+  let sent = 0;
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/logout")) sent++;
+  });
+  return () => sent;
+}
+
+/** Whether the browser's session is still logged in. */
+async function loggedIn(page: Page): Promise<boolean> {
+  return (await page.request.get("/api/transactions")).status() === 200;
+}
+
 /** Back from Transactions to the dashboard, with nothing asked. */
 async function backLeaves(page: Page) {
   await page.goBack();
@@ -134,10 +148,7 @@ test("Logout with unsaved changes asks Discard changes? first, and sends nothing
     browserAsked.push(d.message());
     void d.accept();
   });
-  let logouts = 0;
-  page.on("request", (r) => {
-    if (r.url().endsWith("/api/logout")) logouts++;
-  });
+  const logouts = logoutsSent(page);
   await openAddForm(page, "Deposit");
   await page.getByLabel("Account", { exact: true }).selectOption("Bank");
   const logout = page.getByRole("link", { name: "Logout" });
@@ -149,16 +160,58 @@ test("Logout with unsaved changes asks Discard changes? first, and sends nothing
   await page.getByRole("button", { name: "Go back" }).click();
   await expect(question(page)).toHaveCount(0);
   await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
-  expect((await page.request.get("/api/transactions")).status()).toBe(200); // still logged in
-  expect(logouts).toBe(0);
+  expect(await loggedIn(page)).toBe(true);
+  expect(logouts()).toBe(0);
 
   await logout.focus();
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "Discard changes" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  expect((await page.request.get("/api/transactions")).status()).toBe(401);
-  expect(logouts).toBe(1);
+  expect(await loggedIn(page)).toBe(false);
+  expect(logouts()).toBe(1);
   expect(browserAsked).toEqual([]); // one question, the panel's: not "Are you sure…?" as well
+});
+
+test("a link from another site to /logout doesn't log out", async ({ authedPage: page, app }) => {
+  // The POST would come from BitcoinTX's own page, so the server's cross-site
+  // refusal never sees it: only the Header's Logout may ask for it
+  const logouts = logoutsSent(page);
+  await page.route("http://elsewhere.invalid/", (route) =>
+    route.fulfill({ contentType: "text/html", body: `<a href="${app.url}/logout">Log out of BitcoinTX</a>` }),
+  );
+  await page.goto("http://elsewhere.invalid/");
+  await page.getByRole("link", { name: "Log out of BitcoinTX" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(dashboard(page)).toBeVisible();
+  expect(await loggedIn(page)).toBe(true);
+  expect(logouts()).toBe(0);
+});
+
+test("the Header's Logout logs out once: Forward onto its /logout never again", async ({ authedPage: page }) => {
+  page.on("dialog", (d) => void d.accept()); // its "Are you sure…?": nothing changed
+  const logouts = logoutsSent(page);
+  // The answer held back, so Back can leave /logout before it comes, and its
+  // entry stays in the history
+  let answer!: () => void;
+  const answered = new Promise<void>((resolve) => (answer = resolve));
+  await page.route("**/api/logout", async (route) => {
+    await answered;
+    await route.continue();
+  });
+
+  const sent = page.waitForRequest("**/api/logout");
+  await page.getByRole("link", { name: "Logout" }).click();
+  await sent;
+  await expect(page).toHaveURL(/\/logout$/);
+  await page.goBack();
+  answer();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(await loggedIn(page)).toBe(false);
+
+  await page.goForward();
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("button", { name: "Log In" })).toBeVisible();
+  expect(logouts()).toBe(1);
 });
 
 test.describe("no price source chosen yet: the price card's link", () => {
