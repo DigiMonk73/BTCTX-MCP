@@ -166,7 +166,7 @@ def save(write: Write, db: Session, confirm: str | None, ai: bool):
         # needs rolls it back, is found with the lock free, and it runs again
         return hourly_prices.with_prices_found(db, lambda: _confirmed(write, db, confirm, ai))
     asked = check(write, db, ai)
-    if asked is not None and confirm != asked.body["confirm"]:
+    if asked is not None:
         raise asked
     return _plain(write, db)
 

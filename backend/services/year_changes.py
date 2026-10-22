@@ -13,6 +13,7 @@ from backend.services.reports.form_8949 import acquired_text, disposal_box
 from backend.services.review import FIGURES, _change_text, _differences, _item, _snapshot
 from backend.services.tax_time import local_date
 
+# Each moved row's line, as Ledger Review gives its own
 ISSUE = "Changes with this save."
 
 
@@ -75,7 +76,6 @@ def earlier_year_items(
     return sorted(items, key=lambda item: (item["date"], item["id"]))
 
 
-# Each moved row's line, as Ledger Review gives its own
 def change_text(diff: dict) -> str:
     if "added" in diff:
         return "Added."

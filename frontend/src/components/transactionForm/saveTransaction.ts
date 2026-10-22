@@ -7,7 +7,8 @@ import { buildTransactionPayload } from "../../utils/transactionForm";
 
 /**
  * Save the form: a new transaction, or `transactionId`'s changes. Returns
- * the message to show, with the realized gain when there is one.
+ * the message to show, with the realized gain when there is one. `confirm`
+ * sends it again past the past-year warning (5.8).
  */
 export async function saveTransaction(
   data: TransactionFormData,
