@@ -202,10 +202,12 @@ FIXED_ACCOUNTS = [
 def seed_defaults(bind=None) -> None:
     """
     Default user 'admin' / 'password' (only if no user exists) and the six
-    fixed accounts (IDs 1-6), tied to the first user. Idempotent.
+    fixed accounts (IDs 1-6), tied to the first user; the list of rows from
+    before 0.9.2, once (services/old_rows.py). Idempotent.
     """
     from backend.models.user import User
     from backend.models.account import Account, Exchange
+    from backend.services import old_rows
 
     db = sessionmaker(bind=bind or engine)()
     try:
@@ -234,6 +236,7 @@ def seed_defaults(bind=None) -> None:
                 existing.user_id = user.id
             else:
                 db.add(Account(user_id=user.id, **acct))
+        old_rows.note_once(db)
         db.commit()
 
         found_ids = {a.id for a in db.query(Account).all()}

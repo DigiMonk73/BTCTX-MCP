@@ -114,7 +114,7 @@ from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INCOME_SOURC
 from backend.database import scratch_copy
 from backend.models.account import Account
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
-from backend.services import hourly_prices, price_history
+from backend.services import hourly_prices, old_rows, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.account import YOURS, AccountBook, read_book
 from backend.services.calculation import btc_text
@@ -130,6 +130,11 @@ logger = logging.getLogger(__name__)
 # Ledger would stop with:" (the Settings panel, cli review)
 RECALC_STOPS = "Recalculate Ledger would stop with:"
 DRY_RUN_FAILED = "an unexpected error (BitcoinTX's log has the details)."
+
+# account_from_before_0_9_2's item (5.13)
+OLD_ROW_ISSUE = ("Saved before 0.9.2 into an account made through the old account API; 2.0 counts it by that "
+                 "account's currency.")
+OLD_ROW_CHANGE = "Saving it, even unchanged, takes it off this list."
 
 
 # key -> (title, what the owner can do)
@@ -467,6 +472,7 @@ def build_review(db: Session) -> dict[str, Any]:
         for key, item in _row_issues(t, tz, book):
             found[key].append(item)
     found["account_missing"] = _account_missing_items(db, tz)
+    found["account_from_before_0_9_2"] = _old_account_items(db, tz)
     found["recalc_changes"] = _recalc_items(db, moved or {}, tz)
     found["day_priced_values"], years = _day_priced_items(db, tz)
     missing: list[int] = []
@@ -561,6 +567,23 @@ def _account_missing_items(db: Session, tz) -> list[dict[str, Any]]:
     )
     return [_item(t, tz, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
                   "Edit it into one of your accounts, or delete it.") for t in rows]
+
+
+def _old_account_items(db: Session, tz) -> list[dict[str, Any]]:
+    """Each row on the ledger's list from before 0.9.2 (old_rows). One that
+    also names a missing account is account_missing's, so no row is listed
+    twice."""
+    ids = old_rows.listed(db)
+    if not ids:
+        return []
+    known = known_accounts(db)
+    rows = (
+        db.query(Transaction)
+        .filter(Transaction.id.in_(ids))
+        .order_by(Transaction.timestamp, Transaction.id)
+        .all()
+    )
+    return [_item(t, tz, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows if not missing_accounts(t, known)]
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:

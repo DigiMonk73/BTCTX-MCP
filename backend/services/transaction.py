@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
-from backend.services import hourly_prices, price_history, recalculated
+from backend.services import hourly_prices, old_rows, price_history, recalculated
 from backend.services.account import AccountBook, is_yours, read_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -470,6 +470,7 @@ def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction
     if not tx:
         return None
 
+    old_rows.take_off(db, transaction_id)  # saved, even unchanged: the owner has looked at it (5.13)
     book = read_book(db)
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
@@ -1126,6 +1127,7 @@ def apply_delete(transaction_id: int, db: Session) -> bool:
     if not tx:
         return False
 
+    old_rows.take_off(db, transaction_id)
     # One naming a missing account goes even while others like it stop the
     # replay, or none of them could ever go (#368)
     past = [] if missing_accounts(tx, known_accounts(db)) else None
