@@ -2678,9 +2678,17 @@ def delete_all_transactions(db: Session) -> int:
     Bulk cleanup: remove all transactions (and references).
     Return how many were deleted.
     """
-    all_txs = db.query(Transaction).all()
-    count = len(all_txs)
-    for tx in all_txs:
-        db.delete(tx)
+    count = remove_all_transactions(db)
     db.commit()
     return count
+
+
+def remove_all_transactions(db: Session) -> int:
+    """Every transaction (and its references) removed in db's transaction,
+    uncommitted, so another change can be saved in the same commit; how
+    many."""
+    all_txs = db.query(Transaction).all()
+    for tx in all_txs:
+        db.delete(tx)
+    db.flush()
+    return len(all_txs)

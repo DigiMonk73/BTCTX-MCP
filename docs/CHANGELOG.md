@@ -62,7 +62,9 @@ All notable changes to BitcoinTX are documented in this file.
   "BitcoinTX was busy saving something else, and nothing was changed. Try
   again.", as the imports do, and the log has a warning. Nothing was ever
   half saved: only the message changes. The AI connector shows the same
-  words.
+  words. Create account on an install with transactions deletes them and
+  saves the new login as one save: a save that came between the two
+  could leave every transaction deleted and the old login in place.
 - **Settings says why the tax timezone wasn't saved** (#533). It said
   "Could not save the timezone." whatever went wrong; it now gives the
   server's reason, as the rest of Settings does: a timezone your browser

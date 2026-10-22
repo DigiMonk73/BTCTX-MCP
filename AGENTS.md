@@ -480,6 +480,8 @@ from the Transaction row alone.
   checks the setup code or password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.
+  reset-account's delete and its new login are one save (`wipe.delete_all`'s
+  `save_with`): a failure leaves both as they were.
 - Sessions (`backend/session_auth.py`): each login gets a random session id,
   carried in the cookie; the server keeps the hashes of the open ones in
   `app_settings` (the newest 20). A session not on that list is logged out

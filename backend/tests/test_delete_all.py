@@ -20,6 +20,7 @@ from sqlalchemy.orm import sessionmaker
 from backend import migrate
 from backend.database import get_db
 from backend.main import app
+from backend.models.user import User
 from backend.services import first_run, wipe
 
 DELETE_ALL = "/api/transactions/delete_all"
@@ -336,6 +337,38 @@ def test_a_busy_database_deletes_nothing(impatient_app):
     assert count(me) == 2
     assert delete_copies(impatient_app) == []
 
+
+
+def test_create_accounts_delete_and_new_login_are_one_save(impatient_app, monkeypatch):
+    """#580's review: Create account saved the delete, then the new login.
+    A save that took the write lock in between (an import) made the login's
+    save wait past it: every transaction gone, the login unchanged, and the
+    answer said nothing was changed. As one save, a save trying in between
+    waits for it."""
+    with_transactions()
+    other = sqlite3.connect(impatient_app.url.database, timeout=0, check_same_thread=False)  # used by the route's thread
+    took = []
+    real = User.set_password
+
+    def set_password(user, password):  # the new login, being made
+        try:
+            other.execute("BEGIN IMMEDIATE")  # an import starting to save: it keeps the lock if it gets it
+            took.append(True)
+        except sqlite3.OperationalError:
+            took.append(False)
+        real(user, password)
+
+    monkeypatch.setattr(User, "set_password", set_password)
+    try:
+        r = anon().post("/api/users/reset-account", json=dict(CLAIM, setup_code=first_run.ensure_code(), confirm="DELETE"))
+    finally:
+        other.rollback()
+        other.close()
+    assert (r.status_code, took) == (200, [False]), r.text
+    me = anon()
+    assert me.post("/api/login", json=CLAIM).status_code == 200
+    assert count(me) == 0
+    assert rows_in(delete_copies(impatient_app)[0]) == 2
 
 def test_create_account_with_transactions_asks_once_the_code_is_right(fresh_app):
     with_transactions()
