@@ -11,8 +11,9 @@ Ledger text on its way into the PDF and CSV reports.
   and URL that Paragraph markup names goes through) are replaced by a
   refusal, so markup that slipped through still reads nothing. The reports use no images,
   links or font files of their own (the standard fonts are built in). This
-  module must be imported before ReportLab opens anything: it reads the
-  trust settings once.
+  module must be imported before ReportLab opens anything: until then its
+  own readers are in place, and they open a file's path whatever the trust
+  settings say.
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
   value, and of one that starts with ' before such a text (#380). Numbers

@@ -10,6 +10,7 @@ import os
 import pytest
 import shutil
 import subprocess
+import sys
 import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -339,6 +340,33 @@ def fresh_app(auth_client):
     app.dependency_overrides[get_db] = previous
     engine.dispose()
     remove_temp_db(path)
+
+
+@pytest.fixture
+def opened_or_fetched():
+    """Every file the test opens and every URL request, name lookup and
+    connection it makes, as (event, what) pairs. Python raises an audit
+    event for each, whichever library makes the call (ReportLab's readers
+    included), so this sees what a mock of one function would miss. A hook
+    can't be removed: it is added once and records only for a test that
+    asks."""
+    if not _audit["hooked"]:
+        sys.addaudithook(_record_audit_event)
+        _audit["hooked"] = True
+    _audit["seen"] = seen = []
+    yield seen
+    _audit["seen"] = None
+
+
+AUDITED_EVENTS = ("open", "urllib.Request", "socket.getaddrinfo", "socket.connect")
+_audit = {"hooked": False, "seen": None}
+
+
+def _record_audit_event(event: str, args: tuple) -> None:
+    seen = _audit["seen"]
+    if seen is not None and event in AUDITED_EVENTS:
+        # socket.connect's first argument is the socket, its second the address
+        seen.append((event, str(args[1] if event == "socket.connect" else args[0])))
 
 
 @pytest.fixture(scope="session")

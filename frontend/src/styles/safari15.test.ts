@@ -1,4 +1,5 @@
-// The Mac app renders with the system WebKit: Safari 15 on macOS 10.15.
+// The Mac app renders with the system WebKit, and its CSS keeps to Safari 15
+// (macOS 11, the oldest the app runs on, came with Safari 14 and updates to 16).
 // Safari before 15.4 doesn't know :focus-visible, and drops any rule whose
 // selector list contains one; keyboard focus must still show there.
 import { readdirSync, readFileSync } from "node:fs";

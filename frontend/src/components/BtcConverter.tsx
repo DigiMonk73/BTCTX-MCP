@@ -4,10 +4,13 @@ import api from "../api";
 import { noPriceReason, priceSourceShort, priceSourceWords, type NoPrice } from "../utils/dashboard";
 import { clock } from "../utils/priceStatus";
 import { browserTimezone } from "../utils/taxTimezone";
-import { historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd } from "../utils/converter";
+import {
+  historyPriceUrl, SATS_PER_BTC, satsFromBtc, satsFromUsd, usdFromBtc, usdFromSats,
+} from "../utils/converter";
 import { btcText } from "../utils/format";
 import { PRICE_CHOICE_SAVED } from "./priceCard/usePriceCard";
 import AutoPriceRow, { type PriceFrom } from "./converter/AutoPriceRow";
+import PriceMomentLine from "./converter/PriceMomentLine";
 import "../styles/converter.css";
 
 type Mode = "manual" | "auto" | "date";
@@ -26,6 +29,7 @@ const NO_PRICE_WORDS: Record<NoPrice | "loading" | "missing", string> = {
   missing: "No price",
 };
 type Field = "USD" | "BTC" | "SATS" | null;
+type Answered = Pick<LiveBtcPriceResponse, "source" | "at" | "moment">;
 
 const BtcConverter: React.FC = () => {
   const [mode, setMode] = useState<Mode>("auto");
@@ -33,8 +37,9 @@ const BtcConverter: React.FC = () => {
   // Why there's no price, when there's none: never shown as "$0.00". "missing":
   // Date mode's day has none
   const [noPrice, setNoPrice] = useState<"loading" | NoPrice | "missing">("loading");
-  // Where the price came from and when ("kraken", "mempool"; the live price only)
-  const [answered, setAnswered] = useState<{ source?: string; at?: string } | null>(null);
+  // Where the price came from and when ("kraken", "mempool"; the live price only), and
+  // for Date mode's hour whether it's that hour's or a day's, and which (#555)
+  const [answered, setAnswered] = useState<Answered | null>(null);
   // Whether public sites are asked through Tor (null until the settings answer):
   // the source line waits for it, so it never shows without "through Tor" first
   const [throughTor, setThroughTor] = useState<boolean | null>(null);
@@ -45,11 +50,11 @@ const BtcConverter: React.FC = () => {
     const ticket = priceTicket.current;
     let price = 0;
     let why: NoPrice | "missing" = "none";
-    let from: { source?: string; at?: string } | null = null;
+    let from: Answered | null = null;
     try {
       const res = await api.get<LiveBtcPriceResponse>(url);
       if (res.data && typeof res.data.USD === "number") price = res.data.USD;
-      from = { source: res.data?.source, at: res.data?.at };
+      from = { source: res.data?.source, at: res.data?.at, moment: res.data?.moment };
     } catch (err) {
       // no price: 0, and why (backend/services/outbound.py's 503s are choices)
       const status = axios.isAxiosError(err) ? err.response?.status : undefined;
@@ -89,9 +94,6 @@ const BtcConverter: React.FC = () => {
 
   // The field typed in last: the other two are worked out from it
   const [lastChangedField, setLastChangedField] = useState<Field>(null);
-
-  // BTC to the satoshi as plain digits (btcText: 1 sat is "0.00000001", never "1e-8"), USD to the cent.
-  const roundUsd = (num: number) => Math.round(num * 100) / 100;
 
   // Whether public sites go through Tor, for the source line: read again when a
   // choice is saved, unknown meanwhile (only the newest read counts)
@@ -179,7 +181,7 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setUsdValue(value);
       // One count, and the BTC field written from it, so the two agree (#451)
-      const sats = satsFromUsd(parseFloat(value) || 0, btcPrice);
+      const sats = satsFromUsd(value, btcPrice);
 
       setBtcValue(sats === null ? "" : btcText(sats / SATS_PER_BTC));
       setSatsValue(sats === null ? "" : sats.toString());
@@ -195,10 +197,10 @@ const BtcConverter: React.FC = () => {
     (value: string, updateLastField = true) => {
       setBtcValue(value);
       const btcNum = parseFloat(value) || 0;
-      const usdNum = btcNum * btcPrice;
       const sats = btcNum ? satsFromBtc(value) : null;
 
-      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
+      // USD to the cent BitcoinTX would save (#578)
+      setUsdValue(usdFromBtc(value, btcPrice));
       setSatsValue(sats === null ? "" : sats.toString());
 
       if (updateLastField) {
@@ -213,10 +215,10 @@ const BtcConverter: React.FC = () => {
       setSatsValue(value);
       const satsNum = parseFloat(value) || 0;
       const btcNum = satsNum / SATS_PER_BTC;
-      const usdNum = btcNum * btcPrice;
 
+      // BTC to the satoshi as plain digits (btcText: 1 sat is "0.00000001", never "1e-8")
       setBtcValue(btcNum ? btcText(btcNum) : "");
-      setUsdValue(usdNum ? roundUsd(usdNum).toString() : "");
+      setUsdValue(usdFromSats(value, btcPrice));
 
       if (updateLastField) {
         setLastChangedField("SATS");
@@ -345,6 +347,8 @@ const BtcConverter: React.FC = () => {
               ))}
             </select>
           </div>
+          {/* Kept while an hour is chosen, so the calculator below moves only between Day and an hour */}
+          {selectedHour !== "" && <PriceMomentLine answer={btcPrice > 0 ? answered : null} />}
         </div>
       )}
 

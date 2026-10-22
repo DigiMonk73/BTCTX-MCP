@@ -20,7 +20,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import Pool, StaticPool
 from sqlalchemy.types import TypeDecorator, String
 import bcrypt
 
@@ -70,6 +70,23 @@ def _erase_deleted_data(dbapi_connection, _record):
     transaction doesn't stay readable in the file (or in copies of it)."""
     if isinstance(dbapi_connection, sqlite3.Connection):
         dbapi_connection.execute("PRAGMA secure_delete = ON")
+
+
+@event.listens_for(Pool, "reset")
+def _end_what_a_failed_commit_left_open(dbapi_connection, _record, reset_state):
+    """
+    Every SQLite connection goes back to the pool with no transaction open.
+    A COMMIT that waited past the 5 s for a reader fails ("database is
+    locked") and leaves its changes open, and SQLAlchemy, counting the
+    transaction as ended, skips its own rollback there: the next request
+    on that connection would save them with its own (a transaction answered
+    busy, saved twice after "Try again"; a Delete All finished later), and
+    they'd hold SQLite's lock meanwhile (#580's re-check). A rollback that
+    fails makes SQLAlchemy close the connection, which ends it too.
+    """
+    if (not reset_state.terminate_only and isinstance(dbapi_connection, sqlite3.Connection)
+            and dbapi_connection.in_transaction):
+        dbapi_connection.rollback()
 
 
 class UTCDateTime(TypeDecorator):
