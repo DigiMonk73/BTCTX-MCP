@@ -54,6 +54,25 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **With your own Mempool, a price looked up while its history is
+  downloading is found** (#535). With **My own Mempool** chosen, the first
+  past price BitcoinTX needs (on a fresh install, or 10 minutes after the
+  last download) downloads your Mempool's whole price history. Since
+  1.2.8, a second lookup made while that download was still running found
+  no price: "No BTC price is available for …; enter the USD value
+  yourself." (422), or "No price" in the Sats Converter's Date mode, until
+  tried again. Now it waits for that download (at most 3 minutes), sends
+  no request of its own, and takes its price from it. If your Mempool's
+  address or the price choice is saved while it waits, it goes by the new
+  settings. No figure was ever wrong: a value without a price was refused,
+  never saved at $0. Nothing to do.
+- **The log names every download of your Mempool's price history**
+  (#557). The line "Price history from your mempool server: N days", which
+  the StartOS instructions and the release tests look for, was written
+  only when a day's price made the download. When an hour's price made it
+  (the usual case since 1.2.8), the log showed only the HTTP request. Now
+  each download from your Mempool writes it once, whichever price needed
+  it. Only the log changes.
 
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2
