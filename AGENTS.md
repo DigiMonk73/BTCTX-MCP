@@ -378,7 +378,9 @@ from the Transaction row alone.
   import and the AI's preview and add find their rows' prices before
   their first write (`transaction.find_prices_first`, #426); such an
   import waits for a year once and asks a source once per hour. No save
-  sends a request while it holds SQLite's write lock: one about to go out
+  sends a request while it holds SQLite's write lock, nor waits for
+  another lookup's (your Mempool's history under way, #535): one about to
+  go out or be waited for
   (`price_history.requests_held`) rolls the save back, the price is found
   with the lock free, and the save runs again
   (`hourly_prices.with_prices_found`, #426), so a new way to save or
