@@ -113,8 +113,10 @@ declare global {
     USD: number;
     /** Where it came from: "mempool", or a public site ("kraken", "bitstamp"). */
     source?: string;
-    /** When it arrived (UTC, "…Z"). */
+    /** When it arrived (UTC, "…Z"); a past moment's: when its hour or day began. */
     at?: string;
+    /** A past moment's (/bitcoin/price/history?at=): that hour's price, or the day's where none is stored for it (#555). */
+    moment?: PriceMoment;
   }
 
   // Transactions

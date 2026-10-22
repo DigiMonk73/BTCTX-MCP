@@ -23,8 +23,9 @@ export default defineConfig(
       // One of react-hooks 7's React Compiler checks, off: the screens set
       // state from an effect, to load their data and to reset or derive
       // state when something changes (nine places). Rewriting that is for
-      // 2.0's screens with React 19 (docs/MAINTENANCE.md, "Deferred
-      // upgrades"), not a tools upgrade (#425); the other new checks stay on.
+      // 2.0's reworked screens, not a version upgrade (#425; the React 19
+      // upgrade kept it off too, since the fix changes how the screens
+      // behave); the other new checks stay on.
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': [
         'warn',

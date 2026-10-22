@@ -119,8 +119,9 @@ the hashes of what it fetches for an isolated build.
 6. Commit one package (or one coupled group) per commit, e.g.
    `deps: update sqlalchemy 2.0.54 → 2.0.55`.
 
-To roll back, restore the previous `requirements.in` and `requirements.txt`
-from git, reinstall, and rerun `make check`.
+To roll back, `git revert` the update's commit (it brings back the pins and any
+test the update changed, such as ReportLab 5's refusal tests in
+`test_hardening_edges.py`), reinstall, and rerun `make check`.
 
 The indirect packages move only when a lock is recompiled and a pin needs
 it, so they are refreshed once a month: the first Monday's weekly check
@@ -194,7 +195,9 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
 - **Figures and forms.** An update to a package marked High in "Current
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
-  (`scripts/equivalence_check.py`) and waits for the owner's "merge".
+  in two environments (step 4 of "Updating a dependency":
+  `scripts/equivalence_check.py` can't see a package change) and waits for
+  the owner's "merge".
 
 A Dependabot branch behind `develop` is brought up to date by commenting
 "@dependabot rebase" on it, never by merging `develop` into it
@@ -265,11 +268,13 @@ From `backend/requirements.in`:
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
 | `pypdf` | 6.21.2 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
-| `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
+| `reportlab` | 5.0.1 | High | Complete Tax Report and transaction history PDFs. 5.0.1 was taken after the before-and-after comparison showed both reports the same, object for object, but for the time they were made (#585; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
 
-Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
+Frontend (from `frontend/package.json`): React 19, Vite 8 (its build target
+pinned to Safari 15 in `frontend/vite.config.ts`, for the Mac app's WebKit:
+Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
 `frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
 Docker frontend build and CI use Node 24.
@@ -283,8 +288,8 @@ after `npx playwright install chromium webkit`, reads Playwright's release
 notes for every version in between, and lets CI's two `e2e` jobs decide on
 Linux. The browsers each version needs come with that install, so nothing
 else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
-`ubuntu-24.04` until a run on `ubuntu-latest` (26.04) is green; then it goes
-back to `ubuntu-latest` (#574). WebKit's suite runs on a Mac only from macOS 15
+`ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
+WebKit's suite runs on a Mac only from macOS 15
 (Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
 
 ### Deferred upgrades
@@ -296,7 +301,6 @@ take the upgrade.
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
 | `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
 
 ---

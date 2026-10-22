@@ -1,5 +1,6 @@
 import React from "react";
 import { formatBtc, formatLocalDateTime, formatUsd, parseDecimal } from "../utils/format";
+import { problemText } from "../utils/importProblem";
 
 const ERRORS_SHOWN = 10;
 const WARNINGS_SHOWN = 5;
@@ -41,7 +42,7 @@ const CsvImportPreview: React.FC<{
         <ul>
           {preview.errors.slice(0, ERRORS_SHOWN).map((err, idx) => (
             <li key={idx} className="import-error-item">
-              Row {err.row_number}{err.column ? ` (${err.column})` : ""}: {err.message}
+              {problemText(err, err.column)}
             </li>
           ))}
           {preview.errors.length > ERRORS_SHOWN && (
@@ -57,7 +58,7 @@ const CsvImportPreview: React.FC<{
         <ul>
           {preview.warnings.slice(0, WARNINGS_SHOWN).map((warn, idx) => (
             <li key={idx} className="import-warning-item">
-              Row {warn.row_number}{warn.column ? ` (${warn.column})` : ""}: {warn.message}
+              {problemText(warn, warn.column)}
             </li>
           ))}
           {preview.warnings.length > WARNINGS_SHOWN && (

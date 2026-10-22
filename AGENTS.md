@@ -378,7 +378,9 @@ from the Transaction row alone.
   import and the AI's preview and add find their rows' prices before
   their first write (`transaction.find_prices_first`, #426); such an
   import waits for a year once and asks a source once per hour. No save
-  sends a request while it holds SQLite's write lock: one about to go out
+  sends a request while it holds SQLite's write lock, nor waits for
+  another lookup's (your Mempool's history under way, #535): one about to
+  go out or be waited for
   (`price_history.requests_held`) rolls the save back, the price is found
   with the lock free, and the save runs again
   (`hourly_prices.with_prices_found`, #426), so a new way to save or
@@ -1019,6 +1021,13 @@ one session. Claude suggests this setup when a request is that big.
   problem goes to a draft advisory, never onto the umbrella or any
   issue, and its fix is released the same day rather than held for the
   release.
+- **Planned ahead, detailed just in time** (the owner, 2026-10-22): the
+  plan gives every session its scope, "Done when", footprint and owner
+  points up front; a session's micro-steps are written only when it
+  starts, as its issue's checklist, with its "Done when" tests written
+  first and seen to fail; after each merge the lead re-plans the next
+  one or two sessions against what merged, and takes anything that
+  touches an owner's decision to the owner first.
 - **Each session** first posts or refreshes its checklist on its issue,
   ticks the boxes there as it goes, and writes its decisions there. It
   carries on from its own issue, not from #41's "Next". After a

@@ -141,3 +141,73 @@ test("converter, date mode: the day's price", async ({ authedPage: page }) => {
   await page.getByLabel("BTC", { exact: true }).fill("1");
   await expect(page.getByLabel("USD", { exact: true })).toHaveValue("50000");
 });
+
+test("converter, date mode: the line under the date and hour says which price shows (#555)", async ({ authedPage: page }) => {
+  const sidebar = page.getByRole("complementary");
+  const anyLine = sidebar.getByText(/^(Day|Hour)'s price: /);
+  const dayLine = sidebar.getByText("Day's price: Mar 1, 00:00 UTC", { exact: true });
+  await sidebar.getByRole("button", { name: "Date" }).click();
+  await sidebar.getByLabel("Select date").fill("2024-03-01");
+  await expect(sidebar.getByText("$50,000.00", { exact: true })).toBeVisible();
+  await expect(anyLine).toHaveCount(0); // the day, asked for
+  // The test server stores no hourly prices, so an hour gets the day's: 15:00 here is 21:00 UTC on Mar 1
+  await sidebar.getByLabel("Hour").selectOption("15:00");
+  await expect(dayLine).toBeVisible();
+  await expect(sidebar.getByText("$50,000.00", { exact: true })).toBeVisible();
+  // Said to a screen reader as it changes, with the reason
+  const line = dayLine.locator("xpath=..");
+  await expect(line).toHaveAttribute("aria-live", "polite");
+  await expect(line).toHaveText("Day's price: Mar 1, 00:00 UTC No price is stored for that hour.");
+  // An hour's own price
+  await page.route(
+    (url) => url.pathname.endsWith("/bitcoin/price/history") && url.searchParams.has("at"),
+    (route) => route.fulfill({ json: { USD: 50_123, moment: "hour", at: "2024-03-01T22:00:00Z", source: "bitstamp" } }),
+  );
+  await sidebar.getByLabel("Hour").selectOption("16:00");
+  await expect(sidebar.getByText("$50,123.00", { exact: true })).toBeVisible();
+  await expect(sidebar.getByText("Hour's price: Mar 1, 22:00 UTC", { exact: true })).toBeVisible();
+  await expect(dayLine).toHaveCount(0);
+});
+
+// The line keeps its place while the next hour's answer comes, so the calculator doesn't jump (#555's review)
+for (const width of [1440, 1000]) {
+  test(`converter, date mode: the calculator stays put while an hour's price comes, ${width}px wide (#555)`, async ({
+    authedPage: page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const sidebar = page.getByRole("complementary");
+    const calculator = sidebar.getByRole("status", { name: "Calculator display" });
+    const top = async () => Math.round((await calculator.boundingBox())!.y);
+    await sidebar.getByRole("button", { name: "Date" }).click();
+    await sidebar.getByLabel("Select date").fill("2024-03-01");
+    await sidebar.getByLabel("Hour").selectOption("15:00");
+    await expect(sidebar.getByText("Day's price: Mar 1, 00:00 UTC", { exact: true })).toBeVisible();
+    const settled = await top();
+    let answer = () => {};
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    await page.route(
+      (url) => url.pathname.endsWith("/bitcoin/price/history") && url.searchParams.has("at"),
+      async (route) => { await held; await route.continue(); },
+    );
+    await sidebar.getByLabel("Hour").selectOption("16:00");
+    await expect(sidebar.getByText("…", { exact: true })).toBeVisible(); // its answer on its way
+    expect(await top()).toBe(settled);
+    answer();
+    await expect(sidebar.getByText("$50,000.00", { exact: true })).toBeVisible();
+    await expect(sidebar.getByText("Day's price: Mar 1, 00:00 UTC", { exact: true })).toBeVisible();
+    expect(await top()).toBe(settled);
+  });
+}
+
+test("converter: the dollar figure is the cent BitcoinTX would save, a half cent to the even cent (#578)", async ({ authedPage: page }) => {
+  const sidebar = page.getByRole("complementary");
+  const field = (label: string) => sidebar.getByLabel(label, { exact: true });
+  await sidebar.getByRole("button", { name: "Manual" }).click();
+  await expect(sidebar.getByLabel("BTC price (USD)")).toHaveValue("60000");
+  await sidebar.getByLabel("BTC price (USD)").fill("96281.61");
+  await field("BTC").fill("0.5"); // $48,140.805
+  await expect(field("USD")).toHaveValue("48140.8");
+  await sidebar.getByLabel("BTC price (USD)").fill("96283.7");
+  await field("Sats").fill("15000000"); // $14,442.555
+  await expect(field("USD")).toHaveValue("14442.56");
+});
