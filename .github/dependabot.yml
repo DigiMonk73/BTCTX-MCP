@@ -82,6 +82,7 @@ updates:
       prefix: deps
     allow:
       - dependency-name: pytest
+      - dependency-name: pytest-xdist
       - dependency-name: hypothesis
       - dependency-name: ruff
       - dependency-name: pip-audit

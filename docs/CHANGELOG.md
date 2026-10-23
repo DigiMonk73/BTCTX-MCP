@@ -322,6 +322,15 @@ All notable changes to BitcoinTX are documented in this file.
   `react-hooks/set-state-in-effect` stays off until 2.0's screens
   (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
   Node.js 22.13 or newer, the README's minimum (it said 18).
+- **CI in about a third of the time** (the owner's ask, 2026-10-22). The
+  Python suite runs on every core with pytest-xdist (`-n auto`; 3,184 tests
+  in 83 s on the Mac mini, against 16 minutes one at a time; `make test` and
+  `make test-fast` too, so the pre-push gate is quicker), and the
+  click-through tests split across machines (Chromium in three, WebKit in
+  two), with Playwright's browsers cached between runs. One job, "CI
+  passed", now stands for every required job, so `develop`'s ruleset
+  requires only it and a renamed or split job no longer needs the ruleset
+  changed. Nothing in the app changes.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
