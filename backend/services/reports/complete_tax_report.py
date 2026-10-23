@@ -182,6 +182,8 @@ class _TaxReport:
         self.tz_name = data.get("tax_timezone") or "UTC"
         self.tz = ZoneInfo(self.tz_name)
         self.styles = ReportStyles()
+        # A name the owner typed wraps between its words, and inside a word only one too long for the line
+        self.name_style = ParagraphStyle(name="CellName", parent=self.styles.cell, wordWrap=None)
         self.running_title = f"{self.year} Bitcoin Tax Report"
         self.disposals = [d for d in data.get("capital_gains_transactions", []) if d.get("asset") == "BTC"]
         self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
@@ -209,6 +211,10 @@ class _TaxReport:
     def text(self, value, style=None) -> Paragraph:
         # Report data is text, never markup (safe_text.py)
         return Paragraph(pdf_text(value), style or self.styles.cell)
+
+    def name(self, value) -> Paragraph:
+        """An account's or an exchange's name (2.0 spec 5.1: typed by the owner, up to 40 characters)."""
+        return self.text(value, self.name_style)
 
     def number(self, value: str, bold: bool = False) -> Paragraph:
         return self.text(value, self.styles.number_bold if bold else self.styles.number)
@@ -477,16 +483,43 @@ class _TaxReport:
         rows.append([self.total_label(), "", "", "", "", *self.numbers(
             fmt_btc(sum(d.get("amount", 0.0) for d in self.disposals)), fmt_usd(t["proceeds"]),
             fmt_usd(t["basis"]), fmt_gain(t["gain"]), bold=True)])
-        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee"
-        return story + [data_table(rows, [0.72, 0.75, 0.79, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
+        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee" and "Exchange BTC"
+        # (54 pt), Term "Short"; a longer account name wraps
+        return story + [data_table(rows, [0.72, 0.75, 0.9, 0.35, 0.42, 0.86, 1.0, 1.0, 1.0], total=True),
+                        *self.sales_by_exchange()]
 
     def disposal_row(self, d: dict) -> list:
         return [
             self.text(self.date(d.get("date_sold", ""))), self.text(self.date(d.get("date_acquired", ""))),
-            self.text(d.get("kind") or d.get("type", "")), self.text(d.get("box", "")),
+            self.kind_cell(d), self.text(d.get("box", "")),
             self.text((d.get("holding_period") or "").capitalize()),
             *self.numbers(fmt_btc(d.get("amount", 0.0)), fmt_usd(d.get("proceeds", 0.0)),
                           fmt_usd(d.get("cost", 0.0)), fmt_gain(d.get("gain_loss", 0.0))),
+        ]
+
+    def kind_cell(self, d: dict) -> list:
+        """What gave rise to a disposal ("Sale"), and below it the account it
+        left ("Kraken BTC", 2.0 spec 5.7): a name wraps inside the column."""
+        return [self.text(d.get("kind") or d.get("type", "")), *([self.name(d["account"])] if d.get("account") else [])]
+
+    def sales_by_exchange(self) -> list:
+        """Each exchange's Sells of the year (2.0 spec 5.7), to set beside the
+        Form 1099-DA it sends; nothing in a year without one."""
+        sales = self.data.get("sales_by_exchange") or []
+        if not sales:
+            return []
+        rows = [self.header("Exchange", "Sends Form 1099-DA", "Boxes", "Rows", "Proceeds", "Cost basis", "Gain (loss)",
+                            numbers_from=3)]
+        rows += [[self.name(s["exchange"]), self.text("Yes" if s["sends_1099da"] else "No"),
+                  self.text(", ".join(s["boxes"])), *self.numbers(str(s["rows"]), fmt_usd(s["proceeds"]),
+                                                                  fmt_usd(s["cost"]), fmt_gain(s["gain_loss"]))]
+                 for s in sales]
+        return [
+            *self.subheading("Sales by exchange"),
+            data_table(rows, [1.9, 0.85, 0.6, 0.45, 1.05, 1.05, 1.1]),
+            self.text("Each exchange's Sells from the list above, network fees left out (a fee is on no Form 1099-DA "
+                      "by itself): to set beside the Form 1099-DA each exchange sends. Every figure stays where it is "
+                      "on Form 8949.", self.styles.note),
         ]
 
     # 3. Income
@@ -632,7 +665,7 @@ class _TaxReport:
             acc["cost"] += lot.get("cost", 0.0)
             acc["value"] = None if lot.get("value") is None or acc["value"] is None else acc["value"] + lot["value"]
         rows = [self.header("Account", "Lots", "BTC", "Cost basis", "Market value", numbers_from=1)]
-        rows += [[self.text(name), *self.numbers(str(a["lots"]), fmt_btc(a["btc"]), fmt_usd(a["cost"]),
+        rows += [[self.name(name), *self.numbers(str(a["lots"]), fmt_btc(a["btc"]), fmt_usd(a["cost"]),
                                                  fmt_value(a["value"]))] for name, a in sorted(accounts.items())]
         total = self.year_end_total or {}
         rows.append([self.total_label(), *self.numbers(
@@ -642,7 +675,7 @@ class _TaxReport:
 
     def lots_table(self) -> Table:
         rows = [self.header("Acquired", "Account", "BTC", "Cost basis", "Market value", numbers_from=2)]
-        rows += [[self.text(self.date(lot.get("acquired", ""))), self.text(lot.get("account", "")),
+        rows += [[self.text(self.date(lot.get("acquired", ""))), self.name(lot.get("account", "")),
                   *self.numbers(fmt_btc(lot.get("quantity", 0.0)), fmt_usd(lot.get("cost", 0.0)),
                                 fmt_value(lot.get("value")))] for lot in self.lots]
         total = self.year_end_total or {}

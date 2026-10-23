@@ -12,7 +12,8 @@ from sqlalchemy.orm import Session, contains_eager
 
 from backend.models import LotDisposal
 from backend.models.transaction import Transaction
-from backend.constants import ACCOUNT_EXCHANGE_BTC, GIFT_LIKE_PURPOSES, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, normalized
+from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.tax_time import format_tax_date, get_tax_timezone, local_date, tax_year_bounds
 
@@ -129,12 +130,13 @@ def build_form_8949_and_schedule_d(
     start_date, end_date = tax_year_bounds(year, tz)
 
     disposals = taxable_disposals(db, start_date, end_date)
+    book = account_book(db)
 
     rows_short: list[Form8949Row] = []
     rows_long: list[Form8949Row] = []
 
     for disp in disposals:
-        box = disposal_box(disp, year, tz)
+        box = disposal_box(disp, year, tz, book)
 
         acquired_str = acquired_text(disp, tz)
 
@@ -188,9 +190,9 @@ def acquired_text(disp: LotDisposal, tz=timezone.utc) -> str:
     return format_tax_date(lot.acquired_date, tz) if lot is not None and lot.acquired_date else ""
 
 
-def disposal_box(disp: LotDisposal, year: int, tz=timezone.utc) -> str:
+def disposal_box(disp: LotDisposal, year: int, tz, book: AccountBook) -> str:
     """The Form 8949 box (A-L) of one lot disposal of `year`."""
-    broker_reported, basis_reported = _broker_reporting(disp, year, tz)
+    broker_reported, basis_reported = _broker_reporting(disp, year, tz, book)
     return _determine_box(disp.holding_period, basis_reported, year, broker_reported)
 
 
@@ -200,20 +202,24 @@ def disposal_box(disp: LotDisposal, year: int, tz=timezone.utc) -> str:
 COVERED_DIGITAL_ASSET_START = date(2026, 1, 1)
 
 
-def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bool, bool]:
+def _broker_reporting(disp: LotDisposal, year: int, tz, book: AccountBook) -> tuple[bool, bool]:
     """
     (reported on a 1099-DA?, basis reported?) for one lot disposal.
 
-    Only exchange Sells are broker-reported: that's what River (a US broker)
-    puts on Form 1099-DA. Network-fee disposals and spends/withdrawals from
-    self-custody aren't on any broker form, unless the user recorded what the
-    broker reported: a spend's override places its fee too (#549), so a
-    1099-DA that lists the spend and its fee can be matched. A Sell's basis
-    is reported only for covered lots: bought on the exchange (a Buy into
-    Exchange BTC) on or after 2026-01-01. BTC transferred in from elsewhere
-    is noncovered — its lot is created by a Transfer, and transfers break the
-    broker's basis chain. The acquisition date is taken in the tax timezone,
-    matching column (b).
+    Only exchange Sells are broker-reported: what each exchange (a US broker,
+    such as River) puts on its Form 1099-DA, so a Sell from an exchange's BTC
+    account whose "This exchange sends me a Form 1099-DA" is on (2.0 spec
+    5.7); with it off, the exchange's Sells are on no broker form, as a
+    self-custody spend's aren't. Network-fee disposals and spends/withdrawals
+    from self-custody aren't on any broker form, unless the user recorded
+    what the broker reported: a spend's override places its fee too (#549),
+    so a 1099-DA that lists the spend and its fee can be matched. A Sell's
+    basis is reported only for covered lots: bought on that exchange (a Buy
+    into the same account the Sell is from) on or after 2026-01-01. BTC
+    transferred in from elsewhere, another exchange included, is noncovered:
+    its lot is created by a Transfer, and transfers break the broker's basis
+    chain. The acquisition date is taken in the tax timezone, matching
+    column (b).
     """
     tx = disp.transaction
     if disp.is_fee and not _fee_follows_override(tx):
@@ -221,7 +227,7 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bo
     if tx is not None and tx.broker_reporting:
         # The user recorded what the broker actually reported: that wins.
         return tx.broker_reporting != "none", tx.broker_reporting == "basis"
-    if year < 2025 or tx is None or tx.type != "Sell" or tx.from_account_id != ACCOUNT_EXCHANGE_BTC:
+    if year < 2025 or tx is None or tx.type != "Sell" or not _on_a_1099da(tx.from_account_id, book):
         return False, False
     lot = disp.lot
     origin = lot.created_transaction if lot else None
@@ -229,11 +235,16 @@ def _broker_reporting(disp: LotDisposal, year: int, tz=timezone.utc) -> tuple[bo
     covered = (
         origin is not None
         and origin.type == "Buy"
-        and origin.to_account_id == ACCOUNT_EXCHANGE_BTC
+        and origin.to_account_id == tx.from_account_id
         and acquired is not None
         and local_date(acquired, tz) >= COVERED_DIGITAL_ASSET_START
     )
     return True, covered
+
+
+def _on_a_1099da(account_id: int | None, book: AccountBook) -> bool:
+    """An exchange's BTC account whose exchange sends a Form 1099-DA (5.7)."""
+    return book.kind(account_id) == "exchange" and book.is_btc(account_id) and book.sends_1099da(account_id)
 
 
 def _fee_follows_override(tx: Transaction | None) -> bool:

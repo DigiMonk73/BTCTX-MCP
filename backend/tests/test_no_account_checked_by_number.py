@@ -20,8 +20,6 @@ NAMES = {"BTC_ACCOUNTS", "ACCOUNT_ID_TO_NAME", "ACCOUNT_NAME_TO_ID",
 
 # (file, name): how many times, and the card that changes them
 STILL_BY_NUMBER = {
-    # B4: Form 8949's boxes by the book (5.7: _broker_reporting's Sell and covered lot)
-    ("services/reports/form_8949.py", "ACCOUNT_EXCHANGE_BTC"): 2,
     # B5: files name accounts by the book (5.11: the CSV preview and export, the AI import, River)
     ("routers/backup.py", "ACCOUNT_ID_TO_NAME"): 2,
     ("routers/river_import.py", "ACCOUNT_NAME_TO_ID"): 1,
