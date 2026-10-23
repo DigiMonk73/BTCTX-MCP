@@ -174,11 +174,25 @@ its release notes (what StartOS shows before updating) and its migration.
 Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
 (`make` type-checks, lints, format-checks and bundles), and `backend/tests/test_versions_agree.py`.
 
+## Watching Start9
+
+Start9 moves fast (on 2026-10-23 alone: StartOS 0.4.0.3, start-cli 2.5.0 and
+a new registry that older start-clis can't read), and their reviewers hold the
+package to their current guide and SDK. So BTCTX-MCP watches them daily
+(`.github/workflows/start9-watch.yml`, `scripts/start9-watch.sh`; the owner,
+2026-10-23): one issue, labelled `start9`, for each newer start-sdk or
+start-cli than `develop` pins, each StartOS release (test the package on it,
+the lab VM first), each start-registry release (check our start-cli still
+reads the registries), each day Start9's packaging guide or shared package
+workflows change, a failed build on the mirror or their fork, and changes on
+their fork not taken back. `scripts/start9-watch.sh --dry-run` shows the
+same without opening anything. Each issue says what to do; the Monday report
+lists the open ones.
+
 ## Bumping the SDK
 
-BTCTX-MCP's `.github/workflows/startos-sdk-check.yml` opens an issue when npm
-has a newer `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt
-them:
+`scripts/start9-watch.sh` opens an issue when npm has a newer
+`@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt them:
 
 1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
    installing) for breaking changes and the minimum StartOS version.

@@ -998,6 +998,8 @@ and the README's "Reporting problems"; keep them.
   - outside reports with no answer, here, on Start9's fork or on the
     mirror;
   - how many security advisories are waiting (never their details);
+  - open `start9` issues: what Start9 released or changed that the
+    StartOS package hasn't followed yet;
   - the latest Grok pass, as Claude recorded it on #41: how many of its
     findings Claude confirmed and how many it didn't, and the next
     monthly area (`docs/GROK-REVIEW.md`).
@@ -1255,7 +1257,10 @@ passed" that isn't a failure), and any "staging into develop" (`gh pr
 list --base staging`, `gh run list --branch staging --limit 10`, `gh pr
 list --base develop`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work, and run the
-daily cycle ("Branches", `develop`).
+daily cycle ("Branches", `develop`). Then what Start9 changed: the open
+`start9` issues, and, until `main` carries the daily `start9-watch.yml`
+(its schedule runs only from `main`), `scripts/start9-watch.sh` itself
+(startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
 down from GitHub and says whether anything exists only on this computer: work not
