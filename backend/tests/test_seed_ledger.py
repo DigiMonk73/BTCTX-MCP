@@ -185,7 +185,10 @@ def test_the_reference_figures_have_not_moved(seeded):
     """#139: every figure the reference ledger gives (each year's forms and
     report, the dashboard) against testdata/reference_figures.json. A change
     meant to move figures runs `make reference-figures` and shows the
-    difference in its pull request; tax figures wait for the owner's merge."""
+    difference in its pull request. The figures rule (AGENTS.md, "Reviews"):
+    a figure moved on purpose gets the owner's OK on a plain-words
+    before-and-after, never on code; one moved by mistake is fixed; no figure
+    moved, Claude merges after every figures check."""
     _, Session, _ = seeded
     with Session() as db:
         now = reference_figures.figures(db)
