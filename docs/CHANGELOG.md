@@ -25,14 +25,6 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
-- **start-cli 2.5.0** (from 2.4.1) packs `btctx.s9pk` in CI and the
-  release, as Start9's own builds do with the newest (`START_CLI_VERSION`,
-  `START_CLI_SHA256`; startos/UPDATING.md, "Bumping the SDK", step 3). It
-  signs with an updated scheme and manages only servers on StartOS 0.4.0.3
-  or later, but a package it packs still installs and runs on StartOS
-  0.4.0.2: checked on the lab VM (2026-10-23), packed with 2.5.0's Linux
-  build (its macOS build won't start on macOS 27). Older start-clis can't
-  install from Start9's new registry (start-registry 1.2.0); 2.5.0 can.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes
@@ -46,6 +38,16 @@ All notable changes to BitcoinTX are documented in this file.
   its own five transactions (each one checked) and empties it again
   afterwards; a new test leaves another module's transaction in first. Tests
   only: nothing in the app changes.
+- **start-cli 2.5.0** (from 2.4.1) packs `btctx.s9pk` in CI and the
+  release, as Start9's own builds do with the newest (`START_CLI_VERSION`,
+  `START_CLI_SHA256`; startos/UPDATING.md, "Bumping the SDK", step 3). It
+  signs requests and registry entries with an updated scheme and manages
+  only servers on StartOS 0.4.0.3 or later; a package it packs still
+  installs and runs on StartOS 0.4.0.2 (the lab VM, 2026-10-23, packed with
+  2.5.0's Linux build: its macOS build doesn't start on macOS 27). On the
+  lab that day, start-cli 2.4.1 and 2.4.2 failed on `registry package
+  install` against Start9's new start-registry 1.2.0, though Start9's notes
+  say older start-clis keep working; CI reads no registry.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
