@@ -14,9 +14,6 @@ ACCOUNT_USD_FEES = 6
 # Virtual account for external transactions
 ACCOUNT_EXTERNAL = 99
 
-# The accounts that hold bitcoin; the others hold dollars
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
-
 # The names that always mean these ids in a file (CSV, River, a 1.x
 # connector's rows), whatever those accounts are called now, and that no
 # other account can take (2.0 spec 5.1): services/account.py's book reads them

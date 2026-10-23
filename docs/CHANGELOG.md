@@ -5,6 +5,36 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **"Is it a bitcoin account?" by currency, and one copy of the account
+  rules** (B3, #348). Every check that asked whether an account holds
+  bitcoin now asks the account book instead of the ids of Wallet and
+  Exchange BTC, so a second wallet or exchange follows the same rules as
+  the first: income, rebates and inheritances into it count, a gift or a
+  spend from it is valued, the reports, the dashboard, the CSV export,
+  Ledger Review and its hour check see it. Which accounts each type of
+  transaction may use is one set of rules for the save, the CSV import,
+  River and the AI import, in plain sentences ("A Deposit comes from
+  External.", "A Sell from Exchange BTC goes into Exchange USD."): the
+  CSV instructions PDF shows them. Saving into an added account still
+  waits for a later step. No ledger made since v0.9.2 changes.
+- **A ledger started before v0.9.2** (the owner's decision): transactions
+  saved then into an account made through 1.x's account API now count by
+  that account's currency, as Wallet's and Bank's always have. For a
+  bitcoin one: its income, rebates and gifts received are on the
+  dashboard and in the tax report, its gifts, donations and lost coins in
+  the report's list, a withdrawal of a purpose BitcoinTX doesn't know
+  counts as Spent (#61), Ledger Review and its hour check look at its rows
+  (a spend's proceeds an upgrade marked as from the price are offered at
+  the hour's price, and listed with the report's values from a price),
+  the River and AI imports' duplicate checks compare its rows as bitcoin,
+  and the CSV export marks its values typed or priced. Once the ledger is
+  recalculated, a
+  spend's network fee from it is a cost of the spend (#157): its proceeds
+  and gain go down by the fee's value. Ledger Review lists these rows
+  ("Transactions in an account made through BitcoinTX's old account API")
+  until each is saved or deleted; "Figures that Recalculate Ledger would
+  change" shows any spend that moves. What to do: open Ledger Review,
+  check each row listed, then run Recalculate Ledger (Settings).
 - **The account book and the account API** (B2b, #347). One place answers
   every question about an account (its kind, currency, exchange, 1099-DA
   switch, name), and the account API adds a bank, a wallet or an exchange

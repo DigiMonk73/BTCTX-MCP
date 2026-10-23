@@ -119,10 +119,10 @@ COMMON_ERRORS = [
     ["\"cost_basis_usd is required for Buy transactions\"", "Add the USD paid for the BTC, before the fee"],
     ["\"proceeds_usd is required for Sell transactions\"", "Add the gross USD, before the fee"],
     ["\"A BTC withdrawal needs a purpose\"", "From Wallet or Exchange BTC, add purpose: Spent, Gift, Donation, or Lost"],
-    ["\"Buy must have from_account = 'Bank' or 'Exchange USD'\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
-    ["\"Sell must have from_account = 'Exchange BTC'\"", "Sell must be: from Exchange BTC, to Exchange USD"],
-    ["\"Deposit must have from_account = 'External'\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
-    ["\"Transfer must have different from_account and to_account\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
+    ["\"A Buy is paid from a bank or from an exchange's USD account\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
+    ["\"A Sell is from an exchange's BTC account\"", "Sell must be: from Exchange BTC, to Exchange USD"],
+    ["\"A Deposit comes from External\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
+    ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
     ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
 ]
 

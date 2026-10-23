@@ -56,6 +56,9 @@ VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 VOLATILE_MCP_KEYS = {"file", "created"}
 # Hashes of the AI key, and of the login sessions each run opens anew.
 VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
+# The rows from before 0.9.2 (5.13, from 2.0): a ledger a 1.x start never
+# wrote it in.
+UNCOMPARED_SETTINGS = ("accounts_old_rows",)
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.
@@ -255,7 +258,8 @@ def database_rows(engine) -> dict:
     with engine.connect() as con:
         for table in sorted(inspect(engine).get_table_names()):
             rows = con.execute(text(f'SELECT * FROM "{table}" ORDER BY rowid')).mappings().all()
-            tables[table] = [_stable_row(table, row) for row in rows]
+            tables[table] = [_stable_row(table, row) for row in rows
+                             if not (table == "app_settings" and row["key"] in UNCOMPARED_SETTINGS)]
     return tables
 
 

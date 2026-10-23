@@ -114,7 +114,7 @@ class TestPreview:
         bad = dict(BUY, to_account="Wallet")
         out = preview([bad])
         assert out["results"][0]["status"] == "invalid"
-        assert "Exchange BTC" in out["results"][0]["errors"][0]
+        assert out["results"][0]["errors"][0] == "A Buy's bitcoin goes into an exchange's BTC account."
 
     def test_backdated_buy_reports_affected_existing_sell(self):
         execute([
