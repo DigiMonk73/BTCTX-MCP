@@ -29,7 +29,9 @@ affected and what to do; most ledgers need nothing more.
 4. Then read the entries marked "tax figures" below: each says whether
    there's anything to do. No recalculation is needed.
 
-**Known issues:** none known.
+**Known issues:** none known. A known limitation: a Form 1099-DA that
+lists a transfer's or a gift's network fee, or a fee without its
+withdrawal, can't be matched on Form 8949 yet (#551).
 
 
 ### Changed
