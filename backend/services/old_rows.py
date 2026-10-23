@@ -9,8 +9,10 @@ looked at each.
 The list is the ledger's own, written once (`accounts_old_rows` in
 app_settings, the ids as JSON): once the gate opens (B7a) new rows can be
 saved into those accounts, and they aren't from before 0.9.2. Saving a row on
-it, even unchanged, or deleting it takes it off. Not by updated_at: a
-recalculation moves that (#333's review).
+it, even unchanged, or deleting it takes it off, and deleting every
+transaction empties it: a transaction's id can be given again once the
+highest are gone (no AUTOINCREMENT), and a new row is never from before
+0.9.2. Not by updated_at: a recalculation moves that (#333's review).
 """
 
 import json
@@ -44,11 +46,16 @@ def note_once(db: Session) -> None:
 
 
 def listed(db: Session) -> list[int]:
-    """The ids still on the list; none without one."""
+    """The ids still on the list; none without one, or with a value that
+    isn't a list of ids (never a save or Ledger Review stopped by it)."""
     row = db.get(AppSetting, KEY)
-    if row is None:
+    try:
+        ids = json.loads(row.value) if row is not None else []
+    except (TypeError, ValueError):
         return []
-    return json.loads(row.value)
+    if not isinstance(ids, list):
+        return []
+    return [i for i in ids if isinstance(i, int) and not isinstance(i, bool)]
 
 
 def take_off(db: Session, tx_id: int) -> None:
@@ -57,3 +64,9 @@ def take_off(db: Session, tx_id: int) -> None:
     if tx_id not in ids:
         return
     save_setting(db, KEY, json.dumps([i for i in ids if i != tx_id]))
+
+
+def forget_all(db: Session) -> None:
+    """Every transaction deleted: none is left on the list, and the list
+    stays, so no later start lists the rows saved after. The caller commits."""
+    save_setting(db, KEY, json.dumps([]))

@@ -2634,6 +2634,7 @@ BUY_SAME_EXCHANGE = "A Buy paid from {paid_from} goes into {its_btc}: an exchang
 SELL_FROM = "A Sell is from an exchange's BTC account."
 SELL_INTO = "A Sell from {sold_from} goes into {its_usd}."
 
+
 def account_problems(tx_type: str, from_id: int | None, to_id: int | None,
                      book: AccountBook) -> list[tuple[str, str]]:
     """
@@ -2737,5 +2738,6 @@ def remove_all_transactions(db: Session) -> int:
     all_txs = db.query(Transaction).all()
     for tx in all_txs:
         db.delete(tx)
+    old_rows.forget_all(db)
     db.flush()
     return len(all_txs)

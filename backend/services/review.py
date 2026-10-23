@@ -18,8 +18,9 @@ Checks:
   which only a BitcoinTX before 0.9.2 could save. 1.x's checks by number
   left it out of income and the like; 2.0 counts it by its account's
   currency (B3). Only the rows on the list the ledger kept at its first 2.0
-  start (`accounts_old_rows`, written by database.seed_defaults); saving
-  such a row, even unchanged, or deleting it takes it off.
+  start (`accounts_old_rows`, written by database.seed_defaults) that still
+  name such an account; saving such a row, even unchanged, or deleting it
+  takes it off, and Delete All empties the list.
 - zero_proceeds_spend (F1): a Spent withdrawal saved with $0 proceeds.
   Before v0.9.2 the form sent 0 for a blank, so a spend meant to be valued
   at the day's price was saved at $0, a loss of its whole basis. A real $0
@@ -554,20 +555,22 @@ def _account_missing_items(db: Session, tz, book: AccountBook) -> list[dict[str,
 
 
 def _old_account_items(db: Session, tz, book: AccountBook) -> list[dict[str, Any]]:
-    """Each row on the ledger's list from before 0.9.2 (old_rows). One that
-    also names a missing account is account_missing's, so no row is listed
+    """Each row on the ledger's list from before 0.9.2 (old_rows) that still
+    names an account made through 1.x's account API (5.13). One that also
+    names a missing account is account_missing's, so no row is listed
     twice."""
     ids = old_rows.listed(db)
     if not ids:
         return []
-    known = known_accounts(db)
+    known, old = known_accounts(db), old_rows.old_accounts(db)
     rows = (
         db.query(Transaction)
         .filter(Transaction.id.in_(ids))
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
-    return [_item(t, tz, book, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows if not missing_accounts(t, known)]
+    return [_item(t, tz, book, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows
+            if {t.from_account_id, t.to_account_id} & old and not missing_accounts(t, known)]
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:

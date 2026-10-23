@@ -182,3 +182,40 @@ def _deposits_without_a_date(path):
         return [Row(*r) for r in con.execute(
             "SELECT id, timestamp FROM transactions WHERE type = 'Deposit' AND to_account_id IN (2, 4, 7) "
             "AND source IN ('MyBTC', 'Gift') AND acquired_at IS NULL")]
+
+
+def test_delete_all_empties_the_list_so_an_id_given_again_isnt_listed(ledger):
+    """SQLite gives a transaction's id again once the highest are gone: after
+    Delete All, a new row saved into 7 takes an id the list held."""
+    client, db, rows = ledger
+    r = client.delete("/api/transactions/delete_all?confirm=DELETE")
+    assert r.status_code == 204, r.text
+    assert kept(db) == []
+    again = save(client, type="Deposit", from_account_id=99, to_account_id=7, amount="0.01", source="Income",
+                 cost_basis_usd="500")
+    assert again in rows.values()  # the same id as a row the list held
+    assert listed(client)["count"] == 0
+    seed_defaults(db.get_bind())  # a later start doesn't list it either
+    assert kept(db) == []
+
+
+def test_a_listed_id_whose_row_no_longer_names_an_old_account_isnt_listed(ledger):
+    """5.13: the check lists a row on the list that names an account 7 to 98
+    (a row the list names can only have left one by a save, which takes it
+    off; or be another row, its id given again)."""
+    client, db, rows = ledger
+    db.execute(text("UPDATE app_settings SET value = :v WHERE key = 'accounts_old_rows'"),
+               {"v": json.dumps([rows["income into 7"], rows["into 2"]])})
+    db.commit()
+    assert [i["id"] for i in listed(client)["items"]] == [rows["income into 7"]]
+
+
+@pytest.mark.parametrize("value", ["not json", "{}", '"7"', '[1, "2", true, null, 2.5]'])
+def test_a_value_that_isnt_a_list_of_ids_stops_nothing(ledger, value):
+    client, db, rows = ledger
+    db.execute(text("UPDATE app_settings SET value = :v WHERE key = 'accounts_old_rows'"), {"v": value})
+    db.commit()
+    assert client.get("/api/review").status_code == 200
+    assert client.put(f"/api/transactions/{rows['income into 7']}", json={}).status_code == 200
+    assert client.delete(f"/api/transactions/{rows['into 8']}").status_code == 204
+    assert listed(client)["count"] == 0
