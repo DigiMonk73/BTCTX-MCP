@@ -1240,7 +1240,7 @@ def ensure_fee_account_exists(db: Session):
     """
     fee_acct = db.query(Account).filter_by(name="BTC Fees").first()
     if not fee_acct:
-        fee_acct = Account(user_id=1, name="BTC Fees", currency="BTC")
+        fee_acct = Account(user_id=1, name="BTC Fees", currency="BTC", kind="fee")
         db.add(fee_acct)
         db.commit()
         db.refresh(fee_acct)

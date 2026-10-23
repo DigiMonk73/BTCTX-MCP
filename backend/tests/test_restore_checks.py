@@ -773,3 +773,71 @@ def test_a_genuine_backup_brings_back_every_row(live, tmp_path, reference_db, fr
     if source != "v0.7.0":
         assert restored["lot_disposals"] and restored["btc_price_daily"]
     assert _logs_in(live.client, OWNER) and _key_works(live.token)
+
+
+# 2.0's accounts (2.0 spec 5.11): a 1.x backup and a 2.0 backup restore;
+# each exchange needs its two accounts, and two names alike are refused
+REFERENCE_1X = Path(__file__).parent / "fixtures" / "reference_1x.db"
+ACCOUNTS_DONT_FIT = "Restore failed: This backup can't be restored: its accounts don't fit."
+KINDS = "SELECT id, name, kind, exchange_id FROM accounts ORDER BY id"
+
+
+def _rows(engine, sql) -> list:
+    with engine.connect() as conn:
+        return [tuple(row) for row in conn.execute(text(sql))]
+
+
+def test_a_1x_backup_restores_into_2_0_with_its_kinds(live):
+    r = _restore(live.client, _sealed(REFERENCE_1X.read_bytes()))
+    assert r.status_code == 200, r.text
+    assert _rows(live.engine, KINDS) == [
+        (1, "Bank", "bank", None), (2, "Wallet", "wallet", None), (3, "Exchange USD", "exchange", 1),
+        (4, "Exchange BTC", "exchange", 1), (5, "BTC Fees", "fee", None), (6, "USD Fees", "fee", None)]
+    assert _rows(live.engine, "SELECT id, name, sends_1099da FROM exchanges") == [(1, "Exchange", 1)]
+    assert _logs_in(live.client, OWNER)
+
+
+def test_a_2_0_backup_restores_with_its_exchange_and_names(live, tmp_path):
+    blob, _ = _backup(tmp_path, "UPDATE exchanges SET name = 'River', sends_1099da = 0",
+                      "UPDATE accounts SET name = 'River USD' WHERE id = 3",
+                      "UPDATE accounts SET name = 'River BTC' WHERE id = 4",
+                      "UPDATE accounts SET name = 'Coldcard', hidden = 1 WHERE id = 2")
+    r = _restore(live.client, blob)
+    assert r.status_code == 200, r.text
+    assert _rows(live.engine, "SELECT id, name, sends_1099da FROM exchanges") == [(1, "River", 0)]
+    assert _rows(live.engine, "SELECT id, name, hidden FROM accounts WHERE id IN (2, 3, 4) ORDER BY id") == [
+        (2, "Coldcard", 1), (3, "River USD", 0), (4, "River BTC", 0)]
+
+
+NEW_ACCOUNT = "INSERT INTO accounts (id, user_id, name, currency, kind, exchange_id, hidden) VALUES "
+
+
+@pytest.mark.parametrize("sql", [
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)"],  # no BTC account
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)"],  # no account at all
+    [NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 7, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'BTC', 'exchange', 7, 0)"],  # no such exchange
+    [NEW_ACCOUNT + "(100, 1, 'Loose', 'BTC', 'exchange', NULL, 0)"],  # an exchange's account of none
+    [NEW_ACCOUNT + "(100, 1, 'Jade', 'BTC', 'wallet', 1, 0)"],  # a wallet tied to an exchange
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'USD', 'exchange', 2, 0)"],  # two dollar accounts
+], ids=["one account", "no account", "no exchange", "no exchange id", "a wallet's exchange", "two dollars"])
+def test_an_exchange_without_its_two_accounts_is_refused(live, tmp_path, sql):
+    _assert_refused(live, sql, ACCOUNTS_DONT_FIT, tmp_path)
+
+
+def test_two_names_alike_are_refused(live, tmp_path):
+    """A backup whose accounts table lost NOCASE (no BitcoinTX makes one) holding "Cold" and "cold"."""
+    _assert_refused(live, [
+        "CREATE TABLE accounts_new (id INTEGER NOT NULL, user_id INTEGER NOT NULL, name VARCHAR NOT NULL, "
+        "currency VARCHAR NOT NULL, kind VARCHAR NOT NULL, exchange_id INTEGER, hidden BOOLEAN NOT NULL, "
+        "PRIMARY KEY (id), UNIQUE (name))",
+        "INSERT INTO accounts_new SELECT id, user_id, name, currency, kind, exchange_id, hidden FROM accounts",
+        NEW_ACCOUNT.replace("accounts", "accounts_new") + "(100, 1, 'Cold', 'BTC', 'wallet', NULL, 0)",
+        NEW_ACCOUNT.replace("accounts", "accounts_new") + "(101, 1, 'cold', 'BTC', 'wallet', NULL, 0)",
+        "DROP TABLE accounts",
+        "ALTER TABLE accounts_new RENAME TO accounts",
+    ], "Restore failed: This backup can't be restored: its accounts rows don't fit BitcoinTX's database.",
+        tmp_path)

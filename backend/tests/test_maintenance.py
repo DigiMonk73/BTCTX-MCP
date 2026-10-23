@@ -154,7 +154,8 @@ def test_cli_migrate_upgrades_v0_7_0_with_a_backup(tmp_path):
     r = cli(db, "migrate")
     assert r.returncode == 0, r.stderr
     assert "Copy of the previous database" in r.stdout
-    assert len(list((tmp_path / "backups").glob("btctx-before-*.db"))) == 1
+    # a 1.x database: the pre-2.0 copy, the way back (2.0 spec 5.3)
+    assert len(list((tmp_path / "backups").glob("btctx-pre-2.0-from-unversioned-*.db"))) == 1
 
 
 def test_cli_migrate_refuses_a_newer_schema(tmp_path):

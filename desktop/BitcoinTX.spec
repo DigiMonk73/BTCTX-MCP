@@ -126,6 +126,7 @@ hidden_imports = [
     "backend.models",
     "backend.models.user",
     "backend.models.account",
+    "backend.models.exchange",
     "backend.models.transaction",
     "backend.routers",
     "backend.routers.user",

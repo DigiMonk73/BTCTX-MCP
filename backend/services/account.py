@@ -1,22 +1,25 @@
 """
 Accounts: reading them, and changes to accounts other than the six fixed
 ones (database.FIXED_ACCOUNTS: Bank, Wallet, Exchange USD, Exchange BTC,
-BTC Fees, USD Fees). Those keep their name, currency and place, and are
-recreated if missing, and no other account takes their names: the ledger
-finds the fee accounts by name, and every start puts a fixed account's
-name back, which a second account of that name would stop (#289).
+BTC Fees, USD Fees). Those keep their currency, kind and place, and are
+recreated if missing; 5 and 6 keep their names too, and no other account
+takes a fixed account's name: the ledger finds the fee accounts by name,
+and every start puts 5's and 6's names back, which a second account of
+that name would stop (#289). 2.0's account book replaces this (B2b).
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from backend.database import FIXED_ACCOUNTS
+from backend.database import FIXED_ACCOUNTS, RENAMEABLE_FIXED
 from backend.models.account import Account
+from backend.models.exchange import Exchange
 from backend.models.transaction import Transaction
 from backend.schemas.account import AccountCreate, AccountUpdate
 
 
-SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
+SPECIAL_ACCOUNTS = {a["id"]: a for a in FIXED_ACCOUNTS}
 FIXED_NAMES = frozenset(a["name"] for a in FIXED_ACCOUNTS)
 
 
@@ -45,11 +48,24 @@ def create_account(account_data: AccountCreate, db: Session):
         user_id=account_data.user_id,
         name=account_data.name,
         currency=account_data.currency,
+        # 1.x's accounts: a BTC one a wallet, else a bank (2.0 spec 5.3),
+        # until 2.0's account API adds by kind
+        kind="wallet" if account_data.currency == "BTC" else "bank",
     )
     db.add(new_account)
-    db.commit()
+    _commit_name(db, account_data.name)
     db.refresh(new_account)
     return new_account
+
+
+def _commit_name(db: Session, name: str | None) -> None:
+    """Commit; a name alike another account's ignoring case, which the
+    database refuses (accounts.name COLLATE NOCASE), is a 400."""
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"An account named {name} already exists.")
 
 
 def update_account(account_id: int, account_data: AccountUpdate, db: Session):
@@ -84,7 +100,7 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session):
     if account_data.currency is not None:
         account.currency = account_data.currency
 
-    db.commit()
+    _commit_name(db, account_data.name)
     db.refresh(account)
     return account
 
@@ -117,16 +133,14 @@ def delete_account(account_id: int, db: Session):
 
 
 def ensure_special_accounts_exist(db: Session):
-    """Create any missing special account and put back a changed name or currency."""
+    """Create any missing special account and put back a changed currency,
+    kind or exchange, and 5's and 6's names, as a start does (database.seed_defaults)."""
     for acc_id, info in SPECIAL_ACCOUNTS.items():
         special_acc = get_account_by_id(acc_id, db)
         if not special_acc:
-            new_acc = Account(
-                id=acc_id,
-                user_id=1,
-                name=info["name"],
-                currency=info["currency"],
-            )
+            exchange = db.get(Exchange, info["exchange_id"]) if info["exchange_id"] else None
+            name = f"{exchange.name} {info['currency']}" if exchange else info["name"]
+            new_acc = Account(user_id=1, **{**info, "name": name})
             db.add(new_acc)
             try:
                 db.commit()
@@ -138,9 +152,9 @@ def ensure_special_accounts_exist(db: Session):
                     detail=f"Failed to create special account ID={acc_id}. Possibly ID in use."
                 )
         else:
-            if special_acc.name != info["name"]:
+            if acc_id not in RENAMEABLE_FIXED:
                 special_acc.name = info["name"]
-            if special_acc.currency != info["currency"]:
-                special_acc.currency = info["currency"]
+            for key in ("currency", "kind", "exchange_id"):
+                setattr(special_acc, key, info[key])
             db.commit()
             db.refresh(special_acc)
