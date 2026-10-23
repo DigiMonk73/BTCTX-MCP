@@ -4,6 +4,41 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
+  web framework BitcoinTX's server is built on, and lucide-react 1.61.0
+  (from 1.55.0), the web app's icons (Dependabot's #544 and #559, taken
+  together). Mostly bug fixes. Starlette 1.8 was read against BitcoinTX's
+  security rules (the size limit on a request, the cross-site guard,
+  sessions, the web app's files), and one change needed BitcoinTX to
+  follow it: a file being sent now reads the request's body as it goes,
+  to see the browser leave. Left as it was, a request for the web page or
+  one of its scripts that came with a body past the 5 MB limit (no
+  browser sends one) would have been cut off in the middle of the file,
+  with an error in the log; no released version had this (they run
+  Starlette 1.7). BitcoinTX now refuses such a body (413) when it passes
+  the limit before the answer starts, and throws it away once the file is
+  on its way, which is then sent whole (`backend/body_limit.py`, #589).
+  Also, a POST to the web app's pages, refused as before (405), names the
+  methods they take (`Allow: GET, HEAD`), and Starlette needs Python
+  3.11, BitcoinTX's minimum since #546. The icons BitcoinTX shows are
+  drawn the same. Nothing changes on screen or in any figure.
+
+### Development
+- **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
+  8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
+  Python and TypeScript code and run the web app's unit tests. Fixes
+  only, and the code needed no change. Tooling only: nothing changes in
+  the app.
+- **A test that failed about one run in four, fixed** (#598). Since the
+  Python suite runs on every core (#590), `test_seed_data_integrity.py`
+  could find another test module's transactions in the shared test
+  database, skip its own, and check theirs ("Zero balances detected"),
+  turning a push or CI red at random. It now empties the database, saves
+  its own five transactions (each one checked) and empties it again
+  afterwards; a new test leaves another module's transaction in first. Tests
+  only: nothing in the app changes.
+
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
 **In short.** 1.2.10 is the first maintenance update of 1.2.9, the stable
@@ -311,12 +346,12 @@ withdrawal, can't be matched on Form 8949 yet (#551).
 ### Security
 - **Package updates for published security advisories:** pypdf 6.21.2
   (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
-  which ReportLab needs (the reports draw no images); and certifi
-  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
-  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
-  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
-  forms come out byte-identical for the reference test
-  ledger, and the Complete Tax Report's text is the same.
+  which ReportLab needs (the reports draw no images); certifi 2026.10.19
+  (from 2026.7.22), the certificate authorities BitcoinTX trusts; and
+  opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI brings (a header
+  parsed in quadratic time, CVE-2026-114603). The IRS forms come out
+  byte-identical for the reference test ledger, and the Complete Tax
+  Report's text is the same.
 
 ### StartOS package
 - **Package 1.2.10:0** (Start9's `versions.md`). Its release notes, in five
