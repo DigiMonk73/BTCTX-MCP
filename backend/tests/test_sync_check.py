@@ -152,6 +152,20 @@ def test_develop_behind_github_is_brought_down(repos):
     assert git(proj, "rev-parse", "develop") == git(proj, "rev-parse", "origin/develop")
 
 
+def test_2_0_behind_github_is_brought_down_and_never_called_only_here(repos):
+    """The 2.0 build's branch is kept like develop (AGENTS.md, "Branches")."""
+    proj, seed = repos
+    git(seed, "branch", "2.0", "develop")
+    git(seed, "push", "-q", str(seed.parent / "origin.git"), "2.0")
+    git(proj, "fetch", "-q", "origin")
+    git(proj, "branch", "-q", "2.0", "origin/2.0")
+    push_from_seed(seed, "2.0", "two\n")
+    r = run(proj, "--tidy")
+    assert "2.0: brought 1 commit(s) down" in r.stdout, r.stdout
+    assert git(proj, "rev-parse", "2.0") == git(proj, "rev-parse", "origin/2.0")
+    assert git(proj, "branch", "--list", "2.0")  # --tidy keeps it, as it keeps develop
+
+
 def test_main_with_local_commits_is_reported(repos):
     proj, _ = repos
     (proj / "app.txt").write_text("on main\n")

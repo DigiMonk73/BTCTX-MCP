@@ -5,7 +5,7 @@
 #   scripts/sync-check.sh [--tidy]      (make sync-check)
 #
 # Fetches from GitHub, then:
-# - brings local main and develop up to GitHub's when they are only behind
+# - brings local main, develop and 2.0 up to GitHub's when they are only behind
 #   (a fast-forward; not when checked out with changes, never when ahead);
 # - lists what exists only here: changes not committed in any working
 #   folder (the main checkout and every worktree), branches with commits
@@ -55,8 +55,9 @@ on_github() {
   return 1
 }
 
-# main and develop: down from GitHub when only behind.
-for b in main develop; do
+# main, develop and 2.0 (the 2.0 build's branch): down from GitHub when only
+# behind.
+for b in main develop 2.0; do
   g rev-parse -q --verify "refs/heads/$b" >/dev/null || continue
   if ! g rev-parse -q --verify "refs/remotes/origin/$b" >/dev/null; then
     PROBLEMS+=("GitHub has no $b branch: local $b can't be compared")
@@ -114,7 +115,7 @@ done < <(worktrees)
 total=0; tidy=0; tidied=0
 for b in $(g for-each-ref --format='%(refname:short)' refs/heads); do
   total=$((total + 1))
-  [ "$b" = main ] || [ "$b" = develop ] && continue
+  [ "$b" = main ] || [ "$b" = develop ] || [ "$b" = 2.0 ] && continue
   up="$(g for-each-ref --format='%(upstream:short)' "refs/heads/$b")"
   name="${up#origin/}"; name="${name:-$b}"
   if ! on_github "$(g rev-parse "$b")" "$name"; then
