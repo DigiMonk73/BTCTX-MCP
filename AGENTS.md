@@ -704,11 +704,14 @@ from the Transaction row alone.
   cross-site check, sessions and routers): FastAPI
   reads and parses a body before the login check, login and Create account
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
-  chunked body passes it. A route taking a file is listed in `main.py` with
-  its own file limit (plus room for the form) and keeps checking the file
-  itself: the CSV and River files 5 MB, read at most to the limit and one
-  byte; the restore 1 GiB, copied in 1 MiB pieces until past it. That
-  larger allowance is for a logged-in owner's file: only a request whose
+  chunked body passes it; once the answer has started (a file being sent
+  reads the body to see the client leave, Starlette 1.8), the rest is
+  thrown away instead and the answer completes (`body_limit._Counted`).
+  A route taking a file is listed in `main.py` with its own file limit
+  (plus room for the form) and keeps checking the file itself: the CSV
+  and River files 5 MB, read at most to the limit and one byte; the
+  restore 1 GiB, copied in 1 MiB pieces until past it. That larger
+  allowance is for a logged-in owner's file: only a request whose
   session cookie is validly signed, unexpired, holds a `user_id` and names
   a session still open gets it. A new upload route goes in that list.
 
