@@ -37,10 +37,18 @@ make hooks          # installs the pre-push gate
   SDK's `make javascript/index.js`) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
-- **On GitHub, every pull request and every push to `develop` or `main`** (`.github/workflows/ci.yml`; once per change, not again for the branch push): Python 3.11 and 3.13
+- **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
   (Docker's, StartOS's and the Mac app's) full suite, frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
+  - A pull request into `staging` or `2.0` (and only there) runs the
+    **medium set**: all of that except the click-through tests, the
+    Docker image and the StartOS pack, so a night's batch runs side by
+    side. Every merge into `staging` or `2.0` starts the full set on the
+    result; a newer run there cancels the older, so the last run tests
+    every change merged (a cancelled run's red "CI passed" isn't a
+    failure). Every other pull request (into `develop`, `main` or any
+    other branch) runs the full set. AGENTS.md, "Branches".
 - **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
   start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
@@ -171,8 +179,17 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   that no request names the day.
 - A `test.fail()` marks a known bug the test describes correctly (see
   `docs/HARDENING_FINDINGS.md`); remove it with the fix.
-- Cloud sessions have Chromium preinstalled (`PLAYWRIGHT_BROWSERS_PATH`); never
-  run `playwright install` there. Elsewhere: `npx playwright install chromium`.
+- Install the browsers once per Playwright version: `npx playwright install
+  chromium` (and `webkit` for its project). Claude Code's cloud sessions
+  (claude.ai/code) aren't known to ship Playwright's browsers: Anthropic's
+  list of their installed tools names none (checked 2026-10-21,
+  <https://code.claude.com/docs/en/cloud-environments>, "Installed tools"),
+  and Playwright's download hosts aren't on their default network
+  allowlist. So in a cloud session, check first (`ls
+  "${PLAYWRIGHT_BROWSERS_PATH:-$HOME/.cache/ms-playwright}"` against the
+  builds `npx playwright install --dry-run chromium` names); with no
+  matching build, try `npx playwright install chromium`, and if the
+  network refuses it, leave the click-through tests to CI.
 - Failures leave a trace and screenshot in `frontend/test-results/`
   (`npx playwright show-trace …`); CI uploads them as an artifact.
 
@@ -228,8 +245,11 @@ change in a figure and names where. After a change meant to move figures:
 make reference-figures      # rewrites testdata/reference_figures.json
 ```
 
-and the pull request shows the difference; a change in tax figures waits
-for the owner's "merge".
+and the pull request shows the difference. Then the figures rule
+(AGENTS.md, "Reviews"): a figure moved on purpose gets the owner's OK on a
+plain-words before-and-after, never on code; a figure moved by mistake is
+fixed, never accepted here. A change that moves no figure merges on Claude's
+review once every figures check is green.
 
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box

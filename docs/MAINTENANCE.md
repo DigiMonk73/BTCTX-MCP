@@ -104,17 +104,24 @@ the hashes of what it fetches for an isolated build.
    from `requirements-dev.txt`), then
    `pip install --require-hashes -r backend/requirements.txt`.
 3. Run `make check`.
-4. If the package affects PDFs (pypdf, reportlab), open a generated Form 8949,
-   Schedule D and Complete Tax Report and look at them. `make test` also
-   reads the printed forms back (`test_printed_forms.py`), but not how the
-   page looks.
+4. If the package affects PDFs (pypdf, reportlab, Pillow), open a generated
+   Form 8949, Schedule D and Complete Tax Report and look at them. `make test`
+   also reads the printed forms back (`test_printed_forms.py`), but not how the
+   page looks. Compare them with the old version's too: load the reference
+   test ledger (`scripts/seed_ledger.py`) into a throwaway server
+   (`scripts/smoke_test.py --serve`) from `develop`'s environment and from
+   the update's, print the same years' PDFs from each, and compare them byte
+   for byte (the forms) and by text (the reports, whose "Generated" time
+   differs). `scripts/equivalence_check.py` can't: it runs both sides in one
+   environment, so it never sees a package change (#571).
 5. If it's a new package used by the backend, add it to `hiddenimports` in
    `desktop/BitcoinTX.spec`.
 6. Commit one package (or one coupled group) per commit, e.g.
    `deps: update sqlalchemy 2.0.54 → 2.0.55`.
 
-To roll back, restore the previous `requirements.in` and `requirements.txt`
-from git, reinstall, and rerun `make check`.
+To roll back, `git revert` the update's commit (it brings back the pins and any
+test the update changed, such as ReportLab 5's refusal tests in
+`test_hardening_edges.py`), reinstall, and rerun `make check`.
 
 The indirect packages move only when a lock is recompiled and a pin needs
 it, so they are refreshed once a month: the first Monday's weekly check
@@ -134,7 +141,7 @@ the `make lock` command, or when the Mac lock and the backend's disagree.
 
 ### Dependabot
 
-`.github/dependabot.yml` opens pull requests against `develop` every week:
+`.github/dependabot.yml` opens pull requests against `staging` every week:
 one grouped PR per directory for minor and patch updates (`backend/`,
 `mcp_server/`, `desktop/`, `.github/release-tools/`, the dev tools in
 `requirements-dev.txt`, `frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
@@ -142,11 +149,12 @@ in `.github/workflows/`, and one per Dockerfile base image when its tag gets
 a new build (Python 3.13 and Node 24 themselves change only on purpose).
 CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
-merge into `develop`. Nothing reaches `main` before a release.
+merge into `staging` (`develop` takes them with the daily merge,
+AGENTS.md, "Branches"). Nothing reaches `main` before a release.
 
 - GitHub reads the file from the default branch (`main`): an edit takes
   effect once `main` is fast-forwarded to `develop`.
-- Every entry needs `target-branch: develop`, or its PRs target `main`.
+- Every entry needs `target-branch: staging`, or its PRs target `main`.
   Keep **Dependabot security updates** off in the repository settings:
   `target-branch` doesn't apply to them, so their PRs would target `main`.
   Alerts still show on the Security tab, and the weekly PRs pick up fixed
@@ -169,13 +177,13 @@ merge into `develop`. Nothing reaches `main` before a release.
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff, pip-audit and uv. A new pinned
+  allows only pytest, pytest-xdist, hypothesis, ruff, pip-audit and uv. A new pinned
   dev tool goes on that list; never one a lock holds (anyio comes from
   `backend/requirements.txt`), or this pip entry would edit the lock.
 
 ### Before a Dependabot pull request merges
 
-The 10 required checks gate every merge, and Claude reads the release notes
+"CI passed", the one required check, gates every merge, and Claude reads the release notes
 first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
 - **The Mac app.** Its build and launch check runs on each pull request,
@@ -188,11 +196,16 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
 - **Figures and forms.** An update to a package marked High in "Current
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
-  (`scripts/equivalence_check.py`) and waits for the owner's "merge".
+  in two environments (step 4 of "Updating a dependency":
+  `scripts/equivalence_check.py` can't see a package change). An update
+  is never meant to move a figure: if none moves, it merges like any
+  other; if one does, it stops until the cause is found (AGENTS.md,
+  "Reviews", the figures rule).
 
-A Dependabot branch behind `develop` is brought up to date by commenting
-"@dependabot rebase" on it, never by merging `develop` into it
-(`gh pr update-branch`, or `git merge origin/develop` and a push): Dependabot
+A Dependabot branch behind `staging` is brought up to date only when it
+conflicts (`staging` asks no branch to be up to date), by commenting
+"@dependabot rebase" on it, never by merging `staging` into it
+(`gh pr update-branch`, or `git merge origin/staging` and a push): Dependabot
 stops maintaining a branch once anyone else commits to it. It merges only
 once its checks have passed again (AGENTS.md, "Pull requests").
 
@@ -258,18 +271,30 @@ From `backend/requirements.in`:
 | `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
 | `python-dateutil` | 2.9.0.post0 | Low | |
 | `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
-| `pypdf` | 6.20.0 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
-| `reportlab` | 4.5.1 | High | Complete Tax Report and transaction history PDFs. 4.5 was taken after the before-and-after comparison showed every PDF byte for byte the same (#425); a newer one gets the same comparison, and `test_report_safety.py` with it: 5.0 rewrites the URL checks `reports/safe_text.py` relies on (an empty `trustedHosts` refuses every host) |
+| `pypdf` | 6.21.2 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
+| `reportlab` | 5.0.1 | High | Complete Tax Report and transaction history PDFs. 5.0.1 was taken after the before-and-after comparison showed both reports the same, object for object, but for the time they were made (#585; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
 | `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
 | `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
 
-Frontend (from `frontend/package.json`): React 18, Vite 6, TypeScript 5.9,
+Frontend (from `frontend/package.json`): React 19, Vite 8 (its build target
+pinned to Safari 15 in `frontend/vite.config.ts`, for the Mac app's WebKit:
+Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
 `frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
 Docker frontend build and CI use Node 24.
-`@playwright/test` is pinned exactly to match the browsers preinstalled in
-cloud sessions (see `docs/TESTING.md`): don't bump it on its own. start-sdk:
-see `startos/UPDATING.md`.
+`@playwright/test` is pinned exactly (1.64.1 since 2026-10-21, for Ubuntu
+26.04, which Playwright supports from 1.61) and bumped only on purpose,
+never by Dependabot: a bump runs `npx tsc -b`, `npx tsc -p e2e` (the specs,
+which `tsc -b` leaves out), `npm run lint`, `npm test`
+and both click-through suites (`npx playwright test --project=chicago
+--project=tokyo`, then `E2E_WEBKIT=1 npx playwright test --project=webkit`)
+after `npx playwright install chromium webkit`, reads Playwright's release
+notes for every version in between, and lets CI's two `e2e` jobs decide on
+Linux. The browsers each version needs come with that install, so nothing
+else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
+`ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
+WebKit's suite runs on a Mac only from macOS 15
+(Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
 
 ### Deferred upgrades
 
@@ -280,7 +305,6 @@ take the upgrade.
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `react` / `vite` | 19.x / 7+ | Owner decision to stay on React 18 / Vite 6 (6.4 still gets security backports). `@vitejs/plugin-react` 6 needs Vite 8, so it stays on 4.x | Owner opts in to a migration pass; that pass also turns `react-hooks/set-state-in-effect` back on (`frontend/eslint.config.js`) |
 | `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
 
 ---

@@ -7,7 +7,9 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
-import { importRequestRows, importableRows, toEditableRow, type EditableRow } from "../utils/riverImport";
+import {
+  importRequestRows, importableRows, refusedCellPlace, toEditableRow, type EditableRow,
+} from "../utils/riverImport";
 import RiverPreview from "./riverImport/RiverPreview";
 import "../styles/riverImport.css";
 
@@ -60,13 +62,14 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
     if (!window.confirm(`Import ${toImport.length} transaction(s) from River into your ledger?`)) {
       return;
     }
+    const sent = importRequestRows(rows);
     setLoading(true);
     try {
-      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: importRequestRows(rows) });
+      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: sent });
       toast.success(res.data.message);
       reset();
     } catch (err) {
-      toast.error(detailOr(err, "Import failed. No transactions were saved."));
+      toast.error(detailOr(err, "Import failed. No transactions were saved.", refusedCellPlace(sent)));
     } finally {
       setLoading(false);
     }

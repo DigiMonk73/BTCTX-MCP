@@ -42,7 +42,13 @@ from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.calculation import btc_text
-from backend.services.csv_import import _parse_decimal, decimal_comma_note, number_limits, unreadable_csv
+from backend.services.csv_import import (
+    _amount_currency,
+    _parse_decimal,
+    decimal_comma_note,
+    number_limits,
+    unreadable_csv,
+)
 from backend.services.tax_time import get_tax_timezone, local_date
 
 logger = logging.getLogger(__name__)
@@ -538,7 +544,9 @@ def annotate_duplicates(
     """
     Mark proposals that are already in the ledger, or look like it (#253).
     No proposal is matched to a transaction in `reserved_tx_ids` (at a River
-    import: the preview's matches of the rows it found in the ledger).
+    import: the preview's matches of the rows it found in the ledger). Every
+    pass compares a row with transactions of its own currency only, bitcoin
+    with bitcoin, dollars with dollars (_compatible, #581).
 
     Pass 1 (a duplicate, STATUS_MATCHED): a compatible type, the same amount
     and minute (a row given as a date alone: the same day in the tax
@@ -551,8 +559,9 @@ def annotate_duplicates(
     Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
     anything else different; its note says what. Never left out by itself.
 
-    Pass 3 (BTC moves only): within ±48 h and an amount within ±20 %: the
-    user's manual transfer entries are known to be approximate.
+    Pass 3 (BTC moves only, never a dollar row, #581): within ±48 h and an
+    amount within ±20 %: the user's manual transfer entries are known to be
+    approximate.
 
     Passes 2 and 3 are skipped when exact_only=True: the execute
     endpoints' double-submit guard leaves out only duplicates.
@@ -634,10 +643,13 @@ def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_id
 
 def _compatible(proposal: RiverProposal, tx: Transaction) -> bool:
     """A compatible type going the same way: from the row's account or to
-    it, so a send never matches a deposit, nor a receive a withdrawal (#253)."""
+    it, so a send never matches a deposit, nor a receive a withdrawal (#253);
+    and in the row's currency, so a bitcoin amount is never a dollar one of
+    the same number, nor the other way round (#581)."""
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
         and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+        and _in_dollars(tx) == _in_dollars(proposal)
     )
 
 
@@ -752,9 +764,22 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
     proposal.discrepancy = (
-        f"Same BTC amount as tx #{best.id} ({best.type} {btc_text(best.amount or 0)} BTC), "
+        f"Same {'dollar' if _in_dollars(best) else 'BTC'} amount as tx #{best.id} ({_type_and_amount(best)}), "
         f"{'; '.join(what)}: it may be the same transaction"
     )
+
+
+def _in_dollars(tx: Transaction | RiverProposal) -> bool:
+    """Whether its amount is dollars: the AI's rows can be dollar deposits,
+    withdrawals and transfers, beside River's bitcoin ones (#525)."""
+    return _amount_currency(tx.type, tx.from_account_id, tx.to_account_id) == "USD"
+
+
+def _type_and_amount(tx: Transaction) -> str:
+    """A transaction as a note names it: "Deposit $500.00", "Buy 0.00030000 BTC"."""
+    if _in_dollars(tx):
+        return f"{tx.type} ${Decimal(tx.amount or 0):,.2f}"
+    return f"{tx.type} {btc_text(tx.amount or 0)} BTC"
 
 
 def _when_recorded(proposal: RiverProposal, tx: Transaction, tz) -> str:
@@ -778,6 +803,12 @@ def _gap_text(gap: timedelta) -> str:
 
 
 def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set) -> None:
+    """A bitcoin move within ±20 % of a recorded one (pass 3): a move typed
+    by hand, its network fee guessed, is approximate. Never a dollar row:
+    dollars are typed to the cent, and $1,250 beside $1,500 is another
+    payment (#581)."""
+    if _in_dollars(proposal):
+        return
     amount = _proposal_ledger_amount(proposal)
     close = [
         tx for tx in candidates
@@ -792,7 +823,6 @@ def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     proposal.near_amount = True
     proposal.discrepancy = (
-        f"Likely the same event as tx #{best.id} "
-        f"({best.type} {btc_text(best.amount or 0)} BTC) recorded with a "
+        f"Likely the same event as tx #{best.id} ({_type_and_amount(best)}) recorded with a "
         f"different amount"
     )

@@ -1,4 +1,5 @@
 import api from "../api";
+import { detailOr } from "./apiError";
 
 export interface TaxTimezone {
   timezone: string;
@@ -19,6 +20,13 @@ export async function getTaxTimezone(): Promise<TaxTimezone> {
 export async function setTaxTimezone(timezone: string): Promise<TaxTimezone> {
   const res = await api.put<TaxTimezone>("/settings/tax-timezone", { timezone, chosen: true });
   return res.data;
+}
+
+/** What Settings' Save says when the timezone wasn't saved: the server's
+ * reason (a zone its tzdata doesn't have, #407; a busy database), as the
+ * rest of Settings says it (#533). */
+export function timezoneNotSaved(err: unknown): string {
+  return detailOr(err, "Could not save the timezone.");
 }
 
 /** Whether Save can save `selected`: another timezone, or, while none was

@@ -139,7 +139,8 @@ quit the app and copy the whole `BitcoinTX` folder.
 
 ## Building
 
-Requirements: macOS, Python 3.11+, Node.js with npm (CI builds with Node 24).
+Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (Vite 8 needs it;
+CI builds with Node 24).
 
 ```bash
 ./desktop/build-mac.sh
@@ -248,7 +249,7 @@ nothing.
 - **Bundle:** `org.bitcointx.desktop`, its version typed into
   `BitcoinTX.spec` (`CFBundleVersion` / `CFBundleShortVersionString`; bump
   both on release; `backend/tests/test_versions_agree.py` checks they match
-  `VERSION`), minimum macOS 10.15,
+  `VERSION`), minimum macOS 11.0,
   dark mode supported.
 
 ## Using the MCP server with the Mac app

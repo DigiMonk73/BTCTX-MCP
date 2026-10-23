@@ -7,7 +7,7 @@ All notable changes to BitcoinTX are documented in this file.
 ### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
-  now says "multiple": the one-wallet notice (Settings → About, the
+  now says "multiple": the one-wallet notice (Settings → About BitcoinTX, the
   README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
   the StartOS instructions and store description, the roadmap and the 2.0
   plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
@@ -25,8 +25,53 @@ All notable changes to BitcoinTX are documented in this file.
   "current Python version (3.10…) does not satisfy Python>=3.11"; run
   `uv python install 3.13` once and restart the AI app. CI tests 3.11 and
   3.13.
+- **ReportLab 5.0.1** (from 4.5.1, #585), which draws the Complete Tax
+  Report and the transaction history PDF. ReportLab 5 trusts no web address
+  unless told to, and 5.0.1 checks the address a redirect leads to as well.
+  BitcoinTX trusted none already, and it still opens no file and fetches
+  nothing while it draws a report, whatever text the ledger holds: that
+  was checked again against ReportLab 5, and the tests now also watch that
+  nothing is opened or requested. The reports come out the same for the
+  reference test ledger: the same text and pages, only the time they were
+  made differs.
 
 ### Fixed
+- **The duplicate checks compare bitcoin with bitcoin, dollars with
+  dollars** (tax figures, #581). River's import and the AI connector's
+  preview compared a row's amount with a recorded transaction's as a bare
+  number, without its currency. So a River bitcoin payout (Interest,
+  Income, Mining) of 0.01 BTC, at the same minute as a dollar deposit of
+  $0.01 you'd recorded, showed as "In ledger": unticked, and left out of
+  the import unless you ticked it, its income missing. One of 0.5 BTC a
+  day after a $0.50 deposit showed as "Review". At the import itself, a
+  send you'd switched to a Withdrawal, or a receive you'd switched to a
+  Deposit, was skipped as "already in the ledger" beside a dollar
+  withdrawal or deposit of the same number at its minute, though the
+  preview had shown it as New. And the AI's preview flagged a dollar
+  withdrawal or transfer of a near amount as a possible duplicate
+  ("Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)
+  recorded with a different amount", as 1.2.9 said it, for a $1,250 one
+  hours later), and a dollar row beside a bitcoin move of the same or a
+  near number. Now a row matches, or is called similar to, only a
+  transaction of its own currency; and a near amount is looked for only
+  on a bitcoin move, whose network fee makes one typed by hand
+  approximate, as the rule always said. Every bitcoin match, and every
+  dollar match, is as before.
+
+  **Affected:** River's import in every release with it (0.7.0 to 1.2.9),
+  any tax year, only where a River row's bitcoin amount equals, to the
+  last digit, a dollar amount you'd recorded: in 1.2.9, a payout at the
+  minute of a dollar deposit, or a send or receive you'd made a
+  Withdrawal or Deposit, skipped at the import beside a dollar one of the
+  same amount at its minute; up to 1.2.8, any River row within 48 hours
+  of a dollar transaction of a kind it could be. The AI connector's
+  preview, 0.8.0 to 1.2.9, only flagged such rows, and an add saved them
+  (up to 1.2.8 its check could leave one out too, which 1.2.9's rule,
+  comparing the accounts, ended). **What to do:** preview each River file
+  you imported again. A bitcoin row that now shows as New was missed
+  before, unless you left it out yourself: import it (switching its type
+  again if you had), after checking its preview. Nothing already saved
+  changes.
 - **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
   Spent bitcoin withdrawal (what your exchange's Form 1099-DA, or before
@@ -54,6 +99,271 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **Leaving the page with an unsaved transaction asks first** (#536). With
+  changes not yet saved in the Add or Edit Transaction panel, the
+  browser's Back button left the page at once, and what was typed was
+  lost; only Escape, a click outside the panel and its close button asked.
+  Now Back, Forward and a page link reached with the keyboard ask the same
+  "Discard changes?": Go back keeps the panel as it was, Discard changes
+  goes where you were going. Logout asks it too, as its only question,
+  before you're logged out: Go back keeps you logged in with your changes.
+  A reload, closing the tab or Back to a page outside BitcoinTX gets the
+  browser's own question. Nothing is asked when nothing changed, or once
+  the transaction is saved. Nothing saved was ever lost or changed. (The
+  Mac app has no Back button; this is for BitcoinTX in a browser.) The
+  Dashboard's "Choose a source" or "Confirm now" link now scrolls to the
+  price question and moves the keyboard there without adding a browser
+  history entry, which Back couldn't have asked about.
+- **A save that meets a busy database says so** (#478). A transaction
+  saved, edited or deleted while something else held the database for
+  more than 5 seconds (a long import, or an AI assistant adding many rows)
+  waited, as it should, then failed with "Something unexpected went wrong.
+  BitcoinTX's log says what.", and the log had an error. It now says
+  "BitcoinTX was busy saving something else, and nothing was changed. Try
+  again.", as the imports do, and the log has a warning. The AI connector
+  shows the same words. Create account on an install with transactions
+  now deletes them and saves the new login as one save: a save that came
+  between the two could leave every transaction deleted and the old login
+  in place, with that error.
+- **A save that failed is never saved later with the next one** (tax
+  figures; found in #580's review). When a save's last step, writing it
+  into the database file, had to wait more than 5 seconds for something
+  reading the database (a backup or a report copying it, on slow
+  storage), the save failed with an error, but its change stayed pending
+  on that database connection, and the next save made through it saved
+  the change too. So a transaction entered again after the error could be
+  in the ledger twice, and an edit, a deletion, a Delete All or a Create
+  account that failed could take effect with a later save. BitcoinTX now
+  drops what a failed save left pending. It takes a read lasting over 5
+  seconds, so it's rare.
+
+  **Affected:** 0.8.0 to 1.2.9, any tax year, only after a save, edit or
+  deletion that failed with an error (in 1.2.9, "Something unexpected
+  went wrong. BitcoinTX's log says what."). A transaction saved twice
+  changes the holdings, gains and income worked out from it. **What to
+  do:** if you saw such an error and then entered the same transaction
+  again, look in Transactions around its date for it listed twice, and
+  delete the extra one (Ledger Review doesn't look for duplicates). If a
+  Delete All or Create account failed that way and your transactions
+  were gone later: in 1.2.9, the copy made just before is in `backups/`
+  (`btctx-before-delete-all-….db`); before 1.2.9 no such copy was made, so
+  restore your last backup.
+- **Settings says why the tax timezone wasn't saved** (#533). It said
+  "Could not save the timezone." whatever went wrong; it now gives the
+  server's reason, as the rest of Settings does: a timezone your browser
+  lists that BitcoinTX's timezone data doesn't know yet, or a busy
+  database. The timezone in use stays until a save succeeds.
+- **Small wording fixes from 1.2.9's checks** (#534):
+  - The CSV export's file name has the date on your device's clock: one
+    made at 9:37 pm on October 18 in Chicago was named for October 19,
+    the date in UTC.
+  - The Sell form's hint under Gross Proceeds says "BitcoinTX takes the
+    fee off to give the net proceeds." (it spoke of "the backend").
+  - The hint under Bitcoin Wallet points to Settings → About BitcoinTX,
+    the section's name.
+  - The Mac app says it needs macOS 11 or later (it said 10.15). It's
+    built for Apple silicon only, and every Apple-silicon Mac has macOS 11
+    or later, so nothing changes for anyone.
+- **With your own Mempool, a value priced while its history was
+  downloading could take its day's price instead of its hour's** (tax
+  figures, #535). With **My own Mempool** chosen, the first past price
+  BitcoinTX needs (on a fresh install, or 10 minutes after the last
+  download) downloads your Mempool's whole price history. A price looked up
+  while that download was still running found nothing in it:
+  - BitcoinTX could take the day's 00:00 UTC price instead of the hour's:
+    when that day's price was already stored, or, with the backup on, from
+    the public sites, which it asked instead of your Mempool. A value it
+    filled in then was saved at that price, marked as priced at the day:
+    an income or rebate deposit's value, a spend's proceeds, a gift's,
+    donation's or lost coins' value, a network fee's value.
+  - Otherwise the value was refused until tried again: "No BTC price is
+    available for …; enter the USD value yourself." (422), or "No price"
+    in the Sats Converter's Date mode.
+
+  Now a lookup made while the download is running waits for it (at most 3
+  minutes), sends no request of its own, and takes its price from it. If
+  your Mempool's address or the price choice is saved while it waits, it
+  goes by the new settings.
+
+  **Affected:** 1.2.8 and 1.2.9 (since hourly prices), only with your own
+  Mempool as the price source. Any tax year with a value BitcoinTX priced
+  during such a download; a value you typed is never affected. **What to
+  do:** in Settings → **Ledger Review**, click **Check again**. "Values
+  priced at the day's price that the hour would change" lists them by tax
+  year, with every other value priced at the day. A change under $1.00
+  (a small fee's value, say) isn't listed by itself, but it's in its
+  year's totals. Tick the ones listed, or a whole year, and apply them
+  (**Apply to the ticked ones**, or **Apply to all of** the year, which
+  applies the smaller changes too). A backup copy is made first, then each
+  is priced at its hour and the ledger is recalculated. For a year you've
+  already filed, the check explains the choice: whether to amend is a
+  question for a tax professional.
+- **The log names every download of your Mempool's price history**
+  (#557). The line "Price history from your mempool server: N days", which
+  the StartOS instructions and the release tests look for, was written
+  only when a day's price made the download. When an hour's price made it
+  (the usual case since 1.2.8), the log showed only the HTTP request. Now
+  each download from your Mempool writes it once, whichever price needed
+  it. Only the log changes.
+- **The Sats Converter counts exactly, a half satoshi to the even count
+  and a half cent to the even cent** (#529). It worked its figures out in
+  a computer's binary numbers, which can land a hair off: $488.93 at
+  $96,281.60 is exactly 507,812.5 sats, and came out 507,812.49999999994.
+  It now counts from the digits typed, and an amount exactly halfway goes
+  to the even one, as BitcoinTX rounds a half cent of a value worked out
+  from a price (#556). So $488.93 at $96,281.60 still shows 507,812, now
+  by that rule. **Some sats figures it shows change by one sat,** where an
+  amount is exactly halfway and the old arithmetic rounded it the other
+  way ($91.69 at $80,000 is 114,612.5 sats: 114,612, where it showed
+  114,613; $267.59 is 334,487.5: 334,488, where it showed 334,487), and for
+  very large amounts ($20,160,000,000 at $96,281.95 is 20,938,504,049,824
+  sats, one fewer than it showed). A BTC amount typed with more than 8
+  decimals that is exactly halfway between two satoshis goes to the even
+  one too, where it went up: 0.000000025 BTC is 2 sats (it showed 3), and
+  0.000000005 BTC is 0. **Some dollar figures it shows (from BTC or sats)
+  change by one cent:** they follow the same rule, so the converter shows
+  the cent BitcoinTX would save for that amount at that price. 0.5 BTC at
+  $96,281.61 ($48,140.805) is $48,140.80, where it showed $48,140.81; 0.15
+  BTC at $96,283.70 ($14,442.555) is $14,442.56, where it showed
+  $14,442.55. Only the converter's display changes: nothing it shows is
+  saved. The sats figures: 1.2.9; the dollar figures: 0.9.2 to 1.2.9.
+- **The Sats Converter's Date mode says which price it shows for an hour**
+  (#555). With an hour chosen that BitcoinTX has no price stored for, it
+  showed a day's 00:00 UTC price just as it shows an hour's, so two hours
+  of one day could show different kinds of price with nothing to tell
+  them apart. That day is the hour's day in UTC, which isn't always the
+  date picked: 23:00 on March 1 in Chicago is 05:00 UTC on March 2, so
+  it's March 2's price. Under the date and hour a line now says which
+  price shows: "Hour's price: Mar 1, 22:00 UTC", or "Day's price: Mar 2,
+  00:00 UTC", when no price is stored for that hour (which a screen
+  reader is told, and pointing at the line says). The line is there
+  whenever an hour is chosen, so the calculator below moves down a line
+  when you choose an hour instead of Day, and not while a price comes.
+  Nothing is saved. 1.2.8 and 1.2.9.
+- **An amount of 10^21 BTC or more is written whole** (#489). Far beyond
+  all the bitcoin there is, JavaScript writes such an amount in exponent
+  form, and trimming the zeros after a decimal point took the exponent's:
+  1e30 BTC was written "1e+3" (in the converter's BTC field, for one).
+  It's now "1e+30". No real amount reaches it, and nothing is saved.
+  0.9.2 to 1.2.9.
+- **The CSV import's preview counts each row once** (#479). Its "N valid
+  / M total rows" counted a row once per error, so a one-row file whose
+  row had two errors said "0 valid / 2 total rows", and an error about
+  the whole file (no rows, missing columns) counted as a row too. It now
+  counts the file's rows, as River's preview does. The count on screen
+  only: a file with any error is never imported.
+- **The AI import's note on a dollar row says dollars** (#525). When the
+  AI connector's preview flagged a dollar deposit, withdrawal or transfer
+  as a possible duplicate, its note called the dollars bitcoin: "Same BTC
+  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit. It now
+  says "Same dollar amount as tx #1 (Deposit $500.00)". A dollar row
+  already recorded is left out "(the same type, accounts, dollar amount,
+  …)", no longer "BTC amount". Wording only: each row is flagged, saved
+  or left out as before; a bitcoin row's words are unchanged. (A dollar
+  row of only a near amount, whose note was "Likely the same event as tx
+  #2 (Withdrawal 1500.00000000 BTC)", is no longer flagged at all: #581
+  above.)
+- **River's Import says which row and column it refused** (#480). When
+  Import refused a cell the server couldn't read (a Cost Basis typed
+  `1,200`, a Fee of `abc`), its message said only "Input should be a
+  valid decimal", once per cell, without saying where. It now names the
+  cell's row by its number in the file, the header being row 1 (as the
+  preview's lists of errors and warnings number rows), and its column:
+  "Row 6 (Cost Basis): Input should be a valid decimal". Nothing is
+  saved, and the preview keeps every edit, as before.
+- **The import previews say an error about the whole file without "Row
+  0:"** (#534). River's preview said "Row 0: This does not look like a
+  River bitcoin-activity CSV. Missing columns: …", and the CSV import's
+  "Row 0: No valid transactions found in file." The message is about the
+  file, not a row, so it now stands alone; a row's errors keep their row.
+  Wording only: such a file is refused as before.
+
+### Security
+- **Package updates for published security advisories:** pypdf 6.21.2
+  (from 6.20.0), which fills the IRS forms; Pillow 13.0.0 (from 12.3.0),
+  which ReportLab needs (the reports draw no images); and certifi
+  2026.10.19 (from 2026.7.22), the certificate authorities BitcoinTX
+  trusts; and opentelemetry-api 1.45.1 (from 1.45.0), which FastAPI
+  brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
+  forms come out byte-identical for the reference test
+  ledger, and the Complete Tax Report's text is the same.
+
+### Development
+- **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
+  compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
+  frontend's lock lists under axios but the built web app never includes.
+- **Playwright 1.64.1** (from 1.56.1), for GitHub's Ubuntu 26.04 runners,
+  which Playwright supports from 1.61; the click-through tests and their
+  config needed no change; CI's click-through job is back on
+  `ubuntu-latest` (26.04) with it (#574). `docs/TESTING.md` no
+  longer says cloud sessions have Chromium preinstalled: Anthropic's list
+  of their tools names no Playwright browsers. Tooling only: nothing
+  changes in the app.
+- **React 19.3 and Vite 8.3** (from React 18.3 and Vite 6.4; the owner's
+  decision, 2026-10-22, deferred since #425). React draws the web pages and
+  Vite builds them; their type packages (`@types/react`,
+  `@types/react-dom` 19.3) and `@vitejs/plugin-react` 6.1, which needs
+  Vite 8, move with them. Taken now so 2.0's reworked screens, from the
+  transaction form (B6a, #351) on, are written once, on the React they'll
+  ship with, and before Vite 6's security fixes end with Vite 9. Two lines
+  of code change: `PrivateRoute.tsx` names `React.JSX.Element` (React 19's
+  types drop the global `JSX`), and `tsconfig.node.json` resolves modules
+  the `bundler` way (Vite 8 and the plugin publish their types only
+  through `exports`). Vite 8 builds with Rolldown and Lightning CSS, not
+  esbuild and Rollup, and its default target, Safari 16.4, is newer than
+  the Mac app's WebKit (Safari 15 on macOS 10.15), so
+  `frontend/vite.config.ts` keeps the build's target at Safari 15
+  (`['es2020', 'safari15']`): newer JavaScript or CSS syntax is still
+  rewritten for it. Nothing changes for users: the same screens, figures
+  and forms; the page's script is about 70 kB bigger (513 kB, 159 kB
+  compressed). Dependabot now proposes these packages' major versions
+  (`.github/dependabot.yml`), and their "Deferred upgrades" row in
+  `docs/MAINTENANCE.md` is gone. The lint check
+  `react-hooks/set-state-in-effect` stays off until 2.0's screens
+  (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
+  Node.js 22.13 or newer, the README's minimum (it said 18).
+- **The figures rule** (AGENTS.md, "Reviews"). A
+  change to tax figures, what the app computes or the database gets the
+  review, the re-check and every figures check (the reference ledger, the
+  independent second calculation, the before-and-after comparison; the
+  database also a tested backup and restore). If no figure moves, Claude
+  merges it; if a figure moves on purpose, the owner first approves a
+  plain-words before-and-after (which figures, by how much, why, the tax
+  rule), never the code; a figure that moves by mistake is fixed, never
+  put to the owner. A new tax year's IRS forms follow it too: the issues
+  the IRS forms watch opens (`scripts/irs_new_year.py`) say so, and
+  `docs/IRS_ANNUAL_FORM_UPDATE.md` with them. The StartOS package,
+  releases and anything sent to Start9 keep the owner's "merge".
+- **CI in about a third of the time** (the owner's ask, 2026-10-22). The
+  Python suite runs on every core with pytest-xdist (`-n auto`; 3,184 tests
+  in 83 s on the Mac mini, against 16 minutes one at a time; `make test` and
+  `make test-fast` too, so the pre-push gate is quicker), and the
+  click-through tests split across machines (Chromium in three, WebKit in
+  two), with Playwright's browsers cached between runs. One job, "CI
+  passed", now stands for every required job, so `develop`'s ruleset
+  requires only it and a renamed or split job no longer needs the ruleset
+  changed. Nothing in the app changes.
+- **A `staging` branch: pull requests no longer wait in line** (the
+  owner's idea, 2026-10-22). Each change keeps its own pull request into
+  `staging`, opened with the rest in the evening's batch; they're checked
+  side by side on the medium set (the whole Python suite on both versions,
+  lint, the frontend, the smoke test, the StartOS checks, the audit; the
+  macOS build still runs on every pull request) and merge with no wait to
+  be up to date. Every merge there starts the full set on the result; a
+  newer run cancels the older, so the last run tests every change merged.
+  Every other pull request gets the full set. Once a day, `develop`'s
+  newest commits come into `staging`, then `staging` comes into `develop`
+  by one pull request that runs the whole suite on everything together
+  and merges with a merge commit, so each change keeps its own commit;
+  `develop` stays as strict as before. Only
+  an urgent fix (a security advisory) and a release's version change go
+  straight into `develop`. Dependabot targets `staging`. Pull requests
+  into `2.0` (once it exists) get the medium set too, and its merges the
+  full set. Big work's lead turns on auto-merge for each ready pull
+  request instead of merging them one by one. Sessions push the night's
+  batch and stop, never waiting on CI, and start by reading what ran
+  overnight. AGENTS.md, "Branches", "Pull requests", "Big work",
+  "Starting a session", "Ending a session"; `docs/HOW-CHANGES-FLOW.md`.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

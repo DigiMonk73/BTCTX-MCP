@@ -147,17 +147,19 @@ def test_complete_tax_report_prints_markup_and_fetches_nothing(listener):
     assert "<b>unclosed" in shown
 
 
-def test_reportlab_trusts_no_url_even_for_unescaped_markup(listener):
+def test_reportlab_trusts_no_url_even_for_unescaped_markup(listener, opened_or_fetched):
     """Second line of defence: raw markup reaching a Paragraph still can't
-    make ReportLab fetch anything."""
-    import backend.services.reports.safe_text  # noqa: F401  (sets rl_config)
+    make ReportLab fetch anything. safe_text's refusal stops it, before any
+    request, name lookup or connection."""
+    import backend.services.reports.safe_text  # noqa: F401  (replaces ReportLab's readers)
 
     port, hits = listener
-    with pytest.raises(OSError, match="Cannot open resource"):
+    with pytest.raises(OSError, match="The reports open no file or URL"):
         story = [Paragraph(f'<img src="http://127.0.0.1:{port}/x" width="9" height="9"/>',
                            getSampleStyleSheet()["Normal"])]
         SimpleDocTemplate(io.BytesIO()).build(story)
     assert hits == []
+    assert [seen for seen in opened_or_fetched if "127.0.0.1" in seen[1]] == []
 
 
 # ---------------------------------------------------------------------------
