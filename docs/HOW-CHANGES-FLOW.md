@@ -69,7 +69,8 @@ workflow keeps up to date by itself. We don't touch it.)
 
 1. A change in what the app does for the owner is agreed with them
    before it's written.
-2. Claude works on this computer, in its own folder (a *worktree*), and
+2. Claude works on the development computer (the Mac mini, never the
+   one with the owner's real ledger), in its own folder (a *worktree*), and
    runs the tests.
 3. A fresh Claude reviewer reads the change on this computer, before
    anything is pushed. At the end of the day Claude pushes every finished
@@ -234,7 +235,7 @@ here that links to it.
 3. Only when the fixed version is out is the advisory published, so
    nobody can misuse the problem in the meantime.
 
-## 6. Keeping this computer and GitHub the same
+## 6. Keeping the development computer and GitHub the same
 
 - `make sync-check` answers "is everything on this computer also on
   GitHub?". It ends with **IN SYNC** or **NOT IN SYNC** and a list.
