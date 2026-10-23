@@ -19,10 +19,11 @@ becomes COLLATE NOCASE.
   "BTC Fees"). The names of the other rows (1.x took any text): trimmed,
   NFC, a control or format character a space (but the zero-width joiners,
   which some scripts need, kept inside a name only), every run of spaces
-  one, at most 40 characters, "account N" when nothing is left; one that is
-  a reserved name
-  or alike another (normalised, casefolded and the joiners ignored, the
-  lower id keeping it) gets " (account N)", or " (account N, 2)" and on.
+  one, no character nothing shows at its ends, at most 40 characters,
+  "account N" when nothing is left; one that is a reserved name or alike
+  another (normalised, casefolded and what nothing shows left out, as the
+  account service compares names, the lower id keeping it) gets
+  " (account N)", or " (account N, 2)" and on.
 
 accounts is rebuilt under its own name (the old table moved aside first,
 with the other tables' references left naming accounts), so its stored
@@ -61,7 +62,16 @@ FEE_NAMES = ("BTC Fees", "USD Fees")
 LONGEST_NAME = 40
 # Some scripts and emoji need them: the one format characters a name keeps
 JOINERS = ("\u200c", "\u200d")
-TRIMMED = " " + "".join(JOINERS)
+# Characters nothing shows (Unicode's Default_Ignorable_Code_Point, and the
+# blank braille pattern), as services/account.py has them: left out when
+# names are compared, and trimmed at a name's ends
+INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+             (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x2800, 0x2800),
+             (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
+             (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
+# Variation selectors: a name keeps them, at its ends too (they make the
+# symbol before them an emoji)
+VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 
 def upgrade() -> None:
@@ -122,12 +132,12 @@ def _clean(name: str | None) -> str:
     (but the joiners), every run of spaces one, trimmed of spaces and joiners."""
     text = "".join(" " if _not_text(c) or unicodedata.category(c) == "Zs" else c
                    for c in unicodedata.normalize("NFC", name or ""))
-    return re.sub(" +", " ", text).strip(TRIMMED)
+    return _trimmed(re.sub(" +", " ", text))
 
 
 def _cut(name: str, longest: int) -> str:
     """At most `longest` characters, with no space or joiner left at the cut."""
-    return name[:longest].rstrip(TRIMMED)
+    return _trimmed(name[:longest])
 
 
 def _not_text(c: str) -> bool:
@@ -136,10 +146,28 @@ def _not_text(c: str) -> bool:
 
 
 def _key(name: str) -> str:
-    """Two names are alike when this is the same (2.0 spec 5.1): a joiner
-    changes nothing a reader sees in most scripts, so it's left out."""
-    plain = "".join(c for c in unicodedata.normalize("NFC", name) if c not in JOINERS)
-    return unicodedata.normalize("NFC", plain.casefold())
+    """Two names are alike when this is the same (2.0 spec 5.1): what
+    nothing shows is left out, then runs of spaces made one and trimmed
+    (it is given cleaned names only)."""
+    seen = "".join(c for c in unicodedata.normalize("NFC", name) if not _invisible(c))
+    return _trimmed(re.sub(" +", " ", unicodedata.normalize("NFC", seen.casefold())))
+
+
+def _invisible(c: str) -> bool:
+    return any(low <= ord(c) <= high for low, high in INVISIBLE)
+
+
+def _trimmed(text: str) -> str:
+    start, end = 0, len(text)
+    while start < end and _trimmable(text[start]):
+        start += 1
+    while end > start and _trimmable(text[end - 1]):
+        end -= 1
+    return text[start:end]
+
+
+def _trimmable(c: str) -> bool:
+    return c == " " or (_invisible(c) and not any(low <= ord(c) <= high for low, high in VARIATION_SELECTORS))
 
 
 def _columns_2_0() -> tuple:

@@ -26,6 +26,8 @@ from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range,
 from backend.constants import (
     ACCOUNT_WALLET,
     ACCOUNT_BANK,
+    ACCOUNT_BTC_FEES,
+    ACCOUNT_USD_FEES,
     ACCOUNT_EXCHANGE_USD,
     ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
@@ -75,7 +77,6 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
 
 
 def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
-    ensure_fee_account_exists(db)
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
 
@@ -1233,20 +1234,6 @@ def _gross_from_stored_proceeds(tx: Transaction, btc_outflow: Decimal) -> Decima
     return gross
 
 
-def ensure_fee_account_exists(db: Session):
-    """
-    If 'BTC Fees' doesn't exist, create it.
-    This prevents referencing a non-existent account in fee lines.
-    """
-    fee_acct = db.query(Account).filter_by(name="BTC Fees").first()
-    if not fee_acct:
-        fee_acct = Account(user_id=1, name="BTC Fees", currency="BTC", kind="fee")
-        db.add(fee_acct)
-        db.commit()
-        db.refresh(fee_acct)
-    return fee_acct
-
-
 def remove_ledger_entries_for_tx(tx: Transaction, db: Session):
     """
     Remove all LedgerEntries associated with the given transaction.
@@ -1300,8 +1287,8 @@ def _add_line(tx: Transaction, account_id: int, amount: Decimal, currency: str, 
 
 
 def _fee_account(currency: str, db: Session) -> Account | None:
-    """BTC Fees or USD Fees."""
-    return db.query(Account).filter_by(name=f"{currency} Fees").first()
+    """BTC Fees (5) or USD Fees (6), by id: their names don't decide (#289)."""
+    return db.get(Account, ACCOUNT_BTC_FEES if currency == "BTC" else ACCOUNT_USD_FEES)
 
 
 def _btc_transfer_lines(tx, from_acct, to_acct, amount: Decimal, fee_amount: Decimal, db: Session) -> None:

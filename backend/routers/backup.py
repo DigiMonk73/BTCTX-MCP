@@ -28,7 +28,7 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import ai_key, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, first_run, outbound, tax_time
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
@@ -147,10 +147,12 @@ def _in_use(db: Session, own: str | None) -> dict:
     have other user ids). The backup's own list of sessions never comes
     back, so a session that ended since it was made stays ended. The tax
     timezone is the backup's, unless tzdata doesn't name it: then this
-    install's (#407)."""
+    install's (#407). The last account id given: the higher of this
+    install's and the backup's (2.0 spec 5.1, 5.11), so no id given here is
+    given again."""
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
-            "sessions": sessions, "timezone": _stored_tax_timezone(db)}
+            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db)}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -180,10 +182,11 @@ def _write_kept(own: str | None, notices: list[str], live: Session | None, resto
         _keep_login(restored, kept["login"])
         session_auth.put_open_sessions(restored, kept["sessions"])
         zone = _known_tax_timezone(restored, kept["timezone"], notices)
+        last_id = _keep_the_higher_last_id(restored, kept["last_id"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
         as_written = (restored.query(User).count() == 1
-                      and _as_stored(restored, kept) == {**kept, "timezone": zone})
+                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id})
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -236,12 +239,28 @@ def _as_stored(db: Session, kept: dict) -> dict:
     "unset": a restore that lost it would pass the check."""
     login = _login_in_use(db) if kept["login"] is not None else None
     return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
-            "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db)}
+            "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db),
+            "last_id": _last_account_id(db)}
 
 
 def _rows(db: Session, keys) -> dict:
     """These app_settings rows' values, None for a missing one."""
     return {key: row.value if (row := db.get(AppSetting, key)) else None for key in keys}
+
+
+def _last_account_id(db: Session) -> int | None:
+    """The last account id given (account_service.LAST_ID_KEY), or None."""
+    return account_service.read_last_id(_rows(db, [account_service.LAST_ID_KEY])[account_service.LAST_ID_KEY])
+
+
+def _keep_the_higher_last_id(restored: Session, own: int | None) -> int | None:
+    """The higher of this install's last account id and the backup's, written
+    into the restored database: an id given here, even to an account made in
+    another tab while the restore ran, is never given again."""
+    higher = max((i for i in (own, _last_account_id(restored)) if i is not None), default=None)
+    if higher is not None:
+        save_setting(restored, account_service.LAST_ID_KEY, str(higher))
+    return higher
 
 
 def _stored_tax_timezone(db: Session) -> str | None:

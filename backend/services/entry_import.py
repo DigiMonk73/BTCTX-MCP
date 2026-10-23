@@ -62,7 +62,6 @@ from backend.services.transaction import (
     create_transaction_record,
     date_of_death,
     date_of_death_price,
-    ensure_fee_account_exists,
     find_prices_first,
     price_used,
     values_from_price,
@@ -579,8 +578,6 @@ def simulate(
     years: dict = {}
     hourly_prices.read_year_files((p.tx_data["timestamp"] for p in ordered), years)
 
-    # May commit (only if the fee account is missing) — do it before the dry run.
-    ensure_fee_account_exists(db)
     return hourly_prices.with_prices_found(db, lambda: _dry_run(ordered, db, years))
 
 
@@ -714,7 +711,6 @@ def write_rows(
     """
     if not any(p.result.status in WRITABLE_STATUSES for p in prepared if p.tx_data is not None):
         return []
-    ensure_fee_account_exists(db)  # it may commit: before the lock
     unchecked = [p.result.model_copy(deep=True) for p in prepared]
 
     def check_and_write() -> list[tuple[PreparedRow, Transaction]]:
