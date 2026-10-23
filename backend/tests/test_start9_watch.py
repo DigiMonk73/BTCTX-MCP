@@ -37,5 +37,13 @@ def test_it_reads_develops_pins_and_never_switches_a_checkout():
 
 def test_the_script_parses():
     # /bin/bash is 3.2 on a Mac, where a here-document inside $( ) with an
-    # apostrophe in it doesn't parse
-    subprocess.run(["bash", "-n", str(SCRIPT)], check=True)
+    # apostrophe in it doesn't parse; CI's bash is 5
+    bashes = {"bash"} | ({"/bin/bash"} if Path("/bin/bash").exists() else set())
+    for bash in sorted(bashes):
+        subprocess.run([bash, "-n", str(SCRIPT)], check=True)
+
+
+def test_it_refuses_an_argument_it_doesnt_know():
+    # A typo such as --dryrun must not open public issues
+    run = subprocess.run(["bash", str(SCRIPT), "--dryrun"], capture_output=True, text=True)
+    assert run.returncode == 2 and "usage" in run.stderr

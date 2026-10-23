@@ -5,10 +5,11 @@ name: Start9 watch
 # start-sdk or start-cli than develop pins, a StartOS or start-registry
 # release, changes to Start9's packaging guide or shared package workflows, a
 # failed build on the mirror or on Start9's fork, and changes on the fork not
-# taken back. Each opens one issue, labelled start9. A schedule runs only from
-# the default branch (main), so a change here starts at the next release;
-# until then, run it by hand from develop (gh workflow run start9-watch.yml
-# --ref develop) or scripts/start9-watch.sh.
+# taken back. Each opens one issue, labelled start9. GitHub runs a schedule
+# only from the default branch (main), so this file starts at the release
+# that brings it there; until then each session runs scripts/start9-watch.sh
+# (AGENTS.md, "Starting a session"). It runs develop's script, so a fix to
+# the script needs no release.
 on:
   schedule:
     - cron: '23 8 * * *'
@@ -17,7 +18,11 @@ on:
 permissions:
   contents: read
   issues: write
-  actions: read
+
+# A manual run and the scheduled one never both miss the other's new issue
+concurrency:
+  group: start9-watch
+  cancel-in-progress: false
 
 jobs:
   watch:
@@ -25,6 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: develop
           fetch-depth: 0   # develop's pins, and start9-pull.sh --check's history
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -32,4 +38,5 @@ jobs:
       - name: What Start9 changed
         env:
           GH_TOKEN: ${{ github.token }}
+          START9_FORK: ${{ vars.START9_FORK }}   # as release.yml finds the fork
         run: scripts/start9-watch.sh

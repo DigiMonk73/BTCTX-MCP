@@ -22,7 +22,11 @@
 set -euo pipefail
 
 DRY=false
-[ "${1:-}" = "--dry-run" ] && DRY=true
+case "${1:-}" in
+  "") ;;
+  --dry-run) DRY=true ;;
+  *) echo "usage: scripts/start9-watch.sh [--dry-run]" >&2; exit 2 ;;
+esac
 ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 REPO="${GITHUB_REPOSITORY:-DigiMonk73/BTCTX-MCP}"
 REF="${WATCH_REF:-origin/develop}"
@@ -32,17 +36,28 @@ MIRROR=DigiMonk73/BTCTX-StartOS
 
 git -C "$ROOT" fetch -q origin develop
 
+# Who opens the issues: the workflow, or a session running the script
+if [ -n "${GITHUB_ACTIONS:-}" ]; then
+  SIGNED="— start9-watch (GitHub Actions)"
+else
+  SIGNED="— Claude (scripts/start9-watch.sh)"
+fi
+
 # Opens an issue titled $1 with body $2, unless one with exactly that title
-# exists, open or closed
+# exists: open or closed, or ($3 = open) only an open one. A failed search
+# stops the run rather than open a second one.
 open_once() {
-  local title="$1" body="$2"
-  if gh issue list -R "$REPO" --state all --limit 20 --search "in:title \"$title\"" \
-      --json title --jq '.[].title' | grep -Fxq -- "$title"; then
+  local title="$1" body="$2" state="${3:-all}" titles
+  titles="$(gh issue list -R "$REPO" --state "$state" --limit 20 --search "in:title \"$title\"" \
+    --json title --jq '.[].title')"
+  if grep -Fxq -- "$title" <<<"$titles"; then
     echo "already tracked: $title"
   elif $DRY; then
     printf 'WOULD OPEN: %s\n%s\n\n' "$title" "$body"
   else
-    gh issue create -R "$REPO" --title "$title" --label start9 --body "$body"
+    gh issue create -R "$REPO" --title "$title" --label start9 --body "$body
+
+$SIGNED"
   fi
 }
 
@@ -62,8 +77,8 @@ latest() {
 # opened, else 7 days ago (ISO 8601, UTC)
 since() {
   local last
-  last="$(gh issue list -R "$REPO" --state all --limit 20 --search "in:title \"$1\"" \
-    --json createdAt --jq 'map(.createdAt) | max // empty')"
+  last="$(gh issue list -R "$REPO" --label start9 --state all --limit 1000 --json title,createdAt \
+    --jq "map(select(.title | startswith(\"$1 on \")) | .createdAt) | max // empty")"
   [ -n "$last" ] && { echo "$last"; return; }
   python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))'
 }
@@ -74,6 +89,7 @@ check_sdk() {
   local pinned latest_sdk
   pinned="$(git -C "$ROOT" show "$REF:startos/package.json" | jq -r '.dependencies["@start9labs/start-sdk"]')"
   latest_sdk="$(npm view @start9labs/start-sdk version)"
+  [ -n "$pinned" ] && [ "$pinned" != null ] || { echo "can't read develop's start-sdk pin" >&2; exit 1; }
   echo "start-sdk: develop pins $pinned, npm has $latest_sdk"
   newer "$pinned" "$latest_sdk" || return 0
   read -r -d '' body <<EOF || true
@@ -92,6 +108,7 @@ check_start_cli() {
   latest_cli="$(latest start-cli)"
   latest_cli="${latest_cli#v}"
   pinned="${pinned#v}"
+  [ -n "$pinned" ] || { echo "can't read develop's START_CLI_VERSION" >&2; exit 1; }
   echo "start-cli: develop's CI pins $pinned, Start9 released $latest_cli"
   newer "$pinned" "$latest_cli" || return 0
   read -r -d '' body <<EOF || true
@@ -123,7 +140,7 @@ check_registry() {
   echo "start-registry: latest release $v"
   [ -n "$v" ] || return 0
   read -r -d '' body <<EOF || true
-Start9 released start-registry ${v#v} ($NOTES/start-registry/$v), which serves the community registries. A new registry can need a newer start-cli to read it: on 2026-10-23, start-registry 1.2.0 made start-cli 2.4.1 and 2.4.2 fail on "registry package install" (icons as blake3 references); 2.5.0 reads it.
+Start9 released start-registry ${v#v} ($NOTES/start-registry/$v), which serves the community registries. Start9's notes for 1.2.0 say older start-clis keep working, but on our lab (2026-10-23) start-cli 2.4.1 and 2.4.2 failed on \`registry package install\` against it ("expected a valid base64 data url": icons as blake3 references) while \`registry package get\` worked.
 
 Check: \`start-cli -r https://community-registry.start9.com registry package get btctx short\` and the same for \`https://community-beta-registry.start9.com\`, with the lab's start-cli and with \`develop\`'s pinned one.
 EOF
@@ -139,7 +156,8 @@ check_commits() {
   from="$(since "$label")"
   for path in "$@"; do
     list+="$(gh api "repos/$ST/commits?sha=$branch&path=$path&since=$from&per_page=100" \
-      --jq '.[] | "- [`\(.sha[0:8])`](\(.html_url)) \(.commit.committer.date[0:10]) \(.commit.message | split("\n")[0])"' || true)"$'\n'
+      --jq '.[] | "- [`\(.sha[0:8])`](\(.html_url)) \(.commit.committer.date[0:10]) \(.commit.message | split("\n")[0]
+        | gsub("#(?<n>[0-9]+)"; "Start9Labs/start-technologies#\(.n)") | gsub("@"; "@\u200b"))"' || true)"$'\n'
   done
   list="$(printf '%s' "$list" | grep -v '^$' | awk '!seen[$0]++' || true)"
   echo "$label: $(printf '%s' "$list" | grep -c . || true) commit(s) since $from"
@@ -154,46 +172,61 @@ EOF
   open_once "$label on $(today)" "$body"
 }
 
-# The latest completed run of each workflow on $1, opening an issue for a failure
+# The latest completed run of each workflow on $1: a failed one opens an
+# issue, one per workflow while it stays open (a workflow that fails on every
+# push doesn't open one per run)
 check_builds() {
-  local repo="$1"
-  gh run list -R "$repo" --limit 30 --json databaseId,workflowName,status,conclusion,url,createdAt \
+  local repo="$1" runs
+  runs="$(gh run list -R "$repo" --limit 30 --json databaseId,workflowName,status,conclusion,url,createdAt \
     --jq 'map(select(.status == "completed")) | group_by(.workflowName) | map(max_by(.createdAt))
-          | .[] | "\(.workflowName)\t\(.conclusion)\t\(.databaseId)\t\(.url)"' |
-  while IFS=$'\t' read -r name conclusion id url; do
+          | .[] | "\(.workflowName)\t\(.conclusion)\t\(.url)"')"
+  while IFS=$'\t' read -r name conclusion url; do
+    [ -n "$name" ] || continue
     echo "$repo: $name: $conclusion"
-    [ "$conclusion" = failure ] || continue
+    case "$conclusion" in failure | timed_out | startup_failure) ;; *) continue ;; esac
     read -r -d '' body <<EOF || true
-The latest \`$name\` run on \`$repo\` failed: $url
+The latest \`$name\` run on \`$repo\` ended "$conclusion": $url
 
-On the mirror it builds and releases the package from Start9's shared workflows (\`$ST\`, \`.github/workflows/*.yml@master\`); on Start9's fork it publishes to their registries. Read the failed step: if it is Start9's shared workflow (as on 2026-10-23, \`qemu-user-static\` on Ubuntu 26.04), tell them on our open pull request to their fork, and the mirror's release can be published by hand (\`scripts/mirror-startos-release.sh\`); if it is ours, fix it here.
+On the mirror it builds and releases the package from Start9's shared workflows (\`$ST\`, \`.github/workflows/*.yml@master\`); on Start9's fork it publishes to their registries. Read the failed step: if it is Start9's shared workflow (as on 2026-10-23, \`qemu-user-static\` on Ubuntu 26.04), tell them on our open pull request to their fork, and the mirror's release can be published by hand (\`scripts/mirror-startos-release.sh\`); if it is ours, fix it here. Close this once it builds again.
 EOF
-    open_once "Start9 build failed: $repo, $name (run $id)" "$body"
-  done
+    open_once "Start9 build failing: $repo, $name" "$body" open
+  done <<<"$runs"
 }
 
+TMP=""
+cleanup() {
+  [ -n "$TMP" ] || return 0
+  git -C "$ROOT" worktree remove --force "$TMP/develop" 2>/dev/null || true
+  rm -rf "$TMP"
+}
+trap cleanup EXIT
+
 check_fork() {
-  local fork
-  fork="$("$ROOT/scripts/start9-pull.sh" --fork 2>/dev/null | awk '{print $1}')"
+  local fork out
+  fork="$("$ROOT/scripts/start9-pull.sh" --fork | awk '{print $1}')" ||
+    { echo "Start9's fork: couldn't find it (start9-pull.sh --fork failed)" >&2; return 0; }
   [ -n "$fork" ] || { echo "Start9's fork: none yet"; return 0; }
   check_builds "$fork"
   # --check reads the committed startos/ at HEAD: develop's, in a checkout of
-  # its own, never switching the one this runs in
-  local tree ok=false
-  tree="$(mktemp -d)/develop"
-  git -C "$ROOT" worktree add -q --detach "$tree" "$REF"
-  "$tree/scripts/start9-pull.sh" --check >/dev/null 2>&1 && ok=true
-  git -C "$ROOT" worktree remove --force "$tree"
-  if $ok; then
+  # its own (removed on exit), never switching the one this runs in
+  TMP="$(mktemp -d)"
+  git -C "$ROOT" worktree add -q --detach "$TMP/develop" "$REF"
+  if out="$("$TMP/develop/scripts/start9-pull.sh" --check 2>&1)"; then
     echo "Start9's fork: nothing to take back"
-  else
-    local head
-    head="$(gh api "repos/$fork/commits/main" --jq '.sha[0:8]' 2>/dev/null || echo unknown)"
-    read -r -d '' body <<EOF || true
-Start9's fork has changes \`develop\`'s \`startos/\` doesn't (template updates, SDK bumps, review fixes). The next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`staging\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (startos/UPDATING.md, "After Start9 forks the mirror").
-EOF
-    open_once "Start9 changed their fork ($fork at $head): take it back" "$body"
+    return 0
   fi
+  local head
+  head="$(gh api "repos/$fork/commits/main" --jq '.sha[0:8]' 2>/dev/null || echo unknown)"
+  read -r -d '' body <<EOF || true
+\`scripts/start9-pull.sh --check\` on \`develop\` says:
+
+\`\`\`
+$out
+\`\`\`
+
+When it lists changes Start9 made to their fork (template updates, SDK bumps, review fixes): the next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`staging\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (startos/UPDATING.md, "After Start9 forks the mirror"). When it says something else (our pull request there still open, a failed fetch), do what it says.
+EOF
+  open_once "Start9's fork needs a look ($fork at $head)" "$body"
 }
 
 check_sdk
