@@ -363,10 +363,10 @@ def test_a_restore_keeps_a_backups_higher_last_id(live, tmp_path):  # noqa: F811
     assert _last_id(live) == [("150",)]
 
 
-@pytest.mark.parametrize("stored", ["\u00b2", "9223372036854775807"])
+@pytest.mark.parametrize("stored", ["'\u00b2'", "'9223372036854775807'", "X'313530'", "X'FF'"])
 def test_a_backups_last_id_that_isnt_one_is_ignored(live, tmp_path, stored):  # noqa: F811
     _add_wallet(live.client, "Jade")
-    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', '{stored}')")
+    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', {stored})")
     assert _restore(live.client, blob).status_code == 200
     assert _last_id(live) == [("100",)]
     assert _add_wallet(_browser(), "Coldcard") == 101

@@ -47,6 +47,9 @@ INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x11
              (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x2800, 0x2800),
              (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
              (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
+# Variation selectors: invisible, but they make the symbol before them an
+# emoji ("Cold \u2744\ufe0f"), so a name keeps them, at its ends too
+VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 LIST_ORDER = {"bank": 0, "wallet": 1, "exchange": 2, "fee": 3}
 
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
@@ -160,7 +163,7 @@ def name_key(name: str) -> str:
 
 def read_last_id(value: str | None) -> int | None:
     """A stored last account id, or None for none or one that isn't one."""
-    return int(value) if value is not None and LAST_ID.fullmatch(value) else None
+    return int(value) if isinstance(value, str) and LAST_ID.fullmatch(value) else None
 
 
 def add_account(db: Session, kind: str, name: str) -> list[Account]:
@@ -334,7 +337,11 @@ def _not_text(c: str) -> bool:
 
 
 def _invisible(c: str) -> bool:
-    return any(low <= ord(c) <= high for low, high in INVISIBLE)
+    return _in(c, INVISIBLE)
+
+
+def _in(c: str, ranges: tuple) -> bool:
+    return any(low <= ord(c) <= high for low, high in ranges)
 
 
 def _trimmed(text: str) -> str:
@@ -347,7 +354,7 @@ def _trimmed(text: str) -> str:
 
 
 def _trimmable(c: str) -> bool:
-    return c == " " or (_invisible(c) and not _not_text(c))
+    return c == " " or (_invisible(c) and not _not_text(c) and not _in(c, VARIATION_SELECTORS))
 
 
 # Reserved names (5.1) by their comparison key

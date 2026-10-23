@@ -652,9 +652,9 @@ def _require_one_login(new) -> None:
 def _require_accounts_fit(new) -> None:
     """Each account is a bank (dollars), a wallet (bitcoin), an exchange's
     or a fee account, in dollars or bitcoin; each exchange has its two
-    accounts, one in dollars and one in bitcoin; and an exchange's account
-    names an exchange there is, which no other account does (2.0 spec 5.1,
-    5.11)."""
+    accounts, one in dollars and one in bitcoin; an exchange's account
+    names an exchange there is, which no other account does; and no two
+    names are alike (2.0 spec 5.1, 5.11)."""
     with new.connect() as conn:
         broken = conn.exec_driver_sql("""
             SELECT 1 FROM exchanges e
@@ -670,8 +670,22 @@ def _require_accounts_fit(new) -> None:
                 OR (a.kind = 'exchange') != (a.exchange_id IS NOT NULL)
                 OR (a.exchange_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM exchanges e WHERE e.id = a.exchange_id))
             LIMIT 1""").first()
-    if broken:
+    if broken or _names_alike(new):
         raise ValueError(ACCOUNTS_DONT_FIT)
+
+
+def _names_alike(new) -> bool:
+    """Two accounts', or two exchanges', names alike by the account book's
+    comparison (2.0 spec 5.1), which the NOCASE column, folding ASCII case
+    only, doesn't see."""
+    from backend.services.account import name_key
+
+    with new.connect() as conn:
+        for table in ("accounts", "exchanges"):
+            names = [name for (name,) in conn.exec_driver_sql(f"SELECT name FROM {table}")]
+            if len({name_key(str(name)) for name in names}) != len(names):
+                return True
+    return False
 
 
 def _reason(error: BaseException) -> str:

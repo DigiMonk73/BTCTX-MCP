@@ -461,6 +461,7 @@ def test_an_account_with_externals_id_is_a_fee_account(v070):
     ([(7, "x" * 39 + " yz")], {7: "x" * 39}),  # no space left at the cut
     ([(7, "Wallet\u200d")], {7: "Wallet (account 7)"}),  # a joiner at the end goes
     ([(7, "Wallet\u034f")], {7: "Wallet (account 7)"}),  # so does what nothing shows
+    ([(7, "Cold \u2744\ufe0f")], {7: "Cold \u2744\ufe0f"}),  # but an emoji keeps its variation selector
     ([(7, "Co\u034fld"), (8, "cold")], {7: "Co\u034fld", 8: "cold (account 8)"}),  # alike: it's left out
     ([(7, "a\u200db"), (8, "ab")], {7: "a\u200db", 8: "ab (account 8)"}),  # alike: joiners ignored
     ([(7, "x" * 39 + "\u200dy")], {7: "x" * 39}),  # nor a joiner

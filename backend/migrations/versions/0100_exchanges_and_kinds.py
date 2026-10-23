@@ -69,6 +69,9 @@ INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x11
              (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x2800, 0x2800),
              (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
              (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
+# Variation selectors: a name keeps them, at its ends too (they make the
+# symbol before them an emoji)
+VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 
 def upgrade() -> None:
@@ -144,7 +147,8 @@ def _not_text(c: str) -> bool:
 
 def _key(name: str) -> str:
     """Two names are alike when this is the same (2.0 spec 5.1): what
-    nothing shows is left out, then the spaces made as _clean makes them."""
+    nothing shows is left out, then runs of spaces made one and trimmed
+    (it is given cleaned names only)."""
     seen = "".join(c for c in unicodedata.normalize("NFC", name) if not _invisible(c))
     return _trimmed(re.sub(" +", " ", unicodedata.normalize("NFC", seen.casefold())))
 
@@ -155,11 +159,15 @@ def _invisible(c: str) -> bool:
 
 def _trimmed(text: str) -> str:
     start, end = 0, len(text)
-    while start < end and (text[start] == " " or _invisible(text[start])):
+    while start < end and _trimmable(text[start]):
         start += 1
-    while end > start and (text[end - 1] == " " or _invisible(text[end - 1])):
+    while end > start and _trimmable(text[end - 1]):
         end -= 1
     return text[start:end]
+
+
+def _trimmable(c: str) -> bool:
+    return c == " " or (_invisible(c) and not any(low <= ord(c) <= high for low, high in VARIATION_SELECTORS))
 
 
 def _columns_2_0() -> tuple:

@@ -827,9 +827,18 @@ NEW_ACCOUNT = "INSERT INTO accounts (id, user_id, name, currency, kind, exchange
     ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
      NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)",
      NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'USD', 'exchange', 2, 0)"],  # two dollar accounts
+    [NEW_ACCOUNT + "(100, 1, 'Cold\u034fcard', 'BTC', 'wallet', NULL, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Coldcard', 'BTC', 'wallet', NULL, 0)"],  # alike, beyond what NOCASE sees
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Caf\u00e9', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Caf\u00e9 USD', 'USD', 'exchange', 2, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Caf\u00e9 BTC', 'BTC', 'exchange', 2, 0)",
+     "INSERT INTO exchanges (id, name, sends_1099da) VALUES (3, 'CAF\u00c9', 1)",
+     NEW_ACCOUNT + "(102, 1, 'Other USD', 'USD', 'exchange', 3, 0)",
+     NEW_ACCOUNT + "(103, 1, 'Other BTC', 'BTC', 'exchange', 3, 0)"],  # two exchanges alike
 ], ids=["one account", "no account", "no exchange", "no exchange id", "a wallet's exchange", "bank in BTC",
-        "wallet in USD", "a kind", "a currency", "two dollars"])
-def test_an_exchange_without_its_two_accounts_is_refused(live, tmp_path, sql):
+        "wallet in USD", "a kind", "a currency", "two dollars", "names alike", "exchanges alike"])
+def test_accounts_that_dont_fit_are_refused(live, tmp_path, sql):
+    """An exchange without its two accounts, or an account whose kind or currency BitcoinTX doesn't have."""
     _assert_refused(live, sql, ACCOUNTS_DONT_FIT, tmp_path)
 
 

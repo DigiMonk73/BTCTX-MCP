@@ -42,6 +42,6 @@ def update_account(account_id: int, change: AccountUpdate, db: Session = Depends
 @router.delete("/{account_id}", status_code=204)
 def delete_account(account_id: int, db: Session = Depends(get_db)):
     """204; 400 for your first bank, wallet or exchange and the fee
-    accounts; 409 while a transaction names it; 404."""
+    accounts; 409 while a transaction or a ledger line names it; 404."""
     account_service.delete_account(db, account_id)
     return Response(status_code=204)

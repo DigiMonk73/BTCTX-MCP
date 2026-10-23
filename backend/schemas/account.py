@@ -26,7 +26,7 @@ class AccountUpdate(BaseModel):
 
 class AccountRead(BaseModel):
     """An account as the API lists it: `exchange` is its exchange's name,
-    `in_use` whether a transaction names it."""
+    `in_use` whether a transaction or a ledger line names it."""
     id: int
     name: str
     kind: str

@@ -81,9 +81,7 @@ def _ledger(tmp_path, source=None):
     return sessionmaker(bind=engine)
 
 
-# ---------------------------------------------------------------------------
 # The book
-# ---------------------------------------------------------------------------
 # 1.x's names and ids (constants.ACCOUNT_ID_TO_NAME, which B3 removes), and
 # its bitcoin accounts (constants.BTC_ACCOUNTS)
 NAMES_1X = {1: "Bank", 2: "Wallet", 3: "Exchange USD", 4: "Exchange BTC", 5: "BTC Fees", 6: "USD Fees",
@@ -152,9 +150,7 @@ def test_ledger_review_lists_the_row_naming_a_missing_account(tmp_path):
     assert [item["id"] for item in checks["account_missing"]] == [naming_999.id]
 
 
-# ---------------------------------------------------------------------------
 # The ids
-# ---------------------------------------------------------------------------
 def test_the_first_new_account_is_100_and_the_last_id_is_kept(api):
     r = _add(api, "wallet", "Coldcard")
     assert r.status_code == 201, r.text
@@ -185,9 +181,9 @@ def test_an_exchange_is_its_two_accounts(api):
         ("Kraken", 1)]
 
 
-@pytest.mark.parametrize("stored", ["\u00b2", "-5", "x", "99999999999999999999"])
+@pytest.mark.parametrize("stored", ["'\u00b2'", "'-5'", "'x'", "'99999999999999999999'", "X'313530'", "X'FF'"])
 def test_a_last_id_that_isnt_one_is_ignored(api, stored):
-    _sql(api.path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', '{stored}')")
+    _sql(api.path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', {stored})")
     assert [a["id"] for a in _add(api, "wallet", "Jade").json()] == [100]
 
 
@@ -222,9 +218,7 @@ def test_two_adds_at_once_get_two_ids(api):
     assert sorted(made) == [100, 101]
 
 
-# ---------------------------------------------------------------------------
 # The names
-# ---------------------------------------------------------------------------
 @pytest.mark.parametrize("kind, name, detail", [
     ("wallet", "", ONE_LINE),
     ("wallet", "   ", ONE_LINE),
@@ -244,7 +238,7 @@ def test_two_adds_at_once_get_two_ids(api):
     # what nothing shows makes no name of its own (2.0 spec 5.1)
     ("wallet", "Wallet\u034f", "'Wallet' always means your first wallet in files (CSV, River, BitcoinTX 1.x): "
                                "choose another name."),
-    ("bank", "\u2800Bank\ufe0f", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
+    ("bank", "\u2800Bank\ufe0f", "'Bank\ufe0f' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
                                  "choose another name."),
     ("wallet", "Bank\u3164", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
                              "choose another name."),
@@ -275,6 +269,7 @@ def test_an_exchanges_account_names_must_be_free(api):
     ("wallet", "x" * 40, "x" * 40),
     ("exchange", "y" * 36, "y" * 36 + " USD"),
     ("bank", "'Savings", "'Savings"),  # the owner's decision 23 (#251)
+    ("wallet", "Cold \u2744\ufe0f", "Cold \u2744\ufe0f"),  # an emoji keeps its variation selector
     ("wallet", "Cafe\u0301", "Caf\u00e9"),
     ("wallet", "\U0001f469\u200d\U0001f4bb wallet", "\U0001f469\u200d\U0001f4bb wallet"),  # a joiner inside stays
 ])
@@ -290,9 +285,7 @@ def test_a_kind_bitcointx_doesnt_add_is_422(api, body):
     assert api.client.post(URL, json=body).status_code == 422
 
 
-# ---------------------------------------------------------------------------
 # The list, hiding and deleting
-# ---------------------------------------------------------------------------
 def test_the_list_by_kind_without_a_leftover_and_writing_nothing(api):
     _add(api, "exchange", "Kraken")
     _add(api, "wallet", "Jade")
