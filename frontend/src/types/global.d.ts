@@ -30,6 +30,25 @@ declare global {
     };
   }
 
+  // GET /api/accounts/ (2.0 spec 5.9): banks, wallets, exchanges, then the
+  // two fee accounts, each by id. An exchange is two accounts, its USD and its
+  // BTC, sharing an exchange_id; `exchange` is that exchange's name.
+  type AccountKind = "bank" | "wallet" | "exchange" | "fee";
+
+  interface LedgerAccount {
+    id: number;
+    name: string;
+    kind: AccountKind;
+    currency: Currency;
+    exchange_id: number | null;
+    exchange: string | null;
+    hidden: boolean;
+    in_use: boolean;
+  }
+
+  /** The account book as the API lists it (utils/accounts.ts answers from it). */
+  type AccountBook = LedgerAccount[];
+
   // The dashboard's figures
   interface AccountBalance {
     account_id: number;
