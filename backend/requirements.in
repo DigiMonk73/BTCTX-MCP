@@ -3,9 +3,9 @@
 # is installed: after an edit here, run `make lock` (docs/MAINTENANCE.md).
 
 # Core framework
-fastapi==0.143.0
+fastapi==0.143.5
 pydantic==2.14.1
-starlette==1.7.0
+starlette==1.8.0
 uvicorn==0.54.0
 
 # Database
