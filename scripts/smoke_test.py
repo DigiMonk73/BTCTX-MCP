@@ -354,9 +354,10 @@ def _fingerprint_asked(r: httpx.Response) -> str | None:
     if r.status_code != 409:
         return None
     try:
-        confirm = r.json().get("confirm")
-    except (ValueError, AttributeError):  # not JSON, or not an object
+        body = r.json()
+    except ValueError:  # not JSON
         return None
+    confirm = body.get("confirm") if isinstance(body, dict) else None
     return confirm if isinstance(confirm, str) else None
 
 

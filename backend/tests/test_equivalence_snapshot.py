@@ -5,7 +5,9 @@ Report prints. From 1.2.5 it is a "GENERATED" line the old "Date:" mask
 missed, so every comparison reported a difference on that line.
 """
 
+import ast
 import importlib.util
+import inspect
 import re
 import sys
 from io import BytesIO
@@ -58,6 +60,14 @@ def test_this_tax_year_is_the_tests_on_a_side_that_has_the_clock(monkeypatch):
     monkeypatch.setattr(tax_time, "current_tax_year", lambda tz: 2026)
     snapshot.pin_tax_year()
     assert tax_time.current_tax_year(ZoneInfo("America/Chicago")) == 2009
+
+
+def test_each_snapshot_pins_it():
+    """Called as each side's snapshot sets up (its globals are the side's
+    own, so a test can't run that setup without changing this session's)."""
+    calls = [node.func.id for node in ast.walk(ast.parse(inspect.getsource(snapshot._shut_out_the_world)))
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
+    assert "pin_tax_year" in calls
 
 
 def test_a_side_without_the_clock_gets_none(monkeypatch):

@@ -4,7 +4,7 @@
 // warning is built (B6b), no save answers so.
 import http from "node:http";
 import type net from "node:net";
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequest, type APIRequestContext } from "@playwright/test";
 import { createTx, sendConfirmed } from "./fixtures";
 
 const FINGERPRINT = "5f2d0c9b1e7a4c38a6d2b9e0f1c3a5d7e9b2c4d6f8a0b1c3d5e7f9a2b4c6d8e0";
@@ -20,8 +20,15 @@ const SAVED = { status: 200, body: { id: 7 } };
 type Answer = { status: number; body: unknown };
 type Seen = { method: string; url: string; body: string };
 
-/** A server that gives the next of `answers` to each request, keeping what it was sent. */
-async function standIn(answers: Answer[]) {
+/**
+ * Runs `use` with an API client (from `request`) of a server that gives the next of `answers` to each
+ * request, and what it was sent so far; the server and the client end with it, whatever happens.
+ */
+async function withStandIn(
+  request: APIRequest,
+  answers: Answer[],
+  use: (api: APIRequestContext, seen: Seen[]) => Promise<void>,
+) {
   const seen: Seen[] = [];
   const server = http.createServer((req, res) => {
     let body = "";
@@ -34,22 +41,27 @@ async function standIn(answers: Answer[]) {
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const url = `http://127.0.0.1:${(server.address() as net.AddressInfo).port}`;
-  return { url, seen, close: () => new Promise((resolve) => server.close(resolve)) };
+  const api = await request.newContext({
+    baseURL: `http://127.0.0.1:${(server.address() as net.AddressInfo).port}`,
+  });
+  try {
+    await use(api, seen);
+  } finally {
+    await api.dispose();
+    await new Promise((resolve) => server.close(resolve));
+  }
 }
 
 test("createTx sends a 409 that asks again, once, with its fingerprint", async ({ playwright }) => {
-  const server = await standIn([ASKS, SAVED]);
-  const api = await playwright.request.newContext({ baseURL: server.url });
-  const row = { type: "Buy", timestamp: "2024-01-10T12:00:00Z", amount: "0.2" };
-  expect(await createTx(api, row)).toEqual({ id: 7 });
-  expect(server.seen.map(({ method, url }) => `${method} ${url}`)).toEqual([
-    "POST /api/transactions",
-    `POST /api/transactions?confirm=${FINGERPRINT}`,
-  ]);
-  expect(server.seen.map(({ body }) => JSON.parse(body))).toEqual([row, row]);
-  await api.dispose();
-  await server.close();
+  await withStandIn(playwright.request, [ASKS, SAVED], async (api, seen) => {
+    const row = { type: "Buy", timestamp: "2024-01-10T12:00:00Z", amount: "0.2" };
+    expect(await createTx(api, row)).toEqual({ id: 7 });
+    expect(seen.map(({ method, url }) => `${method} ${url}`)).toEqual([
+      "POST /api/transactions",
+      `POST /api/transactions?confirm=${FINGERPRINT}`,
+    ]);
+    expect(seen.map(({ body }) => JSON.parse(body))).toEqual([row, row]);
+  });
 });
 
 test("a write is confirmed once, and only for a 409 that asks", async ({ playwright }) => {
@@ -58,16 +70,16 @@ test("a write is confirmed once, and only for a 409 that asks", async ({ playwri
   const cases: Array<{ answers: Answer[]; status: number; sent: number }> = [
     { answers: [ASKS, again], status: 409, sent: 2 },
     { answers: [deleteAll], status: 409, sent: 1 },
+    { answers: [{ status: 409, body: { detail: ASKS.body.detail, confirm: null } }], status: 409, sent: 1 },
+    { answers: [{ status: 409, body: null }], status: 409, sent: 1 },
     { answers: [{ status: 409, body: "Conflict" }], status: 409, sent: 1 },
     { answers: [{ status: 400, body: { detail: "Amount must be positive.", confirm: FINGERPRINT } }], status: 400, sent: 1 },
     { answers: [SAVED], status: 200, sent: 1 },
   ];
   for (const { answers, status, sent } of cases) {
-    const server = await standIn([...answers]);
-    const api = await playwright.request.newContext({ baseURL: server.url });
-    const r = await sendConfirmed((params) => api.put("/api/transactions/7", { data: { amount: "0.3" }, params }));
-    expect([r.status(), server.seen.length], JSON.stringify(answers)).toEqual([status, sent]);
-    await api.dispose();
-    await server.close();
+    await withStandIn(playwright.request, [...answers], async (api, seen) => {
+      const r = await sendConfirmed((params) => api.put("/api/transactions/7", { data: { amount: "0.3" }, params }));
+      expect([r.status(), seen.length], JSON.stringify(answers)).toEqual([status, sent]);
+    });
   }
 });

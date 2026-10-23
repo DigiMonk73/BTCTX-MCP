@@ -178,7 +178,8 @@ def _no_draft_forms(tmp_path_factory):
 
 
 # "This tax year" in the tests (services/tax_time.current_tax_year, the one
-# clock, 2.0 plan 5.15): no year a test enters is before it
+# clock, 2.0 plan 5.15): no year a test saves is before it, since the app
+# refuses a date before 3 January 2009
 PINNED_TAX_YEAR = 2009
 
 

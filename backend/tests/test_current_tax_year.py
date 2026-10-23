@@ -1,7 +1,7 @@
 """
 "This tax year", the one clock (2.0 plan 5.15): services/tax_time's
 current_tax_year, which the past-year warning (5.8) reads. The tests pin it
-to 2009, before any year they enter (conftest.py), so no save meets the
+to 2009, the first year the app takes (conftest.py), so no save meets the
 warning and the suite doesn't change on its own every 1 January; a test of
 the warning sets it with `tax_year`. Outside the tests it is the year it is
 now in the tax timezone, and nothing binds it by name, so the pin reaches
@@ -23,8 +23,9 @@ REAL_CLOCK = tax_time.current_tax_year
 
 ROOT = Path(__file__).resolve().parents[2]
 ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
-# Folders of other code a checkout may hold: virtual environments, a build's copies
-NOT_OURS = {".venv", "build", "node_modules"}
+# Folders of other code a checkout may hold: virtual environments, a build's
+# copies (the Mac app's PyInstaller folder, desktop/dist/, holds the backend's)
+NOT_OURS = {".venv", "build", "dist", "node_modules"}
 
 
 @pytest.mark.parametrize("zone", ZONES)
@@ -63,17 +64,33 @@ def test_outside_the_tests_it_follows_the_computers_clock():
     assert REAL_CLOCK(tz) in {before, datetime.now(tz).year}
 
 
-def _binds_the_clock_by_name(path: Path) -> bool:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    return any(isinstance(node, ast.ImportFrom) and node.module == "backend.services.tax_time"
+def _imports_the_clock(tree: ast.AST) -> bool:
+    """`from backend.services.tax_time import current_tax_year` (or `*`), or
+    the same from `.tax_time`."""
+    return any(isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[-1] == "tax_time"
                and any(alias.name in ("current_tax_year", "*") for alias in node.names)
                for node in ast.walk(tree))
 
 
+def _holds_the_clock(tree: ast.AST) -> bool:
+    """`tax_time.current_tax_year` read anywhere but as the function of a
+    call (`clock = tax_time.current_tax_year` keeps the function it found);
+    replacing it, as a pin does, is no read."""
+    called = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    return any(isinstance(node, ast.Attribute) and node.attr == "current_tax_year"
+               and isinstance(node.ctx, ast.Load) and id(node) not in called
+               for node in ast.walk(tree))
+
+
 def test_nothing_binds_the_clock_by_name():
-    """`from backend.services.tax_time import current_tax_year` would keep the
-    real clock past the tests' pin: every caller reads tax_time.current_tax_year."""
+    """A name bound to the function would keep the real clock past the tests'
+    pin: every caller calls tax_time.current_tax_year. The tests themselves
+    replace it (conftest.py) and hold the real one (this module)."""
     sources = [path for folder in ("backend", "mcp_server", "scripts", "desktop") for path in (ROOT / folder).rglob("*.py")
                if not NOT_OURS & set(path.relative_to(ROOT).parts)]
     assert len(sources) > 100
-    assert [str(path.relative_to(ROOT)) for path in sources if _binds_the_clock_by_name(path)] == []
+    trees = {str(path.relative_to(ROOT)): ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+             for path in sources}
+    assert [name for name, tree in trees.items() if _imports_the_clock(tree)] == []
+    assert [name for name, tree in trees.items()
+            if "tests" not in Path(name).parts and _holds_the_clock(tree)] == []
