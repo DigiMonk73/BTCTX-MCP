@@ -359,12 +359,14 @@ more for restores.
   `develop`, never takes one of them (Alembic refuses two revisions with one
   id, and no merge revision mends it).
 - The first, `0100_exchanges_and_kinds.py`, carries the marker
-  `STARTS_2_0 = True`, and only it. `migrate.py` walks the chain down to it
-  (`revisions_of_2_0`): it and every revision above it are 2.0's, every
+  `STARTS_2_0 = True`, and only it. `migrate.py` finds it by that marker
+  (`first_2_0`) and walks the chain (`revisions_of_2_0`): it and every
+  revision above it are 2.0's, every
   other one 1.x's. A database at a 1.x revision (or unversioned) gets its
   copy before the upgrade as the kind `pre-2.0`
   (`backups/btctx-pre-2.0-from-<revision>-<time>.db`), never pruned: the
-  way back to 1.x. `test_migrations.py` pins the marker and the chain.
+  way back to 1.x (a failed upgrade, which changes nothing, removes its
+  own). `test_migrations.py` pins the marker and the chain.
 - They always come after 1.x's. Until the first pre-release,
   `v2.0.0-beta.1`, is published, a `develop` merge into `2.0` that brings a
   1.x migration re-points `0100`'s `down_revision` to 1.x's new head (no
