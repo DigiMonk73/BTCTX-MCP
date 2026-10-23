@@ -134,7 +134,7 @@ a public issue or a pull-request comment for an unfixed security problem.
 
 Only when the owner names that job, and only outside the money path, the
 doors, the database, and StartOS. One function and a test that fails on
-the old code. Its own pull request into `develop`, then stop. Grok never
+the old code. Its own pull request into `staging`, then stop. Grok never
 merges. The session that wrote the change does not approve it.
 
 ## Do not
