@@ -85,3 +85,18 @@ def test_a_closed_session_reads_the_table_again(fresh_app):
         other.add(Account(id=100, user_id=1, name="Cold Storage", kind="wallet", currency="BTC"))
         other.commit()
     assert account_book(db) is not first and account_book(db).is_btc(100)
+
+
+def test_a_write_lock_reads_the_book_again(fresh_app):
+    """pysqlite begins no transaction on a read, so a book read before a
+    write lock (an import's preview, a price lookup) can be out of date once
+    the lock is held: take_write_lock drops it."""
+    from backend.database import take_write_lock
+    db = fresh_app()
+    first = account_book(db)
+    with fresh_app() as other:
+        other.add(Account(id=100, user_id=1, name="Cold Storage", kind="wallet", currency="BTC"))
+        other.commit()
+    assert take_write_lock(db)
+    assert account_book(db) is not first and account_book(db).is_btc(100)
+    db.rollback()

@@ -22,7 +22,7 @@ from sqlalchemy import event, func, select, union_all
 from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_BTC_FEES, ACCOUNT_EXTERNAL, ACCOUNT_USD_FEES, RESERVED_NAMES
-from backend.database import FIXED_ACCOUNTS, take_write_lock
+from backend.database import ACCOUNT_BOOK, FIXED_ACCOUNTS, take_write_lock
 from backend.models.account import Account
 from backend.models.app_setting import AppSetting, save_setting
 from backend.models.exchange import Exchange
@@ -145,8 +145,9 @@ class AccountBook:
                     None)
 
 
-# The session's book, kept in Session.info until its database transaction ends
-BOOK = "account_book"
+# The session's book, kept in Session.info until its database transaction
+# ends (or a write lock is taken: database.take_write_lock)
+BOOK = ACCOUNT_BOOK
 
 
 def account_book(db: Session) -> AccountBook:

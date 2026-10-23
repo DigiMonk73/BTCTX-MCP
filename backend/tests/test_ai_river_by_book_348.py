@@ -7,16 +7,20 @@ can name only 1.x's accounts until B5, so the by-book cases use a book in
 which Bank and Wallet swap kinds: each answer follows it.
 """
 
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.models.account import Account
+from backend.models.transaction import Transaction
 from backend.routers.river_import import _ledger_amount
 from backend.schemas.entry_import import EntryRow
 from backend.schemas.river_import import RiverExecuteRow
 from backend.services.account import AccountBook, BookAccount
 from backend.services.entry_import import _autofill_target, _compared, validate_rows
+from backend.services.river_import import RiverProposal, annotate_duplicates
 from backend.tests.account_pairs import BOOK, COINBASE, rename
 from backend.tests.conftest import default_login
 
@@ -75,3 +79,40 @@ def test_a_river_transfer_carries_its_fee_from_a_bitcoin_account_of_the_book():
                           from_account="Bank", to_account="Exchange BTC", fee_amount=Decimal("0.0001"),
                           fee_currency="BTC")
     assert (_ledger_amount(row, SWAPPED), _ledger_amount(row, BOOK)) == (Decimal("0.1001"), Decimal("0.1"))
+
+
+def _river_deposit_beside(fresh_app, to_account_id: int) -> RiverProposal:
+    """A River deposit into Wallet beside an old deposit from External into
+    `to_account_id`, the same amount and minute, saved straight into the
+    table as only a BitcoinTX before 0.9.2 could; the row as the duplicate
+    check leaves it."""
+    when = datetime(2024, 3, 1, 12, 0, tzinfo=timezone.utc)
+    with fresh_app() as db:
+        db.add_all([Account(id=7, user_id=1, name="cold2", kind="wallet", currency="BTC"),
+                    Account(id=8, user_id=1, name="old bank", kind="bank", currency="USD")])
+        db.add(Transaction(type="Deposit", timestamp=when, from_account_id=99, to_account_id=to_account_id,
+                           amount=Decimal("0.0123"), fee_amount=Decimal("0"), source="MyBTC",
+                           cost_basis_usd=Decimal("100")))
+        db.commit()
+        row = RiverProposal(row_number=1, timestamp=when, river_tag=None, type="Deposit", from_account_id=99,
+                            to_account_id=2, amount=Decimal("0.0123"), source="MyBTC")
+        annotate_duplicates([row], db)
+    return row
+
+
+def test_a_river_row_is_never_taken_for_a_row_into_a_missing_account(fresh_app):
+    """1.x's answer kept: the amount of a row into an account that doesn't
+    exist counts as dollars, so a bitcoin row is never its copy."""
+    row = _river_deposit_beside(fresh_app, 999)
+    assert (row.status, row.matched_tx_id) == ("new", None)
+
+
+def test_a_river_row_is_compared_with_an_old_accounts_row_by_its_currency(fresh_app):
+    """S7: a row into 7 (a wallet 1.x's account API made) is bitcoin now, so
+    River's rule (the same kind, way, amount and minute) finds it; one into
+    8 (dollars) stays dollars, never a bitcoin row's copy."""
+    assert _river_deposit_beside(fresh_app, 7).status == "matched"
+
+
+def test_a_river_row_is_never_taken_for_an_old_dollar_accounts_row(fresh_app):
+    assert _river_deposit_beside(fresh_app, 8).status == "new"

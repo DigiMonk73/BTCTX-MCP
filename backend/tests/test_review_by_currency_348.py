@@ -103,3 +103,22 @@ def test_the_hourly_check_offers_a_second_wallets_day_priced_values(client, monk
     gift = withdrawal(client, "Gift")
     stub_prices_at(monkeypatch, price_of)
     assert listed(client)["day_priced_values"] == [income, gift]
+
+
+@pytest.mark.parametrize("kind, from_id, to_id, dollars", [
+    ("Deposit", 99, 101, True),      # into a second bank
+    ("Withdrawal", 102, 99, True),   # from a second exchange's USD
+    ("Transfer", 102, 1, True),
+    ("Deposit", 99, 100, False),     # into a second wallet
+    ("Transfer", 103, 100, False),
+    ("Buy", 102, 103, False),        # a Buy's amount is bitcoin
+    ("Deposit", 99, 999, False),     # only External and a missing account: unknown, shown as BTC
+    ("Withdrawal", 5, 99, False),    # a fee account is never yours
+])
+def test_an_items_unit_is_its_accounts_currency(kind, from_id, to_id, dollars):
+    """Ledger Review shows an item's amount in dollars when a dollar account
+    of yours, and no bitcoin account, is on a side (review._in_dollars)."""
+    from backend.services.review import _in_dollars
+    from backend.tests.account_pairs import BOOK
+    row = Transaction(type=kind, from_account_id=from_id, to_account_id=to_id)
+    assert _in_dollars(row, BOOK) is dollars

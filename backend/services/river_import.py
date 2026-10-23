@@ -44,7 +44,6 @@ from backend.schemas.transaction import BTC_PLACES
 from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.csv_import import (
-    _amount_currency,
     _parse_decimal,
     decimal_comma_note,
     number_limits,
@@ -776,8 +775,13 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
 
 def _in_dollars(tx: Transaction | RiverProposal, book: AccountBook) -> bool:
     """Whether its amount is dollars: the AI's rows can be dollar deposits,
-    withdrawals and transfers, beside River's bitcoin ones (#525)."""
-    return _amount_currency(tx.type, tx.from_account_id, tx.to_account_id, book) == "USD"
+    withdrawals and transfers, beside River's bitcoin ones (#525). The
+    amount's account (transaction._check_amount's) is neither External nor
+    a bitcoin account: a missing one's, which only a ledger from before
+    0.9.2 holds, counts as dollars, as in 1.x, so no bitcoin row is ever
+    taken for a row whose coins went to no account BitcoinTX knows."""
+    account = tx.to_account_id if tx.type in ("Deposit", "Buy") else tx.from_account_id
+    return account != ACCOUNT_EXTERNAL and not book.is_btc(account)
 
 
 def _type_and_amount(tx: Transaction, book: AccountBook) -> str:

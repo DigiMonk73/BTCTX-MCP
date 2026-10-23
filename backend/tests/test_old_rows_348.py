@@ -125,10 +125,10 @@ def test_a_row_also_naming_a_missing_account_is_account_missings_alone(ledger):
     assert both not in by_key["account_from_before_0_9_2"]
 
 
-def test_a_restore_keeps_a_2_0_backups_list_and_writes_a_1x_backups(ledger):
-    """A restore copies the backup's tables in, then runs seed_defaults
-    (services/backup.restore_backup): a 2.0 backup's list stays as it is, a
-    1.x backup has none and gets one."""
+def test_a_start_keeps_a_list_it_finds_and_writes_one_only_when_missing(ledger):
+    """seed_defaults, which a restore runs after copying the backup's tables
+    in: a 2.0 backup's list stays as it is, a 1.x backup has none and gets
+    one (the restore itself: test_restore_and_saves.py)."""
     client, db, rows = ledger
     db.execute(text("UPDATE app_settings SET value = '[42]' WHERE key = 'accounts_old_rows'"))
     db.commit()
@@ -219,3 +219,54 @@ def test_a_value_that_isnt_a_list_of_ids_stops_nothing(ledger, value):
     assert client.put(f"/api/transactions/{rows['income into 7']}", json={}).status_code == 200
     assert client.delete(f"/api/transactions/{rows['into 8']}").status_code == 204
     assert listed(client)["count"] == 0
+
+
+def test_by_currency_an_old_accounts_rows_follow_wallets_rules(fresh_app, monkeypatch):
+    """What moves for the rows of a ledger from before 0.9.2 in a bitcoin
+    account 1.x's account API made (S7; the pull request's before-and-after):
+    its income and rebate count, its gift is listed, a withdrawal of unknown
+    purpose counts as Spent (#61), and, once recalculated, a spend's network
+    fee is a cost of the spend (#157), as from Wallet."""
+    from backend.services.calculation import get_gains_and_losses
+    from backend.services.transaction import recalculate_all_transactions
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    D = Decimal
+    with fresh_app() as db:
+        db.add(Account(id=7, user_id=1, name="cold2", kind="wallet", currency="BTC"))
+        rows = [
+            Transaction(type="Deposit", timestamp=_at("2024-01-02T12:00"), from_account_id=99, to_account_id=7,
+                        amount=D("1"), fee_amount=D("0"), source="MyBTC", cost_basis_usd=D("20000")),
+            Transaction(type="Deposit", timestamp=_at("2024-04-01T12:00"), from_account_id=99, to_account_id=7,
+                        amount=D("0.01"), fee_amount=D("0"), source="Income", cost_basis_usd=D("600")),
+            Transaction(type="Deposit", timestamp=_at("2024-04-02T12:00"), from_account_id=99, to_account_id=7,
+                        amount=D("0.002"), fee_amount=D("0"), source="Rebate", cost_basis_usd=D("120")),
+            Transaction(type="Withdrawal", timestamp=_at("2024-06-15T15:00"), from_account_id=7, to_account_id=99,
+                        amount=D("0.1"), fee_amount=D("0.0001"), fee_currency="BTC", fee_usd=D("5"),
+                        purpose="Spent", gross_proceeds_usd=D("5000"), proceeds_usd=D("5000")),
+            Transaction(type="Withdrawal", timestamp=_at("2024-07-15T15:00"), from_account_id=7, to_account_id=99,
+                        amount=D("0.1"), fee_amount=D("0"), fee_currency="BTC", purpose="Expenses",
+                        proceeds_usd=D("4000")),
+            Transaction(type="Withdrawal", timestamp=_at("2024-08-15T15:00"), from_account_id=7, to_account_id=99,
+                        amount=D("0.05"), fee_amount=D("0"), fee_currency="BTC", purpose="Gift", fmv_usd=D("3000")),
+        ]
+        db.add_all(rows)
+        db.commit()
+        deposit, income, rebate, spend, unknown, gift = (t.id for t in rows)
+        recalculate_all_transactions(db)
+        db.commit()
+        report = generate_report_data(db, 2024)
+        checks = {c["key"]: [i["id"] for i in c["items"]] for c in build_review(db)["checks"]}
+        gains = get_gains_and_losses(db)
+        stored = db.get(Transaction, spend)
+        assert (stored.proceeds_usd, stored.realized_gain_usd) == (D("4995.00"), D("2995.00"))
+    assert (gains["income_earned"], gains["rebates_received"], gains["withdrawals_spent"]) == (600.0, 120.0, 8995.0)
+    assert report["income_summary"]["Total"] == 600.0
+    assert [r["value_usd"] for r in report["rebates"]] == [120.0]
+    assert [g["amount"] for g in report["gifts_donations_lost"]] == [0.05]
+    assert checks["withdrawal_purpose_unknown"] == [unknown]
+    assert checks["original_date_missing"] == [deposit]
+
+
+def _at(text: str):
+    from datetime import datetime, timezone
+    return datetime.fromisoformat(text).replace(tzinfo=timezone.utc)

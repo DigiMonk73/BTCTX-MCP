@@ -16,13 +16,21 @@ All notable changes to BitcoinTX are documented in this file.
   River and the AI import, in plain sentences ("A Deposit comes from
   External.", "A Sell from Exchange BTC goes into Exchange USD."): the
   CSV instructions PDF shows them. Saving into an added account still
-  waits for a later step. **A ledger started before v0.9.2** whose
-  transactions name an account made through 1.x's account API now counts
-  them by that account's currency (the owner's decision): an income
-  deposit into such a bitcoin account is income, as it always should have
-  been. Ledger Review lists those rows ("Transactions in an account made
-  through BitcoinTX's old account API") until each is saved or deleted.
-  No ledger made since v0.9.2 changes.
+  waits for a later step. No ledger made since v0.9.2 changes.
+- **A ledger started before v0.9.2** (the owner's decision): transactions
+  saved then into an account made through 1.x's account API now count by
+  that account's currency, as Wallet's and Bank's always have. For a
+  bitcoin one: its income and rebates are on the dashboard and in the tax
+  report, its gifts, donations and lost coins in the report's list, a
+  withdrawal of a purpose BitcoinTX doesn't know counts as Spent (#61),
+  Ledger Review and its hour check look at its rows, and the CSV export
+  marks its values typed or priced. Once the ledger is recalculated, a
+  spend's network fee from it is a cost of the spend (#157): its proceeds
+  and gain go down by the fee's value. Ledger Review lists these rows
+  ("Transactions in an account made through BitcoinTX's old account API")
+  until each is saved or deleted; "Figures that Recalculate Ledger would
+  change" shows any spend that moves. What to do: open Ledger Review,
+  check each row listed, then run Recalculate Ledger (Settings).
 - **The account book and the account API** (B2b, #347). One place answers
   every question about an account (its kind, currency, exchange, 1099-DA
   switch, name), and the account API adds a bank, a wallet or an exchange

@@ -48,8 +48,10 @@ def _uses() -> Counter:
         if relative.startswith(("tests/", "migrations/")) or relative == "constants.py":
             continue
         for node in ast.walk(ast.parse(path.read_text(), relative)):
-            if isinstance(node, ast.Name) and node.id in NAMES:
-                found[(relative, node.id)] += 1
+            # a bare name, or one read off the module (constants.ACCOUNT_WALLET)
+            name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+            if name in NAMES:
+                found[(relative, name)] += 1
     return found
 
 

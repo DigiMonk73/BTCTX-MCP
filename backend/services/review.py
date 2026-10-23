@@ -115,7 +115,7 @@ from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import hourly_prices, old_rows, price_history
 from backend.services.hourly_review import hourly_changes
-from backend.services.account import YOUR_KINDS, AccountBook, account_book
+from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date
@@ -307,7 +307,7 @@ def _in_dollars(t: Transaction, book: AccountBook) -> bool:
     so, unknown, is one naming only External and missing accounts."""
     sides = (t.from_account_id, t.to_account_id)
     return t.type not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides) \
-        and any(book.kind(a) in YOUR_KINDS and book.currency(a) == "USD" for a in sides)
+        and any(book.is_yours(a) and book.currency(a) == "USD" for a in sides)
 
 
 def _market_price(db: Session, t: Transaction, missing: list[int]):

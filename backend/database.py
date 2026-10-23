@@ -167,6 +167,10 @@ def scratch_copy(db: Session) -> Iterator[Session]:
         memory.close()
 
 
+# Where services/account.py keeps a session's account book (Session.info)
+ACCOUNT_BOOK = "account_book"
+
+
 def take_write_lock(db: Session) -> bool:
     """
     SQLite's write lock for db's transaction, until its commit or rollback,
@@ -183,6 +187,9 @@ def take_write_lock(db: Session) -> bool:
         if not is_busy(e):
             raise
         return False
+    # A book read before the lock (pysqlite begins no transaction on a
+    # read) may be out of date: it is read again under the lock
+    db.info.pop(ACCOUNT_BOOK, None)
     return True
 
 
