@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 // Fonts ship with the app (OFL): no request to a font CDN, which told Google
 // every time BitcoinTX opened. Latin and Latin Extended only; other scripts
 // fall back to the system font.
@@ -25,10 +25,13 @@ import './styles/theme.css'; // Design tokens
 import './styles/components.css'; // Shared buttons, inputs, cards
 import App from './App';
 
+// A data router, the only kind whose pages can stop Back or Forward
+// (useBlocker: the transaction panel's unsaved changes, #536). App keeps its
+// own <Routes>, all under this one route.
+const router = createBrowserRouter([{ path: '*', element: <App /> }]);
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <RouterProvider router={router} />
   </React.StrictMode>
 );

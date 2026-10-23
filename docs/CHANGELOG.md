@@ -5,9 +5,66 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
+  web framework BitcoinTX's server is built on, and lucide-react 1.61.0
+  (from 1.55.0), the web app's icons (Dependabot's #544 and #559, taken
+  together). Mostly bug fixes. Starlette 1.8 was read against BitcoinTX's
+  security rules (the size limit on a request, the cross-site guard,
+  sessions, the web app's files), and one change needed BitcoinTX to
+  follow it: a file being sent now reads the request's body as it goes,
+  to see the browser leave. Left as it was, a request for the web page or
+  one of its scripts that came with a body past the 5 MB limit (no
+  browser sends one) would have been cut off in the middle of the file,
+  with an error in the log; no released version had this (they run
+  Starlette 1.7). BitcoinTX now refuses such a body (413) when it passes
+  the limit before the answer starts, and throws it away once the file is
+  on its way, which is then sent whole (`backend/body_limit.py`, #589).
+  Also, a POST to the web app's pages, refused as before (405), names the
+  methods they take (`Allow: GET, HEAD`), and Starlette needs Python
+  3.11, BitcoinTX's minimum since #546. The icons BitcoinTX shows are
+  drawn the same. Nothing changes on screen or in any figure.
+
+### Development
+- **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
+  8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
+  Python and TypeScript code and run the web app's unit tests. Fixes
+  only, and the code needed no change. Tooling only: nothing changes in
+  the app.
+
+## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
+
+**In short.** 1.2.10 is the first maintenance update of 1.2.9, the stable
+version of BitcoinTX 1.x. It fixes four bugs that could make a tax figure
+wrong (the entries marked "tax figures" below: River's import and the AI
+connector compared bitcoin with dollar amounts, #581; a spend's network fee
+ignored its Broker form setting on Form 8949, #549; a save that failed could
+be saved later with the next one, #580; with your own Mempool, a value
+priced during its history's download could take the day's price, #535),
+and every known issue 1.2.9 listed. Each of those entries says who could be
+affected and what to do; most ledgers need nothing more.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself).
+2. **Update the AI connector** to `btctx-mcp==1.2.10` in your AI app's
+   configuration, then restart the AI app. It needs Python 3.11 or newer
+   now (#546): if the machine running your AI app has only Python 3.10,
+   run `uv python install 3.13` once first.
+3. **Running from source:** BitcoinTX needs Python 3.11 or newer (#546).
+   The Docker image, StartOS and the Mac app already run Python 3.13.
+4. Then read the entries marked "tax figures" below: each says whether
+   there's anything to do. No recalculation is needed.
+
+**Known issues:** none known. A known limitation: a Form 1099-DA that
+lists a transfer's or a gift's network fee, or a fee without its
+withdrawal, can't be matched on Form 8949 yet (#551).
+
+
+### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
-  now says "multiple": the one-wallet notice (Settings → About, the
+  now says "multiple": the one-wallet notice (Settings → About BitcoinTX, the
   README, `docs/USING.md`), the Complete Tax Report's "Using these forms",
   the StartOS instructions and store description, the roadmap and the 2.0
   plan. `backend/tests/test_disclaimer.py` keeps it so; what's already
@@ -34,25 +91,44 @@ All notable changes to BitcoinTX are documented in this file.
   nothing is opened or requested. The reports come out the same for the
   reference test ledger: the same text and pages, only the time they were
   made differs.
-- **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
-  web framework BitcoinTX's server is built on, and lucide-react 1.61.0
-  (from 1.55.0), the web app's icons (Dependabot's #544 and #559, taken
-  together). Mostly bug fixes. Starlette 1.8 was read against BitcoinTX's
-  security rules (the size limit on a request, the cross-site guard,
-  sessions, the web app's files), and one change needed BitcoinTX to
-  follow it: a file being sent now reads the request's body as it goes,
-  to see the browser leave. So a request for the web page or one of its
-  scripts that came with a body past the 5 MB limit (no browser sends
-  one) was cut off in the middle of the file, with an error in the log.
-  Now such a body is refused (413) when it passes the limit before the
-  answer starts, and thrown away once the file is on its way, which is
-  then sent whole (`backend/body_limit.py`, #589). Also, a POST to the web
-  app's pages, refused as before (405), names the methods they take
-  (`Allow: GET, HEAD`), and Starlette needs Python 3.11, BitcoinTX's
-  minimum since #546. The icons BitcoinTX shows are drawn the same.
-  Nothing changes on screen or in any figure.
 
 ### Fixed
+- **The duplicate checks compare bitcoin with bitcoin, dollars with
+  dollars** (tax figures, #581). River's import and the AI connector's
+  preview compared a row's amount with a recorded transaction's as a bare
+  number, without its currency. So a River bitcoin payout (Interest,
+  Income, Mining) of 0.01 BTC, at the same minute as a dollar deposit of
+  $0.01 you'd recorded, showed as "In ledger": unticked, and left out of
+  the import unless you ticked it, its income missing. One of 0.5 BTC a
+  day after a $0.50 deposit showed as "Review". At the import itself, a
+  send you'd switched to a Withdrawal, or a receive you'd switched to a
+  Deposit, was skipped as "already in the ledger" beside a dollar
+  withdrawal or deposit of the same number at its minute, though the
+  preview had shown it as New. And the AI's preview flagged a dollar
+  withdrawal or transfer of a near amount as a possible duplicate
+  ("Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)
+  recorded with a different amount", as 1.2.9 said it, for a $1,250 one
+  hours later), and a dollar row beside a bitcoin move of the same or a
+  near number. Now a row matches, or is called similar to, only a
+  transaction of its own currency; and a near amount is looked for only
+  on a bitcoin move, whose network fee makes one typed by hand
+  approximate, as the rule always said. Every bitcoin match, and every
+  dollar match, is as before.
+
+  **Affected:** River's import in every release with it (0.7.0 to 1.2.9),
+  any tax year, only where a River row's bitcoin amount equals, to the
+  last digit, a dollar amount you'd recorded: in 1.2.9, a payout at the
+  minute of a dollar deposit, or a send or receive you'd made a
+  Withdrawal or Deposit, skipped at the import beside a dollar one of the
+  same amount at its minute; up to 1.2.8, any River row within 48 hours
+  of a dollar transaction of a kind it could be. The AI connector's
+  preview, 0.8.0 to 1.2.9, only flagged such rows, and an add saved them
+  (up to 1.2.8 its check could leave one out too, which 1.2.9's rule,
+  comparing the accounts, ended). **What to do:** preview each River file
+  you imported again. A bitcoin row that now shows as New was missed
+  before, unless you left it out yourself: import it (switching its type
+  again if you had), after checking its preview. Nothing already saved
+  changes.
 - **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
   Spent bitcoin withdrawal (what your exchange's Form 1099-DA, or before
@@ -80,6 +156,71 @@ All notable changes to BitcoinTX are documented in this file.
   and Schedule D again. If you had already set it on a spend with a fee,
   make that year's forms again: its fee's row moves to the box you chose.
   No recalculation is needed.
+- **Leaving the page with an unsaved transaction asks first** (#536). With
+  changes not yet saved in the Add or Edit Transaction panel, the
+  browser's Back button left the page at once, and what was typed was
+  lost; only Escape, a click outside the panel and its close button asked.
+  Now Back, Forward and a page link reached with the keyboard ask the same
+  "Discard changes?": Go back keeps the panel as it was, Discard changes
+  goes where you were going. Logout asks it too, as its only question,
+  before you're logged out: Go back keeps you logged in with your changes.
+  A reload, closing the tab or Back to a page outside BitcoinTX gets the
+  browser's own question. Nothing is asked when nothing changed, or once
+  the transaction is saved. Nothing saved was ever lost or changed. (The
+  Mac app has no Back button; this is for BitcoinTX in a browser.) The
+  Dashboard's "Choose a source" or "Confirm now" link now scrolls to the
+  price question and moves the keyboard there without adding a browser
+  history entry, which Back couldn't have asked about.
+- **A save that meets a busy database says so** (#478). A transaction
+  saved, edited or deleted while something else held the database for
+  more than 5 seconds (a long import, or an AI assistant adding many rows)
+  waited, as it should, then failed with "Something unexpected went wrong.
+  BitcoinTX's log says what.", and the log had an error. It now says
+  "BitcoinTX was busy saving something else, and nothing was changed. Try
+  again.", as the imports do, and the log has a warning. The AI connector
+  shows the same words. Create account on an install with transactions
+  now deletes them and saves the new login as one save: a save that came
+  between the two could leave every transaction deleted and the old login
+  in place, with that error.
+- **A save that failed is never saved later with the next one** (tax
+  figures; found in #580's review). When a save's last step, writing it
+  into the database file, had to wait more than 5 seconds for something
+  reading the database (a backup or a report copying it, on slow
+  storage), the save failed with an error, but its change stayed pending
+  on that database connection, and the next save made through it saved
+  the change too. So a transaction entered again after the error could be
+  in the ledger twice, and an edit, a deletion, a Delete All or a Create
+  account that failed could take effect with a later save. BitcoinTX now
+  drops what a failed save left pending. It takes a read lasting over 5
+  seconds, so it's rare.
+
+  **Affected:** 0.8.0 to 1.2.9, any tax year, only after a save, edit or
+  deletion that failed with an error (in 1.2.9, "Something unexpected
+  went wrong. BitcoinTX's log says what."). A transaction saved twice
+  changes the holdings, gains and income worked out from it. **What to
+  do:** if you saw such an error and then entered the same transaction
+  again, look in Transactions around its date for it listed twice, and
+  delete the extra one (Ledger Review doesn't look for duplicates). If a
+  Delete All or Create account failed that way and your transactions
+  were gone later: in 1.2.9, the copy made just before is in `backups/`
+  (`btctx-before-delete-all-….db`); before 1.2.9 no such copy was made, so
+  restore your last backup.
+- **Settings says why the tax timezone wasn't saved** (#533). It said
+  "Could not save the timezone." whatever went wrong; it now gives the
+  server's reason, as the rest of Settings does: a timezone your browser
+  lists that BitcoinTX's timezone data doesn't know yet, or a busy
+  database. The timezone in use stays until a save succeeds.
+- **Small wording fixes from 1.2.9's checks** (#534):
+  - The CSV export's file name has the date on your device's clock: one
+    made at 9:37 pm on October 18 in Chicago was named for October 19,
+    the date in UTC.
+  - The Sell form's hint under Gross Proceeds says "BitcoinTX takes the
+    fee off to give the net proceeds." (it spoke of "the backend").
+  - The hint under Bitcoin Wallet points to Settings → About BitcoinTX,
+    the section's name.
+  - The Mac app says it needs macOS 11 or later (it said 10.15). It's
+    built for Apple silicon only, and every Apple-silicon Mac has macOS 11
+    or later, so nothing changes for anyone.
 - **With your own Mempool, a value priced while its history was
   downloading could take its day's price instead of its hour's** (tax
   figures, #535). With **My own Mempool** chosen, the first past price
@@ -171,13 +312,14 @@ All notable changes to BitcoinTX are documented in this file.
 - **The AI import's note on a dollar row says dollars** (#525). When the
   AI connector's preview flagged a dollar deposit, withdrawal or transfer
   as a possible duplicate, its note called the dollars bitcoin: "Same BTC
-  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit, and
-  "Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)" for a
-  near amount. It now says "Same dollar amount as tx #1 (Deposit
-  $500.00)" and "(Withdrawal $1,500.00)". A dollar row already recorded
-  is left out "(the same type, accounts, dollar amount, …)", no longer
-  "BTC amount". Wording only: each row is flagged, saved or left out as
-  before; a bitcoin row's words are unchanged.
+  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit. It now
+  says "Same dollar amount as tx #1 (Deposit $500.00)". A dollar row
+  already recorded is left out "(the same type, accounts, dollar amount,
+  …)", no longer "BTC amount". Wording only: each row is flagged, saved
+  or left out as before; a bitcoin row's words are unchanged. (A dollar
+  row of only a near amount, whose note was "Likely the same event as tx
+  #2 (Withdrawal 1500.00000000 BTC)", is no longer flagged at all: #581
+  above.)
 - **River's Import says which row and column it refused** (#480). When
   Import refused a cell the server couldn't read (a Cost Basis typed
   `1,200`, a Fee of `abc`), its message said only "Input should be a
@@ -203,6 +345,17 @@ All notable changes to BitcoinTX are documented in this file.
   byte-identical for the reference test ledger, and the Complete Tax
   Report's text is the same.
 
+### StartOS package
+- **Package 1.2.10:0** (Start9's `versions.md`). Its release notes, in five
+  languages, cover everything since 1.2.9:0, which the community registry
+  serves: what to do after updating (the AI connector, now on Python 3.11
+  or newer), each tax-figure fix with who could be affected and what to
+  do, the other fixes and the security updates. It has no migration of its
+  own: no fix needs a recalculation. 1.2.9:0's migration (Recalculate
+  Ledger once, and dropping the password the store kept) moves to its own
+  file (`versions/v1.2.9_0.ts`), so an install on 1.2.8:0 or earlier still
+  runs it on the way.
+
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
   compiles the locks, and follow-redirects 1.16.1 (from 1.16.0), which the
@@ -226,7 +379,8 @@ All notable changes to BitcoinTX are documented in this file.
   the `bundler` way (Vite 8 and the plugin publish their types only
   through `exports`). Vite 8 builds with Rolldown and Lightning CSS, not
   esbuild and Rollup, and its default target, Safari 16.4, is newer than
-  the Mac app's WebKit (Safari 15 on macOS 10.15), so
+  the Mac app's WebKit (Safari 15: macOS 11, the oldest the app runs on,
+  came with Safari 14 and updates to 16), so
   `frontend/vite.config.ts` keeps the build's target at Safari 15
   (`['es2020', 'safari15']`): newer JavaScript or CSS syntax is still
   rewritten for it. Nothing changes for users: the same screens, figures
@@ -237,11 +391,48 @@ All notable changes to BitcoinTX are documented in this file.
   `react-hooks/set-state-in-effect` stays off until 2.0's screens
   (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
   Node.js 22.13 or newer, the README's minimum (it said 18).
-- **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
-  8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
-  Python and TypeScript code and run the web app's unit tests. Fixes
-  only, and the code needed no change. Tooling only: nothing changes in
-  the app.
+- **The figures rule** (AGENTS.md, "Reviews"). A
+  change to tax figures, what the app computes or the database gets the
+  review, the re-check and every figures check (the reference ledger, the
+  independent second calculation, the before-and-after comparison; the
+  database also a tested backup and restore). If no figure moves, Claude
+  merges it; if a figure moves on purpose, the owner first approves a
+  plain-words before-and-after (which figures, by how much, why, the tax
+  rule), never the code; a figure that moves by mistake is fixed, never
+  put to the owner. A new tax year's IRS forms follow it too: the issues
+  the IRS forms watch opens (`scripts/irs_new_year.py`) say so, and
+  `docs/IRS_ANNUAL_FORM_UPDATE.md` with them. The StartOS package,
+  releases and anything sent to Start9 keep the owner's "merge".
+- **CI in about a third of the time** (the owner's ask, 2026-10-22). The
+  Python suite runs on every core with pytest-xdist (`-n auto`; 3,184 tests
+  in 83 s on the Mac mini, against 16 minutes one at a time; `make test` and
+  `make test-fast` too, so the pre-push gate is quicker), and the
+  click-through tests split across machines (Chromium in three, WebKit in
+  two), with Playwright's browsers cached between runs. One job, "CI
+  passed", now stands for every required job, so `develop`'s ruleset
+  requires only it and a renamed or split job no longer needs the ruleset
+  changed. Nothing in the app changes.
+- **A `staging` branch: pull requests no longer wait in line** (the
+  owner's idea, 2026-10-22). Each change keeps its own pull request into
+  `staging`, opened with the rest in the evening's batch; they're checked
+  side by side on the medium set (the whole Python suite on both versions,
+  lint, the frontend, the smoke test, the StartOS checks, the audit; the
+  macOS build still runs on every pull request) and merge with no wait to
+  be up to date. Every merge there starts the full set on the result; a
+  newer run cancels the older, so the last run tests every change merged.
+  Every other pull request gets the full set. Once a day, `develop`'s
+  newest commits come into `staging`, then `staging` comes into `develop`
+  by one pull request that runs the whole suite on everything together
+  and merges with a merge commit, so each change keeps its own commit;
+  `develop` stays as strict as before. Only
+  an urgent fix (a security advisory) and a release's version change go
+  straight into `develop`. Dependabot targets `staging`. Pull requests
+  into `2.0` (once it exists) get the medium set too, and its merges the
+  full set. Big work's lead turns on auto-merge for each ready pull
+  request instead of merging them one by one. Sessions push the night's
+  batch and stop, never waiting on CI, and start by reading what ran
+  overnight. AGENTS.md, "Branches", "Pull requests", "Big work",
+  "Starting a session", "Ending a session"; `docs/HOW-CHANGES-FLOW.md`.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

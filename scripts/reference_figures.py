@@ -10,7 +10,10 @@ testdata/reference_figures.json holds them for the reference test ledger
 backend/tests/test_seed_ledger.py recomputes and compares them on every
 change, so no figure moves unnoticed. After a change meant to move figures,
 `make reference-figures` rewrites the file and the pull request shows the
-difference; a change in tax figures waits for the owner's "merge".
+difference. Then the figures rule (AGENTS.md, "Reviews"): a figure moved on
+purpose gets the owner's OK on a plain-words before-and-after, never on
+code; a figure moved by mistake is fixed, never accepted here; a change that
+moves no figure merges on Claude's review once every figures check is green.
 
 A release's saved database (kept in the test lab) works too, after
 `DATABASE_FILE=<copy> python -m backend.cli migrate` if it is older:

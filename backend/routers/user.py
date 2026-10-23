@@ -143,7 +143,8 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     the login. With transactions to delete, only with confirm=DELETE (for
     what the dialog showed, when given: #377), asked once the code or
     password is right: otherwise 409 says what would go, and nothing
-    changes. A copy of the database comes first (#256).
+    changes. A copy of the database comes first (#256), and the delete and
+    the new login are one save: a failure leaves both as they were.
     """
     users = get_all_users(db)
     if not users:
@@ -153,10 +154,12 @@ def reset_account(payload: AccountReset, request: Request, response: Response, d
     if payload.username.strip().lower() == first_run.DEFAULT_USERNAME:
         raise HTTPException(status_code=400, detail="Choose a username other than 'admin'.")
 
-    refused = wipe.delete_all(db, payload.confirm, payload.model_dump(include={"transactions", "first_year", "last_year"}))
+    new_login = UserUpdate(username=payload.username, password=payload.password)
+    shown = payload.model_dump(include={"transactions", "first_year", "last_year"})
+    refused = wipe.delete_all(db, payload.confirm, shown,
+                              save_with=lambda session: update_user_service(user.id, new_login, session))
     if refused is not None:
         return refused
-    update_user_service(user.id, UserUpdate(username=payload.username, password=payload.password), db)
     first_run.clear_code()
     login_throttle.remember_device(response, user)
     return {"detail": "Account reset. Log in with your new credentials."}

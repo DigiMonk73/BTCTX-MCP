@@ -6,13 +6,15 @@ it showed (#377), and gets a safety copy of the database first, in the same
 request (<data dir>/backups/, kind "before-delete").
 The check of that confirmation, the copy and the delete hold SQLite's write
 lock together (#276): a transaction saved meanwhile (the AI connector's)
-waits until after the delete.
+waits until after the delete. Create account's new login is saved in the
+delete's own commit, so a failure leaves both as they were.
 """
 
 from __future__ import annotations
 
 import logging
 import sqlite3
+from collections.abc import Callable
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
@@ -23,7 +25,7 @@ from backend.database import take_write_lock
 from backend.migrate import DELETE_COPIES_KEPT, DELETE_KIND, backup_sqlite, sqlite_file
 from backend.models.transaction import Transaction
 from backend.services.tax_time import get_tax_timezone, local_date
-from backend.services.transaction import delete_all_transactions
+from backend.services.transaction import remove_all_transactions
 
 logger = logging.getLogger(__name__)
 
@@ -77,13 +79,17 @@ def _refusal_text(what: dict, changed: bool) -> str:
     return f"{deletes} {every}{_describe(what)}. To go ahead, confirm with {CONFIRMATION}."
 
 
-def delete_all(db: Session, confirm: str | None, shown: dict | None = None) -> JSONResponse | None:
+def delete_all(db: Session, confirm: str | None, shown: dict | None = None,
+               save_with: Callable[[Session], object] | None = None) -> JSONResponse | None:
     """
     Every transaction deleted, after a copy of the database: None. Only
     when confirmed (for what the dialog showed, when it says), or with
     nothing to delete; otherwise the 409 refusal, nothing deleted. The
     check, the copy and the delete hold one write lock (#276): they see the
     same ledger, and what is saved meanwhile waits until after the delete.
+    `save_with(db)` (Create account's new login) runs once the rows are
+    removed, before their commit: what it changes is saved with them, in
+    one commit (it may make that commit), so nothing can save in between.
     """
     if not take_write_lock(db):
         logger.warning("Deleting every transaction: the database is busy, nothing deleted")
@@ -94,16 +100,26 @@ def delete_all(db: Session, confirm: str | None, shown: dict | None = None) -> J
     if refused is not None:
         db.rollback()  # the lock goes
         return refused
-    _copy_then_delete(db)
+    _copy_then_delete(db, save_with)
     return None
 
 
-def _copy_then_delete(db: Session) -> int:
-    """A copy of the database, then every transaction deleted; how many.
-    A copy that fails deletes nothing (500). Ends the lock's transaction."""
-    if db.query(Transaction.id).first() is None:
-        db.commit()  # nothing to delete: the lock goes
-        return 0
+def _copy_then_delete(db: Session, save_with: Callable[[Session], object] | None) -> int:
+    """A copy of the database, then every transaction deleted, with what
+    save_with changes; how many. A copy that fails deletes nothing (500).
+    Ends the lock's transaction, with its one commit."""
+    if db.query(Transaction.id).first() is not None:  # else nothing to copy
+        _copy(db)
+    count = remove_all_transactions(db)
+    if save_with is not None:
+        save_with(db)
+    db.commit()  # the lock goes
+    return count
+
+
+def _copy(db: Session) -> None:
+    """The copy before the delete (backups/, "before-delete"); a 500, the
+    lock's transaction rolled back, when it can't be made."""
     db_path = sqlite_file(db.get_bind())
     if db_path is None:  # not a database file (a test's in-memory one): nothing to copy
         logger.warning("Deleting every transaction of a database that isn't a file: no copy")
@@ -117,4 +133,3 @@ def _copy_then_delete(db: Session) -> int:
                 status_code=500, detail="Not deleted: BitcoinTX couldn't make its copy of the database first."
             ) from e
         logger.info("Copy made before deleting every transaction: %s", dest.name)
-    return delete_all_transactions(db)

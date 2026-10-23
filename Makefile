@@ -29,10 +29,10 @@ frontend-dist:
 	@mkdir -p frontend/dist
 
 test: frontend-dist
-	$(PY) -m pytest -q
+	$(PY) -m pytest -q -n auto
 
 test-fast: frontend-dist
-	$(PY) -m pytest -q -m "not slow"
+	$(PY) -m pytest -q -n auto -m "not slow"
 
 smoke: frontend-dist
 	$(PY) scripts/smoke_test.py

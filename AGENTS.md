@@ -9,8 +9,8 @@ and short; history belongs in `docs/CHANGELOG.md`.
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
 (double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
 This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
-for AI-assisted entry. Work goes into `develop` by pull request (see
-Branches).
+for AI-assisted entry. Work goes into `staging` by pull request; `develop`
+takes it once a day (see Branches).
 
 | Part | Where | Notes |
 |---|---|---|
@@ -26,8 +26,10 @@ Branches).
 
 - BitcoinTX holds the owner's real tax records, and its figures go on IRS
   forms: a wrong number is a real-world problem. So a change to tax figures
-  gets the full review, the before-and-after comparison and the owner's
-  "merge" ("Reviews").
+  gets the full review, the re-check and every figures check, and moves a
+  figure only on purpose, with a plain-words before-and-after the owner
+  approves ("Reviews": the figures rule). The owner isn't asked to judge
+  code: Claude is.
 - The owner's real ledger is the installed Mac app's data. Never test on it,
   run a script against it or point the AI connector at it; use temp
   databases, `make preview` or the StartOS test VM, and run a Mac build
@@ -41,7 +43,9 @@ Branches).
 ## Who does what
 
 - **The owner** (DigiMonk73) decides: releases, anything sent to Start9,
-  and changes in what the app does or computes. The owner is not a
+  changes in what the app does or computes (agreed before they're
+  written), and any figure moved on purpose (by its plain-words
+  before-and-after, never by reading code). The owner is not a
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
@@ -66,9 +70,44 @@ carry its `Co-Authored-By` line.
 
 ## Branches
 
-- **`develop`**: all work, arriving by pull request
-  (`gh pr create --base develop`) from a short-lived branch named for the
-  change ("Pull requests"). Never commit on a local `develop`: GitHub
+- **`staging`**: where changes gather, each by its own pull request
+  (`gh pr create --base staging`) from a short-lived branch named for the
+  change, opened in the night's batch ("Pull requests"), squash-merged once
+  "CI passed" has passed on the medium set (the whole Python suite on both
+  versions, lint, the frontend, the smoke test, the StartOS checks, the
+  audit: `ci.yml`; the macOS build runs too, as on every pull request,
+  not required), with no wait to be up to date: so a batch's pull
+  requests run side by side, never in line. Every merge into it starts the
+  full set on the result (`ci.yml`'s push trigger: click-through, Docker
+  and the StartOS pack too), and a newer run cancels the older, so the
+  last run tests every change merged; a cancelled run's red "CI passed"
+  isn't a failure (the morning check reads the latest completed run). A
+  red `staging` is fixed before anything else merges into it. Dependabot
+  targets it. Never commit on a local `staging`.
+- **`develop`**: everything tested together. **The daily cycle**, at the
+  start of each session, after reading what ran overnight ("Starting a
+  session"):
+  1. if `develop` has commits `staging` lacks (an urgent fix, the last
+     daily merge: `git log origin/staging..origin/develop`), open
+     "develop into staging, <date>" (`gh pr create --base staging --head
+     develop`) with auto-merge (`gh pr merge N --auto --merge`);
+  2. then, if `staging` is green (its latest completed run) and has
+     changes `develop` lacks (`git diff --stat origin/develop
+     origin/staging`), open "staging into develop, <date>" (`gh pr create
+     --base develop --head staging`) with auto-merge (`gh pr merge N
+     --auto --merge`): it merges once it's up to date with `develop` and
+     "CI passed" has passed on it (the full set).
+
+  Whichever can't merge yet is picked up next session. Both merge with a
+  merge commit, never a squash, so each change keeps its own commit and
+  both branches end up holding the same code. Never `gh pr update-branch`
+  on a pull request whose head is `staging` (the ruleset refuses a direct
+  push there): "develop into staging" is what brings it up to date. Only
+  an urgent fix (a security advisory that turns CI's audit red, a broken
+  CI) and a release's version pull request ("Releasing", step 1) come
+  straight into `develop`, each by a pull request of its own,
+  squash-merged after the same checks, and reach `staging` by the next
+  "develop into staging". Never commit on a local `develop`: GitHub
   refuses the push.
 - **`main`**: released code only; it is what users get (the `:main` Docker
   image; releases are cut from it). Never commit on `main`, never
@@ -79,26 +118,45 @@ carry its `Co-Authored-By` line.
   in the app or the connector).
 - **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
   deleted.
+- **`2.0`**: BitcoinTX 2.0 being built (#251), until it merges into
+  `develop` at its release. Its steps arrive by pull request
+  (`gh pr create --base 2.0`), one per step, for which the build's
+  lead turns on auto-merge from its queue on #251 ("Big work"),
+  squashed, after the tag `pin/2.0-step-<n>` on its tip. `develop`
+  comes in before every 2.0 session by a pull request of its own,
+  merged with a merge commit (`gh pr merge --merge`), never a rebase
+  or a squash. Never commit on a local `2.0`, never force-push it,
+  never move or delete a pin. Its branches are named `2.0-…` (git
+  refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
+  the steps and where they stand: #251.
 
 The pre-push hook refuses a push to `main` of anything not already on
-GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
-`main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
+GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
+or moves or deletes a `pin/2.0-*` tag), and `release.yml` refuses a
+release commit that isn't on `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
-squash-merged, once the 10 required checks of `ci.yml` have passed
-("Protect develop": every job except the macOS build and the macOS
-dependency audit, which run but aren't required; Python tests run on
-3.11 and 3.13, both required, since #546), on a branch that's up
-to date with `develop` ("Require branches to be up to date before
-merging", on since 2026-10-17, the owner's choice), so a pull request's
-checks have run on everything already merged.
-Renaming or removing a CI job (changing a Python version in the test matrix
-renames one) blocks every pull request until the owner updates that list; a
-new job isn't required until it's added there. A release tag (`v*`) can't
+squash-merged (or with a merge commit, for the daily pull requests
+between `staging` and `develop`), once `ci.yml`'s one required check,
+"CI passed", has passed ("Protect develop"; it needs every job except
+the macOS build and the macOS dependency audit, which run but aren't
+required; Python tests run on 3.11 and 3.13, both in it, since #546), on
+a branch that's up to date with `develop` ("Require branches to be up to
+date before merging", on since 2026-10-17, the owner's choice), so a pull
+request's checks have run on everything already merged. "Protect
+staging" guards `staging`: pull requests only (squash, or a merge commit
+for "develop into staging"), "CI passed" required, no up-to-date rule (so
+a night's pull requests merge side by side), and no deletion or force
+push. "Protect 2.0" guards `2.0` the same way as "Protect staging" (squash,
+or a merge commit for a `develop` merge), and "Protect 2.0 pins" keeps
+each `pin/2.0-*` tag where it was made: created, never moved or deleted.
+A job is required by being in "CI passed"'s `needs` (`ci.yml`), so renaming,
+splitting or adding one changes no ruleset; only a rename of "CI passed"
+itself would. A release tag (`v*`) can't
 be moved or deleted by anyone ("Protect release tags", since 2026-10-18,
 the owner's choice), so each release's code stays at its tag to roll back
 to; the release workflow still creates new ones. If unsure, branch from
-`develop` and ask.
+`staging` and ask.
 
 ## Before you change…
 
@@ -112,6 +170,12 @@ to; the release workflow still creates new ones. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
+  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's:
+  each `develop` merge re-points the first one's `down_revision` to
+  1.x's head until the first 2.0 pre-release is published, then 1.x's
+  join by Alembic merge revisions (#251, decision 3; #251 says which
+  applies now). On `develop`, 1.x numbers its migrations on from its
+  own head as always.
 - **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
   `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
@@ -278,7 +342,9 @@ from the Transaction row alone.
   River import's check (`river_import.annotate_duplicates`) leaves out only
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
-  timezone). The AI's rows
+  timezone). A row is only ever compared with transactions of its own
+  currency, bitcoin with bitcoin and dollars with dollars, in every pass
+  (`_compatible`, #581). The AI's rows
   also need the same type, accounts (from and to: a payout into Exchange
   BTC beside one recorded into Wallet isn't that payout, only similar,
   #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`);
@@ -312,8 +378,10 @@ from the Transaction row alone.
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
   match; the other rows are checked against the rest. The same
   amount within 48 hours with anything else different is only similar:
-  flagged, never skipped by itself; a River bitcoin move of only a near
-  amount starts unticked.
+  flagged, never skipped by itself. So is a bitcoin move (a Transfer or
+  Withdrawal; never a dollar row, #581) of a near amount, within 20 %
+  (one typed by hand guesses its network fee); a River bitcoin move of
+  only a near amount starts unticked.
 - **Prices**: every valuation goes through `services/hourly_prices.price_at`
   (#144): the opening price of the moment's UTC hour (the tax timezone never
   changes the hour), else the UTC day's 00:00 price
@@ -451,7 +519,7 @@ from the Transaction row alone.
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
-| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
+| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop`/`2.0` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
@@ -482,6 +550,8 @@ from the Transaction row alone.
   checks the setup code or password first. A copy of the database goes to
   `backups/` before it (`btctx-before-delete-all-…`, newest 5, apart from
   the other copies; no copy, nothing deleted): `services/wipe.py`, #256.
+  reset-account's delete and its new login are one save (`wipe.delete_all`'s
+  `save_with`): a failure leaves both as they were.
 - Sessions (`backend/session_auth.py`): each login gets a random session id,
   carried in the cookie; the server keeps the hashes of the open ones in
   `app_settings` (the newest 20). A session not on that list is logged out
@@ -543,8 +613,13 @@ from the Transaction row alone.
   logs no trace (#430; the tests fail on one unless marked
   `unexpected_error`); a save a restore's swap refused answers `REPLACED`
   (503, `database.was_replaced`, Python 3.11+) and is logged as a
-  warning. Two kinds still show an error in full, to the owner only: a
-  failure that stops BitcoinTX starting (`init_db`, a migration),
+  warning, and so is one that waited past the 5 s for SQLite's write lock
+  (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
+  pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
+  a COMMIT that failed busy is never saved by the next request on it
+  (#580's re-check). Two kinds still show an error
+  in full, to the owner only: a failure that stops BitcoinTX starting
+  (`init_db`, a migration),
   whose text is then the only diagnosis, and a `backend/cli.py` command's
   error (StartOS's migrate oneshot; its Set Login Credentials and
   Recalculate Ledger actions show only the `error:` line, never the SQL
@@ -644,13 +719,13 @@ from the Transaction row alone.
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~3,100 hermetic tests (backend + MCP), ~8 min
+make test-fast   # ~3,200 hermetic tests (backend + MCP), on every core, ~2 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
-make reference-figures  # accept moved figures of the reference test ledger (owner's merge if tax)
+make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
 make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
@@ -683,7 +758,15 @@ command gives up after 20 minutes and then reads whatever log is there.
 Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
 
-1. In a pull request into `develop`: bump `VERSION`, the version in
+2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
+7.4's B10a and B10b: their version bumps go into `2.0`, not
+`develop`; a pre-release is published from `prerelease/v2.0.0-beta.N`;
+and for the release, `develop` takes nothing from the last `develop`
+merge until `2.0` is in it.
+
+1. In a pull request straight into `develop`, like an urgent fix
+   ("Branches"), opened after a daily merge so it carries what `staging`
+   held: bump `VERSION`, the version in
    `desktop/BitcoinTX.spec`, the image tag in
    `startos/startos/manifest/index.ts`, `startos/startos/versions/current.ts`
    and `mcp_server/pyproject.toml` (`backend/tests/test_versions_agree.py`
@@ -756,8 +839,8 @@ check the sync's commit lists only those files. Anything else in `startos/`
 forked, such a sync also needs its pull request to their fork (or rides in
 one of ours still open), or Start9 never gets it. Before a release, bring
 Start9's changes to their fork back into `startos/` with
-`scripts/start9-pull.sh` (`--apply` on a branch cut from `develop`, then a
-pull request), or the sync undoes them;
+`scripts/start9-pull.sh` (`--apply` on a branch cut from `staging`, then a
+pull request into `staging`), or the sync undoes them;
 the release workflow's first job stops if you haven't (`--check`). By hand: `scripts/sync-startos-mirror.sh --push`;
 if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
@@ -814,7 +897,7 @@ One home for each kind of information, so nothing is kept twice:
 | To-dos, work under way, questions | GitHub issues on this repo, one per task |
 | Bugs (the known issues) | public GitHub issues labelled `bug` ("Bugs and security") |
 | Security problems | private GitHub security advisories until fixed (`SECURITY.md`) |
-| A change | one branch and one pull request into `develop` |
+| A change | one branch and one pull request into `staging` |
 | What's done | `docs/CHANGELOG.md` and the merged pull requests |
 | What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
 | The StartOS package's own to-dos | GitHub issues labelled `start9` (Start9's template keeps no `TODO.md` in the package) |
@@ -931,7 +1014,38 @@ depends on the change:
 |---|---|
 | Docs, process, tooling | One review; another round only for a blocker |
 | App code | A review, then a re-check of the fixes |
-| Tax figures or what the app computes, the database, the StartOS package or anything that reaches Start9, releases | A review and a re-check, plus the before-and-after comparison of what the app produces (`scripts/equivalence_check.py`) when figures could move; then the owner's "merge" |
+| Tax figures or what the app computes, the database | A review and a re-check, plus every figures check: the reference ledger's figures (`test_seed_ledger.py`), the independent second calculation (`scripts/independent_figures.py`) and the before-and-after comparison of what the app produces (`scripts/equivalence_check.py`); the database also a backup and restore tried on a 1.x ledger. Then the figures rule, below |
+| The StartOS package, releases, anything sent to Start9 | A review and a re-check; then the owner's "merge" in chat (for Start9: before it's sent) |
+
+**The figures rule.** Be extremely careful with anything that affects
+figures; the owner isn't asked to review code:
+
+- **No figure moves**, and every check is green: Claude merges, without
+  asking the owner. This is for changes not meant to move any figure (a
+  refactor, a dependency, wording, a screen).
+- **A figure moves on purpose** (a `tax-figures` fix, a new rule): before
+  it merges, the owner gets a plain-words before-and-after on the pull
+  request and in chat: which figures, for which ledgers and tax years, by
+  how much, why, and the tax rule behind it. The owner approves that
+  explanation, not the code. What counts is the intent, not whether the
+  test ledgers happen to show it: a fix meant to change any user's figure
+  (a duplicate check, a price, a box) gets the before-and-after even when
+  `equivalence_check` finds no difference, shown on a ledger built to
+  show it.
+- **A figure moves that nobody meant to move**: stop, find out why and fix
+  it; never ask the owner to judge it. If the move turns out to be right
+  (a bug the change uncovered), it becomes a figure moved on purpose,
+  above.
+
+A new tax year's IRS forms (or the next year's draft preview) follow it
+too: the printed forms are checked (`test_printed_forms.py`, and a look at
+each new form, docs/IRS_ANNUAL_FORM_UPDATE.md). Adding a year moves no
+existing figure, so Claude merges it; if the new forms put existing data in
+a different box or line, that's a figure moved on purpose, above. The
+release that ships them keeps the owner's "merge".
+
+A change in what the app does for the owner is still agreed with them
+before it's written.
 
 Claude posts the review on the pull request, then fixes every finding (a bug
 fix with a test that fails on the old code) or answers it there with the
@@ -941,36 +1055,57 @@ comments end "— Grok (Cursor)".
 
 ## Pull requests
 
-Every change, Claude's included, goes into `develop` by pull request, filled
+Every change, Claude's included, goes into `staging` by a pull request of
+its own (an urgent fix, or a release's version, straight into `develop`:
+"Branches"). **The nightly
+batch** (the owner, 2026-10-22): each change is written and tested on its
+own branch during the day, and its fresh review runs there, before any
+push; at the end of the day (or a good stopping point) every finished
+branch is pushed and gets its own pull request into `staging`, all at
+once, with the review posted on it and auto-merge on (one that needs the
+owner's "merge", or the figures rule's OK on a before-and-after, gets
+auto-merge only after it). Never merge changes into
+`staging` locally: each keeps its pull request (its description, checks
+and history). Each pull request is filled
 in from `.github/pull_request_template.md`: what and why, a plain-words line
 for the owner, how it was tested, the risk. Once the review has nothing
 open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
 --match-head-commit <sha>`), and GitHub squashes it, one commit per change,
-when the 10 required checks pass (if they already have, GitHub refuses
-`--auto`; the same command without `--auto` merges it at once). A branch
-behind `develop` is brought up to date first (`gh pr update-branch N`,
-which merges `develop` in, or `git merge origin/develop` and a push; a
-Dependabot pull request: comment
+when "CI passed" passes (if it already has, GitHub refuses
+`--auto`; the same command without `--auto` merges it at once). `staging`
+doesn't ask a branch to be up to date, so a reviewed pull request merges as
+soon as its checks pass; one that conflicts with what merged before it gets
+`staging` merged in first (a Dependabot pull request: comment
 "@dependabot rebase" instead, since Dependabot stops maintaining a
 branch once anyone else commits to it, and it rewrites only its own
-branch) and merges only once its checks pass again: auto-merge never
-updates a branch by itself, and GitHub refuses to merge one that's behind
-("Branches"). During big work the lead does all of this
+branch). An urgent fix's pull request into `develop` is brought up to
+date first (`gh pr update-branch N`, which merges `develop` in, or `git
+merge origin/develop` and a push) and merges only once its checks pass
+again: auto-merge never updates a branch by itself, and GitHub refuses to
+merge one that's behind ("Branches"). The daily "staging into develop" is
+never updated that way: "develop into staging" does it ("Branches", the
+daily cycle). A pull request moved onto `develop` (`gh pr edit N --base
+develop`, say a fix that turned out urgent) gets a new commit, or is
+closed and reopened, so the full set runs: changing the base starts no
+run, and a medium-set pass never counts for `develop`. During big work,
+sessions report "ready: #N" and the lead turns on auto-merge instead
 ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
-These pull requests get auto-merge only after the owner's "merge" in chat:
-a change in tax figures or what the app computes, the database, the StartOS
-package or anything that reaches Start9, and releases. A change in what the
+A change in tax figures or what the app computes, or the database, follows
+the figures rule ("Reviews"): auto-merge when no figure moves and every
+check is green; after the owner's OK on the before-and-after when a figure
+moves on purpose. The StartOS package, releases and anything sent to Start9
+get auto-merge only after the owner's "merge" in chat. A change in what the
 app does for the owner is agreed with them before it's written, not at
 merge time. Dependabot's pull requests go the same way, after Claude has
 read their changelogs; what else they need before merging, and what to do
 when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
 request merges" and the two sections after it.
 
-A branch that falls behind `develop` gets `develop` merged into it, never a
+A branch that falls behind its base gets the base merged into it, never a
 rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
-pushed branch is not rewritten, and the squash keeps `develop` clean
-anyway.
+pushed branch is not rewritten, and the squash keeps `staging` and
+`develop` clean anyway.
 
 ## Big work: a main session and numbered sessions
 
@@ -986,24 +1121,28 @@ one session. Claude suggests this setup when a request is that big.
   - an issue per session with its checklist (what "done" means, and the
     "owner" points where it stops); a plan and its build may share one;
   - on each, a comment "Kickoff prompt for this session" that stands on
-    its own: how to start (from `develop`: see below), the rules that
+    its own: how to start (from `staging`: see below), the rules that
     matter most, the job, and what it waits for;
   - on the umbrella, an index of the prompts: the order, and what each
     session waits for.
 - **Starting one:** the desktop app's one-click card (`spawn_task`), or
   the kickoff prompt pasted into a new session. Each title starts with
   its number ("6 · Build hourly prices (#144)").
-- **Every session starts from `develop`.** When the lead starts one with
-  a working folder of its own, it runs `make sync-check` first (the start
-  tool cuts the folder from the local branch, and a `git fetch` alone
+- **Every session starts from `staging`** (`2.0` during the 2.0 build:
+  its plan says how). When the lead starts one with a working folder of
+  its own, it runs `make sync-check` first (the start tool cuts the
+  folder from a local branch; `make sync-check` brings local `main`,
+  `develop` and `2.0` (when there is one) up to GitHub's, never `staging`, and a `git fetch` alone
   moves only `origin/develop`), then names `develop` as the folder's base
   (the start tool's `source_branch`): otherwise the folder may be cut
   from `main`, which lacks everything not yet released. Each kickoff
-  prompt says it too: before any work, `git fetch origin`, then `git
-  merge --ff-only origin/develop`, which brings a folder cut from `main`
-  up to `develop` and refuses rather than lose anything (`git rev-list
-  --count HEAD..origin/develop` then prints 0). A folder that already
-  has commits of its own takes `git merge origin/develop`, never a rebase.
+  prompt then says: before any work, `git fetch origin`, then `git merge
+  --ff-only origin/staging`, which brings the folder up to `staging` and
+  refuses rather than lose anything (`git rev-list --count
+  HEAD..origin/staging` then prints 0). A folder that already has
+  commits of its own, or one the fast-forward refuses (`develop` holding
+  a commit `staging` doesn't have yet, such as the last daily merge),
+  takes `git merge origin/staging`, never a rebase.
 - **A bug found on the way gets its own session** (the owner,
   2026-10-16: "We want to get every thing fixed by you spinning up new
   sessions for bugs we find"). When anyone finds one during big work (a
@@ -1034,9 +1173,9 @@ one session. Claude suggests this setup when a request is that big.
   No plan mode by default: plan mode's plan stays in that session, while
   the issue's checklist is seen by all.
 - **The main session** carries the owner's decisions to the sessions, on
-  their issues or by a message to one that's running. A "merge" is
-  quoted on its pull request, with the date, by the session the owner
-  said it to. The main session starts the next session when what it
+  their issues or by a message to one that's running. The owner's
+  "merge", or OK on a before-and-after, is quoted on its pull request,
+  with the date, by the session the owner said it to. The main session starts the next session when what it
   waits for is done, and keeps #41's "Next", linking to the umbrella
   issue instead of repeating its order.
 - **The footprint and merge plan** (owner, 2026-10-12): planned up front,
@@ -1050,7 +1189,7 @@ one session. Claude suggests this setup when a request is that big.
   - **any migration numbers reserved for it** (for example 0011, then
     0012 with `down_revision` 0011: Alembic can't load a parent that isn't
     there, so the second is written on the current head until 0011 is on
-    `develop`, then re-pointed);
+    `staging`, then re-pointed);
   - **the merge order** between sessions.
 
   A session whose footprint grows says so on its issue before it merges,
@@ -1058,7 +1197,7 @@ one session. Claude suggests this setup when a request is that big.
 - **Running sessions at once:** only when they share no hot spot other
   than the CHANGELOG; sessions that share one run one after the other,
   unless the plan names which merges second. The one that merges second
-  merges `develop` in (never a rebase), keeps both CHANGELOG entries,
+  merges `staging` in (never a rebase), keeps both CHANGELOG entries,
   merges the reference ledger's rows by hand, reruns
   `make reference-figures` (never hand-merging the figures) and checks
   that the diff shows only the two sessions' intended moves, and checks
@@ -1072,21 +1211,27 @@ one session. Claude suggests this setup when a request is that big.
   auto-merge: once a pull request's review (and re-check, where
   "Reviews" asks one) has nothing open, it posts "ready: #N" on the
   umbrella issue (and tells the lead, if it's running), so a new lead
-  finds it too. The lead keeps one merge queue on the umbrella issue
-  (the order, what each needs, its state) and takes each in turn: it
-  brings the branch up to date with `develop` (`gh pr update-branch N`;
-  on a conflict or red checks, or where "Running sessions at once" has
-  the session merge `develop` in itself, its session, or one the lead
-  starts for it, does that and fixes what broke; a session still working
-  on that branch pulls before its next push), waits for green checks,
-  checks that the owner's "merge" is quoted on it where one is needed,
-  and merges. Dependabot's pull requests, and any other merge into
-  `develop` while big work runs, go through the same queue. Pull
+  finds it too. The lead keeps the queue on the umbrella issue (the
+  order, what each needs, its state). For each ready pull request into
+  `staging` (or `2.0` during the 2.0 build), it checks that the owner's
+  "merge", or the OK the figures rule asks for, is quoted on it where
+  one is needed (none for a change that moves no figure: "Reviews", the
+  figures rule), then turns on auto-merge (`gh pr merge N --auto
+  --squash --match-head-commit <sha>`) instead of bringing each up to
+  date and merging them one by one: neither branch asks a pull request
+  to be up to date, so GitHub merges it once its checks pass. Pull
   requests that touch the same files or tests, in one session or
-  several, merge one at a time, each tested on top of the one before;
-  the lead plans that order when it hands out the work. (#413 merged on
-  checks run before #416 changed the sentence its test expected, and
-  `develop` broke: #417.)
+  several, get auto-merge one at a time, each only after the one before
+  has merged, so they don't conflict; the lead plans that order when it
+  hands out the work. On a conflict or red checks, or where "Running
+  sessions at once" has the session merge `staging` in itself, its
+  session, or one the lead starts for it, does that and fixes what broke
+  (a session still working on that branch pulls before its next push).
+  Dependabot's pull requests, and any other merge into `staging` while
+  big work runs, go through the same queue. (#413 merged on checks run
+  before #416 changed the sentence its test expected, and `develop`
+  broke: #417. A break like that now shows in the full set on the merge
+  into `staging`, and is fixed before anything else merges there.)
 - **The main session's own handoff:** the main session (the "lead")
   keeps a comment "Kickoff prompt for the lead session" on the umbrella
   issue, edited in place after every change, never left as a snapshot:
@@ -1103,8 +1248,17 @@ one session. Claude suggests this setup when a request is that big.
 
 ## Starting a session
 
-Run `make sync-check`: it brings local `main` and `develop` down from
-GitHub and says whether anything exists only on this computer: work not
+**First, what ran overnight** (the owner, 2026-10-22): the night's pull
+requests into `staging` and their checks, the full set on `staging`'s
+latest completed run (a run a newer one cancelled shows a red "CI
+passed" that isn't a failure), and any "staging into develop" (`gh pr
+list --base staging`, `gh run list --branch staging --limit 10`, `gh pr
+list --base develop`). Tell the owner in plain words what's green and
+what's red, and fix anything red first, before any new work, and run the
+daily cycle ("Branches", `develop`).
+
+Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
+down from GitHub and says whether anything exists only on this computer: work not
 committed in any working folder, branches or commits not on GitHub,
 stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
 (`gh issue view 41`), the open pull requests and issues (`gh pr list`,
@@ -1112,6 +1266,14 @@ stashes. Another session's unpushed branch may show up: it's theirs. Then read i
 comes from there, not from an AI tool's memory.
 
 ## Ending a session
+
+**Push, then stop: never wait on CI** (the owner, 2026-10-22). After the
+night's batch is pushed and its pull requests opened (auto-merge on where
+allowed), the session ends: no watching, polling or waiting on a pull
+request's checks, the full set on `staging`, or a "staging into develop".
+Waiting burns the owner's limits for nothing; the next session reads the
+results first thing ("Starting a session"). If something truly must be
+watched, say so to the owner, so a scheduled check or Silas does it.
 
 Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
 and the issues worked on, rewrite #41's body for the next session (dated),

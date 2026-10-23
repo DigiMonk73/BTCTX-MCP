@@ -141,7 +141,7 @@ the `make lock` command, or when the Mac lock and the backend's disagree.
 
 ### Dependabot
 
-`.github/dependabot.yml` opens pull requests against `develop` every week:
+`.github/dependabot.yml` opens pull requests against `staging` every week:
 one grouped PR per directory for minor and patch updates (`backend/`,
 `mcp_server/`, `desktop/`, `.github/release-tools/`, the dev tools in
 `requirements-dev.txt`, `frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
@@ -149,11 +149,12 @@ in `.github/workflows/`, and one per Dockerfile base image when its tag gets
 a new build (Python 3.13 and Node 24 themselves change only on purpose).
 CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
-merge into `develop`. Nothing reaches `main` before a release.
+merge into `staging` (`develop` takes them with the daily merge,
+AGENTS.md, "Branches"). Nothing reaches `main` before a release.
 
 - GitHub reads the file from the default branch (`main`): an edit takes
   effect once `main` is fast-forwarded to `develop`.
-- Every entry needs `target-branch: develop`, or its PRs target `main`.
+- Every entry needs `target-branch: staging`, or its PRs target `main`.
   Keep **Dependabot security updates** off in the repository settings:
   `target-branch` doesn't apply to them, so their PRs would target `main`.
   Alerts still show on the Security tab, and the weekly PRs pick up fixed
@@ -176,13 +177,13 @@ merge into `develop`. Nothing reaches `main` before a release.
   Dockerfile isn't indented (`test_pinning.py` checks it).
 - `startos/.github/workflows/` (Start9's standard files) is not scanned.
 - The dev-tools entry (`/`) would also read `backend/` and `desktop/`, so it
-  allows only pytest, hypothesis, ruff, pip-audit and uv. A new pinned
+  allows only pytest, pytest-xdist, hypothesis, ruff, pip-audit and uv. A new pinned
   dev tool goes on that list; never one a lock holds (anyio comes from
   `backend/requirements.txt`), or this pip entry would edit the lock.
 
 ### Before a Dependabot pull request merges
 
-The 10 required checks gate every merge, and Claude reads the release notes
+"CI passed", the one required check, gates every merge, and Claude reads the release notes
 first (AGENTS.md, "Pull requests"). Two cases need more than that:
 
 - **The Mac app.** Its build and launch check runs on each pull request,
@@ -196,12 +197,15 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
   in two environments (step 4 of "Updating a dependency":
-  `scripts/equivalence_check.py` can't see a package change) and waits for
-  the owner's "merge".
+  `scripts/equivalence_check.py` can't see a package change). An update
+  is never meant to move a figure: if none moves, it merges like any
+  other; if one does, it stops until the cause is found (AGENTS.md,
+  "Reviews", the figures rule).
 
-A Dependabot branch behind `develop` is brought up to date by commenting
-"@dependabot rebase" on it, never by merging `develop` into it
-(`gh pr update-branch`, or `git merge origin/develop` and a push): Dependabot
+A Dependabot branch behind `staging` is brought up to date only when it
+conflicts (`staging` asks no branch to be up to date), by commenting
+"@dependabot rebase" on it, never by merging `staging` into it
+(`gh pr update-branch`, or `git merge origin/staging` and a push): Dependabot
 stops maintaining a branch once anyone else commits to it. It merges only
 once its checks have passed again (AGENTS.md, "Pull requests").
 

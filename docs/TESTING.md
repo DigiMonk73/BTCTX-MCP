@@ -19,7 +19,7 @@ make hooks          # installs the pre-push gate
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
 | Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
-| Unit + integration | `make test-fast` | ~3,100 tests (backend and MCP server): FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~8 min |
+| Unit + integration | `make test-fast` | ~3,200 tests (backend and MCP server), on every core: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~2 min |
 | Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~10 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
 | Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
@@ -37,10 +37,18 @@ make hooks          # installs the pre-push gate
   SDK's `make javascript/index.js`) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
-- **On GitHub, every pull request and every push to `develop` or `main`** (`.github/workflows/ci.yml`; once per change, not again for the branch push): Python 3.11 and 3.13
+- **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
   (Docker's, StartOS's and the Mac app's) full suite, frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
+  - A pull request into `staging` or `2.0` (and only there) runs the
+    **medium set**: all of that except the click-through tests, the
+    Docker image and the StartOS pack, so a night's batch runs side by
+    side. Every merge into `staging` or `2.0` starts the full set on the
+    result; a newer run there cancels the older, so the last run tests
+    every change merged (a cancelled run's red "CI passed" isn't a
+    failure). Every other pull request (into `develop`, `main` or any
+    other branch) runs the full set. AGENTS.md, "Branches".
 - **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
   start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
@@ -237,8 +245,11 @@ change in a figure and names where. After a change meant to move figures:
 make reference-figures      # rewrites testdata/reference_figures.json
 ```
 
-and the pull request shows the difference; a change in tax figures waits
-for the owner's "merge".
+and the pull request shows the difference. Then the figures rule
+(AGENTS.md, "Reviews"): a figure moved on purpose gets the owner's OK on a
+plain-words before-and-after, never on code; a figure moved by mistake is
+fixed, never accepted here. A change that moves no figure merges on Claude's
+review once every figures check is green.
 
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box

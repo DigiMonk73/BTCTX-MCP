@@ -3,7 +3,9 @@ backend/tests/test_branch_rules.py
 
 The pre-push branch rules (.githooks/branch-rules.sh, AGENTS.md "Branches"):
 main only fast-forwards to commits already on GitHub's develop
-(origin/develop) and is never deleted, rewound or force-pushed. Other AI
+(origin/develop) and is never deleted, rewound or force-pushed; 2.0 is
+never deleted, rewound or force-pushed, and a pin/2.0-* tag is never moved
+or deleted (a new one is fine). Other AI
 assistants work in this repo too, so the rule is enforced, not just written
 down.
 
@@ -71,6 +73,12 @@ def push(repo, *lines):
         [("refs/heads/main", "B", "0")],       # main created at a develop commit
         [("refs/heads/develop", "B", "A")],    # other branches aren't checked
         [("refs/heads/develop", "C", "B")],
+        [("refs/heads/2.0", "B", "A")],        # 2.0 moves on
+        [("refs/heads/2.0", "B", "0")],        # 2.0 created
+        [("refs/heads/2.0-b1-yardsticks", "A", "B")],  # a step's branch isn't 2.0
+        [("refs/tags/pin/2.0-step-1", "B", "0")],      # a new pin
+        [("refs/tags/pin/2.0-step-1", "B", "B")],      # a pin pushed again unchanged
+        [("refs/tags/v1.2.9", "B", "0")],      # other tags aren't checked here
         [],                                    # make check-fast: no refs
     ],
 )
@@ -87,6 +95,13 @@ def test_allowed(repo, lines):
         ([("refs/heads/main", "D", "A")], "only takes commits already on GitHub's develop"),
         ([("refs/heads/main", "0", "A")], "can't be deleted"),
         ([("refs/heads/main", "A", "B")], "can't be rewound or force-pushed"),
+        ([("refs/heads/2.0", "0", "B")], "2.0 can't be deleted"),
+        ([("refs/heads/2.0", "A", "B")], "2.0 can't be rewound or force-pushed"),
+        ([("refs/heads/2.0", "C", "B")], "2.0 can't be rewound or force-pushed"),
+        ([("refs/heads/develop", "B", "A"), ("refs/heads/2.0", "C", "B")],
+         "2.0 can't be rewound or force-pushed"),
+        ([("refs/tags/pin/2.0-step-1", "C", "B")], "pin/2.0-step-1 can't be moved or deleted"),
+        ([("refs/tags/pin/2.0-step-2a", "0", "B")], "pin/2.0-step-2a can't be moved or deleted"),
     ],
 )
 def test_refused(repo, lines, message):
