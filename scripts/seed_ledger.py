@@ -122,11 +122,35 @@ def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     rows = ledger_rows() if rows is None else rows
     for n, row in enumerate(rows, start=1):
-        r = c.post("/api/transactions", json=row)
+        r = send_confirmed(c, "POST", "/api/transactions", row)
         if r.status_code != 200:
             raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
                             f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
     return len(rows)
+
+
+def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:
+    """A write through 2.0's past-year warning (docs/temp/2.0-accounts.md
+    5.8): nearly every row is dated in an earlier tax year, and no switch
+    turns the warning off on a running server, so a 409 that gives a
+    fingerprint (`confirm`) is sent again, once, with ?confirm=<it>. The
+    answer either way: a second 409 (the ledger changed meanwhile) is the
+    caller's to report."""
+    r = c.request(method, path, json=body)
+    fingerprint = _fingerprint_asked(r)
+    return r if fingerprint is None else c.request(method, path, json=body, params={"confirm": fingerprint})
+
+
+def _fingerprint_asked(r: httpx.Response) -> str | None:
+    """The `confirm` of the warning's 409; None for any other answer (Delete
+    All's 409 asks for a typed DELETE instead)."""
+    if r.status_code != 409:
+        return None
+    try:
+        confirm = r.json().get("confirm")
+    except (ValueError, AttributeError):  # not JSON, or not an object
+        return None
+    return confirm if isinstance(confirm, str) else None
 
 
 def read_password(args: argparse.Namespace) -> str:

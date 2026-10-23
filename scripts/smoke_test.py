@@ -330,10 +330,34 @@ def check_auth(c: httpx.Client, user: str, password: str, setup_code: str | None
 
 
 def create(c: httpx.Client, **data) -> dict:
-    r = c.post("/api/transactions", json=data)
+    r = send_confirmed(c, "POST", "/api/transactions", data)
     if r.status_code != 200:
         raise SmokeFailure(f"create {data['type']} failed: {r.status_code} {r.text}")
     return r.json()
+
+
+def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:
+    """A write through 2.0's past-year warning (docs/temp/2.0-accounts.md
+    5.8): this test's rows are dated in earlier tax years, and no switch
+    turns the warning off on a running server, so a 409 that gives a
+    fingerprint (`confirm`) is sent again, once, with ?confirm=<it>. The
+    answer either way: a second 409 (the ledger changed meanwhile) is the
+    caller's to report."""
+    r = c.request(method, path, json=body)
+    fingerprint = _fingerprint_asked(r)
+    return r if fingerprint is None else c.request(method, path, json=body, params={"confirm": fingerprint})
+
+
+def _fingerprint_asked(r: httpx.Response) -> str | None:
+    """The `confirm` of the warning's 409; None for any other answer (Delete
+    All's 409 asks for a typed DELETE instead)."""
+    if r.status_code != 409:
+        return None
+    try:
+        confirm = r.json().get("confirm")
+    except (ValueError, AttributeError):  # not JSON, or not an object
+        return None
+    return confirm if isinstance(confirm, str) else None
 
 
 def check_ledger(c: httpx.Client, own_server: bool) -> dict:

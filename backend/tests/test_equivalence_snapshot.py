@@ -10,6 +10,7 @@ import re
 import sys
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from pypdf import PdfReader
 
@@ -46,3 +47,24 @@ def test_the_reference_ledger_loads_from_any_folder(tmp_path, monkeypatch):
     ledgers = {name: txs for name, _, txs in snapshot._ledgers()}
     assert len(ledgers["reference"]) >= 108
     assert not any("why" in tx for tx in ledgers["reference"])
+
+
+def test_this_tax_year_is_the_tests_on_a_side_that_has_the_clock(monkeypatch):
+    """2.0's past-year warning (plan 5.8) never asks in-process: the snapshot
+    pins "this tax year" as the backend tests do (5.15), so each side's
+    writes save as before the warning."""
+    from backend.services import tax_time
+
+    monkeypatch.setattr(tax_time, "current_tax_year", lambda tz: 2026)
+    snapshot.pin_tax_year()
+    assert tax_time.current_tax_year(ZoneInfo("America/Chicago")) == 2009
+
+
+def test_a_side_without_the_clock_gets_none(monkeypatch):
+    """A release before 2.0 has no current_tax_year and no warning: nothing
+    is added that its code would never read."""
+    from backend.services import tax_time
+
+    monkeypatch.delattr(tax_time, "current_tax_year")
+    snapshot.pin_tax_year()
+    assert not hasattr(tax_time, "current_tax_year")
