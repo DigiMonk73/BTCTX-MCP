@@ -36,7 +36,28 @@ declare global {
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
+    kind: AccountKind | null; // the dashboard's cards go by kind (2.0 spec 5.13); null: no account the book lists
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null; // that exchange's name
+    hidden: boolean;
   }
+
+  // The account book (GET /api/accounts/, 2.0 spec 5.9). An account is its id;
+  // `name` is only ever shown, never compared: the owner can rename it
+  type AccountKind = "bank" | "wallet" | "exchange" | "fee";
+
+  interface LedgerAccount {
+    id: number;
+    name: string;
+    kind: AccountKind;
+    currency: Currency;
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null; // that exchange's name
+    hidden: boolean;
+    in_use: boolean; // a transaction or a ledger line names it
+  }
+
+  type AccountBook = readonly LedgerAccount[];
 
   interface AverageCostBasis {
     averageCostBasis: number;

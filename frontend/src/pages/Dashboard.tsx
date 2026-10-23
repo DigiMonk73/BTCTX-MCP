@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import AccountCards from "../components/dashboard/AccountCards";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
 import HistoryQuestionCard from "../components/dashboard/HistoryQuestionCard";
 import IncomeFeesCard from "../components/dashboard/IncomeFeesCard";
@@ -12,7 +13,18 @@ import { useLivePrice } from "../components/dashboard/useLivePrice";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
+const KIND_TITLES = ["Bank", "Exchange", "Wallet"];
 const CARD_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"];
+
+/** A card while its figures load: its title and a spinner, at its size, so nothing jumps. */
+const LoadingCard: React.FC<{ title: string; className?: string }> = ({ title, className = "" }) => (
+  <div className={`card ${className}`}>
+    <h3 className="card-title">{title}</h3>
+    <div className="loading-row">
+      <div className="spinner" /> Loading…
+    </div>
+  </div>
+);
 
 const Dashboard: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[] | null>(null);
@@ -119,15 +131,11 @@ const Dashboard: React.FC = () => {
   if (balances === null || gainsAndLosses === null) {
     return (
       <div className="dashboard" aria-busy="true">
+        <div className="account-cards">
+          {KIND_TITLES.map((title) => <LoadingCard key={title} title={title} className="account-card" />)}
+        </div>
         <div className="dashboard-grid">
-          {CARD_TITLES.map((title) => (
-            <div key={title} className="card dashboard-card-loading">
-              <h3 className="card-title">{title}</h3>
-              <div className="loading-row">
-                <div className="spinner" /> Loading…
-              </div>
-            </div>
-          ))}
+          {CARD_TITLES.map((title) => <LoadingCard key={title} title={title} className="dashboard-card-loading" />)}
         </div>
       </div>
     );
@@ -136,6 +144,7 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard">
       {unchosen ? <PriceSourceCard variant="first-run" /> : <HistoryQuestionCard />}
+      <AccountCards balances={balances} />
       <div className="dashboard-grid">
         <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
         <BtcPriceCard price={price} blockHeight={blockHeight} />
