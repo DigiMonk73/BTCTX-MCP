@@ -133,8 +133,9 @@ ready, ask the owner: the rules change then.
 **A change Start9's review asks for** on a pull request to their fork, for a
 version the community registry doesn't serve yet, is taken under that same
 version (Start9's `versions.md`; the owner, 2026-10-23, #617): byte-identical
-to their proposal when they give one, in `startos/` by a pull request, and the
-mirror is synced from that branch so the fork's pull request carries only it.
+to their proposal when they give one, in `startos/` by a pull request from a
+branch cut from `main` (the release the mirror holds), and the mirror is synced
+from that branch so the fork's pull request carries only it.
 Our GitHub release keeps the `.s9pk` it shipped; the CHANGELOG says how
 Start9's build of that version differs.
 
@@ -168,8 +169,9 @@ its release notes (what StartOS shows before updating) and its migration.
   that already claims the version. Start9 keeps a package-only follow-up to
   a version it doesn't serve yet under that version, its notes added to the
   ones already there; our release workflow can't release a version again, so
-  here such a fix rides in a small app release (above, at the end of "After
-  Start9 forks the mirror").
+  here such a fix rides in a small app release (above, "Before the community
+  registry serves the current version"), unless Start9's review asks for it
+  (the paragraph after that one).
 - Release notes are user-facing: what changed for them, in plain language,
   in `en_US`, `es_ES`, `de_DE`, `pl_PL` and `fr_FR`, each ending with the
   CHANGELOG link. They cover every change since the version the community
@@ -242,7 +244,9 @@ them:
    take it with `scripts/start9-pull.sh` instead of steps 1 and 2.
 4. Run the checks, bump the package revision, release. While the community
    registry doesn't serve the current version, the bump rides in the next
-   app release instead (the end of "After Start9 forks the mirror").
+   app release instead ("Before the community registry serves the current
+   version"), unless Start9's review asks for it (the paragraph after that
+   one).
 
 ## Building locally
 
