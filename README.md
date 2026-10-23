@@ -99,10 +99,11 @@ see [Versions](#versions)).
 
 ## Versions
 
-1.2.9 is the stable version of BitcoinTX 1.x. From now on, until 2.0
-replaces it, 1.x gets maintenance updates: bug and security fixes, each
-year's IRS forms and the price history's updates, and the few small
-improvements already planned for it ([roadmap](docs/ROADMAP.md)).
+1.2.9 is the stable version of BitcoinTX 1.x, and 1.2.10 its first
+maintenance update. Until 2.0 replaces it, 1.x gets maintenance updates: bug
+and security fixes, each year's IRS forms and the price history's updates,
+and the few small improvements already planned for it
+([roadmap](docs/ROADMAP.md)).
 
 New features go into BitcoinTX 2.0, now in the works, which adds multiple
 wallets, exchanges and bank accounts, each wallet and exchange with its own
@@ -110,7 +111,7 @@ cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
 Because 2.0 changes how the ledger is stored, it will be tested as a beta
 first, on GitHub pre-releases for as long as it needs, then on StartOS in
 Start9's Community Beta once it's ready, before it replaces 1.x. We don't
-promise dates; until then, 1.2.9 is the version to use.
+promise dates; until then, the latest 1.x is the version to use.
 
 ## Install
 
@@ -170,11 +171,14 @@ and leaves `/data` as it is, so it must be that user's.
 
 BitcoinTX needs StartOS 0.4.0.2 or later. Start9 builds the package from
 [Start9-Community/BTCTX-StartOS](https://github.com/Start9-Community/BTCTX-StartOS)
-and publishes each release to its **Community Beta** registry:
+and publishes each release first to its **Community Beta** registry, then,
+once tested there, to its **Community Registry**:
 
 1. In StartOS, open **Marketplace**, click **Switch** under the registry's
-   name and add `https://community-beta-registry.start9.com`
-   ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
+   name and choose **Community Registry**
+   (`https://community-registry.start9.com`). To get each release as soon
+   as it's out, add `https://community-beta-registry.start9.com` there
+   instead ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
 2. Choose **BitcoinTX** and click **Install**. New versions then show in the
    **Updates** tab ([Updating](https://docs.start9.com/start-os/updating.html)).
 3. Follow BitcoinTX's **Instructions** in StartOS
