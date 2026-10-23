@@ -461,8 +461,9 @@ def test_an_account_with_externals_id_is_a_fee_account(v070):
     ([(7, "x" * 39 + " yz")], {7: "x" * 39}),  # no space left at the cut
     ([(7, "Wallet\u200d")], {7: "Wallet (account 7)"}),  # a joiner at the end goes
     ([(7, "a\u200db"), (8, "ab")], {7: "a\u200db", 8: "ab (account 8)"}),  # alike: joiners ignored
-    ([(7, "'=Cold")], {7: "=Cold"}),  # the CSV import would drop the apostrophe
-    ([(7, " ' '")], {7: "account 7"}),
+    ([(7, "x" * 39 + "\u200dy")], {7: "x" * 39}),  # nor a joiner
+    ([(7, "'=Cold")], {7: "'=Cold"}),  # an apostrophe stays: 2.0's names' rule decides (B2b)
+    ([(7, "\u200d \u200c")], {7: "account 7"}),
 ])
 def test_the_migration_cleans_and_frees_each_extra_accounts_name(rows, names):
     fixed = [(i, name) for i, name, *_ in FIXED_ROWS]

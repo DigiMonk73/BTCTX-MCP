@@ -440,7 +440,12 @@ def _drop_unneeded_pre_2_0_copy(result: MigrationResult, kind: str | None, engin
     except Exception:  # can't tell: the copy stays
         return
     if unchanged:
-        result.backup.unlink(missing_ok=True)
+        try:
+            result.backup.unlink(missing_ok=True)
+        except OSError as e:  # the copy stays, and the error names it
+            logger.warning("Couldn't remove the unneeded copy %s: %s", result.backup, e.strerror or type(e).__name__)
+            return
+        logger.info("Removed %s: the upgrade failed and left the database as it was", result.backup)
         result.backup = None
 
 

@@ -16,7 +16,8 @@ All notable changes to BitcoinTX are documented in this file.
   added, and a second "BTC Fees" left by #289 is renamed and BTC Fees gets
   its name back, so it no longer stops BitcoinTX starting. Before the upgrade BitcoinTX keeps a copy of
   the 1.x database, `backups/btctx-pre-2.0-from-<revision>-<time>.db`,
-  never deleted: the way back to 1.x. A restore takes a 1.x or a 2.0
+  never deleted by BitcoinTX (but when the upgrade fails, which changes
+  nothing): the way back to 1.x. A restore takes a 1.x or a 2.0
   backup, and refuses one whose exchange lacks its two accounts.
 - **2.0's yardsticks** (B1, #345; tests and scripts only, nothing the app
   does changes). The second calculation of the tax figures

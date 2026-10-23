@@ -19,8 +19,8 @@ becomes COLLATE NOCASE.
   "BTC Fees"). The names of the other rows (1.x took any text): trimmed,
   NFC, a control or format character a space (but the zero-width joiners,
   which some scripts need, kept inside a name only), every run of spaces
-  one, no leading apostrophe (the CSV import would drop it), at most 40
-  characters, "account N" when nothing is left; one that is a reserved name
+  one, at most 40 characters, "account N" when nothing is left; one that is
+  a reserved name
   or alike another (normalised, casefolded and the joiners ignored, the
   lower id keeping it) gets " (account N)", or " (account N, 2)" and on.
 
@@ -61,6 +61,7 @@ FEE_NAMES = ("BTC Fees", "USD Fees")
 LONGEST_NAME = 40
 # Some scripts and emoji need them: the one format characters a name keeps
 JOINERS = ("\u200c", "\u200d")
+TRIMMED = " " + "".join(JOINERS)
 
 
 def upgrade() -> None:
@@ -106,10 +107,10 @@ def free_names(rows: list[tuple[int, str]]) -> dict[int, str]:
     taken = {_key(name) for name in RESERVED_NAMES}
     for account_id, name in sorted((i, n) for i, n in rows if i not in FIXED):
         clean = _clean(name) or f"account {account_id}"
-        free, tries = clean[:LONGEST_NAME].rstrip(), 1
+        free, tries = _cut(clean, LONGEST_NAME), 1
         while _key(free) in taken:
             suffix = f" (account {account_id})" if tries == 1 else f" (account {account_id}, {tries})"
-            free = clean[:LONGEST_NAME - len(suffix)].rstrip() + suffix
+            free = _cut(clean, LONGEST_NAME - len(suffix)) + suffix
             tries += 1
         taken.add(_key(free))
         names[account_id] = free
@@ -118,15 +119,15 @@ def free_names(rows: list[tuple[int, str]]) -> dict[int, str]:
 
 def _clean(name: str | None) -> str:
     """One line of plain text: NFC, a control or format character a space
-    (but the joiners), every run of spaces one, trimmed of spaces and joiners
-    and of a leading apostrophe."""
+    (but the joiners), every run of spaces one, trimmed of spaces and joiners."""
     text = "".join(" " if _not_text(c) or unicodedata.category(c) == "Zs" else c
                    for c in unicodedata.normalize("NFC", name or ""))
-    text = re.sub(" +", " ", text)
-    trimmed = None
-    while trimmed != text:
-        trimmed, text = text, text.strip(" " + "".join(JOINERS)).lstrip("'")
-    return text
+    return re.sub(" +", " ", text).strip(TRIMMED)
+
+
+def _cut(name: str, longest: int) -> str:
+    """At most `longest` characters, with no space or joiner left at the cut."""
+    return name[:longest].rstrip(TRIMMED)
 
 
 def _not_text(c: str) -> bool:
