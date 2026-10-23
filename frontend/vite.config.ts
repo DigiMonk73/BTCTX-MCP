@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // The Mac app renders with the system WebKit: Safari 15 on macOS 10.15.
+    // The Mac app renders with the system WebKit: Safari 15 (macOS 11 and later).
     // Vite 8's default target is Safari 16.4, so newer JavaScript and CSS
     // syntax would reach the page as written; this keeps both (cssTarget
     // follows target) rewritten for Safari 15.

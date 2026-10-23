@@ -264,8 +264,8 @@ app = BUNDLE(
         "CFBundleName": "BitcoinTX",
         "CFBundleDisplayName": "BitcoinTX",
         "CFBundleIdentifier": "org.bitcointx.desktop",
-        "CFBundleVersion": "1.2.9",
-        "CFBundleShortVersionString": "1.2.9",
+        "CFBundleVersion": "1.2.10",
+        "CFBundleShortVersionString": "1.2.10",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "NSRequiresAquaSystemAppearance": False,  # Support dark mode
