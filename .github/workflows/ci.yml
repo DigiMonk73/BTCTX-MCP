@@ -1,24 +1,33 @@
 name: CI
 
-# Every pull request, and every push to develop or main: lint, full Python
-# suite, MCP tests, frontend, end-to-end smoke test, Playwright click-through
-# tests (Chromium, WebKit), Docker image + container smoke, StartOS package
-# checks and an x86_64 s9pk packed from this commit's image, dependency audit,
-# and the macOS app build. A pull request's run tests the branch merged with
-# its base, so pushing a branch that has one doesn't run the same suite twice
-# (owner, 2026-10-13). A branch without a pull request: the pre-push hook's
-# checks, or a run on demand from the Actions tab.
+# Every pull request, and every push to develop, main, staging or 2.0:
+# lint, full Python suite, MCP tests, frontend, end-to-end smoke test,
+# Playwright click-through tests (Chromium, WebKit), Docker image + container
+# smoke, StartOS package checks and an x86_64 s9pk packed from this commit's
+# image, dependency audit, and the macOS app build. A pull request's run
+# tests the branch merged with its base, so pushing a branch that has one
+# doesn't run the same suite twice (owner, 2026-10-13). A branch without a
+# pull request: the pre-push hook's checks, or a run on demand from the
+# Actions tab. A pull request into
+# staging or 2.0 runs the medium set ("CI passed", below); every other pull
+# request (into develop, main or any other branch) runs all of it. Every
+# merge into staging or 2.0 starts all of it on the result, and a newer run
+# there cancels the older, so the last run tests every change merged
+# (AGENTS.md, "Branches").
 on:
   push:
-    branches: [develop, main]
+    branches: [develop, main, staging, "2.0"]
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
-  # Only a pull request's older run is cancelled: a push to develop or main is
-  # each merged commit's only run, and releases take their downloads from it.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # A pull request's older run is cancelled, and so is an older run of
+  # staging or 2.0 (the newest run tests every change merged there; a
+  # cancelled run's red "CI passed" is not a failure). A push to develop or
+  # main is each merged commit's only run, and releases take their
+  # downloads from it.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/staging' || github.ref == 'refs/heads/2.0' }}
 
 permissions:
   contents: read
@@ -118,6 +127,9 @@ jobs:
     # across machines (--shard) as they are; each machine keeps one worker.
     name: Click-through tests (${{ matrix.browser }} ${{ matrix.shard }})
     needs: frontend
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0 and nowhere else (an allow-list)
+    if: ${{ !(github.event_name == 'pull_request' && (github.base_ref == 'staging' || github.base_ref == '2.0')) }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -176,6 +188,9 @@ jobs:
 
   docker:
     name: Docker image + container smoke
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0 and nowhere else (an allow-list)
+    if: ${{ !(github.event_name == 'pull_request' && (github.base_ref == 'staging' || github.base_ref == '2.0')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -276,6 +291,9 @@ jobs:
 
   startos-pack:
     name: StartOS package pack (x86_64, image from this commit)
+    # The full set only (below: "The medium set"): skipped on a pull request
+    # into staging or 2.0 and nowhere else (an allow-list)
+    if: ${{ !(github.event_name == 'pull_request' && (github.base_ref == 'staging' || github.base_ref == '2.0')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -351,8 +369,11 @@ jobs:
 
   macos-app:
     name: macOS app build + launch check
-    # Pull requests too, so packaging breaks show up before a merge; not a
-    # required check, so a macOS hiccup never blocks one. Free on public repos.
+    # Every pull request too, those into staging and 2.0 included (about two
+    # minutes, on macOS runners that don't hold up the Linux jobs), so
+    # packaging breaks show up before a merge and a dependency update can
+    # wait for it (MAINTENANCE.md, "The Mac app"); not a required check, so
+    # a macOS hiccup never blocks one. Free on public repos.
     needs: [python, frontend]
     runs-on: macos-latest
     steps:
@@ -401,10 +422,23 @@ jobs:
             BitcoinTX-macOS.dmg
           retention-days: 7
 
-  # The one check develop's ruleset requires: every job above but the macOS
-  # build and its audit (they run, as before, without blocking a merge).
-  # A job is required by being listed here, so renaming or splitting one
-  # never needs the ruleset changed.
+  # The one check the rulesets require: every job above but the macOS build
+  # and its audit (they run, as before, without blocking a merge). A job is
+  # required by being listed here, so renaming or splitting one never needs
+  # a ruleset changed.
+  #
+  # The medium set (the owner's choice, 2026-10-22): a pull request into
+  # staging or 2.0, and only there (an allow-list: a pull request into any
+  # other branch gets the full set), runs the Python suite on both versions
+  # (every tax and figures test among them), lint, the frontend, the smoke
+  # test, the StartOS checks and the audit, so a night's batch of pull
+  # requests clears side by side within GitHub's runner limits; the macOS
+  # build and its audit run there too, as on every pull request. Only
+  # click-through, Docker and the StartOS pack are skipped there; they run
+  # on every merge into staging or 2.0 (the full set, whose last run tests
+  # every change merged) and on every other pull request. Only those three
+  # can be skipped, and only there; anything else skipped (a job whose need
+  # failed) fails this check.
   ci-passed:
     name: CI passed
     if: always()
@@ -414,4 +448,9 @@ jobs:
       - name: Every required job passed
         env:
           RESULTS: ${{ toJSON(needs) }}
-        run: echo "$RESULTS" | jq -e 'to_entries | all(.value.result == "success")'
+          MEDIUM: ${{ github.event_name == 'pull_request' && (github.base_ref == 'staging' || github.base_ref == '2.0') }}
+        run: |
+          echo "$RESULTS" | jq -e --argjson medium "$MEDIUM" '
+            to_entries | all(.value.result == "success"
+              or ($medium and (.key == "e2e" or .key == "docker" or .key == "startos-pack")
+                  and .value.result == "skipped"))'
