@@ -20,11 +20,15 @@ All notable changes to BitcoinTX are documented in this file.
 - **A ledger started before v0.9.2** (the owner's decision): transactions
   saved then into an account made through 1.x's account API now count by
   that account's currency, as Wallet's and Bank's always have. For a
-  bitcoin one: its income and rebates are on the dashboard and in the tax
-  report, its gifts, donations and lost coins in the report's list, a
-  withdrawal of a purpose BitcoinTX doesn't know counts as Spent (#61),
-  Ledger Review and its hour check look at its rows, and the CSV export
-  marks its values typed or priced. Once the ledger is recalculated, a
+  bitcoin one: its income, rebates and gifts received are on the
+  dashboard and in the tax report, its gifts, donations and lost coins in
+  the report's list, a withdrawal of a purpose BitcoinTX doesn't know
+  counts as Spent (#61), Ledger Review and its hour check look at its rows
+  (a spend's proceeds an upgrade marked as from the price are offered at
+  the hour's price, and listed with the report's values from a price),
+  the River and AI imports' duplicate checks compare its rows as bitcoin,
+  and the CSV export marks its values typed or priced. Once the ledger is
+  recalculated, a
   spend's network fee from it is a cost of the spend (#157): its proceeds
   and gain go down by the fee's value. Ledger Review lists these rows
   ("Transactions in an account made through BitcoinTX's old account API")

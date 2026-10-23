@@ -270,3 +270,22 @@ def test_by_currency_an_old_accounts_rows_follow_wallets_rules(fresh_app, monkey
 def _at(text: str):
     from datetime import datetime, timezone
     return datetime.fromisoformat(text).replace(tzinfo=timezone.utc)
+
+
+def test_an_old_accounts_spend_marked_priced_is_the_hour_checks_too():
+    """Migration 0010 marked a Spent's proceeds as from the price whatever
+    its account (its gross the day's price times its amount): for one from 7
+    the API's and the AI's priced mark, the hour check and the Complete Tax
+    Report's priced values now name it, as for Wallet's (S7)."""
+    from datetime import datetime, timezone
+    from backend.services import hourly_review
+    from backend.services.reports import reporting_core
+    from backend.services.transaction import values_from_price
+    from backend.tests.account_pairs import BOOK, COLD
+    spend = Transaction(type="Withdrawal", from_account_id=COLD, to_account_id=99, purpose="Spent",
+                        amount=Decimal("0.1"), gross_proceeds_usd=Decimal("6000.00"), proceeds_from_price=True,
+                        cost_basis_from_price=False, fmv_from_price=False, fee_amount=Decimal("0"),
+                        fee_currency="BTC", price_moment="day", timestamp=datetime(2024, 6, 15, 15, tzinfo=timezone.utc))
+    assert values_from_price(spend, BOOK) == ["gross_proceeds_usd"]
+    assert [field for field, *_ in hourly_review._priced_values(spend, BOOK)] == ["gross_proceeds_usd"]
+    assert [what for what, *_ in reporting_core._priced_values(spend, timezone.utc, BOOK)] == ["Proceeds (before fees)"]
