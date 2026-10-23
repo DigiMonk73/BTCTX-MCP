@@ -16,7 +16,7 @@ Make backend/tests/fixtures/reference_1x.db and reference_1x_figures.json
   and every 2.0 step must keep 1.x's figures as they stand.
 
     .venv/bin/python backend/tests/fixtures/make_reference_1x_db.py \
-        [--release v1.2.9] [--figures-from <develop commit>]
+        [--release v1.2.10] [--figures-from <develop commit>]
 
 Each side's code comes from git (git archive, into a temp folder), and this
 file runs again on it in a process of its own. Rerun it when a develop
@@ -36,7 +36,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-RELEASE = "v1.2.9"
+RELEASE = "v1.2.10"
 FIXTURES = Path(__file__).resolve().parent
 ROOT = FIXTURES.parents[2]
 SCRIPTS = ROOT / "scripts"
