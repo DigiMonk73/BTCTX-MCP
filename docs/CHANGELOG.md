@@ -334,6 +334,36 @@ All notable changes to BitcoinTX are documented in this file.
   the IRS forms watch opens (`scripts/irs_new_year.py`) say so, and
   `docs/IRS_ANNUAL_FORM_UPDATE.md` with them. The StartOS package,
   releases and anything sent to Start9 keep the owner's "merge".
+- **CI in about a third of the time** (the owner's ask, 2026-10-22). The
+  Python suite runs on every core with pytest-xdist (`-n auto`; 3,184 tests
+  in 83 s on the Mac mini, against 16 minutes one at a time; `make test` and
+  `make test-fast` too, so the pre-push gate is quicker), and the
+  click-through tests split across machines (Chromium in three, WebKit in
+  two), with Playwright's browsers cached between runs. One job, "CI
+  passed", now stands for every required job, so `develop`'s ruleset
+  requires only it and a renamed or split job no longer needs the ruleset
+  changed. Nothing in the app changes.
+- **A `staging` branch: pull requests no longer wait in line** (the
+  owner's idea, 2026-10-22). Each change keeps its own pull request into
+  `staging`, opened with the rest in the evening's batch; they're checked
+  side by side on the medium set (the whole Python suite on both versions,
+  lint, the frontend, the smoke test, the StartOS checks, the audit; the
+  macOS build still runs on every pull request) and merge with no wait to
+  be up to date. Every merge there starts the full set on the result; a
+  newer run cancels the older, so the last run tests every change merged.
+  Every other pull request gets the full set. Once a day, `develop`'s
+  newest commits come into `staging`, then `staging` comes into `develop`
+  by one pull request that runs the whole suite on everything together
+  and merges with a merge commit, so each change keeps its own commit;
+  `develop` stays as strict as before. Only
+  an urgent fix (a security advisory) and a release's version change go
+  straight into `develop`. Dependabot targets `staging`. Pull requests
+  into `2.0` (once it exists) get the medium set too, and its merges the
+  full set. Big work's lead turns on auto-merge for each ready pull
+  request instead of merging them one by one. Sessions push the night's
+  batch and stop, never waiting on CI, and start by reading what ran
+  overnight. AGENTS.md, "Branches", "Pull requests", "Big work",
+  "Starting a session", "Ending a session"; `docs/HOW-CHANGES-FLOW.md`.
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 
