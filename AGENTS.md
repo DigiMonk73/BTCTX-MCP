@@ -114,10 +114,22 @@ carry its `Co-Authored-By` line.
   in the app or the connector).
 - **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
   deleted.
+- **`2.0`**: BitcoinTX 2.0 being built (#251), until it merges into
+  `develop` at its release. Its steps arrive by pull request
+  (`gh pr create --base 2.0`), one per step, for which the build's
+  lead turns on auto-merge from its queue on #251 ("Big work"),
+  squashed, after the tag `pin/2.0-step-<n>` on its tip. `develop`
+  comes in before every 2.0 session by a pull request of its own,
+  merged with a merge commit (`gh pr merge --merge`), never a rebase
+  or a squash. Never commit on a local `2.0`, never force-push it,
+  never move or delete a pin. Its branches are named `2.0-…` (git
+  refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
+  the steps and where they stand: #251.
 
 The pre-push hook refuses a push to `main` of anything not already on
-GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
-`main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
+GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
+or moves or deletes a `pin/2.0-*` tag), and `release.yml` refuses a
+release commit that isn't on `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged (or with a merge commit, for the daily pull requests
@@ -131,7 +143,9 @@ request's checks have run on everything already merged. "Protect
 staging" guards `staging`: pull requests only (squash, or a merge commit
 for "develop into staging"), "CI passed" required, no up-to-date rule (so
 a night's pull requests merge side by side), and no deletion or force
-push.
+push. "Protect 2.0" guards `2.0` the same way as "Protect staging" (squash,
+or a merge commit for a `develop` merge), and "Protect 2.0 pins" keeps
+each `pin/2.0-*` tag where it was made: created, never moved or deleted.
 A job is required by being in "CI passed"'s `needs` (`ci.yml`), so renaming,
 splitting or adding one changes no ruleset; only a rename of "CI passed"
 itself would. A release tag (`v*`) can't
@@ -152,6 +166,12 @@ to; the release workflow still creates new ones. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
+  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's:
+  each `develop` merge re-points the first one's `down_revision` to
+  1.x's head until the first 2.0 pre-release is published, then 1.x's
+  join by Alembic merge revisions (#251, decision 3; #251 says which
+  applies now). On `develop`, 1.x numbers its migrations on from its
+  own head as always.
 - **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
   `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
@@ -495,7 +515,7 @@ from the Transaction row alone.
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
-| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
+| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop`/`2.0` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
@@ -730,6 +750,12 @@ command gives up after 20 minutes and then reads whatever log is there.
 
 Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
+
+2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
+7.4's B10a and B10b: their version bumps go into `2.0`, not
+`develop`; a pre-release is published from `prerelease/v2.0.0-beta.N`;
+and for the release, `develop` takes nothing from the last `develop`
+merge until `2.0` is in it.
 
 1. In a pull request straight into `develop`, like an urgent fix
    ("Branches"), opened after a daily merge so it carries what `staging`
@@ -1064,8 +1090,8 @@ one session. Claude suggests this setup when a request is that big.
 - **Every session starts from `staging`** (`2.0` during the 2.0 build:
   its plan says how). When the lead starts one with a working folder of
   its own, it runs `make sync-check` first (the start tool cuts the
-  folder from a local branch; `make sync-check` brings local `main` and
-  `develop` up to GitHub's, never `staging`, and a `git fetch` alone
+  folder from a local branch; `make sync-check` brings local `main`,
+  `develop` and `2.0` (when there is one) up to GitHub's, never `staging`, and a `git fetch` alone
   moves only `origin/develop`), then names `develop` as the folder's base
   (the start tool's `source_branch`): otherwise the folder may be cut
   from `main`, which lacks everything not yet released. Each kickoff
@@ -1189,8 +1215,8 @@ list --base develop`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work, and run the
 daily cycle ("Branches", `develop`).
 
-Then run `make sync-check`: it brings local `main` and `develop` down from
-GitHub and says whether anything exists only on this computer: work not
+Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
+down from GitHub and says whether anything exists only on this computer: work not
 committed in any working folder, branches or commits not on GitHub,
 stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
 (`gh issue view 41`), the open pull requests and issues (`gh pr list`,
