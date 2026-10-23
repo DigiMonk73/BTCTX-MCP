@@ -8,7 +8,7 @@ release). A copy migrated to this code's head and recalculated, as a user's
 first edit after upgrading would, must give the same figures.
 fixtures/make_reference_1x_db.py makes both again, when a develop merge
 brings new reference rows or a 1.x migration, and for each new 1.x release
-(scripts/catch-up-2.0.sh lists it).
+(the nightly catch-up lists it).
 """
 
 import importlib.util

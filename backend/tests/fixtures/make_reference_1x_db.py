@@ -11,9 +11,9 @@ Make backend/tests/fixtures/reference_1x.db and reference_1x_figures.json
 - the figures: what 1.x's latest code (by default the commit this branch
   forked from develop) gives from a copy of that database migrated to its
   head and recalculated, as a user's first edit after upgrading would
-  (scripts/reference_figures.py). Not the release's own: develop may have
-  fixed figures since it shipped (#549 moves a 2026 fee from box K to L),
-  and every 2.0 step must keep 1.x's figures as they stand.
+  (scripts/reference_figures.py). Not the release's own: develop may fix
+  figures after a release (#549 moved a 2026 fee from box K to L after
+  v1.2.9), and every 2.0 step must keep 1.x's figures as they stand.
 
     .venv/bin/python backend/tests/fixtures/make_reference_1x_db.py \
         [--release v1.2.10] [--figures-from <develop commit>]
