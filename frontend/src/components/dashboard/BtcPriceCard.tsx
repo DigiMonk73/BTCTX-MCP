@@ -10,6 +10,18 @@ interface BtcPriceCardProps {
   blockHeight: number | null;
 }
 
+/**
+ * Goes to the price card and puts the keyboard there, as the link's "#"
+ * would, but adds no history entry of the browser's own: react-router can't
+ * stop a Back onto one, so unsaved changes were lost unasked (#536).
+ */
+function goToPriceCard(e: React.MouseEvent<HTMLAnchorElement>) {
+  e.preventDefault();
+  const title = document.getElementById("price-card-title");
+  title?.scrollIntoView();
+  title?.focus({ preventScroll: true });
+}
+
 /** Under the price: where it came from and when, or why there's none and what to do (#145). */
 const PriceWhy: React.FC<{ price: LivePrice }> = ({ price }) => {
   if (price.loading) return null;
@@ -22,7 +34,7 @@ const PriceWhy: React.FC<{ price: LivePrice }> = ({ price }) => {
     return (
       <p className="btc-price-why">
         {price.waiting ? "Nothing is asked until you confirm. " : "Nothing is asked until you choose. "}
-        <a href="#price-card-title">{price.waiting ? "Confirm now" : "Choose a source"}</a>
+        <a href="#price-card-title" onClick={goToPriceCard}>{price.waiting ? "Confirm now" : "Choose a source"}</a>
       </p>
     );
   }

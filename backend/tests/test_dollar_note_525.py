@@ -4,7 +4,8 @@ duplicate, its note called the dollars bitcoin: "Same BTC amount as tx #1
 (Deposit 500.00000000 BTC)" for a $500 deposit. The note is River's
 (river_import._match_similar, and _match_roughly's "Likely the same
 event"), whose file has no dollar rows. A dollar transaction's amount is
-said as dollars; a bitcoin one's as before. The warning for a row already
+said as dollars; a bitcoin one's as before. (Since #581, a near amount is
+looked for on bitcoin moves only, so no dollar row gets that note.) The warning for a row already
 recorded said "the same type, accounts, BTC amount" for a dollar row too
 (#579's review): it says "dollar amount". Only the words: each row is
 flagged, saved or left out as it was.
@@ -64,13 +65,13 @@ def test_a_dollar_deposit_of_the_same_amount_is_said_in_dollars(client):
            in result["warnings"]
 
 
-def test_a_dollar_withdrawal_of_a_near_amount_is_said_in_dollars(client):
-    """_match_roughly's note: $1,450 beside a recorded $1,500, 3 hours apart."""
-    _funds, recorded = execute(client, [BANK_FUNDS, RENT])
-    result = flagged(client, dict(RENT, date="2025-03-20T18:00:00Z", amount="1450"))
-    assert result["matched_transaction_id"] == recorded
-    assert f"Likely the same event as tx #{recorded} (Withdrawal $1,500.00) recorded with a different amount. " \
-           "Saved unless you remove it." in result["warnings"]
+def test_a_dollar_withdrawal_of_a_near_amount_is_not_flagged(client):
+    """_match_roughly's note was said in dollars for $1,450 beside a recorded
+    $1,500, 3 hours apart; since #581 the near-amount pass is for bitcoin
+    moves only, so the row is saved without a note (test_duplicate_currency_581.py)."""
+    execute(client, [BANK_FUNDS, RENT])
+    result = preview(client, dict(RENT, date="2025-03-20T18:00:00Z", amount="1450"))
+    assert (result["status"], result["matched_transaction_id"]) == ("ready", None), result
 
 
 def preview(client, row: dict) -> dict:
