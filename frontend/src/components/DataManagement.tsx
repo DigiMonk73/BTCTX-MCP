@@ -173,8 +173,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
   };
 
   return (
-    <div className="settings-section" role="region" aria-label="Data Management">
-      <h3 className="section-title">Data Management</h3>
+    <>
 
       <div className="settings-option">
         <div className="option-info">
@@ -262,7 +261,7 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
       <div className="settings-note">
         To fully reset your account, delete all transactions and update your credentials above.
       </div>
-    </div>
+    </>
   );
 };
 

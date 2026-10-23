@@ -47,13 +47,18 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
   );
 };
 
+interface LedgerReviewProps {
+  /** Each answer, or null when the review failed: the section's summary (#355). A stable function. */
+  onReview?: (review: LedgerReviewResponse | null) => void;
+}
+
 /**
  * Settings section: the Ledger review (GET /api/review) — saved
  * transactions worth a second look after an upgrade. Looking changes
  * nothing; the owner edits a transaction or runs Recalculate Ledger
  * themselves, or applies the hourly check's values (#144).
  */
-const LedgerReview: React.FC = () => {
+const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview }) => {
   const [review, setReview] = useState<LedgerReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -65,12 +70,14 @@ const LedgerReview: React.FC = () => {
     try {
       const res = await api.get<LedgerReviewResponse>("/review");
       setReview(res.data);
+      onReview?.(res.data);
     } catch {
       setFailed(true);
+      onReview?.(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onReview]);
 
   useEffect(() => {
     void load();
@@ -103,8 +110,7 @@ const LedgerReview: React.FC = () => {
   const reminders = review?.checks.filter((c) => c.count > 0 && c.kind === "reminder") ?? [];
 
   return (
-    <div className="settings-section" role="region" aria-label="Ledger review">
-      <h3 className="section-title">Ledger Review</h3>
+    <>
       <div className="settings-option">
         <div className="option-info">
           <span className="settings-option-title">Transactions to check</span>
@@ -148,7 +154,7 @@ const LedgerReview: React.FC = () => {
       {review && review.total + review.reminders > 0 && (
         <p className="settings-option-subtitle">Dates in {review.timezone}.</p>
       )}
-    </div>
+    </>
   );
 };
 

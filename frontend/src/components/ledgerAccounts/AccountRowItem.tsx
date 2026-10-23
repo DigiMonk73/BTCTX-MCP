@@ -1,0 +1,66 @@
+import React from "react";
+import { ChevronDown } from "lucide-react";
+import { KIND_LABEL, canDelete, type AccountRow } from "../../utils/ledgerAccounts";
+
+interface AccountRowItemProps {
+  row: AccountRow;
+  balance: string;
+  open: boolean;
+  busy: boolean;
+  onToggle: (row: AccountRow) => void;
+  onHide: (row: AccountRow, hidden: boolean) => void;
+  onDelete: (row: AccountRow) => void;
+}
+
+// The API's own words for what it refuses (services/account.py), said before it's asked
+const IN_USE = "This account has transactions, so it can't be deleted. Hide it instead: its history stays.";
+const FIRST_OF_EACH = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use.";
+
+/** One of your accounts (an exchange: its two) as a row: its name, kind and
+ * balance; its details, Hide or Show and Delete while unused, open below it. */
+const AccountRowItem: React.FC<AccountRowItemProps> = ({ row, balance, open, busy, onToggle, onHide, onDelete }) => {
+  const details = `ledger-account-${row.key}`;
+  const deletable = canDelete(row);
+  return (
+    <li className="ledger-account">
+      <button
+        type="button"
+        className="ledger-account-toggle"
+        aria-expanded={open}
+        aria-controls={details}
+        onClick={() => onToggle(row)}
+      >
+        <span className="ledger-account-text">
+          <span className="ledger-account-name">{row.name}</span>{" "}
+          <span className="ledger-account-kind">
+            {KIND_LABEL[row.kind]}
+            {row.hidden && <span className="badge ledger-account-hidden">Hidden</span>}
+          </span>
+        </span>{" "}
+        <span className="ledger-account-balance">{balance}</span>
+        <ChevronDown className="ledger-account-chevron" size={18} aria-hidden="true" />
+      </button>
+      {open && (
+        <div id={details} className="ledger-account-details" role="region" aria-label={row.name}>
+          <div className="ledger-account-actions">
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+              onClick={() => onHide(row, !row.hidden)}>
+              {row.hidden ? "Show" : "Hide"}
+            </button>
+            {deletable && (
+              <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={() => onDelete(row)}>
+                Delete
+              </button>
+            )}
+          </div>
+          <p className="field-hint">
+            {row.hidden ? "Hidden: left out of the lists you pick an account from. " : ""}
+            {deletable ? "It has no transactions." : row.inUse ? IN_USE : FIRST_OF_EACH}
+          </p>
+        </div>
+      )}
+    </li>
+  );
+};
+
+export default AccountRowItem;

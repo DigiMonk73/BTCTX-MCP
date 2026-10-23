@@ -122,8 +122,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
   };
 
   return (
-    <div className="settings-section" role="region" aria-label="Account">
-      <h3 className="section-title">Account</h3>
+    <>
 
       <div className="settings-option">
         <div className="option-info">
@@ -211,7 +210,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
           {loading ? "Processing..." : "Recalculate"}
         </button>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -43,11 +43,6 @@ a { transition: var(--transition-color); }
   color: var(--color-text);
   margin: 0 0 var(--space-4);
 }
-.section-title {
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  margin: 0 0 var(--space-2);
-}
 
 /* ---------- Buttons: primary, secondary, quiet, destructive ---------- */
 .btn {

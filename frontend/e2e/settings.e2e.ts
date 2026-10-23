@@ -225,13 +225,13 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   // A wrong password is refused and changes nothing.
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("wrong");
-  await page.getByRole("button", { name: "Restore" }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page.getByText(/Restore failed: .*Wrong password\?/)).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
 
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("backup-secret");
-  await page.getByRole("button", { name: "Restore" }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
   await loginViaUi(page);
   const after = await listTx(page.request);

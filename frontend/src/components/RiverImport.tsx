@@ -76,8 +76,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
   };
 
   return (
-    <div className="settings-section river-import" role="region" aria-label="Import from River">
-      <h3 className="section-title">Import from River</h3>
+    <>
 
       <div className="settings-option">
         <div className="option-info">
@@ -119,7 +118,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
           onCancel={reset}
         />
       )}
-    </div>
+    </>
   );
 };
 

@@ -9,6 +9,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { OPEN_SECTIONS_KEY, SETTINGS_SECTIONS } from "../src/utils/settingsSections";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -218,6 +219,12 @@ type Fixtures = {
   serverTor: boolean;
   /** true (with appMode "mac"): the key file can't be written at start, so the app has no AI key (#238). */
   keyFileBlocked: boolean;
+  /**
+   * "all": Settings opens with every section open, as it showed them before
+   * it had sections (#355), for the specs of what a section holds.
+   * "remembered": as a browser that never opened one, every section closed.
+   */
+  settingsOpen: "all" | "remembered";
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -229,6 +236,17 @@ export const test = base.extend<Fixtures>({
   fakeInternet: [false, { option: true }],
   serverTor: [false, { option: true }],
   keyFileBlocked: [false, { option: true }],
+  settingsOpen: ["all", { option: true }],
+  page: async ({ page, settingsOpen }, use) => {
+    // Before the app's own code, and only while this browser has none
+    // stored: a section the test closes stays closed after a reload
+    if (settingsOpen === "all") {
+      await page.addInitScript(({ key, open }) => {
+        if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, open);
+      }, { key: OPEN_SECTIONS_KEY, open: JSON.stringify(SETTINGS_SECTIONS) });
+    }
+    await use(page);
+  },
   app: async ({ appMode, priceSource, fakeInternet, serverTor, keyFileBlocked }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port, keyFileBlocked) : {}),
