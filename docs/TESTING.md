@@ -50,8 +50,13 @@ make hooks          # installs the pre-push gate
     every change merged (a cancelled run's red "CI passed" isn't a
     failure). Every other pull request (into `develop`, `main` or any
     other branch) runs the full set. AGENTS.md, "Branches".
-- **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
-  start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
+- **Daily:** `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+  what Start9 changed that the StartOS package must follow: a newer start-sdk
+  or start-cli, a StartOS or start-registry release, changes to their
+  packaging guide or shared package workflows, a failed build on the mirror
+  or their fork, changes on their fork not taken back (startos/UPDATING.md,
+  "Watching Start9").
+- **Weekly:** `irs-forms-watch.yml` opens an issue when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
   Monthly, `price-history-watch.yml` checks that Bitstamp still gives every
   year of the hourly price history as fingerprinted, and opens an issue if not.

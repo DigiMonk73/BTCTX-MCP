@@ -25,6 +25,17 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- **Start9 watched daily** (the owner, 2026-10-23: "we have to be aware
+  when they push updates"). The weekly SDK check missed start-sdk 3.1.0
+  and start-cli 2.4.2 by hours on 2026-10-19 and looked for nothing else.
+  `start9-watch.yml` (was `startos-sdk-check.yml`) now runs
+  `scripts/start9-watch.sh` daily: one `start9` issue for each newer
+  start-sdk or start-cli than `develop` pins, each StartOS and
+  start-registry release, each day Start9's packaging guide or shared
+  package workflows change, a failed build on the mirror or Start9's fork,
+  and changes on their fork not taken back; `--dry-run` shows the same
+  without opening anything. The schedule runs from `main`, so it starts at
+  the next release; until then each session runs the script.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes
