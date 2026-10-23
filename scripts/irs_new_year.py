@@ -294,15 +294,22 @@ def ship_draft(year: int, folder: Path) -> int:
     return 0
 
 
+# A new year's forms follow the figures rule (AGENTS.md, "Reviews").
+FORMS_RULE = ('It changes the tax forms, so it follows the figures rule (AGENTS.md, "Reviews"): '
+              "the printed forms are checked (`test_printed_forms.py`, and a look at each new form). "
+              "Adding a year moves no existing figure, so Claude merges it. If the new forms put existing "
+              "data in a different box or line, that's a figure moved on purpose: the owner first OKs a "
+              "plain-words before-and-after, never the code.")
+
 FINAL_DUE = """irs.gov has the final {year} Form 8949 and Schedule D, and this version doesn't.
 
-For Claude: `python scripts/irs_new_year.py {year}` (it checks every field the app fills, installs them and removes the {year} draft preview), then the rest of docs/IRS_ANNUAL_FORM_UPDATE.md. One pull request, then a release with a minor version bump. It changes the tax forms, so it waits for the owner's "merge".
+For Claude: `python scripts/irs_new_year.py {year}` (it checks every field the app fills, installs them and removes the {year} draft preview), then the rest of docs/IRS_ANNUAL_FORM_UPDATE.md. One pull request, then a release with a minor version bump. """ + FORMS_RULE + """ The release waits for the owner's "merge", like every release.
 
 Opened by the weekly IRS forms watch (.github/workflows/irs-forms-watch.yml)."""
 
 DRAFT_DUE = """irs.gov has {what} the IRS's draft {year} Form 8949 and Schedule D.
 
-For Claude: `python scripts/irs_new_year.py --draft --ship` (it checks the draft against the app and ships it as the {year} preview, offered until January 1, {next}, marked DRAFT — DO NOT FILE). One pull request; it reaches users with the next release. It changes the tax forms, so it waits for the owner's "merge".
+For Claude: `python scripts/irs_new_year.py --draft --ship` (it checks the draft against the app and ships it as the {year} preview, offered until January 1, {next}, marked DRAFT — DO NOT FILE). One pull request; it reaches users with the next release. """ + FORMS_RULE + """
 
 Opened by the weekly IRS forms watch (.github/workflows/irs-forms-watch.yml)."""
 

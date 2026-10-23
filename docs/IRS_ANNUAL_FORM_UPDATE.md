@@ -82,6 +82,12 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
    irs.gov source URLs. Then bump the **minor** version (project convention: a
    new tax year's forms is a minor release) and follow `startos/UPDATING.md`
    → Releasing a new version. Also update the [year quirks](#year-quirks-reference) table.
+   The pull request follows the figures rule (AGENTS.md, "Reviews"):
+   adding a year moves no existing figure, so Claude merges it once the
+   printed forms are checked (`test_printed_forms.py` and step 5's look);
+   if the new forms put existing data in a different box or line, the
+   owner first OKs a plain-words before-and-after. The release keeps the
+   owner's "merge".
 
 ### Script options
 
