@@ -34,7 +34,7 @@ const BuyFields: React.FC<{ book: AccountBook }> = ({ book }) => {
         field="fromAccountId"
         book={book}
         choices={(saved) => buyPayers(book, exchangeId, saved)}
-        placeholder="Select Account"
+        placeholder={exchangeId === undefined ? "Choose the exchange first" : "Select Account"}
         requiredMessage="Please select an account"
         optionLabel={(id) => (accountKind(book, id) === "bank" ? `${accountName(book, id)} (auto-buy)` : accountName(book, id))}
       >

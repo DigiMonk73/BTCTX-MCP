@@ -97,7 +97,7 @@ describe("with more accounts", () => {
     await form.pickType("Buy");
     expect(offered("Exchange")).toEqual(["River", "Kraken"]);
     expect(shown("Exchange")).toBe("Select Exchange");
-    expect(offered("Paid from")).toEqual([]);
+    expect([shown("Paid from"), ...offered("Paid from")]).toEqual(["Choose the exchange first"]);
     await form.choose("Exchange", "Kraken");
     expect(offered("Paid from")).toEqual([
       "Exchanges: Kraken USD", "Banks: Checking (auto-buy)", "Banks: Savings (auto-buy)",
