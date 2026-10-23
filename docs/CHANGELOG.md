@@ -328,6 +328,17 @@ withdrawal, can't be matched on Form 8949 yet (#551).
   Ledger once, and dropping the password the store kept) moves to its own
   file (`versions/v1.2.9_0.ts`), so an install on 1.2.8:0 or earlier still
   runs it on the way.
+- **start-sdk 3.1.0** (from 3.0.6), on Start9's review of 1.2.10:0
+  (Start9-Community/BTCTX-StartOS#8; their publishing checklist asks for the
+  current SDK). Under the same package version, 1.2.10:0, since the
+  community registry doesn't serve it yet (Start9's `versions.md`): Start9's
+  build of 1.2.10:0 uses 3.1.0, and the `btctx.s9pk` on the v1.2.10 GitHub
+  release was packed with 3.0.6, the same app and package otherwise. The
+  SDK's changes are fixes (health checks and dependent services start
+  sooner and poll as they should) and zod 4.6.7 in place of
+  `zod-deep-partial`; its minimum StartOS stays 0.4.0.2, and the bundled
+  sibling packages (Mempool's, Tor's) are unchanged. The release notes say
+  so in five languages.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
