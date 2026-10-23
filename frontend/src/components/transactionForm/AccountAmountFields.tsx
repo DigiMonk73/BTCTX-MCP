@@ -1,58 +1,42 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { accountCurrency, accountKind, chosenId, visibleAccounts } from "../../utils/accounts";
 import { ONE_WALLET_HINT } from "../../utils/disclaimer";
+import AccountPicker from "./AccountPicker";
 
 /**
- * A Deposit's or Withdrawal's account, its currency (chosen only for the
- * Exchange; Bank is USD and Wallet BTC) and the amount.
+ * A Deposit's or Withdrawal's account, its currency (the account's, from
+ * the book: an account holds one) and the amount.
  */
-const AccountAmountFields: React.FC = () => {
+const AccountAmountFields: React.FC<{ book: AccountBook; field: "fromAccountId" | "toAccountId" }> = ({
+  book,
+  field,
+}) => {
   const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
-  const account = watch("account");
+  const chosen = chosenId(watch(field));
   return (
     <>
-      <div className="field">
-        <label htmlFor="tx-account">Account</label>
-        <select
-          id="tx-account"
-          className="input"
-          {...register("account", { required: true })}
-        >
-          <option value="">Select Account</option>
-          <option value="Bank">Bank Account</option>
-          <option value="Wallet">Bitcoin Wallet</option>
-          <option value="Exchange">Exchange</option>
-        </select>
-        {errors.account && (
-          <span className="field-error">Please select an account</span>
-        )}
-        {account === "Wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
-      </div>
+      <AccountPicker
+        id="tx-account"
+        label="Account"
+        field={field}
+        book={book}
+        choices={(saved) => visibleAccounts(book, saved)}
+        placeholder="Select Account"
+        requiredMessage="Please select an account"
+      >
+        {accountKind(book, chosen) === "wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
+      </AccountPicker>
 
       <div className="field">
         <label htmlFor="tx-currency">Currency</label>
-        {account === "Exchange" ? (
-          <select
-            id="tx-currency"
-            className="input"
-            {...register("currency", { required: true })}
-          >
-            <option value="">Select Currency</option>
-            <option value="USD">USD</option>
-            <option value="BTC">BTC</option>
-          </select>
-        ) : (
-          <input
-            id="tx-currency"
-            type="text"
-            className="input"
-            {...register("currency")}
-            readOnly
-          />
-        )}
-        {errors.currency && (
-          <span className="field-error">Currency is required</span>
-        )}
+        <input
+          id="tx-currency"
+          type="text"
+          className="input"
+          value={accountCurrency(book, chosen) ?? ""}
+          readOnly
+        />
       </div>
 
       <div className="field">

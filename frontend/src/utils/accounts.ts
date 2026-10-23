@@ -125,8 +125,9 @@ export function exchangeCount(book: AccountBook): number {
 
 /**
  * A picker's options by kind (P7's mockups: Banks, Wallets, Exchanges), in
- * the order they come, once there is more than one bank, wallet or exchange
- * among them; null for one of each, which lists them as 1.x did.
+ * the order they come, once they hold more than one kind and more than one
+ * bank, wallet or exchange; else null: one of each lists them as 1.x did,
+ * and a list of one kind has nothing to tell apart.
  */
 export function byKind(book: AccountBook, ids: number[]): Array<{ label: string; ids: number[] }> | null {
   const groups = new Map<string, number[]>();
@@ -136,6 +137,6 @@ export function byKind(book: AccountBook, ids: number[]): Array<{ label: string;
   }
   const places = (kind: string, members: number[]) =>
     kind === "exchange" ? new Set(members.map((id) => find(book, id)?.exchange_id)).size : members.length;
-  if (![...groups].some(([kind, members]) => places(kind, members) > 1)) return null;
+  if (groups.size < 2 || ![...groups].some(([kind, members]) => places(kind, members) > 1)) return null;
   return [...groups].map(([kind, members]) => ({ label: GROUP_LABELS[kind] ?? "Other", ids: members }));
 }

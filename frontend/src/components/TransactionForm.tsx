@@ -6,6 +6,7 @@ import "../styles/transactionForm.css";
 import { serverReason } from "../utils/apiError";
 import { parseTransaction } from "../utils/format";
 import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
+import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import TypeFields from "./transactionForm/TypeFields";
 import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
 import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
@@ -20,7 +21,9 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   fmv_usd: undefined,
   grossProceedsUSD: 0,
   brokerReporting: "",
-  buyFromAccount: "Exchange",
+  // An account chosen for one type is none of another's (5.13)
+  fromAccountId: undefined,
+  toAccountId: undefined,
 };
 
 /** The transaction form: a new transaction, or `transactionId`'s to edit. */
@@ -33,6 +36,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 }) => {
   const toast = useToast();
   const toastError = toast.error; // stable callback; `toast` itself changes per render
+  // Accounts are the book's, by id (5.13): without it there's nothing to
+  // pick or read a row back with, so the type's fields wait for it
+  const { book, failed } = useAccounts();
 
   const form = useForm<TransactionFormData>({
     defaultValues: { timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS },
@@ -52,25 +58,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // render, so a double click used to save the transaction twice.
   const submittingRef = useRef(false);
 
-  // Load the transaction to edit, or start a new one.
+  // The transaction to edit, read back with the book once it's in.
   useEffect(() => {
-    if (transactionId) {
-      api.get<ITransactionRaw>(`/transactions/${transactionId}`)
-        .then((res) => {
-          const tx = parseTransaction(res.data);
-          const data = mapTransactionToFormData(tx);
-          reset(data);
-          for (const [name, text] of plainBtcText(data)) setValue(name, text);
-          setCurrentType(tx.type);
-        })
-        .catch(() => {
-          toastError("Failed to load transaction data.");
-        });
-    } else {
-      reset({ timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS });
-      setCurrentType("");
-    }
-  }, [transactionId, reset, setValue, toastError]);
+    if (!transactionId || !book) return;
+    let live = true; // a form closed meanwhile is left alone
+    api.get<ITransactionRaw>(`/transactions/${transactionId}`)
+      .then((res) => {
+        if (!live) return;
+        const tx = parseTransaction(res.data);
+        const data = mapTransactionToFormData(tx, book);
+        reset(data);
+        for (const [name, text] of plainBtcText(data)) setValue(name, text);
+        setCurrentType(tx.type);
+      })
+      .catch(() => {
+        if (live) toastError("Failed to load transaction data.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [transactionId, book, reset, setValue, toastError]);
+
+  // A new transaction starts blank; apart from the book's arrival, so a type
+  // chosen while it loads is kept
+  useEffect(() => {
+    if (transactionId) return;
+    reset({ timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS });
+    setCurrentType("");
+  }, [transactionId, reset]);
 
   // A layout effect: the panel knows of a change before the next key or
   // click (a plain effect ran later, and an Escape at once closed the panel
@@ -83,7 +98,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     onUpdateStatusChange?.(isSubmitting);
   }, [isSubmitting, onUpdateStatusChange]);
 
-  useFieldAutofill(currentType, form);
+  useFieldAutofill(currentType, form, book);
 
   // A new type keeps what was typed but resets the type's own values.
   const onTransactionTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -97,7 +112,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      toast.success(await saveTransaction(data, transactionId));
+      // The fields that name accounts show only once the book is in
+      toast.success(await saveTransaction(data, book ?? [], transactionId));
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
@@ -180,7 +196,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
           </div>
 
-          <TypeFields type={currentType} />
+          {failed && currentType && <p className="field-error">{ACCOUNTS_FAILED}</p>}
+          {book && <TypeFields type={currentType} book={book} />}
         </div>
 
         {/* Hidden delete trigger for TransactionPanel */}
