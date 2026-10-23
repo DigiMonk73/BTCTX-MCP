@@ -56,6 +56,12 @@ workflow keeps up to date by itself. We don't touch it.)
 - **`main`**: released code only, what users get. It moves only by
   *fast-forwarding* to `develop`: at a release, or when everything new is
   only docs, tests or tooling. Never pulled from Start9.
+- **`2.0`**: BitcoinTX 2.0 while it's being built, apart from 1.x, until
+  it joins `develop` at its release. Each build step comes in by its own
+  pull request, after a tag (a *pin*) marks where `2.0` stood, so any
+  step can be undone; `develop`'s latest 1.x work comes in before every
+  step. Its safety rules ("Protect 2.0", "Protect 2.0 pins") are the
+  owner's to set. The plan and where each step stands: issue #251.
 - **Short branches**: one per change (`claude/...`), deleted by GitHub
   when its pull request merges.
 
