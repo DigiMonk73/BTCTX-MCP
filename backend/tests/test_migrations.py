@@ -460,6 +460,8 @@ def test_an_account_with_externals_id_is_a_fee_account(v070):
     ([(16, "Cafe\u0301"), (17, "CAF\u00c9")], {16: "Caf\u00e9", 17: "CAF\u00c9 (account 17)"}),
     ([(7, "x" * 39 + " yz")], {7: "x" * 39}),  # no space left at the cut
     ([(7, "Wallet\u200d")], {7: "Wallet (account 7)"}),  # a joiner at the end goes
+    ([(7, "Wallet\u034f")], {7: "Wallet (account 7)"}),  # so does what nothing shows
+    ([(7, "Co\u034fld"), (8, "cold")], {7: "Co\u034fld", 8: "cold (account 8)"}),  # alike: it's left out
     ([(7, "a\u200db"), (8, "ab")], {7: "a\u200db", 8: "ab (account 8)"}),  # alike: joiners ignored
     ([(7, "x" * 39 + "\u200dy")], {7: "x" * 39}),  # nor a joiner
     ([(7, "'=Cold")], {7: "'=Cold"}),  # an apostrophe stays: 2.0's names' rule decides (B2b)

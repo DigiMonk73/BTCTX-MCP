@@ -26,7 +26,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.constants import ACCOUNT_ID_TO_NAME, ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS, RESERVED_NAMES
+from backend.constants import RESERVED_NAMES
 from backend.database import init_db
 from backend.main import app
 from backend.services import account as account_service
@@ -84,18 +84,23 @@ def _ledger(tmp_path, source=None):
 # ---------------------------------------------------------------------------
 # The book
 # ---------------------------------------------------------------------------
+# 1.x's names and ids (constants.ACCOUNT_ID_TO_NAME, which B3 removes), and
+# its bitcoin accounts (constants.BTC_ACCOUNTS)
+NAMES_1X = {1: "Bank", 2: "Wallet", 3: "Exchange USD", 4: "Exchange BTC", 5: "BTC Fees", 6: "USD Fees",
+            99: "External"}
+BTC_1X = [2, 4]
+
+
 @pytest.mark.parametrize("source", [None, FIXTURES / "v0_7_0.db"], ids=["fresh", "v0.7.0"])
 def test_book_matches_1x(tmp_path, source):
     """For a 1.x ledger the book answers exactly as 1.x's constants do."""
     with _ledger(tmp_path, source)() as db:
         book = account_book(db)
-    assert RESERVED_NAMES == {name: i for i, name in ACCOUNT_ID_TO_NAME.items()}
-    for i, name in ACCOUNT_ID_TO_NAME.items():
+    assert RESERVED_NAMES == {name: i for i, name in NAMES_1X.items()}
+    for i, name in NAMES_1X.items():
         assert book.name(i) == name
-        assert book.id_for(name) == book.id_for(name.upper()) == i
-    for lower, i in ACCOUNT_NAME_TO_ID.items():
-        assert book.id_for(lower) == i
-    assert [i for i in [*ACCOUNT_ID_TO_NAME, 7, 1000] if book.is_btc(i)] == list(BTC_ACCOUNTS)
+        assert book.id_for(name) == book.id_for(name.upper()) == book.id_for(name.lower()) == i
+    assert [i for i in [*NAMES_1X, 7, 1000] if book.is_btc(i)] == BTC_1X
     assert [book.currency(i) for i in (1, 2, 3, 4, 5, 6, 99, 7)] == ["USD", "BTC", "USD", "BTC", "BTC", "USD",
                                                                      None, None]
     assert [book.kind(i) for i in (1, 2, 3, 4, 5, 6, 99)] == ["bank", "wallet", "exchange", "exchange", "fee",
@@ -124,6 +129,19 @@ def test_the_book_lists_an_old_ledgers_own_accounts_but_never_a_leftover(tmp_pat
     assert book.yours() == [1, 2, 3, 4, 7, 8]  # 9, #289's leftover, is internal
     assert (book.kind(7), book.kind(8), book.kind(9)) == ("wallet", "bank", "fee")
     assert book.id_for("wallet") == 2 and book.id_for("wallet (account 8)") == 8
+
+
+def test_a_row_with_externals_id_is_never_an_account(tmp_path):
+    """5.3 keeps such a row (internal): External is 99 all the same."""
+    Session = _ledger(tmp_path)
+    with Session() as db:
+        db.execute(account_service.Account.__table__.insert().values(
+            id=99, user_id=1, name="Somewhere", currency="BTC", kind="fee", hidden=False))
+        db.commit()
+        book = account_book(db)
+    assert (book.currency(99), book.kind(99), book.name(99), book.id_for("Somewhere")) == (None, None, "External",
+                                                                                           None)
+    assert book.id_for("External") == 99 and 99 not in book.yours()
 
 
 def test_ledger_review_lists_the_row_naming_a_missing_account(tmp_path):
@@ -167,6 +185,21 @@ def test_an_exchange_is_its_two_accounts(api):
         ("Kraken", 1)]
 
 
+@pytest.mark.parametrize("stored", ["\u00b2", "-5", "x", "99999999999999999999"])
+def test_a_last_id_that_isnt_one_is_ignored(api, stored):
+    _sql(api.path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', '{stored}')")
+    assert [a["id"] for a in _add(api, "wallet", "Jade").json()] == [100]
+
+
+def test_an_id_only_a_ledger_line_names_is_never_given_nor_its_account_deleted(api):
+    made = _add(api, "wallet", "Jade").json()[0]["id"]
+    _sql(api.path, "INSERT INTO ledger_entries (transaction_id, account_id, amount, currency) "
+                   f"VALUES (1, {made}, 1, 'BTC'), (1, 500, 1, 'BTC')")
+    assert api.client.delete(f"{URL}{made}").status_code == 409
+    assert api.client.get(f"{URL}{made}").json()["in_use"] is True
+    assert [a["id"] for a in _add(api, "wallet", "Coldcard").json()] == [501]
+
+
 def test_two_adds_at_once_get_two_ids(api):
     """Each works out its id under the write lock: the second waits for the
     first, then reads the id it gave."""
@@ -208,6 +241,14 @@ def test_two_adds_at_once_get_two_ids(api):
     ("wallet", "external", "External means everything outside BitcoinTX: choose another name."),
     ("wallet", "BTC fees", "An account named 'BTC fees' already exists."),
     ("exchange", "Exchange", "An exchange named 'Exchange' already exists."),
+    # what nothing shows makes no name of its own (2.0 spec 5.1)
+    ("wallet", "Wallet\u034f", "'Wallet' always means your first wallet in files (CSV, River, BitcoinTX 1.x): "
+                               "choose another name."),
+    ("bank", "\u2800Bank\ufe0f", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
+                                 "choose another name."),
+    ("wallet", "Bank\u3164", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
+                             "choose another name."),
+    ("exchange", "Exchange\u034f", "An exchange named 'Exchange' already exists."),
 ])
 def test_a_name_is_refused(api, kind, name, detail):
     r = _add(api, kind, name)
@@ -216,7 +257,7 @@ def test_a_name_is_refused(api, kind, name, detail):
     assert _rows(api.path, "SELECT count(*) FROM accounts WHERE id >= 100") == [(0,)]
 
 
-@pytest.mark.parametrize("name", ["COLDCARD", "Cold\u200dcard", "  coldcard "])
+@pytest.mark.parametrize("name", ["COLDCARD", "Cold\u200dcard", "  coldcard ", "Cold\u034fcard"])
 def test_a_name_alike_another_is_refused(api, name):
     assert _add(api, "wallet", "Coldcard").status_code == 201
     r = _add(api, "bank", name)
@@ -270,6 +311,9 @@ def test_the_list_by_kind_without_a_leftover_and_writing_nothing(api):
     assert _rows(api.path, "SELECT * FROM accounts ORDER BY id") + _rows(api.path, "SELECT * FROM exchanges") == before
     assert api.client.get(f"{URL}2").json()["name"] == "Wallet"
     assert api.client.get(f"{URL}9999").status_code == 404
+    assert api.client.get(f"{URL}9").status_code == 404  # the leftover, as the list leaves it out
+    assert api.client.put(f"{URL}9", json={"hidden": True}).status_code == 404
+    assert api.client.delete(f"{URL}9").status_code == 404
 
 
 def test_hiding_and_showing(api):
@@ -318,6 +362,13 @@ def test_an_account_in_use_isnt_deleted_and_an_exchange_goes_whole(api):
     assert api.client.delete(f"{URL}{btc}").status_code == 204
     assert _rows(api.path, f"SELECT count(*) FROM accounts WHERE id IN ({usd}, {btc})") == [(0,)]
     assert _rows(api.path, "SELECT name FROM exchanges") == [("Exchange",)]
+
+
+def test_an_exchanges_account_goes_even_if_its_exchange_row_is_gone(api):
+    usd, btc = (a["id"] for a in _add(api, "exchange", "Kraken").json())
+    _sql(api.path, "DELETE FROM exchanges WHERE name = 'Kraken'")  # only a hand-edited database
+    assert api.client.delete(f"{URL}{usd}").status_code == 204
+    assert _rows(api.path, f"SELECT count(*) FROM accounts WHERE id IN ({usd}, {btc})") == [(0,)]
 
 
 def test_a_fee_goes_to_btc_fees_by_its_id(api):

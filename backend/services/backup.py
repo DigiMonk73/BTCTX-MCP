@@ -379,7 +379,7 @@ def _rebuild(staging: Path, rebuilt: Path):
             _copy_own_data(new, staging)
             seed_defaults(new)
             _require_one_login(new)
-            _require_whole_exchanges(new)
+            _require_accounts_fit(new)
             _read_as_the_app_does(new)
         finally:
             new.dispose()
@@ -649,10 +649,12 @@ def _require_one_login(new) -> None:
             raise ValueError(ONE_LOGIN)
 
 
-def _require_whole_exchanges(new) -> None:
-    """Each exchange has its two accounts, one in dollars and one in bitcoin,
-    and an exchange's account names an exchange there is, which no other
-    account does (2.0 spec 5.1, 5.11)."""
+def _require_accounts_fit(new) -> None:
+    """Each account is a bank (dollars), a wallet (bitcoin), an exchange's
+    or a fee account, in dollars or bitcoin; each exchange has its two
+    accounts, one in dollars and one in bitcoin; and an exchange's account
+    names an exchange there is, which no other account does (2.0 spec 5.1,
+    5.11)."""
     with new.connect() as conn:
         broken = conn.exec_driver_sql("""
             SELECT 1 FROM exchanges e
@@ -661,7 +663,11 @@ def _require_whole_exchanges(new) -> None:
                 OR NOT EXISTS (SELECT 1 FROM accounts a WHERE a.exchange_id = e.id AND a.currency = 'BTC')
             UNION ALL
             SELECT 1 FROM accounts a
-             WHERE (a.kind = 'exchange') != (a.exchange_id IS NOT NULL)
+             WHERE a.kind NOT IN ('bank', 'wallet', 'exchange', 'fee')
+                OR a.currency NOT IN ('USD', 'BTC')
+                OR (a.kind = 'bank' AND a.currency != 'USD')
+                OR (a.kind = 'wallet' AND a.currency != 'BTC')
+                OR (a.kind = 'exchange') != (a.exchange_id IS NOT NULL)
                 OR (a.exchange_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM exchanges e WHERE e.id = a.exchange_id))
             LIMIT 1""").first()
     if broken:

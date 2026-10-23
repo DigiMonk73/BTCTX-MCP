@@ -250,8 +250,7 @@ def _rows(db: Session, keys) -> dict:
 
 def _last_account_id(db: Session) -> int | None:
     """The last account id given (account_service.LAST_ID_KEY), or None."""
-    value = _rows(db, [account_service.LAST_ID_KEY])[account_service.LAST_ID_KEY]
-    return int(value) if value and value.isdigit() else None
+    return account_service.read_last_id(_rows(db, [account_service.LAST_ID_KEY])[account_service.LAST_ID_KEY])
 
 
 def _keep_the_higher_last_id(restored: Session, own: int | None) -> int | None:

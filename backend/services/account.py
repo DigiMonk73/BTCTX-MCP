@@ -5,10 +5,11 @@ One place answers every question about an account, from the accounts and
 exchanges tables: `account_book(db)`, read once per request, import,
 recalculation or report. Accounts are added by kind (an exchange as its
 two, "<name> USD" and "<name> BTC"), hidden and shown, and deleted only
-while no transaction names them. Ids and names follow 5.1. The six fixed
-accounts (database.FIXED_ACCOUNTS, put right at every start by
-seed_defaults) and External (99, no row) are always there: 1-4 are never
-deleted, 5 and 6 neither hidden nor deleted. Renames come with B8.
+while nothing names them. Ids and names follow 5.1. The six fixed accounts
+(database.FIXED_ACCOUNTS, put right at every start by seed_defaults) and
+External (99, no account) are always there: 1-4 are never deleted, 5 and 6
+neither hidden nor deleted, and an internal leftover (5.3) is never shown.
+Renames come with B8.
 """
 
 import re
@@ -29,18 +30,27 @@ from backend.models.user import User
 
 YOUR_KINDS = ("bank", "wallet", "exchange")
 FEE_ACCOUNTS = (ACCOUNT_BTC_FEES, ACCOUNT_USD_FEES)
-# Your first bank, wallet and exchange: hidden when unused, never deleted
+# Your first bank, wallet and exchange, never deleted (hidden, if unused)
 FIRST_OF_EACH = {1: "bank", 2: "wallet", 3: "exchange", 4: "exchange"}
 # The last account id ever given (5.1): no id is given twice, a restore keeps the higher
 LAST_ID_KEY = "accounts_last_id"
+# A last id as stored: ASCII digits, well inside SQLite's integers
+LAST_ID = re.compile("[0-9]{1,18}")
 LONGEST_NAME, LONGEST_EXCHANGE_NAME = 40, 36  # an exchange's leaves room for " USD"
-# Some scripts and emoji need them: the one format characters a name keeps,
-# inside it only, and two names differing by them alone are alike
+# The one format characters a name keeps, inside it: some scripts and emoji need them
 JOINERS = ("\u200c", "\u200d")
-TRIMMED = " " + "".join(JOINERS)
+# Characters nothing shows (Unicode's Default_Ignorable_Code_Point, and the
+# blank braille pattern): left out when names are compared and trimmed at a
+# name's ends, so "Wallet" with one after it is "Wallet" (5.1). Those that
+# are format characters, but the joiners, are refused in a name anyway.
+INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+             (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x2800, 0x2800),
+             (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
+             (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
 LIST_ORDER = {"bank": 0, "wallet": 1, "exchange": 2, "fee": 3}
 
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
+NOT_FOUND = "Account not found."
 ALREADY = "An account named '{name}' already exists."
 EXCHANGE_ALREADY = "An exchange named '{name}' already exists."
 RESERVED = "'{name}' always means your first {kind} in files (CSV, River, BitcoinTX 1.x): choose another name."
@@ -65,9 +75,10 @@ class AccountBook:
     """Every question about an account, by id (or a name from a file)."""
 
     def __init__(self, accounts: list[BookAccount], exchanges: dict[int, tuple[str, bool]]):
-        self._accounts = {a.id: a for a in accounts}
+        # External is everything outside the ledger, never an account, whatever row an old database has as 99
+        self._accounts = {a.id: a for a in accounts if a.id != ACCOUNT_EXTERNAL}
         self._exchanges = exchanges
-        self._by_key = {name_key(a.name): a.id for a in accounts}
+        self._by_key = {name_key(a.name): a.id for a in self._accounts.values()}
 
     def is_btc(self, account_id: int | None) -> bool:
         """One of your bitcoin accounts: a wallet, or an exchange's BTC account (5.1)."""
@@ -109,9 +120,8 @@ class AccountBook:
     def id_for(self, name: str) -> int | None:
         """A reserved name's id first (whatever that account is called now),
         then a current name's, ignoring case; None for a name it doesn't know."""
-        key = name_key(clean_name(name))
-        reserved = {name_key(n): i for n, i in RESERVED_NAMES.items()}
-        return reserved.get(key, self._by_key.get(key))
+        key = name_key(name)
+        return RESERVED_KEYS.get(key, self._by_key.get(key))
 
     def yours(self) -> list[int]:
         """Your accounts' ids: banks, wallets, exchanges, hidden ones too;
@@ -133,74 +143,31 @@ def account_book(db: Session) -> AccountBook:
     return AccountBook(accounts, exchanges)
 
 
-# ---------------------------------------------------------------------------
-# Names (5.1)
-# ---------------------------------------------------------------------------
 def clean_name(text: str) -> str:
-    """NFC, every run of spaces one ASCII space, trimmed of spaces and joiners."""
+    """NFC, every run of spaces one ASCII space, trimmed of spaces and of
+    characters nothing shows that a name may hold (a format character but
+    the joiners stays, for the check to refuse)."""
     text = "".join(" " if unicodedata.category(c) == "Zs" else c for c in unicodedata.normalize("NFC", text))
-    return re.sub(" +", " ", text).strip(TRIMMED)
+    return _trimmed(re.sub(" +", " ", text))
 
 
 def name_key(name: str) -> str:
-    """Two names are alike when this is the same: normalised, casefolded,
-    the joiners left out (5.1)."""
-    plain = "".join(c for c in unicodedata.normalize("NFC", name) if c not in JOINERS)
-    return unicodedata.normalize("NFC", plain.casefold())
+    """Two names are alike when this is the same (5.1): normalised,
+    casefolded, without what nothing shows, its spaces as clean_name's."""
+    seen = "".join(c for c in unicodedata.normalize("NFC", name) if not _invisible(c))
+    return clean_name(unicodedata.normalize("NFC", seen.casefold()))
 
 
-def _one_line(name: str, longest: int) -> None:
-    """1 to `longest` characters, with no control or format character (but the joiners)."""
-    if not 1 <= len(name) <= longest or any(_not_text(c) for c in name):
-        raise HTTPException(status_code=400, detail=f"A name is 1 to {longest} characters on one line.")
+def read_last_id(value: str | None) -> int | None:
+    """A stored last account id, or None for none or one that isn't one."""
+    return int(value) if value is not None and LAST_ID.fullmatch(value) else None
 
 
-def _not_text(c: str) -> bool:
-    category = unicodedata.category(c)
-    return category in ("Cc", "Zl", "Zp") or (category == "Cf" and c not in JOINERS)
-
-
-def _free(db: Session, name: str) -> None:
-    """No reserved name (5.1), and none alike another account's."""
-    key = name_key(name)
-    reserved = {name_key(n): i for n, i in RESERVED_NAMES.items()}
-    if reserved.get(key) == ACCOUNT_EXTERNAL:
-        raise HTTPException(status_code=400, detail=EXTERNAL)
-    if reserved.get(key) in FIRST_OF_EACH:
-        raise HTTPException(status_code=400, detail=RESERVED.format(name=name, kind=FIRST_OF_EACH[reserved[key]]))
-    if key in reserved or any(name_key(n) == key for (n,) in db.query(Account.name)):
-        raise HTTPException(status_code=400, detail=ALREADY.format(name=name))
-
-
-def _free_exchange(db: Session, name: str) -> None:
-    if name_key(name) == name_key("External"):
-        raise HTTPException(status_code=400, detail=EXTERNAL)
-    if any(name_key(n) == name_key(name) for (n,) in db.query(Exchange.name)):
-        raise HTTPException(status_code=400, detail=EXCHANGE_ALREADY.format(name=name))
-
-
-# ---------------------------------------------------------------------------
-# Ids (5.1)
-# ---------------------------------------------------------------------------
-def _next_id(db: Session) -> int:
-    """1 + the highest of 99, every account's id, every id a transaction or
-    a ledger line names, and the last id given."""
-    named = union_all(select(func.max(Account.id)), select(func.max(Transaction.from_account_id)),
-                      select(func.max(Transaction.to_account_id)), select(func.max(LedgerEntry.account_id))).subquery()
-    highest = db.scalar(select(func.max(named.c[0])))
-    last = db.get(AppSetting, LAST_ID_KEY)
-    return 1 + max(ACCOUNT_EXTERNAL, highest or 0, int(last.value) if last and last.value.isdigit() else 0)
-
-
-# ---------------------------------------------------------------------------
-# The API's work (5.9)
-# ---------------------------------------------------------------------------
 def add_account(db: Session, kind: str, name: str) -> list[Account]:
     """A bank or a wallet, or an exchange and its two accounts. The names
     are checked and the ids worked out under the write lock, so what another
     tab added meanwhile is seen, and two adds at once get two ids."""
-    if not take_write_lock(db):
-        raise HTTPException(status_code=503, detail=BUSY)
+    _lock(db)
     try:
         made = _exchange(db, clean_name(name)) if kind == "exchange" else [_one(db, kind, clean_name(name))]
         save_setting(db, LAST_ID_KEY, str(max(a.id for a in made)))
@@ -209,6 +176,64 @@ def add_account(db: Session, kind: str, name: str) -> list[Account]:
         db.rollback()
         raise
     return made
+
+
+def set_hidden(db: Session, account_id: int, hidden: bool) -> None:
+    """Hide or show an account (an exchange's: both of its accounts)."""
+    _lock(db)
+    try:
+        account = _existing(db, account_id)
+        if account.kind == "fee":
+            raise HTTPException(status_code=400, detail=FEES_STAY)
+        for each in _with_its_pair(db, account):
+            each.hidden = hidden
+        db.commit()
+    except BaseException:
+        db.rollback()
+        raise
+
+
+def delete_account(db: Session, account_id: int) -> None:
+    """Delete an account nothing names (an exchange's: the exchange and both
+    of its accounts, when neither is named)."""
+    _lock(db)
+    try:
+        account = _existing(db, account_id)
+        if account.id in FIRST_OF_EACH:
+            raise HTTPException(status_code=400, detail=FIRST_NOT_DELETED)
+        if account.kind == "fee":
+            raise HTTPException(status_code=400, detail=FEES_NOT_DELETED)
+        going = _with_its_pair(db, account)
+        if _named(db, [a.id for a in going]):
+            raise HTTPException(status_code=409, detail=IN_USE)
+        exchange = db.get(Exchange, account.exchange_id) if account.exchange_id is not None else None
+        for each in [*going, *([exchange] if exchange else [])]:
+            db.delete(each)
+        db.commit()
+    except BaseException:
+        db.rollback()
+        raise
+
+
+def listed(db: Session, accounts: list[Account] | None = None) -> list[dict]:
+    """Accounts as the API shows them: banks, wallets, exchanges, then the
+    fee accounts 5 and 6 (never an internal leftover), each by id. Reads only."""
+    if accounts is None:
+        accounts = [a for a in db.query(Account) if _shown(a)]
+    exchanges = dict(db.query(Exchange.id, Exchange.name))
+    used = _named(db, [a.id for a in accounts])
+    return [{"id": a.id, "name": a.name, "kind": a.kind, "currency": a.currency, "exchange_id": a.exchange_id,
+             "exchange": exchanges.get(a.exchange_id), "hidden": bool(a.hidden), "in_use": a.id in used}
+            for a in sorted(accounts, key=lambda a: (LIST_ORDER.get(a.kind, len(LIST_ORDER)), a.id))]
+
+
+def one(db: Session, account_id: int) -> dict:
+    return listed(db, [_existing(db, account_id)])[0]
+
+
+def _lock(db: Session) -> None:
+    if not take_write_lock(db):
+        raise HTTPException(status_code=503, detail=BUSY)
 
 
 def _one(db: Session, kind: str, name: str) -> Account:
@@ -229,58 +254,64 @@ def _exchange(db: Session, name: str) -> list[Account]:
     exchange = Exchange(name=name)
     db.add(exchange)
     db.flush()
-    first = _next_id(db)
-    made = [Account(id=first + n, user_id=_owner(db), name=f"{name} {currency}", kind="exchange",
-                    currency=currency, exchange_id=exchange.id) for n, currency in enumerate(("USD", "BTC"))]
+    first, owner = _next_id(db), _owner(db)
+    made = [Account(id=first + n, user_id=owner, name=f"{name} {currency}", kind="exchange", currency=currency,
+                    exchange_id=exchange.id) for n, currency in enumerate(("USD", "BTC"))]
     db.add_all(made)
     db.flush()
     return made
+
+
+def _one_line(name: str, longest: int) -> None:
+    """1 to `longest` characters, with no control or format character (but the joiners)."""
+    if not 1 <= len(name) <= longest or any(_not_text(c) for c in name):
+        raise HTTPException(status_code=400, detail=f"A name is 1 to {longest} characters on one line.")
+
+
+def _free(db: Session, name: str) -> None:
+    """No reserved name (5.1), and none alike another account's."""
+    key = name_key(name)
+    reserved = RESERVED_KEYS.get(key)
+    if reserved == ACCOUNT_EXTERNAL:
+        raise HTTPException(status_code=400, detail=EXTERNAL)
+    if reserved in FIRST_OF_EACH:
+        raise HTTPException(status_code=400, detail=RESERVED.format(name=name, kind=FIRST_OF_EACH[reserved]))
+    if reserved is not None or any(name_key(n) == key for (n,) in db.query(Account.name)):
+        raise HTTPException(status_code=400, detail=ALREADY.format(name=name))
+
+
+def _free_exchange(db: Session, name: str) -> None:
+    if RESERVED_KEYS.get(name_key(name)) == ACCOUNT_EXTERNAL:
+        raise HTTPException(status_code=400, detail=EXTERNAL)
+    if any(name_key(n) == name_key(name) for (n,) in db.query(Exchange.name)):
+        raise HTTPException(status_code=400, detail=EXCHANGE_ALREADY.format(name=name))
+
+
+def _next_id(db: Session) -> int:
+    """1 + the highest of 99, every account's id, every id a transaction or
+    a ledger line names, and the last id given."""
+    named = union_all(select(func.max(Account.id)), select(func.max(Transaction.from_account_id)),
+                      select(func.max(Transaction.to_account_id)), select(func.max(LedgerEntry.account_id))).subquery()
+    highest = db.scalar(select(func.max(named.c[0])))
+    last = db.get(AppSetting, LAST_ID_KEY)
+    return 1 + max(ACCOUNT_EXTERNAL, highest or 0, read_last_id(last.value if last else None) or 0)
 
 
 def _owner(db: Session) -> int:
     return db.query(User.id).order_by(User.id).limit(1).scalar()
 
 
-def set_hidden(db: Session, account_id: int, hidden: bool) -> Account:
-    """Hide or show an account (an exchange's: both of its accounts)."""
-    account = _existing(db, account_id)
-    if account.kind == "fee":
-        raise HTTPException(status_code=400, detail=FEES_STAY)
-    for each in _with_its_pair(db, account):
-        each.hidden = hidden
-    db.commit()
-    return account
-
-
-def delete_account(db: Session, account_id: int) -> None:
-    """Delete an account no transaction names (an exchange's: the exchange
-    and both of its accounts, when neither is named)."""
-    account = _existing(db, account_id)
-    if account.id in FIRST_OF_EACH:
-        raise HTTPException(status_code=400, detail=FIRST_NOT_DELETED)
-    if account.kind == "fee":
-        raise HTTPException(status_code=400, detail=FEES_NOT_DELETED)
-    if not take_write_lock(db):
-        raise HTTPException(status_code=503, detail=BUSY)
-    try:
-        going = _with_its_pair(db, account)
-        if _named_by_transactions(db, [a.id for a in going]):
-            raise HTTPException(status_code=409, detail=IN_USE)
-        for each in going:
-            db.delete(each)
-        if account.exchange_id is not None:
-            db.delete(db.get(Exchange, account.exchange_id))
-        db.commit()
-    except BaseException:
-        db.rollback()
-        raise
-
-
 def _existing(db: Session, account_id: int) -> Account:
+    """An account the API shows, or 404."""
     account = db.get(Account, account_id)
-    if account is None:
-        raise HTTPException(status_code=404, detail="Account not found.")
+    if account is None or not _shown(account):
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
     return account
+
+
+def _shown(account: Account) -> bool:
+    """Not an internal leftover (5.3): a fee account but 5 and 6, or a row with External's id."""
+    return account.id != ACCOUNT_EXTERNAL and (account.kind != "fee" or account.id in FEE_ACCOUNTS)
 
 
 def _with_its_pair(db: Session, account: Account) -> list[Account]:
@@ -289,24 +320,35 @@ def _with_its_pair(db: Session, account: Account) -> list[Account]:
     return db.query(Account).filter(Account.exchange_id == account.exchange_id).order_by(Account.id).all()
 
 
-def _named_by_transactions(db: Session, ids: list[int]) -> set[int]:
+def _named(db: Session, ids: list[int]) -> set[int]:
+    """Which of these accounts a transaction or a ledger line names."""
     rows = db.query(Transaction.from_account_id, Transaction.to_account_id).filter(
         Transaction.from_account_id.in_(ids) | Transaction.to_account_id.in_(ids))
-    return {i for row in rows for i in row if i in ids}
+    lines = db.query(LedgerEntry.account_id).filter(LedgerEntry.account_id.in_(ids))
+    return {i for row in [*rows, *lines] for i in row if i in ids}
 
 
-def listed(db: Session, accounts: list[Account] | None = None) -> list[dict]:
-    """Accounts as the API shows them: banks, wallets, exchanges, then the
-    fee accounts 5 and 6 (an internal leftover isn't listed), each by id.
-    Reads only."""
-    if accounts is None:
-        accounts = [a for a in db.query(Account) if a.kind != "fee" or a.id in FEE_ACCOUNTS]
-    names = dict(db.query(Exchange.id, Exchange.name))
-    used = _named_by_transactions(db, [a.id for a in accounts])
-    return [{"id": a.id, "name": a.name, "kind": a.kind, "currency": a.currency, "exchange_id": a.exchange_id,
-             "exchange": names.get(a.exchange_id), "hidden": bool(a.hidden), "in_use": a.id in used}
-            for a in sorted(accounts, key=lambda a: (LIST_ORDER.get(a.kind, 4), a.id))]
+def _not_text(c: str) -> bool:
+    category = unicodedata.category(c)
+    return category in ("Cc", "Zl", "Zp") or (category == "Cf" and c not in JOINERS)
 
 
-def one(db: Session, account_id: int) -> dict:
-    return listed(db, [_existing(db, account_id)])[0]
+def _invisible(c: str) -> bool:
+    return any(low <= ord(c) <= high for low, high in INVISIBLE)
+
+
+def _trimmed(text: str) -> str:
+    start, end = 0, len(text)
+    while start < end and _trimmable(text[start]):
+        start += 1
+    while end > start and _trimmable(text[end - 1]):
+        end -= 1
+    return text[start:end]
+
+
+def _trimmable(c: str) -> bool:
+    return c == " " or (_invisible(c) and not _not_text(c))
+
+
+# Reserved names (5.1) by their comparison key
+RESERVED_KEYS = {name_key(name): account_id for name, account_id in RESERVED_NAMES.items()}

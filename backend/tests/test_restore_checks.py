@@ -820,10 +820,15 @@ NEW_ACCOUNT = "INSERT INTO accounts (id, user_id, name, currency, kind, exchange
      NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'BTC', 'exchange', 7, 0)"],  # no such exchange
     [NEW_ACCOUNT + "(100, 1, 'Loose', 'BTC', 'exchange', NULL, 0)"],  # an exchange's account of none
     [NEW_ACCOUNT + "(100, 1, 'Jade', 'BTC', 'wallet', 1, 0)"],  # a wallet tied to an exchange
+    [NEW_ACCOUNT + "(100, 1, 'Savings', 'BTC', 'bank', NULL, 0)"],  # a bank in bitcoin
+    [NEW_ACCOUNT + "(100, 1, 'Jade', 'USD', 'wallet', NULL, 0)"],  # a wallet in dollars
+    [NEW_ACCOUNT + "(100, 1, 'Vault', 'BTC', 'vault', NULL, 0)"],  # a kind BitcoinTX doesn't have
+    [NEW_ACCOUNT + "(100, 1, 'Euros', 'EUR', 'fee', NULL, 0)"],  # a currency it doesn't have
     ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
      NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)",
      NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'USD', 'exchange', 2, 0)"],  # two dollar accounts
-], ids=["one account", "no account", "no exchange", "no exchange id", "a wallet's exchange", "two dollars"])
+], ids=["one account", "no account", "no exchange", "no exchange id", "a wallet's exchange", "bank in BTC",
+        "wallet in USD", "a kind", "a currency", "two dollars"])
 def test_an_exchange_without_its_two_accounts_is_refused(live, tmp_path, sql):
     _assert_refused(live, sql, ACCOUNTS_DONT_FIT, tmp_path)
 
