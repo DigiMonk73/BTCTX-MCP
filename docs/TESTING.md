@@ -33,8 +33,9 @@ make hooks          # installs the pre-push gate
 - **Before every `git push`** (`.githooks/pre-push`): lint, static
   Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
   smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
-  exists), StartOS package type check, lint, format check and bundle (the
-  SDK's `make javascript/index.js`) and manifest check (if `startos/node_modules`
+  exists), StartOS package format check (`npm run format:check`), then type
+  check, lint and bundle (the SDK's `make javascript/index.js`, which from
+  start-sdk 3.1.0 formats instead of checking) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
