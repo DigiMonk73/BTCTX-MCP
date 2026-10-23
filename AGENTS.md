@@ -129,6 +129,13 @@ carry its `Co-Authored-By` line.
   never move or delete a pin. Its branches are named `2.0-…` (git
   refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
   the steps and where they stand: #251.
+  `make catch-up-2.0` (`scripts/catch-up-2.0.sh`) does that `develop`
+  merge: a pull request from `develop` with auto-merge as a merge commit
+  when the merge is clean, and stops for the build's lead on a 1.x
+  migration or a conflict; it also lists a new 1.x release (B1's
+  `reference_1x.db` remade from it) and `startos/` changes. The lead runs
+  it before every step and nightly at 22:30 (America/Chicago, a scheduled
+  task on the Mac mini), so 1.x's fixes reach `2.0` without waiting.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,

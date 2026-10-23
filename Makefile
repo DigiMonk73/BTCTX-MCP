@@ -16,10 +16,11 @@
 # make check        lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 # make check-fast   the pre-push gate, without pushing
 # make sync-check   is everything on this computer also on GitHub? (--tidy: scripts/sync-check.sh)
+# make catch-up-2.0 develop into the 2.0 build: a pull request, or what needs the lead (scripts/catch-up-2.0.sh)
 
 PY ?= python3
 
-.PHONY: sync-check hooks test test-fast smoke e2e preview site-shots reference-figures prices docker-smoke lint audit-deps lock check check-fast frontend-dist
+.PHONY: sync-check catch-up-2.0 hooks test test-fast smoke e2e preview site-shots reference-figures prices docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -102,3 +103,6 @@ check-fast:
 
 sync-check:
 	scripts/sync-check.sh
+
+catch-up-2.0:
+	scripts/catch-up-2.0.sh
