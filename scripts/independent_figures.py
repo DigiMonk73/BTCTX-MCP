@@ -236,6 +236,10 @@ def read_accounts(data: dict) -> dict[int, Account]:
         if account.id in listed:
             raise ValueError(f"The ledger's accounts list has account {account.id} twice.")
         listed.add(account.id)
+        fixed = accounts.get(account.id)
+        if account.id in FIXED_ACCOUNTS and (account.kind, account.currency) != (fixed.kind, fixed.currency):
+            raise ValueError(f"The ledger's accounts list: account {account.id} is the fixed {fixed.name}, "
+                             f"a {fixed.kind!r} account in {fixed.currency!r}; only its nickname or switch can change.")
         accounts[account.id] = account
     _check_exchanges(accounts)
     return accounts
@@ -496,7 +500,7 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
     if tx["to_account_id"] not in ledger.lots:
         return
     amount, value = _money(tx["amount"]), _money(tx.get("cost_basis_usd"))
-    # A My BTC or Gift deposit's holding period runs from when it was first
+    # A MyBTC or Gift deposit's holding period runs from when it was first
     # acquired (the giver's date for a gift: IRC §1223(2)). Inherited coins
     # are acquired at the death (IRC §1014: their basis is their value then)
     # and long-term whenever sold (§1223(9)). That is a date: noon of it,
