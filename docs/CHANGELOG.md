@@ -36,6 +36,42 @@ All notable changes to BitcoinTX are documented in this file.
   made differs.
 
 ### Fixed
+- **The duplicate checks compare bitcoin with bitcoin, dollars with
+  dollars** (tax figures, #581). River's import and the AI connector's
+  preview compared a row's amount with a recorded transaction's as a bare
+  number, without its currency. So a River bitcoin payout (Interest,
+  Income, Mining) of 0.01 BTC, at the same minute as a dollar deposit of
+  $0.01 you'd recorded, showed as "In ledger": unticked, and left out of
+  the import unless you ticked it, its income missing. One of 0.5 BTC a
+  day after a $0.50 deposit showed as "Review". At the import itself, a
+  send you'd switched to a Withdrawal, or a receive you'd switched to a
+  Deposit, was skipped as "already in the ledger" beside a dollar
+  withdrawal or deposit of the same number at its minute, though the
+  preview had shown it as New. And the AI's preview flagged a dollar
+  withdrawal or transfer of a near amount as a possible duplicate
+  ("Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)
+  recorded with a different amount", as 1.2.9 said it, for a $1,250 one
+  hours later), and a dollar row beside a bitcoin move of the same or a
+  near number. Now a row matches, or is called similar to, only a
+  transaction of its own currency; and a near amount is looked for only
+  on a bitcoin move, whose network fee makes one typed by hand
+  approximate, as the rule always said. Every bitcoin match, and every
+  dollar match, is as before.
+
+  **Affected:** River's import in every release with it (0.7.0 to 1.2.9),
+  any tax year, only where a River row's bitcoin amount equals, to the
+  last digit, a dollar amount you'd recorded: in 1.2.9, a payout at the
+  minute of a dollar deposit, or a send or receive you'd made a
+  Withdrawal or Deposit, skipped at the import beside a dollar one of the
+  same amount at its minute; up to 1.2.8, any River row within 48 hours
+  of a dollar transaction of a kind it could be. The AI connector's
+  preview, 0.8.0 to 1.2.9, only flagged such rows, and an add saved them
+  (up to 1.2.8 its check could leave one out too, which 1.2.9's rule,
+  comparing the accounts, ended). **What to do:** preview each River file
+  you imported again. A bitcoin row that now shows as New was missed
+  before, unless you left it out yourself: import it (switching its type
+  again if you had), after checking its preview. Nothing already saved
+  changes.
 - **A spend's network fee goes in the Form 8949 box its Broker form
   setting gives** (tax figures, #549). When you set **Broker form** on a
   Spent bitcoin withdrawal (what your exchange's Form 1099-DA, or before
@@ -219,13 +255,14 @@ All notable changes to BitcoinTX are documented in this file.
 - **The AI import's note on a dollar row says dollars** (#525). When the
   AI connector's preview flagged a dollar deposit, withdrawal or transfer
   as a possible duplicate, its note called the dollars bitcoin: "Same BTC
-  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit, and
-  "Likely the same event as tx #2 (Withdrawal 1500.00000000 BTC)" for a
-  near amount. It now says "Same dollar amount as tx #1 (Deposit
-  $500.00)" and "(Withdrawal $1,500.00)". A dollar row already recorded
-  is left out "(the same type, accounts, dollar amount, …)", no longer
-  "BTC amount". Wording only: each row is flagged, saved or left out as
-  before; a bitcoin row's words are unchanged.
+  amount as tx #1 (Deposit 500.00000000 BTC)" for a $500 deposit. It now
+  says "Same dollar amount as tx #1 (Deposit $500.00)". A dollar row
+  already recorded is left out "(the same type, accounts, dollar amount,
+  …)", no longer "BTC amount". Wording only: each row is flagged, saved
+  or left out as before; a bitcoin row's words are unchanged. (A dollar
+  row of only a near amount, whose note was "Likely the same event as tx
+  #2 (Withdrawal 1500.00000000 BTC)", is no longer flagged at all: #581
+  above.)
 - **River's Import says which row and column it refused** (#480). When
   Import refused a cell the server couldn't read (a Cost Basis typed
   `1,200`, a Fee of `abc`), its message said only "Input should be a
