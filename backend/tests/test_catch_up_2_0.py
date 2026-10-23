@@ -8,8 +8,8 @@ the script's --jq would, from FAKE_PRS):
 - nothing to do; a new release listed even then;
 - develop's new commits: GitHub makes the merge on a branch of its own,
   its pull request opens, and auto-merge (a merge commit) is set for that
-  commit alone; not while a 2.0 step has auto-merge on; one already open
-  is named, and its auto-merge put back when it's the script's own;
+  commit alone; nothing while a 2.0 step has auto-merge on; one already
+  open is named and never changed (its auto-merge is the lead's);
 - a 1.x migration (added, changed or renamed), the reference test ledger
   or its figures, or a conflict stop for the lead with nothing opened;
 - a git or gh failure is "can't tell" (exit 2), never taken for a clean merge.
@@ -26,8 +26,9 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "catch-up-2.0.sh"
 FAKE_GH = """#!/bin/sh
 echo "$*" >> "$GH_CALLS"
 case "$1 $2" in
-  "pr list") [ -f "$FAKE_PRS" ] && cat "$FAKE_PRS"; exit 0 ;;
-  "pr create") cat > "$GH_CALLS.body"; echo "https://github.com/o/r/pull/700"; exit 0 ;;
+  "pr list") [ -n "$FAKE_FAIL_PR_LIST" ] && exit 1; [ -f "$FAKE_PRS" ] && cat "$FAKE_PRS"; exit 0 ;;
+  "pr create") cat > "$GH_CALLS.body"; [ -n "$FAKE_FAIL_PR_CREATE" ] && exit 1
+               echo "https://github.com/o/r/pull/700"; exit 0 ;;
   "pr merge") [ -n "$FAKE_FAIL_PR_MERGE" ] && exit 1; exit 0 ;;
 esac
 case "$*" in
@@ -62,7 +63,7 @@ def repos(tmp_path, monkeypatch):
         "GH_CALLS": str(tmp_path / "gh-calls.txt"), "FAKE_PRS": str(tmp_path / "prs.tsv"),
     }.items():
         monkeypatch.setenv(key, value)
-    for key in ("FAKE_FAIL_MERGES", "FAKE_FAIL_PR_MERGE"):
+    for key in ("FAKE_FAIL_MERGES", "FAKE_FAIL_PR_MERGE", "FAKE_FAIL_PR_CREATE", "FAKE_FAIL_PR_LIST"):
         monkeypatch.delenv(key, raising=False)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -149,37 +150,36 @@ def test_new_commits_get_a_merge_commit_of_their_own_tested_before_it_lands(repo
     assert "decision 24" in (tmp_path / "gh-calls.txt.body").read_text()
 
 
-def test_not_while_a_2_0_step_has_auto_merge_on(repos, tmp_path):
+def test_nothing_while_a_2_0_step_has_auto_merge_on(repos, tmp_path):
+    """Its pin must stay 2.0's tip, and a merge made now would land on a 2.0 its CI never saw."""
     proj, seed = repos
     commit_on(seed, "develop", {"app.txt": "two\n"})
     open_prs(tmp_path, (611, "https://github.com/o/r/pull/611", "2.0-b2b-account-book", "abc", "true", "false"))
     r = run(proj)
     assert r.returncode == 0
-    assert "to do: a 2.0 step (#611) has auto-merge on" in r.stdout and "auto-merge off: a step is merging" in r.stdout
-    assert any(c.startswith("pr create") for c in gh_calls(tmp_path))
-    assert not any(c.startswith("pr merge") for c in gh_calls(tmp_path))
+    assert "to do: a 2.0 step (#611) has auto-merge on: the catch-up waits" in r.stdout and "CATCH-UP WAITS" in r.stdout
+    assert not opened(tmp_path) and not any(c.startswith("pr merge") for c in gh_calls(tmp_path))
 
 
-def test_an_open_catch_up_is_named_and_its_own_auto_merge_put_back(repos, tmp_path):
+@pytest.mark.parametrize("branch", ["2.0-merge-develop-auto-20261023-abc1234", "2.0-merge-develop-2026-10-23c"])
+def test_an_open_catch_up_is_named_never_changed(repos, tmp_path, branch):
+    """Its auto-merge off (turned off by the lead, red, or behind a step) is the lead's call."""
     proj, seed = repos
     commit_on(seed, "develop", {"app.txt": "two\n"})
-    open_prs(tmp_path, (650, "https://github.com/o/r/pull/650", "2.0-merge-develop-auto-20261023-abc1234", "beef",
-                        "false", "false"))
+    open_prs(tmp_path, (650, "https://github.com/o/r/pull/650", branch, "beef", "false", "false"))
     r = run(proj)
-    assert r.returncode == 0 and "CATCH-UP OPEN https://github.com/o/r/pull/650 (auto-merge on)" in r.stdout
-    calls = gh_calls(tmp_path)
-    assert not opened(tmp_path)
-    assert any(c.startswith("pr merge") and "--match-head-commit beef" in c for c in calls)
+    assert r.returncode == 0 and "CATCH-UP OPEN https://github.com/o/r/pull/650 (auto-merge off)" in r.stdout
+    assert "to do: the catch-up's auto-merge is off" in r.stdout
+    assert not opened(tmp_path) and not any(c.startswith("pr merge") for c in gh_calls(tmp_path))
 
 
-def test_a_lead_made_catch_up_is_named_and_left_to_the_lead(repos, tmp_path):
+def test_a_step_and_a_catch_up_both_on_auto_merge_are_said(repos, tmp_path):
     proj, seed = repos
     commit_on(seed, "develop", {"app.txt": "two\n"})
-    open_prs(tmp_path, (616, "https://github.com/o/r/pull/616", "2.0-merge-develop-2026-10-23c", "beef", "false",
-                        "false"))
+    open_prs(tmp_path, (650, "https://github.com/o/r/pull/650", "2.0-merge-develop-auto-x", "beef", "true", "false"),
+             (611, "https://github.com/o/r/pull/611", "2.0-b3-by-currency", "abc", "true", "false"))
     r = run(proj)
-    assert r.returncode == 0 and "CATCH-UP OPEN https://github.com/o/r/pull/616 (auto-merge off)" in r.stdout
-    assert not any(c.startswith(("pr merge", "pr create")) for c in gh_calls(tmp_path))
+    assert "the step's pin may no longer be 2.0's tip" in r.stdout and "CATCH-UP OPEN" in r.stdout
 
 
 def test_a_forks_pull_request_isnt_the_catch_up(repos, tmp_path):
@@ -193,7 +193,7 @@ def test_a_dry_run_opens_nothing(repos, tmp_path):
     proj, seed = repos
     commit_on(seed, "develop", {"app.txt": "two\n"})
     r = run(proj, "--dry-run")
-    assert r.returncode == 0 and "nothing opened" in r.stdout
+    assert r.returncode == 0 and "DRY RUN: a catch-up would be opened now; nothing opened." in r.stdout
     assert not opened(tmp_path) and not any(c.startswith("pr merge") for c in gh_calls(tmp_path))
 
 
@@ -258,6 +258,23 @@ def test_github_refusing_the_merge_removes_its_branch(repos, tmp_path, monkeypat
     assert r.returncode == 2 and "the branch is removed again" in r.stderr
     calls = gh_calls(tmp_path)
     assert any(c.startswith("api -X DELETE") for c in calls) and not any(c.startswith("pr create") for c in calls)
+
+
+def test_a_pull_request_that_wont_open_removes_its_branch(repos, tmp_path, monkeypatch):
+    proj, seed = repos
+    commit_on(seed, "develop", {"app.txt": "two\n"})
+    monkeypatch.setenv("FAKE_FAIL_PR_CREATE", "1")
+    r = run(proj)
+    assert r.returncode == 2 and "couldn't open the pull request" in r.stderr and "removed again" in r.stderr
+    assert any(c.startswith("api -X DELETE") for c in gh_calls(tmp_path))
+
+
+def test_gh_failing_to_list_is_cant_tell(repos, tmp_path, monkeypatch):
+    proj, seed = repos
+    commit_on(seed, "develop", {"app.txt": "two\n"})
+    monkeypatch.setenv("FAKE_FAIL_PR_LIST", "1")
+    r = run(proj)
+    assert r.returncode == 2 and "CAN'T TELL" in r.stderr and not opened(tmp_path)
 
 
 def test_auto_merge_refused_is_cant_tell(repos, tmp_path, monkeypatch):
