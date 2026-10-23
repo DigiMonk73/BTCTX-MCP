@@ -69,8 +69,6 @@ def test_a_lot_bought_on_one_exchange_and_moved_is_not_covered_on_the_other():
     assert _boxes(sales, accounts=accounts) == ["H"]
 
 
-# Added in Claude's B1 fix run (claude-style-verdict-B1.md, gap 7).
-
 def test_east_of_utc_a_buy_on_new_years_eve_in_utc_is_covered():
     # 16:00 UTC on Dec 31 2025 is 01:00 on Jan 1 2026 in Tokyo.
     buy = ledger_tx("Buy", "2025-12-31T16:00:00Z", 3, 4, "1.00000000", cost_basis_usd="1000.00")

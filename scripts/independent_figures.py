@@ -8,8 +8,9 @@ invariants", the AI connector's ledger guide). It imports nothing from
 backend/, so a mistake in the app's code can't hide in both.
 
 It replays the reference test ledger (testdata/reference_ledger.json) in
-its accounts (its `accounts` list, else the six fixed accounts: each
-bitcoin account its own FIFO pile, each exchange its own 1099-DA switch)
+its accounts (the six fixed accounts and External, and those its
+`accounts` list adds: each bitcoin account its own FIFO pile, each
+exchange its own 1099-DA switch)
 and its tax timezone (`tax_timezone`, else UTC), and gives each year's
 Form 8949 rows, Schedule D lines, box totals, gains summary, income,
 rebates, gifts (with the cost basis and term of what each took from its
@@ -63,8 +64,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 
-# Copied, not imported: this script shares no code with the app. A ledger
-# file without an `accounts` list has these, a 1.x ledger's.
+# Copied, not imported: this script shares no code with the app. Every
+# ledger has these, a 1.x ledger's; an `accounts` list adds to them.
 FIXED_ACCOUNTS = {
     1: {"name": "Bank", "currency": "USD", "kind": "bank"},
     2: {"name": "Wallet", "currency": "BTC", "kind": "wallet"},
@@ -80,9 +81,10 @@ EXTERNAL = 99
 KIND_CURRENCIES = {"bank": ("USD",), "wallet": ("BTC",), "exchange": ("USD", "BTC"), "fee": ("USD", "BTC"),
                    "external": (None,)}
 ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
-# `hidden` only keeps an account out of the pickers, and `why` says what a
-# test row is for: neither changes a figure.
-OPTIONAL_FIELDS = ("exchange_id", "sends_1099da", "hidden", "why")
+# `hidden` only keeps an account out of the pickers, and `why` and `since`
+# say what a test row is for and from which version: none changes a figure.
+NOTES = ("hidden", "why", "since")
+OPTIONAL_FIELDS = ("exchange_id", "sends_1099da") + NOTES
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
 CENT = Decimal("0.01")
@@ -221,17 +223,20 @@ class Ledger:
 
 
 def read_accounts(data: dict) -> dict[int, Account]:
-    """A ledger file's accounts by id: its `accounts` list, else the six
-    fixed accounts. External (99) is always there, listed or not. A list
-    that can't be read one way only stops here, before any figure."""
-    listed = data["accounts"] if "accounts" in data else [{"id": i, **a} for i, a in FIXED_ACCOUNTS.items()]
-    accounts: dict[int, Account] = {}
-    for entry in listed:
+    """A ledger file's accounts by id: the six fixed accounts and External,
+    which every ledger has, and its `accounts` list, which adds the accounts
+    2.0 lets an owner make (2.0 spec 5.15: the reference ledger lists only
+    its new ones) and may give a fixed one another nickname or 1099-DA
+    switch. A list that can't be read one way only stops here, before any
+    figure."""
+    accounts = {i: _account({"id": i, **a}) for i, a in FIXED_ACCOUNTS.items()}
+    listed: set[int] = set()
+    for entry in data.get("accounts", []):
         account = _account(entry)
-        if account.id in accounts:
+        if account.id in listed:
             raise ValueError(f"The ledger's accounts list has account {account.id} twice.")
+        listed.add(account.id)
         accounts[account.id] = account
-    accounts.setdefault(EXTERNAL, _account({"id": EXTERNAL, **FIXED_ACCOUNTS[EXTERNAL]}))
     _check_exchanges(accounts)
     return accounts
 
@@ -332,7 +337,7 @@ def _account(entry: dict) -> Account:
     where = f"The ledger's accounts list: account {entry['id']}"
     _check_fields(entry, where)
     _check_kind(entry, where)
-    return Account(**{key: value for key, value in entry.items() if key not in ("hidden", "why")})
+    return Account(**{key: value for key, value in entry.items() if key not in NOTES})
 
 
 def _check_fields(entry: dict, where: str) -> None:
@@ -351,7 +356,8 @@ def _check_kind(entry: dict, where: str) -> None:
         raise ValueError(f"{where} is a {kind!r} account in {entry['currency']!r}, which no account is.")
     if (kind == "external") != (entry["id"] == EXTERNAL):
         raise ValueError(f"{where}: External is account {EXTERNAL}, and only External is.")
-    if (kind == "exchange") != isinstance(entry.get("exchange_id"), int):
+    exchange_id = entry.get("exchange_id")
+    if (kind == "exchange") != (isinstance(exchange_id, int) and not isinstance(exchange_id, bool)):
         raise ValueError(f"{where}: an exchange's account names its exchange (exchange_id), and no other does.")
     if "sends_1099da" in entry and (kind != "exchange" or not isinstance(entry["sends_1099da"], bool)):
         raise ValueError(f"{where}: sends_1099da is an exchange's switch, true or false.")

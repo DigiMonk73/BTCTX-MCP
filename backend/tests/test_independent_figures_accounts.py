@@ -1,7 +1,7 @@
 """
 The independent calculation's accounts (docs/temp/2.0-accounts.md 5.15;
-5.1, 5.4): it reads the ledger's `accounts` list, else the six fixed
-accounts and External, each entry checked once, there (a list that can't
+5.1, 5.4): the six fixed accounts and External, and those the ledger's
+`accounts` list adds (or renames), each entry checked once, there (a list that can't
 be read one way only stops before any figure); an account id the ledger
 doesn't have stops it; each bitcoin account keeps its own pile of lots (a
 fee account has none); and a Buy lands in its own `to_account_id`.
@@ -33,15 +33,25 @@ def test_read_accounts_defaults_to_the_six_fixed_and_external():
     assert {i: (a.name, a.currency) for i, a in found.items()} == FIXED
 
 
-def test_read_accounts_takes_the_ledgers_own_list_and_external():
+def test_a_ledgers_list_adds_to_the_fixed_accounts_and_may_rename_one():
+    # The reference ledger lists only the accounts 2.0 adds (2.0 spec 5.15),
+    # each marked "since": the fixed ones stay.
     data = {"accounts": [
-        {"id": 2, "name": "Wallet", "kind": "wallet", "currency": "BTC"},
-        COLDCARD,
-        {"id": 8, "name": "Bank 2", "kind": "bank", "currency": "USD"},
+        {"id": 2, "name": "Cold storage", "kind": "wallet", "currency": "BTC"},
+        dict(COLDCARD, since="2.0"),
+        {"id": 8, "name": "Bank 2", "kind": "bank", "currency": "USD", "since": "2.0"},
     ], "transactions": []}
     found = independent.read_accounts(data)
     assert {i: (a.name, a.currency) for i, a in found.items()} == {
-        2: ("Wallet", "BTC"), 7: ("Coldcard", "BTC"), 8: ("Bank 2", "USD"), 99: ("External", None)}
+        **FIXED, 2: ("Cold storage", "BTC"), 7: ("Coldcard", "BTC"), 8: ("Bank 2", "USD")}
+
+
+def test_a_listed_exchange_switch_overrides_a_fixed_ones():
+    found = independent.read_accounts({"accounts": [
+        {"id": 3, "name": "Exchange USD", "kind": "exchange", "currency": "USD", "exchange_id": 1, "sends_1099da": False},
+        {"id": 4, "name": "Exchange BTC", "kind": "exchange", "currency": "BTC", "exchange_id": 1, "sends_1099da": False},
+    ]})
+    assert (found[3].sends_1099da, found[4].sends_1099da) == (False, False)
 
 
 def test_read_accounts_btc_ids_are_the_bitcoin_accounts():
@@ -95,7 +105,7 @@ def test_a_list_that_cant_be_read_one_way_stops(entries, message):
 # An account id the ledger doesn't have.
 
 DEPOSIT = {"type": "Deposit", "timestamp": "2024-01-15T10:00:00Z", "from_account_id": 99, "to_account_id": 7,
-           "amount": "1.00000000", "fee_amount": "0", "fee_currency": "BTC", "source": "My BTC",
+           "amount": "1.00000000", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC",
            "cost_basis_usd": "100.00"}
 
 
@@ -114,11 +124,11 @@ def test_an_unknown_account_names_the_transactions_id():
 
 def test_a_ledgers_own_accounts_are_known():
     accounts = independent.read_accounts({"accounts": [
-        {"id": 2, "name": "Wallet", "kind": "wallet", "currency": "BTC"}]})
-    ledger = independent.replay([dict(DEPOSIT, to_account_id=2)], accounts=accounts)
-    assert sum(lot.quantity for lot in ledger.lots[2]) == 1
-    with pytest.raises(ValueError, match="names account 4,"):
-        independent.replay([dict(DEPOSIT, to_account_id=4)], accounts=accounts)
+        {"id": 8, "name": "Jade", "kind": "wallet", "currency": "BTC"}]})
+    ledger = independent.replay([dict(DEPOSIT, to_account_id=8)], accounts=accounts)
+    assert sum(lot.quantity for lot in ledger.lots[8]) == 1
+    with pytest.raises(ValueError, match="names account 9,"):
+        independent.replay([dict(DEPOSIT, to_account_id=9)], accounts=accounts)
 
 
 # One pile per bitcoin account.
@@ -143,10 +153,10 @@ def test_by_default_the_piles_are_wallet_and_exchange_btc():
 def test_each_bitcoin_account_of_the_ledger_keeps_its_own_pile():
     accounts = independent.read_accounts(WITH_A_FEE_ACCOUNT)
     ledger = independent.replay([
-        ledger_tx("Deposit", "2024-01-15T10:00:00Z", 99, 7, "1.00000000", source="My BTC", cost_basis_usd="100.00"),
+        ledger_tx("Deposit", "2024-01-15T10:00:00Z", 99, 7, "1.00000000", source="MyBTC", cost_basis_usd="100.00"),
         ledger_tx("Transfer", "2024-03-01T10:00:00Z", 7, 2, "0.40000000"),
     ], accounts=accounts)
-    assert sorted(ledger.lots) == [2, 7]  # no pile for the fee account
+    assert sorted(ledger.lots) == [2, 4, 7]  # no pile for a fee account
     held = {(h["account"], h["acquired"], h["quantity"], h["cost"])
             for h in independent.year_figures(ledger, 2024)["end_of_year_holdings"]}
     assert held == {("Coldcard", "2024-01-15T10:00:00+00:00", "0.60000000", "60.00"),
@@ -156,7 +166,7 @@ def test_each_bitcoin_account_of_the_ledger_keeps_its_own_pile():
 def test_a_ledger_is_built_with_its_piles_or_not_at_all():
     ledger = independent.Ledger(accounts=independent.read_accounts(WITH_A_FEE_ACCOUNT), rounding=independent.ROUND_HALF_UP,
                                 tax_zone=ZoneInfo("UTC"))
-    assert sorted(ledger.lots) == [2, 7]
+    assert sorted(ledger.lots) == [2, 4, 7]
     with pytest.raises(TypeError):  # no accounts, so no piles: refused rather than a KeyError later
         independent.Ledger(rounding=independent.ROUND_HALF_UP)
 

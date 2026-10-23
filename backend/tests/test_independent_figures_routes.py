@@ -55,7 +55,7 @@ def test_dollar_transfers_between_any_dollar_accounts_make_no_figure():
     ("Sell", 9, 3, "A Sell from Kraken BTC goes into Kraken USD."),
 ])
 def test_a_transaction_its_type_doesnt_allow_stops_the_calculation(kind, source, destination, message):
-    fine = ledger_tx("Deposit", WHEN, 99, 2, "1.00000000", source="My BTC", cost_basis_usd="100.00")
+    fine = ledger_tx("Deposit", WHEN, 99, 2, "1.00000000", source="MyBTC", cost_basis_usd="100.00")
     with pytest.raises(ValueError) as found:
         independent.replay([fine, ledger_tx(kind, WHEN, source, destination, "0.10000000")], accounts=TWO_EXCHANGES)
     assert str(found.value) == f"Transaction 2: {message}"

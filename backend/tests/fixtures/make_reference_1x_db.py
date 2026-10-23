@@ -97,7 +97,12 @@ def _run_on(ref: str, step: str, work: Path) -> None:
 
 
 def seed_inside(work: Path) -> None:
-    """In the child, on the release's code: the ledger seeded through its API."""
+    """In the child, on the release's code: the ledger seeded through its API,
+    by this checkout's scripts/seed_ledger.py. Its 1.x rows need only the
+    transaction routes every 1.x release has; once seed_ledger.py makes
+    2.0's accounts through the account API (B7a), it must still seed a
+    ledger with no `accounts` list without calling that API, or this
+    script can no longer remake the fixture with a 1.x release."""
     sys.path.append(str(SCRIPTS))  # after the release's code: scripts/ holds no backend
     from equivalence_ledgers_1x import reference_rows_1x
     from fastapi.testclient import TestClient

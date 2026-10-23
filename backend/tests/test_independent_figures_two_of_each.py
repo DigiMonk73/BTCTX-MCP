@@ -27,8 +27,8 @@ LEDGER = [
     ledger_tx("Buy", "2024-01-10T15:00:00Z", 3, 4, "1.00000000", cost_basis_usd="40000.00", fee_amount="100.00"),
     # 2. Quiet BTC (9): 1 BTC for $50,000 -> lot B, basis $50,000, acquired 2024-02-10.
     ledger_tx("Buy", "2024-02-10T15:00:00Z", 8, 9, "1.00000000", cost_basis_usd="50000.00"),
-    # 3. Wallet (2): a gift-free deposit of 0.2 BTC worth $9,000 -> lot C, acquired 2024-02-20.
-    ledger_tx("Deposit", "2024-02-20T15:00:00Z", 99, 2, "0.20000000", source="My BTC", cost_basis_usd="9000.00"),
+    # 3. Wallet (2): a MyBTC deposit of 0.2 BTC worth $9,000 -> lot C, acquired 2024-02-20.
+    ledger_tx("Deposit", "2024-02-20T15:00:00Z", 99, 2, "0.20000000", source="MyBTC", cost_basis_usd="9000.00"),
     # 4. 4 -> Wallet (2): 0.5 BTC of lot A, half its basis $20,050, keeps 2024-01-10. Lot A keeps 0.5 / $20,050.
     ledger_tx("Transfer", "2024-03-01T15:00:00Z", 4, 2, "0.50000000"),
     # 5. 9 -> Coldcard (7): 0.5 BTC of lot B, $25,000, keeps 2024-02-10. Lot B keeps 0.5 / $25,000.
@@ -81,7 +81,7 @@ def test_2025s_year_end_holdings_worked_by_hand():
     assert held == HOLDINGS_2025
 
 
-# Added in Claude's B1 fix run (claude-style-verdict-B1.md, gap 7): the same
+# The same
 # accounts in New York time, with BTC network fees, income, a gift and a
 # spend, a covered 2026 Sell, every year's lots, and cents shared across
 # moved pieces. Every figure worked out by hand. A lot's piece costs what
