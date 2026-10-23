@@ -81,11 +81,11 @@ def test_a_river_transfer_carries_its_fee_from_a_bitcoin_account_of_the_book():
     assert (_ledger_amount(row, SWAPPED), _ledger_amount(row, BOOK)) == (Decimal("0.1001"), Decimal("0.1"))
 
 
-def _river_deposit_beside(fresh_app, to_account_id: int) -> RiverProposal:
-    """A River deposit into Wallet beside an old deposit from External into
-    `to_account_id`, the same amount and minute, saved straight into the
-    table as only a BitcoinTX before 0.9.2 could; the row as the duplicate
-    check leaves it."""
+def _river_deposit_beside(fresh_app, to_account_id: int, into: int = 4) -> RiverProposal:
+    """A River payout into Exchange BTC (or `into`) beside an old deposit
+    from External into `to_account_id`, the same amount and minute, saved
+    straight into the table as only a BitcoinTX before 0.9.2 could; the row
+    as the duplicate check leaves it."""
     when = datetime(2024, 3, 1, 12, 0, tzinfo=timezone.utc)
     with fresh_app() as db:
         db.add_all([Account(id=7, user_id=1, name="cold2", kind="wallet", currency="BTC"),
@@ -95,7 +95,7 @@ def _river_deposit_beside(fresh_app, to_account_id: int) -> RiverProposal:
                            cost_basis_usd=Decimal("100")))
         db.commit()
         row = RiverProposal(row_number=1, timestamp=when, river_tag=None, type="Deposit", from_account_id=99,
-                            to_account_id=2, amount=Decimal("0.0123"), source="MyBTC")
+                            to_account_id=into, amount=Decimal("0.0123"), source="MyBTC")
         annotate_duplicates([row], db)
     return row
 
@@ -112,6 +112,12 @@ def test_a_river_row_is_compared_with_an_old_accounts_row_by_its_currency(fresh_
     River's rule (the same kind, way, amount and minute) finds it; one into
     8 (dollars) stays dollars, never a bitcoin row's copy."""
     assert _river_deposit_beside(fresh_app, 7).status == "matched"
+
+
+def test_a_row_into_wallet_is_never_an_old_wallets_copy(fresh_app):
+    """Two wallets on the same side are never copies (the owner's rule,
+    2026-10-15, B5a #350): 7 is a wallet, as Wallet is."""
+    assert _river_deposit_beside(fresh_app, 7, into=2).status == "new"
 
 
 def test_a_river_row_is_never_taken_for_an_old_dollar_accounts_row(fresh_app):

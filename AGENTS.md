@@ -352,7 +352,13 @@ from the Transaction row alone.
   since its source, purpose, fee and type are the preview's or the
   owner's edits;
   of the accounts, a River row needs only to go the same way
-  (`_compatible`: the same source account or the same destination). The
+  (`_compatible`: the same source account or the same destination).
+  No row, River's or the AI's, is ever matched to a transaction naming on
+  the same side another account of the same kind and currency (two
+  wallets, two exchanges' BTC or USD accounts, two banks: the owner's
+  rule, 2026-10-15, #350); but River's wallet is the file's guess
+  (`guessed`), so a send or receive typed into another wallet is only
+  similar, marked Review, ticked (the owner's decision, 2026-10-16). The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a
@@ -662,7 +668,9 @@ from the Transaction row alone.
   any other route is 403. Every router is mounted with `main.include()`,
   which notes its routes' templates (a router mounted otherwise is closed
   to the key). A new MCP tool that needs a route adds it there on purpose
-  (a test checks the tools and the list agree). Never allow the
+  (a test checks the tools and the list agree). The key may read the
+  account list (`GET /api/accounts/`, the connector's names, 2.0's #350),
+  never add, hide or delete an account. Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or

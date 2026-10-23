@@ -94,6 +94,11 @@ class AccountBook:
         never a fee account, External or an id with no account."""
         return self.kind(account_id) in YOUR_KINDS
 
+    def is_hidden(self, account_id: int | None) -> bool:
+        """Hidden in Settings: still yours, but one the owner stopped using (5.5)."""
+        account = self._accounts.get(account_id)
+        return account is not None and account.hidden
+
     def currency(self, account_id: int | None) -> str | None:
         """"USD" or "BTC"; None for External or an id with no account."""
         account = self._accounts.get(account_id)
