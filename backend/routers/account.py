@@ -1,7 +1,7 @@
 """
 Your accounts (2.0 spec 5.9): the list, one account, adding a bank, a
-wallet or an exchange, hiding and showing, and deleting an unused one.
-Login only.
+wallet or an exchange, renaming, hiding and showing, and deleting an
+unused one. Login only.
 """
 
 from fastapi import APIRouter, Depends, Response
@@ -34,8 +34,9 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 
 @router.put("/{account_id}", response_model=AccountRead)
 def update_account(account_id: int, change: AccountUpdate, db: Session = Depends(get_db)):
-    """Hide or show an account (an exchange's: both); 400 for a fee account, 404."""
-    account_service.set_hidden(db, account_id, change.hidden)
+    """Rename, hide or show an account (an exchange's: its exchange and both);
+    400 for a fee account or a name it refuses, 404."""
+    account_service.change_account(db, account_id, name=change.name, hidden=change.hidden)
     return account_service.one(db, account_id)
 
 

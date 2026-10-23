@@ -1,12 +1,12 @@
 """
 The account API's request and response shapes (2.0 spec 5.9). An account's
 kind and currency never change: none is taken after it's added, and the
-currency comes from the kind. Renames come later (B8).
+currency comes from the kind.
 """
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class AccountCreate(BaseModel):
@@ -18,10 +18,18 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    """Hide an account from the pickers, or show it again."""
+    """Rename an account (an exchange's: its exchange and both of its
+    accounts), hide it from the pickers or show it again; at least one."""
     model_config = ConfigDict(extra="forbid")
 
-    hidden: bool
+    name: str | None = None
+    hidden: bool | None = None
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "AccountUpdate":
+        if self.name is None and self.hidden is None:
+            raise ValueError("Send a name, hidden, or both.")
+        return self
 
 
 class AccountRead(BaseModel):

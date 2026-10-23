@@ -4,12 +4,13 @@ The account book (2.0 spec 5.4) and the account API's work (5.9).
 One place answers every question about an account, from the accounts and
 exchanges tables: `account_book(db)`, read once per request, import,
 recalculation or report. Accounts are added by kind (an exchange as its
-two, "<name> USD" and "<name> BTC"), hidden and shown, and deleted only
+two, "<name> USD" and "<name> BTC"), renamed (an exchange's account: its
+exchange and both of its accounts), hidden and shown, and deleted only
 while nothing names them. Ids and names follow 5.1. The six fixed accounts
 (database.FIXED_ACCOUNTS, put right at every start by seed_defaults) and
-External (99, no account) are always there: 1-4 are never deleted, 5 and 6
-neither hidden nor deleted, and an internal leftover (5.3) is never shown.
-Renames come with B8.
+External (99, no account) are always there: 1-4 are never deleted (and may
+take back the names reserved for them), 5 and 6 neither renamed, hidden nor
+deleted, and an internal leftover (5.3) is never shown.
 """
 
 import re
@@ -106,6 +107,15 @@ class AccountBook:
     def exchange_of(self, account_id: int | None) -> int | None:
         account = self._accounts.get(account_id)
         return account.exchange_id if account else None
+
+    def exchange_name(self, account_id: int | None) -> str | None:
+        """An exchange account's exchange's name; None for any other account."""
+        exchange = self._exchanges.get(self.exchange_of(account_id))
+        return exchange[0] if exchange else None
+
+    def hidden(self, account_id: int | None) -> bool:
+        account = self._accounts.get(account_id)
+        return account is not None and account.hidden
 
     def usd_of(self, account_id: int | None) -> int | None:
         """An exchange account's exchange's dollar account."""
@@ -206,15 +216,20 @@ def add_account(db: Session, kind: str, name: str) -> list[Account]:
     return made
 
 
-def set_hidden(db: Session, account_id: int, hidden: bool) -> None:
-    """Hide or show an account (an exchange's: both of its accounts)."""
+def change_account(db: Session, account_id: int, name: str | None = None, hidden: bool | None = None) -> None:
+    """Rename, hide or show an account (an exchange's: its exchange and both
+    of its accounts), as one save. The name is checked under the write lock,
+    so a name another tab took meanwhile is seen."""
     _lock(db)
     try:
         account = _existing(db, account_id)
         if account.kind == "fee":
             raise HTTPException(status_code=400, detail=FEES_STAY)
-        for each in _with_its_pair(db, account):
-            each.hidden = hidden
+        if name is not None:
+            _rename(db, account, clean_name(name))
+        if hidden is not None:
+            for each in _with_its_pair(db, account):
+                each.hidden = hidden
         db.commit()
     except BaseException:
         db.rollback()
@@ -290,28 +305,53 @@ def _exchange(db: Session, name: str) -> list[Account]:
     return made
 
 
+def _rename(db: Session, account: Account, name: str) -> None:
+    """A bank's or a wallet's new name, or an exchange's and so its two
+    accounts'; the same name again changes nothing."""
+    if account.exchange_id is None:
+        if name != account.name:
+            _one_line(name, LONGEST_NAME)
+            _free(db, name, own=(account.id,))
+            account.name = name
+        return
+    exchange = db.get(Exchange, account.exchange_id)
+    if exchange is None or name == exchange.name:
+        return
+    _one_line(name, LONGEST_EXCHANGE_NAME)
+    _free_exchange(db, name, own=exchange.id)
+    halves = _with_its_pair(db, account)
+    for half in halves:
+        _free(db, f"{name} {half.currency}", own=tuple(h.id for h in halves))
+    exchange.name = name
+    for half in halves:
+        half.name = f"{name} {half.currency}"
+
+
 def _one_line(name: str, longest: int) -> None:
     """1 to `longest` characters, with no control or format character (but the joiners)."""
     if not 1 <= len(name) <= longest or any(_not_text(c) for c in name):
         raise HTTPException(status_code=400, detail=f"A name is 1 to {longest} characters on one line.")
 
 
-def _free(db: Session, name: str) -> None:
-    """No reserved name (5.1), and none alike another account's."""
+def _free(db: Session, name: str, own: tuple[int, ...] = ()) -> None:
+    """No reserved name (5.1) but one reserved for an account being renamed
+    (`own`: 1 to 4 can be renamed back), and none alike another account's."""
     key = name_key(name)
     reserved = RESERVED_KEYS.get(key)
     if reserved == ACCOUNT_EXTERNAL:
         raise HTTPException(status_code=400, detail=EXTERNAL)
-    if reserved in FIRST_OF_EACH:
+    if reserved in FIRST_OF_EACH and reserved not in own:
         raise HTTPException(status_code=400, detail=RESERVED.format(name=name, kind=FIRST_OF_EACH[reserved]))
-    if reserved is not None or any(name_key(n) == key for (n,) in db.query(Account.name)):
+    if (reserved is not None and reserved not in own) \
+            or any(name_key(n) == key for i, n in db.query(Account.id, Account.name) if i not in own):
         raise HTTPException(status_code=400, detail=ALREADY.format(name=name))
 
 
-def _free_exchange(db: Session, name: str) -> None:
+def _free_exchange(db: Session, name: str, own: int | None = None) -> None:
+    """Not External, and none alike another exchange's name (`own` is the one being renamed)."""
     if RESERVED_KEYS.get(name_key(name)) == ACCOUNT_EXTERNAL:
         raise HTTPException(status_code=400, detail=EXTERNAL)
-    if any(name_key(n) == name_key(name) for (n,) in db.query(Exchange.name)):
+    if any(name_key(n) == name_key(name) for i, n in db.query(Exchange.id, Exchange.name) if i != own):
         raise HTTPException(status_code=400, detail=EXCHANGE_ALREADY.format(name=name))
 
 
