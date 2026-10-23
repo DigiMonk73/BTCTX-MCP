@@ -25,6 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- **setuptools 84.2.0** in the Mac app's build tools and the AI connector's
+  release tools (GHSA-xmj3-9gf7-h52w, low: a path escape in legacy wheel
+  installs on Windows; neither runs there, but CI's dependency audit
+  refused 84.0.0). Nothing BitcoinTX ships changes.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes
