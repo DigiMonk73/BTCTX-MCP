@@ -128,8 +128,8 @@ carry its `Co-Authored-By` line.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
-or moves or deletes a `pin/2.0-*` tag), and `release.yml` refuses a release commit that isn't on
-`main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
+or moves or deletes a `pin/2.0-*` tag), and `release.yml` refuses a
+release commit that isn't on `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
 squash-merged (or with a merge commit, for the daily pull requests
@@ -515,7 +515,7 @@ from the Transaction row alone.
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
-| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop` down; `--tidy` deletes branches already on GitHub |
+| `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop`/`2.0` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
@@ -1090,8 +1090,8 @@ one session. Claude suggests this setup when a request is that big.
 - **Every session starts from `staging`** (`2.0` during the 2.0 build:
   its plan says how). When the lead starts one with a working folder of
   its own, it runs `make sync-check` first (the start tool cuts the
-  folder from a local branch; `make sync-check` brings local `main` and
-  `develop` up to GitHub's, never `staging`, and a `git fetch` alone
+  folder from a local branch; `make sync-check` brings local `main`,
+  `develop` and `2.0` (when there is one) up to GitHub's, never `staging`, and a `git fetch` alone
   moves only `origin/develop`), then names `develop` as the folder's base
   (the start tool's `source_branch`): otherwise the folder may be cut
   from `main`, which lacks everything not yet released. Each kickoff
@@ -1215,8 +1215,8 @@ list --base develop`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work, and run the
 daily cycle ("Branches", `develop`).
 
-Then run `make sync-check`: it brings local `main` and `develop` down from
-GitHub and says whether anything exists only on this computer: work not
+Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
+down from GitHub and says whether anything exists only on this computer: work not
 committed in any working folder, branches or commits not on GitHub,
 stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
 (`gh issue view 41`), the open pull requests and issues (`gh pr list`,
