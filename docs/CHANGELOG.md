@@ -30,6 +30,14 @@ All notable changes to BitcoinTX are documented in this file.
   Python and TypeScript code and run the web app's unit tests. Fixes
   only, and the code needed no change. Tooling only: nothing changes in
   the app.
+- **A test that failed about one run in four, fixed** (#598). Since the
+  Python suite runs on every core (#590), `test_seed_data_integrity.py`
+  could find another test module's transactions in the shared test
+  database, skip its own, and check theirs ("Zero balances detected"),
+  turning a push or CI red at random. It now empties the database, saves
+  its own five transactions (each one checked) and empties it again
+  afterwards; a new test leaves another module's transaction in first. Tests
+  only: nothing in the app changes.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 

@@ -7,70 +7,48 @@ from backend.models.transaction import Transaction, LedgerEntry, BitcoinLot, Lot
 from backend.models.account import Account
 
 
-def _ensure_test_data_exists(client, db):
-    """
-    Ensure database has minimal test data for integrity tests.
-    Creates transactions via TestClient API if database is empty.
-    Uses all main accounts to ensure non-zero balances.
-    """
-    tx_count = db.query(Transaction).count()
-    if tx_count > 0:
-        return  # Data already exists
+def _ts(year, month, day):
+    return datetime(year, month, day, 12, 0, 0, tzinfo=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    def build_ts(year, month, day):
-        dt = datetime(year, month, day, 12, 0, 0, tzinfo=timezone.utc)
-        return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # 1. Deposit USD to Bank (ensures Bank has balance)
-    client.post("/api/transactions", json={
-        "type": "Deposit",
-        "timestamp": build_ts(2024, 1, 1),
-        "from_account_id": 99,
-        "to_account_id": 1,  # Bank
-        "amount": "100000",
-        "is_income": False,
-    })
-
-    # 2. Transfer USD from Bank to Exchange (uses Bank)
-    client.post("/api/transactions", json={
-        "type": "Transfer",
-        "timestamp": build_ts(2024, 1, 5),
-        "from_account_id": 1,  # Bank
-        "to_account_id": 3,    # Exchange USD
-        "amount": "50000",
-    })
-
+# This module's own ledger: every main account gets a balance, a BTC fee a
+# disposal, a sale a disposal
+SEED = [
+    # 1. Deposit USD to Bank
+    {"type": "Deposit", "timestamp": _ts(2024, 1, 1), "from_account_id": 99, "to_account_id": 1,
+     "amount": "100000", "is_income": False},
+    # 2. Transfer USD from Bank to Exchange USD
+    {"type": "Transfer", "timestamp": _ts(2024, 1, 5), "from_account_id": 1, "to_account_id": 3,
+     "amount": "50000"},
     # 3. Buy BTC
-    client.post("/api/transactions", json={
-        "type": "Buy",
-        "timestamp": build_ts(2024, 2, 1),
-        "from_account_id": 3,  # Exchange USD
-        "to_account_id": 4,   # Exchange BTC
-        "amount": "1.0",
-        "cost_basis_usd": "40000",
-    })
+    {"type": "Buy", "timestamp": _ts(2024, 2, 1), "from_account_id": 3, "to_account_id": 4,
+     "amount": "1.0", "cost_basis_usd": "40000"},
+    # 4. Transfer BTC with a fee to Wallet (the fee is a disposal)
+    {"type": "Transfer", "timestamp": _ts(2024, 3, 1), "from_account_id": 4, "to_account_id": 2,
+     "amount": "0.5", "fee_amount": "0.0001", "fee_currency": "BTC"},
+    # 5. Sell BTC (a disposal)
+    {"type": "Sell", "timestamp": _ts(2024, 4, 1), "from_account_id": 4, "to_account_id": 3,
+     "amount": "0.25", "proceeds_usd": "15000"},
+]
 
-    # 4. Transfer BTC with fee (creates disposal for fee, moves to Wallet)
-    client.post("/api/transactions", json={
-        "type": "Transfer",
-        "timestamp": build_ts(2024, 3, 1),
-        "from_account_id": 4,  # Exchange BTC
-        "to_account_id": 2,    # Wallet
-        "amount": "0.5",
-        "fee_amount": "0.0001",
-        "fee_currency": "BTC",
-    })
 
-    # 5. Sell BTC (creates disposal)
-    client.post("/api/transactions", json={
-        "type": "Sell",
-        "timestamp": build_ts(2024, 4, 1),
-        "from_account_id": 4,  # Exchange BTC
-        "to_account_id": 3,    # Exchange USD
-        "amount": "0.25",
-        "proceeds_usd": "15000",
-    })
+def _wipe(client):
+    r = client.delete("/api/transactions/delete_all?confirm=DELETE")
+    assert r.status_code == 204, r.text
 
+
+def _seed_own_ledger(client, db):
+    """
+    Give this module the ledger it checks, whatever the shared session
+    database holds. Run in parallel (pytest -n auto), a worker can reach this
+    module with another module's transactions in it, whose balances these
+    checks don't describe; seeding only an empty database then checked those
+    (#598). So it empties the database first, and every row must save.
+    """
+    _wipe(client)
+    for row in SEED:
+        r = client.post("/api/transactions", json=row)
+        assert r.status_code == 200, r.text
     # End the session's read transaction so it sees the API's writes
     # (expire_all alone keeps SQLite's pre-seed snapshot)
     db.rollback()
@@ -86,10 +64,39 @@ def db_session(auth_client, test_engine):
     from sqlalchemy.orm import sessionmaker
     db = sessionmaker(bind=test_engine)()
     try:
-        _ensure_test_data_exists(auth_client, db)
+        _seed_own_ledger(auth_client, db)
         yield db
     finally:
         db.close()
+        _wipe(auth_client)
+
+
+def _balances(db):
+    balances = defaultdict(float)
+    for entry in db.query(LedgerEntry).all():
+        balances[entry.account_id] += float(entry.amount)
+    return balances
+
+
+def test_its_own_ledger_whatever_another_module_left(auth_client, test_engine):
+    """#598: another module's transactions in the shared database (a lone
+    bitcoin deposit, no dollars) don't stand in for this module's ledger."""
+    from sqlalchemy.orm import sessionmaker
+    db = sessionmaker(bind=test_engine)()
+    try:
+        _wipe(auth_client)
+        r = auth_client.post("/api/transactions", json={
+            "type": "Deposit", "timestamp": _ts(2023, 6, 1), "from_account_id": 99, "to_account_id": 2,
+            "amount": "0.1", "source": "MyBTC", "cost_basis_usd": "3000",
+        })
+        assert r.status_code == 200, r.text
+        _seed_own_ledger(auth_client, db)
+        assert db.query(Transaction).count() == len(SEED)
+        balances = _balances(db)
+        assert balances[1] and balances[3], "Bank and Exchange USD hold this module's dollars"
+    finally:
+        db.close()
+        _wipe(auth_client)
 
 
 # ----------------------------
@@ -105,8 +112,7 @@ def test_accounts_exist(db_session):
 # ----------------------------
 def test_transaction_count(db_session):
     txs = db_session.query(Transaction).all()
-    # Just verify there are transactions in the database (count varies based on test runs)
-    assert len(txs) >= 1, f"Expected at least 1 transaction, found {len(txs)}"
+    assert len(txs) == len(SEED), f"Expected this module's {len(SEED)} transactions, found {len(txs)}"
 
 # ----------------------------
 # Test 3: BitcoinLots for BTC-acquiring Deposits/Buys
@@ -190,11 +196,7 @@ def test_ledger_entries_exist(db_session):
 # ----------------------------
 def test_account_balances_non_null(db_session):
     accounts = db_session.query(Account).all()
-    ledger_entries = db_session.query(LedgerEntry).all()
-    balances = defaultdict(float)
-
-    for entry in ledger_entries:
-        balances[entry.account_id] += float(entry.amount)
+    balances = _balances(db_session)
 
     problems = []
     for acct in accounts:
