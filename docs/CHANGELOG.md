@@ -26,9 +26,10 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Development
 - `make catch-up-2.0` (`scripts/catch-up-2.0.sh`): `develop` into the 2.0
-  build by a pull request with auto-merge as a merge commit, or a stop for
-  the build's lead on a 1.x migration or a conflict; run before every 2.0
-  step and nightly.
+  build. A clean merge is made as a commit of its own and merges once its
+  own CI passes (the owner's decision 24, #251); a 1.x migration, a change
+  to the reference test ledger or a conflict stops for the build's lead.
+  Run before every 2.0 step and nightly.
 - **Start9 watched daily** (the owner, 2026-10-23: "we have to be aware
   when they push updates"). The weekly SDK check missed start-sdk 3.1.0
   and start-cli 2.4.2 by hours on 2026-10-19 and looked for nothing else.

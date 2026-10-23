@@ -130,12 +130,17 @@ carry its `Co-Authored-By` line.
   refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
   the steps and where they stand: #251.
   `make catch-up-2.0` (`scripts/catch-up-2.0.sh`) does that `develop`
-  merge: a pull request from `develop` with auto-merge as a merge commit
-  when the merge is clean, and stops for the build's lead on a 1.x
-  migration or a conflict; it also lists a new 1.x release (B1's
-  `reference_1x.db` remade from it) and `startos/` changes. The lead runs
-  it before every step and nightly at 22:30 (America/Chicago, a scheduled
-  task on the Mac mini), so 1.x's fixes reach `2.0` without waiting.
+  merge when it is clean (no 1.x migration, no change to the reference
+  test ledger or its figures, no conflict): GitHub makes the merge commit
+  on a branch of its own, `2.0-merge-develop-auto-…`, and its pull request
+  merges by itself once its own CI passes, with no review of its own (the
+  owner's decision 24, #251), unless a 2.0 step has auto-merge on. Anything
+  else stops for the build's lead. It also lists a new 1.x release (B1's
+  `reference_1x.db` made again from it) and `startos/` changes. The lead
+  runs it before every step and nightly at 22:30 (America/Chicago, a
+  scheduled task on the Mac mini), so 1.x's fixes reach `2.0` without
+  waiting. Never `gh pr update-branch` on a catch-up: its head is the
+  merge commit its CI tested.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,

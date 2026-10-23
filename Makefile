@@ -16,7 +16,7 @@
 # make check        lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
 # make check-fast   the pre-push gate, without pushing
 # make sync-check   is everything on this computer also on GitHub? (--tidy: scripts/sync-check.sh)
-# make catch-up-2.0 develop into the 2.0 build: a pull request, or what needs the lead (scripts/catch-up-2.0.sh)
+# make catch-up-2.0 develop into the 2.0 build, or what needs the lead (ARGS=--dry-run: look only; scripts/catch-up-2.0.sh)
 
 PY ?= python3
 
@@ -105,4 +105,4 @@ sync-check:
 	scripts/sync-check.sh
 
 catch-up-2.0:
-	scripts/catch-up-2.0.sh
+	scripts/catch-up-2.0.sh $(ARGS)
