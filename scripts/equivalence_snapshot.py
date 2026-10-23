@@ -13,7 +13,6 @@ import hashlib
 import importlib.util
 import io
 import json
-import random
 import re
 import shutil
 import time
@@ -36,14 +35,13 @@ from backend.services.reports.complete_tax_report import generate_comprehensive_
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.transaction import recalculate_all_transactions
 from backend.tests.conftest import default_login, init_test_db, price_finder
-from backend.tests.test_golden_years import LEDGER as GOLDEN_LEDGER
-from backend.tests.test_invariants_property import draw_ledger
 from backend.tests.test_river_import import SYNTHETIC_ROWS, river_csv
 from backend.version import app_version
 from btctx_mcp import server as mcp_server
 from btctx_mcp.client import BtctxClient
 
 import equivalence_inputs as inputs
+from equivalence_ledgers_1x import GOLDEN_LEDGER, SeededDraws, draw_ledger, reference_rows_1x
 
 # This checkout's, for both sides: a release's worktree may have no testdata/
 REFERENCE_LEDGER = Path(__file__).resolve().parents[1] / "testdata" / "reference_ledger.json"
@@ -155,30 +153,10 @@ def _no_hourly_prices() -> None:
 def _ledgers():
     """(name, tax timezone, API payloads) for each ledger in the snapshot."""
     yield "golden", "America/New_York", GOLDEN_LEDGER
-    reference = json.loads(REFERENCE_LEDGER.read_text())["transactions"]
-    yield "reference", "UTC", [{k: v for k, v in tx.items() if k != "why"} for tx in reference]
+    yield "reference", "UTC", reference_rows_1x(REFERENCE_LEDGER)
     for seed in range(RANDOM_LEDGERS):
         txs, _ = draw_ledger(SeededDraws(seed), max_ops=25)
         yield f"random_{seed:02d}", RANDOM_ZONES[seed % len(RANDOM_ZONES)], txs
-
-
-class SeededDraws:
-    """Stands in for Hypothesis's `data` in draw_ledger: the same seed gives
-    the same ledger. `overrides` replaces the draw for a label."""
-
-    def __init__(self, seed: int, overrides=None):
-        self.rng = random.Random(seed)
-        self.overrides = overrides or {}
-
-    def draw(self, strategy, label=None):
-        if label in self.overrides:
-            return self.overrides[label](self.rng)
-        inner = getattr(strategy, "wrapped_strategy", strategy)
-        if getattr(inner, "elements", None) is not None:
-            return self.rng.choice(list(inner.elements))
-        if getattr(inner, "start", None) is not None:
-            return self.rng.randint(inner.start, inner.end)
-        return self.rng.random() < 0.5
 
 
 class Instance:

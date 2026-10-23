@@ -2,6 +2,19 @@
 
 All notable changes to BitcoinTX are documented in this file.
 
+## [Unreleased 2.0]
+
+### Added
+- **2.0's yardsticks** (B1, #345; tests and scripts only, nothing the app
+  does changes). The second calculation of the tax figures
+  (`scripts/independent_figures.py`) works from a ledger's own accounts:
+  one pile of lots per bitcoin account, a Buy into its own account, each
+  exchange's 1099-DA switch, the tax timezone for every date, and a stop
+  at an account it doesn't know. A 1.x ledger saved by v1.2.9's own code
+  (`backend/tests/fixtures/reference_1x.db`) must keep its figures when
+  upgraded and recalculated, and the before-and-after check
+  (`scripts/equivalence_check.py`) compares ledgers frozen at 1.x's.
+
 ## [Unreleased]
 
 ### Changed
