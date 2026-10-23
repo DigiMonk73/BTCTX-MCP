@@ -13,9 +13,11 @@
 ## Risk
 
 <!-- What could go wrong and who would notice. Say if it changes tax figures
-or what the app computes, the database, the StartOS package or anything that
-reaches Start9, or is a release: those wait for the owner's "merge"
-(AGENTS.md, "Pull requests"). "None: docs only" is a fine answer. -->
+or what the app computes, or the database: say whether any figure moves
+(none, or the plain-words before-and-after the owner approves: AGENTS.md,
+"Reviews", the figures rule). The StartOS package, anything that reaches
+Start9 and releases wait for the owner's "merge". "None: docs only" is a
+fine answer. -->
 
 - [ ] `docs/CHANGELOG.md` updated, if a user or maintainer would notice
 - [ ] Fixes a bug: says `Closes #N`, and has a test that fails without the fix
