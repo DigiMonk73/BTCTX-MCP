@@ -34,7 +34,7 @@ SEED = [
 
 def _wipe(client):
     r = client.delete("/api/transactions/delete_all?confirm=DELETE")
-    assert r.status_code in (200, 204), r.text
+    assert r.status_code == 204, r.text
 
 
 def _seed_own_ledger(client, db):
@@ -48,7 +48,7 @@ def _seed_own_ledger(client, db):
     _wipe(client)
     for row in SEED:
         r = client.post("/api/transactions", json=row)
-        assert r.status_code in (200, 201), r.text
+        assert r.status_code == 200, r.text
     # End the session's read transaction so it sees the API's writes
     # (expire_all alone keeps SQLite's pre-seed snapshot)
     db.rollback()
@@ -84,18 +84,19 @@ def test_its_own_ledger_whatever_another_module_left(auth_client, test_engine):
     from sqlalchemy.orm import sessionmaker
     db = sessionmaker(bind=test_engine)()
     try:
+        _wipe(auth_client)
         r = auth_client.post("/api/transactions", json={
             "type": "Deposit", "timestamp": _ts(2023, 6, 1), "from_account_id": 99, "to_account_id": 2,
             "amount": "0.1", "source": "MyBTC", "cost_basis_usd": "3000",
         })
-        assert r.status_code in (200, 201), r.text
-        db.rollback()
+        assert r.status_code == 200, r.text
         _seed_own_ledger(auth_client, db)
         assert db.query(Transaction).count() == len(SEED)
         balances = _balances(db)
         assert balances[1] and balances[3], "Bank and Exchange USD hold this module's dollars"
     finally:
         db.close()
+        _wipe(auth_client)
 
 
 # ----------------------------
@@ -111,8 +112,7 @@ def test_accounts_exist(db_session):
 # ----------------------------
 def test_transaction_count(db_session):
     txs = db_session.query(Transaction).all()
-    # Just verify there are transactions in the database (count varies based on test runs)
-    assert len(txs) >= 1, f"Expected at least 1 transaction, found {len(txs)}"
+    assert len(txs) == len(SEED), f"Expected this module's {len(SEED)} transactions, found {len(txs)}"
 
 # ----------------------------
 # Test 3: BitcoinLots for BTC-acquiring Deposits/Buys
