@@ -335,6 +335,18 @@ All notable changes to BitcoinTX are documented in this file.
   `react-hooks/set-state-in-effect` stays off until 2.0's screens
   (`frontend/eslint.config.js`). `desktop/build-mac.sh` asks for
   Node.js 22.13 or newer, the README's minimum (it said 18).
+- **The figures rule** (AGENTS.md, "Reviews"). A
+  change to tax figures, what the app computes or the database gets the
+  review, the re-check and every figures check (the reference ledger, the
+  independent second calculation, the before-and-after comparison; the
+  database also a tested backup and restore). If no figure moves, Claude
+  merges it; if a figure moves on purpose, the owner first approves a
+  plain-words before-and-after (which figures, by how much, why, the tax
+  rule), never the code; a figure that moves by mistake is fixed, never
+  put to the owner. A new tax year's IRS forms follow it too: the issues
+  the IRS forms watch opens (`scripts/irs_new_year.py`) say so, and
+  `docs/IRS_ANNUAL_FORM_UPDATE.md` with them. The StartOS package,
+  releases and anything sent to Start9 keep the owner's "merge".
 - **CI in about a third of the time** (the owner's ask, 2026-10-22). The
   Python suite runs on every core with pytest-xdist (`-n auto`; 3,184 tests
   in 83 s on the Mac mini, against 16 minutes one at a time; `make test` and

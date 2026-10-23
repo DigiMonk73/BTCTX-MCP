@@ -197,8 +197,10 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
   (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
   in two environments (step 4 of "Updating a dependency":
-  `scripts/equivalence_check.py` can't see a package change) and waits for
-  the owner's "merge".
+  `scripts/equivalence_check.py` can't see a package change). An update
+  is never meant to move a figure: if none moves, it merges like any
+  other; if one does, it stops until the cause is found (AGENTS.md,
+  "Reviews", the figures rule).
 
 A Dependabot branch behind `staging` is brought up to date only when it
 conflicts (`staging` asks no branch to be up to date), by commenting
