@@ -39,7 +39,7 @@ feeling.
 
 | Layer | Where | Covers |
 |---|---|---|
-| ~3,100 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
+| ~3,200 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
 | Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
@@ -1149,18 +1149,4 @@ Open bugs a run may meet (the release's CHANGELOG lists them under Known
 issues). Report these as KNOWN. Delete a line when its fix is merged into
 `develop`, since release candidates are built from it.
 
-- #478: a save made while a long import holds the database answers
-  "Something unexpected went wrong", not that it's busy; nothing was
-  saved, and saving again works.
-- #479: the CSV import's preview counts a row with two errors as two rows.
-- #480: when the River import refuses a typed cell, its message names no
-  row or column.
-- #489: an amount of 10^21 BTC or more is written wrongly.
-- #525: the AI connector's preview note on a dollar row that may already
-  be recorded calls the dollars "BTC".
-- #529: the sidebar's Sats Converter can show one satoshi too few when a
-  dollar amount comes to exactly halfway between two satoshis.
-- #533: saving the tax timezone in Settings, when it fails, says only
-  "Could not save the timezone.", not why.
-- #536: the browser's Back button leaves an unsaved transaction without
-  asking "Discard changes?".
+None known for 1.2.10.
