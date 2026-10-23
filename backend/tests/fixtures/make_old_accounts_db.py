@@ -6,8 +6,9 @@ ledger can, for 2.0's first migration to take in.
 - accounts beyond the six fixed ones, made through 1.x's account API before
   v0.9.2 stopped transactions naming them: a BTC "cold2" as 7 and a USD
   "wallet" as 8 (exact-case unique in 1.x, alike "Wallet" ignoring case);
-- #289's case: BTC Fees (5) renamed "Fees", then a second "BTC Fees" as 9,
-  which 1.x's exact-case uniqueness allows only after that rename;
+- #289's case: BTC Fees (5) renamed "Fees", then a transfer with a BTC fee,
+  for which 1.x's engine, finding its fee account by name, made a second
+  "BTC Fees" (9) and put the fee's lines there;
 - a deposit into 7, saved as before v0.9.2 and recalculated by 1.x's engine,
   which acts on it through 7's currency (its ledger lines and lot);
 - a transaction naming 999, an account that doesn't exist (no ledger line:
@@ -116,7 +117,14 @@ def write_inside(work: Path) -> None:
         db.commit()
     with sqlite3.connect(path) as con:
         con.execute("UPDATE accounts SET name = 'Fees' WHERE id = 5")
-        con.execute("INSERT INTO accounts (id, user_id, name, currency) VALUES (9, 1, 'BTC Fees', 'BTC')")
+    with SessionLocal() as db:
+        fee = TransactionCreate(type="Transfer", timestamp="2024-07-01T12:00:00Z", from_account_id=2,
+                                to_account_id=4, amount="0.10000000", fee_amount="0.00010000",
+                                fee_currency="BTC", fee_usd="6.00")
+        create_transaction_record(fee.model_dump(), db)
+    with sqlite3.connect(path) as con:
+        made = con.execute("SELECT id FROM accounts WHERE name = 'BTC Fees'").fetchall()
+        assert made == [(9,)], f"1.x's engine didn't make a second BTC Fees as 9: {made}"
         con.execute(NAMING_999)
     shutil.copyfile(path, work / "btctx.db")
 

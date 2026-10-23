@@ -272,7 +272,10 @@ def test_failed_upgrade_rolls_back_completely(v070, monkeypatch):
     # adoption stamp, index repair and the app_settings table are all gone
     assert schema(v070) == before
     assert not q(v070, "SELECT name FROM sqlite_master WHERE name = 'alembic_version'")
-    assert "backups" in str(err.value)
+    # and so is the pre-2.0 copy, which nothing prunes: each failed start (a
+    # restart loop) would add one
+    assert "Your database is unchanged." in str(err.value)
+    assert migrate.backup_copies(v070, "pre-2.0") == []
 
 
 # ---------------------------------------------------------------------------
@@ -369,14 +372,14 @@ def _copy(source: Path, tmp_path: Path, name="btctx.db") -> Path:
 
 
 def _ours():
-    return migrate._script().get_revision(migrate.FIRST_2_0).module
+    return migrate._script().get_revision(migrate.first_2_0()).module
 
 
 def test_exactly_one_migration_starts_2_0_and_1x_is_one_chain_below_it():
     script = migrate._script()
     marked = [r.revision for r in script.walk_revisions() if getattr(r.module, "STARTS_2_0", False)]
-    assert marked == [migrate.FIRST_2_0] == ["0100"]
-    first = script.get_revision(migrate.FIRST_2_0)
+    assert marked == [migrate.first_2_0()] == ["0100"]
+    first = script.get_revision(migrate.first_2_0())
     below = {r.revision for r in script.iterate_revisions(first.down_revision, "base")}
     everything = {r.revision for r in script.walk_revisions()}
     assert everything - migrate.revisions_of_2_0() == below
@@ -413,13 +416,13 @@ def test_a_1x_ledger_gets_its_kinds_and_exchange_1(v070):
 
 def test_an_old_ledgers_accounts_are_taken_in(tmp_path):
     """5.15's old database: "cold2" (7) a wallet; "wallet" (8), alike the
-    reserved "Wallet", a bank renamed; #289's second "BTC Fees" (9) a fee
-    account renamed, so the next start gives 5 its name back; the row naming
-    999 left as it is."""
+    reserved "Wallet", a bank renamed; #289's second "BTC Fees" (9), which
+    1.x's engine made and put a fee's lines in, a fee account renamed, so 5
+    takes its 1.x name back and the app starts; the row naming 999 left as
+    it is."""
     db = _copy(OLD_ACCOUNTS, tmp_path)
     naming_999 = q(db, "SELECT * FROM transactions WHERE to_account_id = 999")
-    upgrade_database(engine_for(db))
-    assert q(db, "SELECT name FROM accounts WHERE id = 5") == [("Fees",)]  # until the start's seed_defaults
+    assert q(db, "SELECT count(*) FROM ledger_entries WHERE account_id = 9") == [(1,)]
     init_db(engine_for(db))
     assert q(db, ACCOUNT_ROWS) == FIXED_ROWS + [
         (7, "cold2", "BTC", "wallet", None, 0),
@@ -441,11 +444,11 @@ def test_an_account_with_externals_id_is_a_fee_account(v070):
 
 
 @pytest.mark.parametrize("rows, names", [
-    ([(7, " Cold​  Storage\t")], {7: "Cold Storage"}),  # a format and a control character, runs of spaces
-    ([(7, "‮evil⁦")], {7: "evil"}),  # bidirectional controls
-    ([(7, "a‍b")], {7: "a‍b"}),  # the zero-width joiner stays
-    ([(7, "Café")], {7: "Café"}),  # NFC
-    ([(12, "  ​ ")], {12: "account 12"}),
+    ([(7, " Cold\u200b  Storage\t")], {7: "Cold Storage"}),  # a format and a control character, runs of spaces
+    ([(7, "\u202eevil\u2066")], {7: "evil"}),  # bidirectional controls
+    ([(7, "a\u200db")], {7: "a\u200db"}),  # the zero-width joiner stays
+    ([(7, "Cafe\u0301")], {7: "Caf\u00e9"}),  # NFC
+    ([(12, "  \u200b ")], {12: "account 12"}),
     ([(7, "x" * 50)], {7: "x" * 40}),
     ([(10, "Cold"), (11, "COLD")], {10: "Cold", 11: "COLD (account 11)"}),
     ([(11, "COLD"), (10, "Cold")], {10: "Cold", 11: "COLD (account 11)"}),  # the lower id keeps it
@@ -454,17 +457,29 @@ def test_an_account_with_externals_id_is_a_fee_account(v070):
     ([(13, "y" * 45), (14, "Y" * 41)], {13: "y" * 40, 14: "Y" * 27 + " (account 14)"}),
     ([(13, "mine"), (14, "Mine (account 15)"), (15, "MINE")],
      {13: "mine", 14: "Mine (account 15)", 15: "MINE (account 15, 2)"}),
-    ([(16, "Café"), (17, "CAFÉ")], {16: "Café", 17: "CAFÉ (account 17)"}),
+    ([(16, "Cafe\u0301"), (17, "CAF\u00c9")], {16: "Caf\u00e9", 17: "CAF\u00c9 (account 17)"}),
+    ([(7, "x" * 39 + " yz")], {7: "x" * 39}),  # no space left at the cut
+    ([(7, "Wallet\u200d")], {7: "Wallet (account 7)"}),  # a joiner at the end goes
+    ([(7, "a\u200db"), (8, "ab")], {7: "a\u200db", 8: "ab (account 8)"}),  # alike: joiners ignored
+    ([(7, "'=Cold")], {7: "=Cold"}),  # the CSV import would drop the apostrophe
+    ([(7, " ' '")], {7: "account 7"}),
 ])
 def test_the_migration_cleans_and_frees_each_extra_accounts_name(rows, names):
     fixed = [(i, name) for i, name, *_ in FIXED_ROWS]
     assert _ours().free_names(fixed + rows) == {**dict(fixed), **names}
 
 
-def test_a_fixed_accounts_name_is_never_changed_by_the_migration():
-    """#289's renamed 5 keeps "Fees" here; seed_defaults gives it "BTC Fees" back."""
-    rows = [(1, "Bank"), (5, "Fees"), (9, "BTC Fees"), (10, "fees")]
-    assert _ours().free_names(rows) == {1: "Bank", 5: "Fees", 9: "BTC Fees (account 9)", 10: "fees (account 10)"}
+@pytest.mark.parametrize("rows, names", [
+    # #289: 5 renamed beside a second "BTC Fees", which a 1.x start couldn't fix
+    ([(1, "Bank"), (5, "Fees"), (9, "BTC Fees"), (10, "fees")],
+     {1: "Bank", 5: "BTC Fees", 9: "BTC Fees (account 9)", 10: "fees"}),
+    # 5 renamed alike 6's name: the rebuild's unique name would have failed
+    ([(5, "usd fees"), (6, "USD Fees")], {5: "BTC Fees", 6: "USD Fees"}),
+])
+def test_ids_1_to_6_take_their_1x_names(rows, names):
+    """Every 1.x start gave them those names; only a ledger #289 stopped
+    starting holds another."""
+    assert _ours().free_names(rows) == names
 
 
 def test_the_migration_goes_back_to_0012(tmp_path):
@@ -548,16 +563,17 @@ def test_a_2_0_databases_upgrade_copy_is_an_ordinary_one():
 
 
 def test_pre_2_0_copies_are_kept_through_going_back_and_later_copies(tmp_path):
-    """Three trips back to 1.x and up again keep three copies; six more
-    copies of the ordinary kind (later upgrades, restores) push none out."""
+    """Seven upgrades from 1.x (six trips back and up again) keep seven
+    copies, more than any other kind keeps; six more copies of the ordinary
+    kind (later upgrades, restores) push none out."""
     db = tmp_path / "btctx.db"
     _move_to(db, "0012")
-    for _ in range(3):
+    for _ in range(6):
         upgrade_database(engine_for(db))
         _move_to(db, "0012", how=command.downgrade)
     upgrade_database(engine_for(db))
     kept = migrate.backup_copies(db, "pre-2.0")
-    assert len(kept) == 4
+    assert len(kept) == 7 > migrate.BACKUPS_KEPT
     for n in range(6):
         migrate.backup_sqlite(db, f"schema-{n}")
     assert migrate.backup_copies(db, "pre-2.0") == kept

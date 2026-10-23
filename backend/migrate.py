@@ -69,9 +69,6 @@ DELETE_COPIES_KEPT = 5
 # the way back to 1.x, never pruned.
 PRE_2_0_KIND = "pre-2.0"
 COPY_KINDS = ("before", DELETE_KIND, "ai", "review", PRE_2_0_KIND)
-# The first 2.0 migration (2.0 spec 5.3), the one whose module says
-# STARTS_2_0: it and the revisions above it are 2.0's, every other one 1.x's
-FIRST_2_0 = "0100"
 # A copy being written: a name no listing of copies matches.
 PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
@@ -109,14 +106,23 @@ def head_revision() -> str:
     return _script().get_current_head()
 
 
+def first_2_0() -> str:
+    """2.0's first migration: the one whose module says STARTS_2_0 (2.0 spec
+    5.3), never a constant naming it."""
+    marked = [rev.revision for rev in _script().walk_revisions() if getattr(rev.module, "STARTS_2_0", False)]
+    if len(marked) != 1:
+        raise MigrationError(f"Exactly one migration must start 2.0; found {len(marked)}.")
+    return marked[0]
+
+
 def revisions_of_2_0() -> set[str]:
     """2.0's revisions: the one marked STARTS_2_0 and every one above it (a
     merge revision of a 1.x migration brought in later included), found by
     walking the chain, since revision ids aren't ordered. Every other known
     revision is 1.x's."""
-    script = _script()
+    script, first = _script(), first_2_0()
     return {rev.revision for rev in script.walk_revisions()
-            if FIRST_2_0 in {r.revision for r in script.iterate_revisions(rev.revision, "base")}}
+            if first in {r.revision for r in script.iterate_revisions(rev.revision, "base")}}
 
 
 def copy_for(revision: str | None) -> tuple[str, str, int | None]:
@@ -421,6 +427,23 @@ def _transactional_engine(engine: Engine) -> Engine:
     return migrator
 
 
+def _drop_unneeded_pre_2_0_copy(result: MigrationResult, kind: str | None, engine: Engine) -> None:
+    """A failed upgrade rolled back, leaving the 1.x database as it was: its
+    pre-2.0 copy, which nothing prunes, goes, or every failed start (a
+    restart loop, StartOS's actions) would add one. Only once the database
+    reads back at the revision it started from."""
+    if result.backup is None or kind != PRE_2_0_KIND:
+        return
+    try:
+        with engine.connect() as conn:
+            unchanged = current_revision(conn) == result.from_revision
+    except Exception:  # can't tell: the copy stays
+        return
+    if unchanged:
+        result.backup.unlink(missing_ok=True)
+        result.backup = None
+
+
 def upgrade_database(engine: Engine, backup: bool = True) -> MigrationResult:
     """Bring the database behind `engine` to the latest schema."""
     script = _script()
@@ -443,6 +466,7 @@ def upgrade_database(engine: Engine, backup: bool = True) -> MigrationResult:
 
     fresh = rev is None and not tables
     db_path = sqlite_file(engine)
+    kind = None
     if backup and not fresh and db_path is not None and db_path.exists():
         kind, label, keep = copy_for(rev)
         result.backup = backup_sqlite(db_path, label, kind, keep)
@@ -458,9 +482,12 @@ def upgrade_database(engine: Engine, backup: bool = True) -> MigrationResult:
             cfg.attributes["connection"] = conn
             command.upgrade(cfg, "head")
     except MigrationError:
+        _drop_unneeded_pre_2_0_copy(result, kind, engine)
         raise
     except Exception as e:
-        saved = f" Your data from before the upgrade is in {result.backup}." if result.backup else ""
+        _drop_unneeded_pre_2_0_copy(result, kind, engine)
+        saved = (f" Your data from before the upgrade is in {result.backup}." if result.backup
+                 else " Your database is unchanged." if kind == PRE_2_0_KIND else "")
         raise MigrationError(f"Upgrading the database schema to {head} failed: {e}.{saved}") from e
     finally:
         if migrator is not engine:

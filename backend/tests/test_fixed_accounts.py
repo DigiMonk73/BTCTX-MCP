@@ -65,15 +65,17 @@ def test_a_fee_still_goes_to_btc_fees_and_the_next_start_works(fresh_app):
     assert renamed.status_code == 400
 
 
-def test_an_account_made_through_1xs_api_gets_a_kind_and_no_name_alike(auth_client, test_engine):
+def test_an_account_made_through_1xs_api_gets_a_kind_and_no_name_alike(fresh_app):
     """Until 2.0's account API (B2b): a BTC account is a wallet, a USD one a
     bank (2.0 spec 5.3), and a name alike another ignoring case, which the
     database's NOCASE column refuses, is a 400, not a server error."""
+    auth_client = TestClient(app)
+    assert auth_client.post("/api/login", json=default_login()).status_code == 200
     made = auth_client.post("/api/accounts/", json={"user_id": 1, "name": "Cold", "currency": "BTC"})
     assert made.status_code == 200, made.text
     bank = auth_client.post("/api/accounts/", json={"user_id": 1, "name": "Savings", "currency": "USD"})
     assert bank.status_code == 200, bank.text
-    with sessionmaker(bind=test_engine)() as db:
+    with sessionmaker(bind=fresh_app.kw["bind"])() as db:
         assert db.get(Account, made.json()["id"]).kind == "wallet"
         assert db.get(Account, bank.json()["id"]).kind == "bank"
     for name in ("COLD", "wallet"):

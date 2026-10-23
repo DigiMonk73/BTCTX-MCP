@@ -1,18 +1,20 @@
 """
 Accounts: reading them, and changes to accounts other than the six fixed
 ones (database.FIXED_ACCOUNTS: Bank, Wallet, Exchange USD, Exchange BTC,
-BTC Fees, USD Fees). Those keep their name, currency and place, and are
-recreated if missing, and no other account takes their names: the ledger
-finds the fee accounts by name, and every start puts a fixed account's
-name back, which a second account of that name would stop (#289).
+BTC Fees, USD Fees). Those keep their currency, kind and place, and are
+recreated if missing; 5 and 6 keep their names too, and no other account
+takes a fixed account's name: the ledger finds the fee accounts by name,
+and every start puts 5's and 6's names back, which a second account of
+that name would stop (#289). 2.0's account book replaces this (B2b).
 """
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from backend.database import FIXED_ACCOUNTS
+from backend.database import FIXED_ACCOUNTS, RENAMEABLE_FIXED
 from backend.models.account import Account
+from backend.models.exchange import Exchange
 from backend.models.transaction import Transaction
 from backend.schemas.account import AccountCreate, AccountUpdate
 
@@ -131,11 +133,14 @@ def delete_account(account_id: int, db: Session):
 
 
 def ensure_special_accounts_exist(db: Session):
-    """Create any missing special account and put back a changed name or currency."""
+    """Create any missing special account and put back a changed currency,
+    kind or exchange, and 5's and 6's names, as a start does (database.seed_defaults)."""
     for acc_id, info in SPECIAL_ACCOUNTS.items():
         special_acc = get_account_by_id(acc_id, db)
         if not special_acc:
-            new_acc = Account(user_id=1, **info)
+            exchange = db.get(Exchange, info["exchange_id"]) if info["exchange_id"] else None
+            name = f"{exchange.name} {info['currency']}" if exchange else info["name"]
+            new_acc = Account(user_id=1, **{**info, "name": name})
             db.add(new_acc)
             try:
                 db.commit()
@@ -147,9 +152,9 @@ def ensure_special_accounts_exist(db: Session):
                     detail=f"Failed to create special account ID={acc_id}. Possibly ID in use."
                 )
         else:
-            if special_acc.name != info["name"]:
+            if acc_id not in RENAMEABLE_FIXED:
                 special_acc.name = info["name"]
-            if special_acc.currency != info["currency"]:
-                special_acc.currency = info["currency"]
+            for key in ("currency", "kind", "exchange_id"):
+                setattr(special_acc, key, info[key])
             db.commit()
             db.refresh(special_acc)
