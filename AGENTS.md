@@ -297,7 +297,9 @@ from the Transaction row alone.
   River import's check (`river_import.annotate_duplicates`) leaves out only
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
-  timezone). The AI's rows
+  timezone). A row is only ever compared with transactions of its own
+  currency, bitcoin with bitcoin and dollars with dollars, in every pass
+  (`_compatible`, #581). The AI's rows
   also need the same type, accounts (from and to: a payout into Exchange
   BTC beside one recorded into Wallet isn't that payout, only similar,
   #522), source or purpose and a Buy's basis (`entry_import.ENTRY_RULE`);
@@ -331,8 +333,10 @@ from the Transaction row alone.
   matched (`matched_tx_id`), which is kept for it, so an edit can't move a
   match; the other rows are checked against the rest. The same
   amount within 48 hours with anything else different is only similar:
-  flagged, never skipped by itself; a River bitcoin move of only a near
-  amount starts unticked.
+  flagged, never skipped by itself. So is a bitcoin move (a Transfer or
+  Withdrawal; never a dollar row, #581) of a near amount, within 20 %
+  (one typed by hand guesses its network fee); a River bitcoin move of
+  only a near amount starts unticked.
 - **Prices**: every valuation goes through `services/hourly_prices.price_at`
   (#144): the opening price of the moment's UTC hour (the tax timezone never
   changes the hour), else the UTC day's 00:00 price

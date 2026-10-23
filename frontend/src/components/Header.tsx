@@ -1,15 +1,22 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import api from "../api";
+import { requestLogout } from "../utils/logoutRequest";
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  /** Whether the page holds changes not yet saved (the transaction panel). */
+  hasUnsavedChanges: () => boolean;
+}
+
+const Header: React.FC<HeaderProps> = ({ hasUnsavedChanges }) => {
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    const confirmed = window.confirm("Are you sure you want to log out?");
-    if (confirmed) {
-      await api.post("/logout");
-      navigate("/login");
+  // One question, and nothing sent before its answer: with unsaved changes
+  // the transaction panel's "Discard changes?" stops the way to /logout,
+  // which logs out (#536); otherwise this one. The way carries this
+  // request's token, which /logout needs (and Discard changes keeps).
+  const handleLogout = () => {
+    if (hasUnsavedChanges() || window.confirm("Are you sure you want to log out?")) {
+      navigate("/logout", { state: { logout: requestLogout() } });
     }
   };
 
