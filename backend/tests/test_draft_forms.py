@@ -311,9 +311,21 @@ def watch(tmp_path, monkeypatch):
     return script, irs
 
 
+def _follows_the_figures_rule(body):
+    """A new year's forms follow the figures rule (AGENTS.md, "Reviews"):
+    the printed forms checked; no existing figure moved, Claude merges; an
+    existing figure in a different box or line, the owner's OK on the
+    before-and-after. Never the owner's "merge" on the code."""
+    assert "the figures rule" in body and "test_printed_forms.py" in body
+    assert "Claude merges it" in body and "before-and-after" in body
+    assert "so it waits for the owner's" not in body
+
+
 def test_the_watch_asks_once_to_ship_a_new_draft(watch):
     script, irs = watch
-    assert [s["title"] for s in script.due()] == [f"IRS forms: ship the {YEAR} draft as the preview"]
+    steps = script.due()
+    assert [s["title"] for s in steps] == [f"IRS forms: ship the {YEAR} draft as the preview"]
+    _follows_the_figures_rule(steps[0]["body"])
     shutil.copytree(irs["draft"], draft_forms.SHIPPED_DIR / str(YEAR))
     assert script.due() == []  # shipped: nothing to do
 
@@ -333,7 +345,9 @@ def test_the_watch_asks_for_the_final_forms(watch, tmp_path):
     steps = script.due()
     assert irs["asked"] == max(BUNDLED) + 1
     assert [s["title"] for s in steps] == [f"IRS forms: add the final {YEAR} Form 8949 and Schedule D"]
-    assert f"irs_new_year.py {YEAR}" in steps[0]["body"] and "owner's \"merge\"" in steps[0]["body"]
+    assert f"irs_new_year.py {YEAR}" in steps[0]["body"]
+    _follows_the_figures_rule(steps[0]["body"])
+    assert "The release waits for the owner's \"merge\"" in steps[0]["body"]
 
 
 def test_the_watch_asks_nothing_for_drafts_where_finals_belong(watch, tmp_path):

@@ -330,8 +330,10 @@ All notable changes to BitcoinTX are documented in this file.
   merges it; if a figure moves on purpose, the owner first approves a
   plain-words before-and-after (which figures, by how much, why, the tax
   rule), never the code; a figure that moves by mistake is fixed, never
-  put to the owner. The StartOS package, releases and anything sent to
-  Start9 keep the owner's "merge".
+  put to the owner. A new tax year's IRS forms follow it too: the issues
+  the IRS forms watch opens (`scripts/irs_new_year.py`) say so, and
+  `docs/IRS_ANNUAL_FORM_UPDATE.md` with them. The StartOS package,
+  releases and anything sent to Start9 keep the owner's "merge".
 
 ## [v1.2.9] - 2026-10-18 - The stable version: the bugs found since 1.2.8 fixed, the price history without Tor, no longer root
 

@@ -966,6 +966,13 @@ figures; the owner isn't asked to review code:
   (a bug the change uncovered), it becomes a figure moved on purpose,
   above.
 
+A new tax year's IRS forms (or the next year's draft preview) follow it
+too: the printed forms are checked (`test_printed_forms.py`, and a look at
+each new form, docs/IRS_ANNUAL_FORM_UPDATE.md). Adding a year moves no
+existing figure, so Claude merges it; if the new forms put existing data in
+a different box or line, that's a figure moved on purpose, above. The
+release that ships them keeps the owner's "merge".
+
 A change in what the app does for the owner is still agreed with them
 before it's written.
 
@@ -1117,9 +1124,11 @@ one session. Claude suggests this setup when a request is that big.
   the session merge `develop` in itself, its session, or one the lead
   starts for it, does that and fixes what broke; a session still working
   on that branch pulls before its next push), waits for green checks,
-  checks that the owner's "merge" is quoted on it where one is needed,
-  and merges. Dependabot's pull requests, and any other merge into
-  `develop` while big work runs, go through the same queue. Pull
+  checks that the owner's "merge", or OK on a before-and-after, is quoted
+  on it where one is needed (none for a change that moves no figure:
+  "Reviews", the figures rule), and merges. Dependabot's pull requests,
+  and any other merge into `develop` while big work runs, go through the
+  same queue. Pull
   requests that touch the same files or tests, in one session or
   several, merge one at a time, each tested on top of the one before;
   the lead plans that order when it hands out the work. (#413 merged on

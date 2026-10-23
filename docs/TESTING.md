@@ -237,8 +237,11 @@ change in a figure and names where. After a change meant to move figures:
 make reference-figures      # rewrites testdata/reference_figures.json
 ```
 
-and the pull request shows the difference; a change in tax figures waits
-for the owner's "merge".
+and the pull request shows the difference. Then the figures rule
+(AGENTS.md, "Reviews"): a figure moved on purpose gets the owner's OK on a
+plain-words before-and-after, never on code; a figure moved by mistake is
+fixed, never accepted here. A change that moves no figure merges on Claude's
+review once every figures check is green.
 
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box
