@@ -114,9 +114,21 @@ carry its `Co-Authored-By` line.
   in the app or the connector).
 - **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
   deleted.
+- **`2.0`**: BitcoinTX 2.0 being built (#251), until it merges into
+  `develop` at its release. Its steps arrive by pull request
+  (`gh pr create --base 2.0`), one per step, for which the build's
+  lead turns on auto-merge from its queue on #251 ("Big work"),
+  squashed, after the tag `pin/2.0-step-<n>` on its tip. `develop`
+  comes in before every 2.0 session by a pull request of its own,
+  merged with a merge commit (`gh pr merge --merge`), never a rebase
+  or a squash. Never commit on a local `2.0`, never force-push it,
+  never move or delete a pin. Its branches are named `2.0-…` (git
+  refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
+  the steps and where they stand: #251.
 
 The pre-push hook refuses a push to `main` of anything not already on
-GitHub's `develop`, and `release.yml` refuses a release commit that isn't on
+GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
+or moves or deletes a `pin/2.0-*` tag), and `release.yml` refuses a release commit that isn't on
 `main`. GitHub's rulesets (Settings → Rules; only the owner changes them)
 add: `main` can't be deleted or force-pushed ("Protect main", also on the
 mirror); `develop` can't either, and takes changes only by pull request,
@@ -131,7 +143,9 @@ request's checks have run on everything already merged. "Protect
 staging" guards `staging`: pull requests only (squash, or a merge commit
 for "develop into staging"), "CI passed" required, no up-to-date rule (so
 a night's pull requests merge side by side), and no deletion or force
-push.
+push. "Protect 2.0" guards `2.0` the same way as "Protect staging" (squash,
+or a merge commit for a `develop` merge), and "Protect 2.0 pins" keeps
+each `pin/2.0-*` tag where it was made: created, never moved or deleted.
 A job is required by being in "CI passed"'s `needs` (`ci.yml`), so renaming,
 splitting or adding one changes no ruleset; only a rename of "CI passed"
 itself would. A release tag (`v*`) can't
@@ -152,6 +166,12 @@ to; the release workflow still creates new ones. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
+  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's:
+  each `develop` merge re-points the first one's `down_revision` to
+  1.x's head until the first 2.0 pre-release is published, then 1.x's
+  join by Alembic merge revisions (#251, decision 3; #251 says which
+  applies now). On `develop`, 1.x numbers its migrations on from its
+  own head as always.
 - **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
   `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
@@ -730,6 +750,12 @@ command gives up after 20 minutes and then reads whatever log is there.
 
 Full steps, the package version and the signing/mirror secrets:
 `startos/UPDATING.md`. In short:
+
+2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
+7.4's B10a and B10b: their version bumps go into `2.0`, not
+`develop`; a pre-release is published from `prerelease/v2.0.0-beta.N`;
+and for the release, `develop` takes nothing from the last `develop`
+merge until `2.0` is in it.
 
 1. In a pull request straight into `develop`, like an urgent fix
    ("Branches"), opened after a daily merge so it carries what `staging`
