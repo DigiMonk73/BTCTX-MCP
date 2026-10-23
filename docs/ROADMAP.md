@@ -4,33 +4,18 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Now: the stable version, 1.2.9, on Community Beta
+## Now: 1.2.10, the first maintenance update of the stable version
 
-The goal (owner, 2026-10-11): a stable release several months before the
-2026 filing season, promoted from Start9's Community Beta to the Community
-Registry, then maintenance only. The plan and its checklist are #143. The
-version plan (owner, 2026-10-14, then 2026-10-16): 1.2.9, with a fix for
-every bug found in 1.2.8's user test and in the reviews since, is the stable
-version of 1.x (#369; it shipped with nine minor known issues, none of which
-can make a figure wrong, listed in its release notes). 1.2.9 was released
-on 2026-10-18 and has been on Community Beta since that day; the owner
-asks Start9 to promote it when they're ready (Start9 sets no waiting
-time; #251, decision 22) (1.2.8 isn't
-promoted; the Community Registry still serves 1.2.7). Meanwhile it's
-tested again on the Mac, Docker and StartOS (#552). Nothing that changes
-the package goes to Start9 until it's promoted, so what's under "Soon"
-waits for the maintenance releases after promotion.
+1.2.9 is the stable version of 1.x (#143, #369): released on 2026-10-18,
+it's on Start9's Community Registry (it serves 1.2.9:0, checked 2026-10-22),
+promoted from Community Beta. 1.2.10 fixes the four bugs found since that
+could make a tax figure wrong (#535, #549, #580's busy save, #581) and the
+nine minor known issues 1.2.9 listed.
 
-After 1.2.9, until 2.0 replaces it, 1.x gets maintenance updates (bug and
-security fixes, each year's IRS forms, the price history's updates) and the
-few small improvements under "Soon" (the owner, 2026-10-17 and 2026-10-18);
+Until 2.0 replaces it, 1.x gets maintenance updates (bug and security
+fixes, each year's IRS forms, the price history's updates) and the few
+small improvements under "Soon" (the owner, 2026-10-17 and 2026-10-18);
 new features go into 2.0, below. No dates are promised.
-
-- [ ] **The stable-release checklist** (#143; ticked at promotion): every
-      blocking item, then 1.2.9's test on Community Beta, then the
-      promotion request when the owner is ready.
-      It includes a full security review, a privacy audit of every request
-      the app can make, and a check against current IRS guidance.
 
 ## Soon
 

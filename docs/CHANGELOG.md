@@ -4,6 +4,34 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
+
+**In short.** 1.2.10 is the first maintenance update of 1.2.9, the stable
+version of BitcoinTX 1.x. It fixes four bugs that could make a tax figure
+wrong (the entries marked "tax figures" below: River's import and the AI
+connector compared bitcoin with dollar amounts, #581; a spend's network fee
+ignored its Broker form setting on Form 8949, #549; a save that failed could
+be saved later with the next one, #580; with your own Mempool, a value
+priced during its history's download could take the day's price, #535),
+and every known issue 1.2.9 listed. Each of those entries says who could be
+affected and what to do; most ledgers need nothing more.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself).
+2. **Update the AI connector** to `btctx-mcp==1.2.10` in your AI app's
+   configuration, then restart the AI app. It needs Python 3.11 or newer
+   now (#546): if the machine running your AI app has only Python 3.10,
+   run `uv python install 3.13` once first.
+3. **Running from source:** BitcoinTX needs Python 3.11 or newer (#546).
+   The Docker image, StartOS and the Mac app already run Python 3.13.
+4. Then read the entries marked "tax figures" below: each says whether
+   there's anything to do. No recalculation is needed.
+
+**Known issues:** none known.
+
+
 ### Changed
 - **"Multiple wallets", never "several"** (the owner, 2026-10-18). Where
   BitcoinTX speaks of more than one wallet, exchange or bank account, it
@@ -287,6 +315,17 @@ All notable changes to BitcoinTX are documented in this file.
   brings (a header parsed in quadratic time, CVE-2026-114603). The IRS
   forms come out byte-identical for the reference test
   ledger, and the Complete Tax Report's text is the same.
+
+### StartOS package
+- **Package 1.2.10:0** (Start9's `versions.md`). Its release notes, in five
+  languages, cover everything since 1.2.9:0, which the community registry
+  serves: what to do after updating (the AI connector, now on Python 3.11
+  or newer), each tax-figure fix with who could be affected and what to
+  do, the other fixes and the security updates. It has no migration of its
+  own: no fix needs a recalculation. 1.2.9:0's migration (Recalculate
+  Ledger once, and dropping the password the store kept) moves to its own
+  file (`versions/v1.2.9_0.ts`), so an install on 1.2.8:0 or earlier still
+  runs it on the way.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which

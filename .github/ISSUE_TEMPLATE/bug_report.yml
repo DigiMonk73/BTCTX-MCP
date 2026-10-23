@@ -60,8 +60,8 @@ body:
     id: version
     attributes:
       label: BitcoinTX version
-      description: "Settings → About BitcoinTX shows it (1.2.6 and later). Or open your BitcoinTX address followed by /api/health (for example http://127.0.0.1:8765/api/health in the macOS app): it shows the version, without logging in. On StartOS, the Services list shows the package version too. AI connector: the version in your AI app's configuration (btctx-mcp==1.2.9)."
-      placeholder: "1.2.9 (StartOS package 1.2.9:0)"
+      description: "Settings → About BitcoinTX shows it (1.2.6 and later). Or open your BitcoinTX address followed by /api/health (for example http://127.0.0.1:8765/api/health in the macOS app): it shows the version, without logging in. On StartOS, the Services list shows the package version too. AI connector: the version in your AI app's configuration (btctx-mcp==1.2.10)."
+      placeholder: "1.2.10 (StartOS package 1.2.10:0)"
     validations:
       required: true
   - type: textarea
