@@ -284,7 +284,11 @@ jobs:
           echo "${START_CLI_SHA256}  /usr/local/bin/start-cli" | sha256sum -c -
           sudo chmod +x /usr/local/bin/start-cli && start-cli --version
       - run: npm ci
-      - name: Type check, SDK lint, format check, bundle
+      # From start-sdk 3.1.0 the SDK's make formats startos/ instead of
+      # rejecting unformatted source, so the check runs before it
+      - name: Format check
+        run: npm run format:check
+      - name: Type check, SDK lint, bundle
         run: make javascript/index.js
       - name: Manifest (id, version vs VERSION, image tag, upgrade paths)
         run: node --no-deprecation scripts/check-manifest.mjs

@@ -334,11 +334,14 @@ withdrawal, can't be matched on Form 8949 yet (#551).
   community registry doesn't serve it yet (Start9's `versions.md`): Start9's
   build of 1.2.10:0 uses 3.1.0, and the `btctx.s9pk` on the v1.2.10 GitHub
   release was packed with 3.0.6, the same app and package otherwise. The
-  SDK's changes are fixes (health checks and dependent services start
-  sooner and poll as they should) and zod 4.6.7 in place of
-  `zod-deep-partial`; its minimum StartOS stays 0.4.0.2, and the bundled
-  sibling packages (Mempool's, Tor's) are unchanged. The release notes say
-  so in five languages.
+  SDK's changes for this package are fixes (a daemon waiting on another,
+  BitcoinTX's web interface after its migration, starts sooner; health
+  checks poll as they should), zod 4.6.7 in place of `zod-deep-partial`,
+  and its `make` now formats `startos/` instead of rejecting unformatted
+  source, so CI and the pre-push hook run `npm run format:check` first.
+  Its minimum StartOS stays 0.4.0.2, and the bundled sibling packages
+  (Mempool's, Tor's) are unchanged. The release notes say so in five
+  languages.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which
