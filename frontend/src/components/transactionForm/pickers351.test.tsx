@@ -136,9 +136,11 @@ describe("with more accounts", () => {
   });
 });
 
-it("says so when the accounts won't load, and offers no account to save into", async () => {
+it("says so when the accounts won't load, and saves nothing", async () => {
   const form = await renderForm({ book: ONE_OF_EACH, accountsFail: true });
   await form.pickType("Deposit");
   expect(screen.getByText(ACCOUNTS_FAILED)).toBeTruthy();
   expect(screen.queryByLabelText("Account", { exact: true })).toBeNull();
+  await form.save();
+  expect(form.sent()).toBeUndefined();
 });

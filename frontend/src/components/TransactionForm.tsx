@@ -109,11 +109,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   const onSubmit: SubmitHandler<TransactionFormData> = async (data) => {
     if (submittingRef.current) return;
+    // Without the book no account was chosen: nothing true to save
+    if (!book) {
+      toast.error(ACCOUNTS_FAILED);
+      return;
+    }
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      // The fields that name accounts show only once the book is in
-      toast.success(await saveTransaction(data, book ?? [], transactionId));
+      toast.success(await saveTransaction(data, book, transactionId));
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
