@@ -11,12 +11,12 @@ Make backend/tests/fixtures/reference_1x.db and reference_1x_figures.json
 - the figures: what 1.x's latest code (by default the commit this branch
   forked from develop) gives from a copy of that database migrated to its
   head and recalculated, as a user's first edit after upgrading would
-  (scripts/reference_figures.py). Not the release's own: develop may have
-  fixed figures since it shipped (#549 moves a 2026 fee from box K to L),
-  and every 2.0 step must keep 1.x's figures as they stand.
+  (scripts/reference_figures.py). Not the release's own: develop may fix
+  figures after a release (#549 moved a 2026 fee from box K to L after
+  v1.2.9), and every 2.0 step must keep 1.x's figures as they stand.
 
     .venv/bin/python backend/tests/fixtures/make_reference_1x_db.py \
-        [--release v1.2.9] [--figures-from <develop commit>]
+        [--release v1.2.10] [--figures-from <develop commit>]
 
 Each side's code comes from git (git archive, into a temp folder), and this
 file runs again on it in a process of its own. Rerun it when a develop
@@ -36,7 +36,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-RELEASE = "v1.2.9"
+RELEASE = "v1.2.10"
 FIXTURES = Path(__file__).resolve().parent
 ROOT = FIXTURES.parents[2]
 SCRIPTS = ROOT / "scripts"

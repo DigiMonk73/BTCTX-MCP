@@ -37,7 +37,7 @@ All notable changes to BitcoinTX are documented in this file.
   (`scripts/independent_figures.py`) works from a ledger's own accounts:
   one pile of lots per bitcoin account, a Buy into its own account, each
   exchange's 1099-DA switch, the tax timezone for every date, and a stop
-  at an account it doesn't know. A 1.x ledger saved by v1.2.9's own code
+  at an account it doesn't know. A 1.x ledger saved by the last 1.x release's own code (v1.2.10)
   (`backend/tests/fixtures/reference_1x.db`) must keep its figures when
   upgraded and recalculated, and the before-and-after check
   (`scripts/equivalence_check.py`) compares ledgers frozen at 1.x's.

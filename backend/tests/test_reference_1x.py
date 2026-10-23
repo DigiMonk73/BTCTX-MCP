@@ -1,12 +1,14 @@
 """
 An upgraded 1.x ledger (2.0 spec 5.15): fixtures/reference_1x.db is the
-reference test ledger as the last 1.x release (v1.2.9) saved it, seeded by
-that release's own code, with 1.x's latest figures for it beside it
-(fixtures/reference_1x_figures.json: those of the develop commit 2.0
-forked from, since develop may have fixed figures since v1.2.9). A copy migrated to this code's head
-and recalculated, as a user's first edit after upgrading would, must give
-the same figures. fixtures/make_reference_1x_db.py makes both again, when a
-develop merge brings new reference rows or a 1.x migration.
+reference test ledger as the last 1.x release (make_reference_1x_db.RELEASE)
+saved it, seeded by that release's own code, with 1.x's latest figures for
+it beside it (fixtures/reference_1x_figures.json: those of the develop
+commit 2.0 last took in, since develop may have fixed figures since the
+release). A copy migrated to this code's head and recalculated, as a user's
+first edit after upgrading would, must give the same figures.
+fixtures/make_reference_1x_db.py makes both again, when a develop merge
+brings new reference rows or a 1.x migration, and for each new 1.x release
+(the nightly catch-up lists it).
 """
 
 import importlib.util

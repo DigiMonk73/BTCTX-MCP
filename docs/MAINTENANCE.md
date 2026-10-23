@@ -350,7 +350,7 @@ more for restores.
 - `backend/tests/fixtures/v0_7_0.db` was written by the real v0.7.0 code.
   Don't regenerate it with current code. Nor `old_accounts_1x.db` (1.x's
   code wrote it: `fixtures/make_old_accounts_db.py`) or `reference_1x.db`
-  (v1.2.9's: `fixtures/make_reference_1x_db.py`).
+  (the last 1.x release's, `RELEASE` in `fixtures/make_reference_1x_db.py`).
 
 **2.0's migrations** (on the `2.0` branch while 2.0 is built; plan:
 `docs/temp/2.0-accounts.md` 5.3 and 7.2):
