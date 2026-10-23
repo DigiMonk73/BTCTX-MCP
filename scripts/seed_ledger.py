@@ -48,6 +48,8 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
+# A row's notes, never sent to the server
+NOTES = ("why", "since")
 
 
 class SeedError(Exception):
@@ -57,10 +59,11 @@ class SeedError(Exception):
 # The ledger
 def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it
-    (testdata/reference_ledger.json without its "why" notes)."""
+    (testdata/reference_ledger.json without its notes: "why", and "since",
+    which marks a row 2.0 added)."""
     with open(LEDGER) as f:
         rows = json.load(f)["transactions"]
-    return [{k: v for k, v in row.items() if k != "why"} for row in rows]
+    return [{k: v for k, v in row.items() if k not in NOTES} for row in rows]
 
 
 # The server
