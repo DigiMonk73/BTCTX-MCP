@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **"Is it a bitcoin account?" by currency, and one copy of the account
+  rules** (B3, #348). Every check that asked whether an account holds
+  bitcoin now asks the account book instead of the ids of Wallet and
+  Exchange BTC, so a second wallet or exchange follows the same rules as
+  the first: income, rebates and inheritances into it count, a gift or a
+  spend from it is valued, the reports, the dashboard, the CSV export,
+  Ledger Review and its hour check see it. Which accounts each type of
+  transaction may use is one set of rules for the save, the CSV import,
+  River and the AI import, in plain sentences ("A Deposit comes from
+  External.", "A Sell from Exchange BTC goes into Exchange USD."): the
+  CSV instructions PDF shows them. Saving into an added account still
+  waits for a later step. **A ledger started before v0.9.2** whose
+  transactions name an account made through 1.x's account API now counts
+  them by that account's currency (the owner's decision): an income
+  deposit into such a bitcoin account is income, as it always should have
+  been. Ledger Review lists those rows ("Transactions in an account made
+  through BitcoinTX's old account API") until each is saved or deleted.
+  No ledger made since v0.9.2 changes.
 - **The account book and the account API** (B2b, #347). One place answers
   every question about an account (its kind, currency, exchange, 1099-DA
   switch, name), and the account API adds a bank, a wallet or an exchange

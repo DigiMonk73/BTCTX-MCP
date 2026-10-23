@@ -223,11 +223,13 @@ def seed_defaults(bind=None) -> None:
     and the six fixed accounts (IDs 1-6), tied to the first user, each with
     its currency, kind and exchange; 5 and 6 with their names too, while
     1-4 keep the names given them (2.0 spec 5.2). A missing one is made with
-    its 1.x name (3 and 4 named after exchange 1). Idempotent.
+    its 1.x name (3 and 4 named after exchange 1); the list of rows from
+    before 0.9.2, once (services/old_rows.py). Idempotent.
     """
     from backend.models.user import User
     from backend.models.account import Account
     from backend.models.exchange import Exchange
+    from backend.services import old_rows
 
     db = sessionmaker(bind=bind or engine)()
     try:
@@ -257,6 +259,7 @@ def seed_defaults(bind=None) -> None:
             else:
                 name = f"{exchange.name} {acct['currency']}" if acct["exchange_id"] else acct["name"]
                 db.add(Account(user_id=user.id, **{**acct, "name": name}))
+        old_rows.note_once(db)
         db.commit()
 
         found_ids = {a.id for a in db.query(Account).all()}

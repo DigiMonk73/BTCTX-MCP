@@ -14,14 +14,15 @@ Renames come with B8.
 
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from fastapi import HTTPException
-from sqlalchemy import func, select, union_all
+from sqlalchemy import event, func, select, union_all
 from sqlalchemy.orm import Session
 
 from backend.constants import ACCOUNT_BTC_FEES, ACCOUNT_EXTERNAL, ACCOUNT_USD_FEES, RESERVED_NAMES
-from backend.database import take_write_lock
+from backend.database import FIXED_ACCOUNTS, take_write_lock
 from backend.models.account import Account
 from backend.models.app_setting import AppSetting, save_setting
 from backend.models.exchange import Exchange
@@ -70,23 +71,28 @@ class BookAccount:
     name: str
     kind: str
     currency: str
-    exchange_id: int | None
-    hidden: bool
+    exchange_id: int | None = None
+    hidden: bool = False
 
 
 class AccountBook:
     """Every question about an account, by id (or a name from a file)."""
 
-    def __init__(self, accounts: list[BookAccount], exchanges: dict[int, tuple[str, bool]]):
+    def __init__(self, accounts: Iterable[BookAccount], exchanges: dict[int, tuple[str, bool]] | None = None):
         # External is everything outside the ledger, never an account, whatever row an old database has as 99
         self._accounts = {a.id: a for a in accounts if a.id != ACCOUNT_EXTERNAL}
-        self._exchanges = exchanges
+        self._exchanges = exchanges or {}
         self._by_key = {name_key(a.name): a.id for a in self._accounts.values()}
 
     def is_btc(self, account_id: int | None) -> bool:
         """One of your bitcoin accounts: a wallet, or an exchange's BTC account (5.1)."""
         account = self._accounts.get(account_id)
         return account is not None and account.kind in ("wallet", "exchange") and account.currency == "BTC"
+
+    def is_yours(self, account_id: int | None) -> bool:
+        """A bank, a wallet or an exchange's account, hidden ones too (5.1):
+        never a fee account, External or an id with no account."""
+        return self.kind(account_id) in YOUR_KINDS
 
     def currency(self, account_id: int | None) -> str | None:
         """"USD" or "BTC"; None for External or an id with no account."""
@@ -139,11 +145,29 @@ class AccountBook:
                     None)
 
 
+# The session's book, kept in Session.info until its database transaction ends
+BOOK = "account_book"
+
+
 def account_book(db: Session) -> AccountBook:
+    """The book from the accounts and exchanges tables, read once per
+    database transaction (5.4: once per request, import, recalculation or
+    report) and kept in the session until that transaction ends, so an
+    account added since is in the next one."""
+    if BOOK in db.info:
+        return db.info[BOOK]
     accounts = [BookAccount(a.id, a.name, a.kind, a.currency, a.exchange_id, a.hidden)
                 for a in db.query(Account).order_by(Account.id)]
     exchanges = {e.id: (e.name, e.sends_1099da) for e in db.query(Exchange)}
-    return AccountBook(accounts, exchanges)
+    db.info[BOOK] = book = AccountBook(accounts, exchanges)
+    return book
+
+
+# Any end of its transaction: a commit, a rollback, a close (a session used
+# again after close() starts afresh) or a savepoint's
+@event.listens_for(Session, "after_transaction_end")
+def _forget_book(session: Session, _transaction) -> None:
+    session.info.pop(BOOK, None)
 
 
 def clean_name(text: str) -> str:
@@ -359,3 +383,9 @@ def _trimmable(c: str) -> bool:
 
 # Reserved names (5.1) by their comparison key
 RESERVED_KEYS = {name_key(name): account_id for name, account_id in RESERVED_NAMES.items()}
+
+
+# 1.x's six accounts and its one exchange, as seed_defaults makes them: what
+# a file can name until B5a (the reserved names), so the CSV and AI imports'
+# book when they're given none
+FIXED_BOOK = AccountBook((BookAccount(**a) for a in FIXED_ACCOUNTS), {1: ("Exchange", True)})

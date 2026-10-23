@@ -298,9 +298,9 @@ from the Transaction row alone.
   "Rent"), the import previews leave them out with a warning, and every
   figure and check (the tax report and its values from the price, the
   dashboard, Ledger Review and its hour check, `priced_values`, the AI's
-  duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
-  older save left there counts for nothing. The Transactions list and the
-  Transaction History report show what's stored. It has no cost basis,
+  duplicate check) reads them only on a bitcoin account (`book.is_btc`), so
+  one an older save left there counts for nothing. The Transactions list
+  and the Transaction History report show what's stored. It has no cost basis,
   gain or holding period either (no lots): every save and recalculation
   clears any it holds, such as a bitcoin withdrawal's an edit made it from
   (`compute_sell_summary_from_disposals`, #487).
@@ -313,7 +313,7 @@ from the Transaction row alone.
   at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
   (`_revalue_income_deposit`). Income (report, dashboard) counts only
-  deposits into Wallet or Exchange BTC (`constants.BTC_ACCOUNTS`): a USD
+  deposits into a bitcoin account (`AccountBook.is_btc`): a USD
   deposit is dollars, whatever value it carries.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued
   like income deposits (`constants.VALUED_AT_RECEIPT`: the same filling,

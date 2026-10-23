@@ -41,6 +41,7 @@ from backend.constants import (
 from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
+from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.csv_import import (
     _amount_currency,
@@ -570,6 +571,7 @@ def annotate_duplicates(
         return  # nothing to look up the ledger for
     existing: list[Transaction] = db.query(Transaction).order_by(Transaction.id).all()  # ties: the oldest first
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
+    book = account_book(db)
     used_tx_ids: set = set(reserved_tx_ids)
     by_time = sorted(proposals, key=lambda p: p.timestamp)
     nearby = _nearby(proposals, existing)
@@ -578,7 +580,7 @@ def annotate_duplicates(
         """One pass: `match` for every row still new (of `types`), in `order` (time, unless given)."""
         for proposal in order:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
-                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids), used_tx_ids)
+                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids, book), used_tx_ids)
 
     timed_first = sorted(proposals, key=_timed_first)
     for same_amount in rule.amounts:
@@ -588,8 +590,8 @@ def annotate_duplicates(
     if exact_only:
         return
     for same_amount in rule.amounts:
-        each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz))
-    each_new(_match_roughly, types=("Transfer", "Withdrawal"))
+        each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz, book=book))
+    each_new(partial(_match_roughly, book=book), types=("Transfer", "Withdrawal"))
 
 
 def _timed_first(proposal: RiverProposal) -> tuple[bool, datetime]:
@@ -629,19 +631,20 @@ def _window(moment: datetime) -> tuple[datetime, datetime]:
     return low, high
 
 
-def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set) -> list[Transaction]:
+def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set,
+                book: AccountBook) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
     going the same way (_compatible). The window is checked here too, so
     that over the whole ledger (the speed test's reference) it's exact."""
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
-        and _compatible(proposal, tx)
+        and _compatible(proposal, tx, book)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
 
 
-def _compatible(proposal: RiverProposal, tx: Transaction) -> bool:
+def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> bool:
     """A compatible type going the same way: from the row's account or to
     it, so a send never matches a deposit, nor a receive a withdrawal (#253);
     and in the row's currency, so a bitcoin amount is never a dollar one of
@@ -649,16 +652,16 @@ def _compatible(proposal: RiverProposal, tx: Transaction) -> bool:
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
         and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
-        and _in_dollars(tx) == _in_dollars(proposal)
+        and _in_dollars(tx, book) == _in_dollars(proposal, book)
     )
 
 
-def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, tz) -> bool:
+def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, tz, book: AccountBook) -> bool:
     """Whether pass 1 could take `tx` for `proposal`: a compatible type going
     the same way, the same moment, an amount `rule` accepts and nothing
     else different (#253)."""
     return (
-        _compatible(proposal, tx) and _same_moment(proposal, tx, tz)
+        _compatible(proposal, tx, book) and _same_moment(proposal, tx, tz)
         and any(same(proposal, tx) for same in rule.amounts) and not rule.differences(proposal, tx)
     )
 
@@ -685,6 +688,7 @@ def match_by_moving(
         return  # every transaction taken: none can be freed
     proposals = [*stuck, *holders]
     tz = get_tax_timezone(db) if any(p.day for p in proposals) else timezone.utc
+    book = account_book(db)
     nearby = _nearby(proposals, existing)
     duplicates: dict[int, list[Transaction]] = {}
 
@@ -692,7 +696,7 @@ def match_by_moving(
         """Its duplicates it may take, nearest first, found once."""
         if id(proposal) not in duplicates:
             duplicates[id(proposal)] = sorted(
-                (tx for tx in nearby[id(proposal)] if tx.id not in kept_tx_ids and is_duplicate(proposal, tx, rule, tz)),
+                (tx for tx in nearby[id(proposal)] if tx.id not in kept_tx_ids and is_duplicate(proposal, tx, rule, tz, book)),
                 key=lambda tx: abs(_as_utc(tx.timestamp) - proposal.timestamp),
             )
         return duplicates[id(proposal)]
@@ -755,7 +759,7 @@ def _match_exactly(proposal: RiverProposal, candidates: list[Transaction], used_
 
 
 def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
-                   same_amount, differences, tz) -> None:
+                   same_amount, differences, tz, book: AccountBook) -> None:
     best = _nearest(proposal, [tx for tx in candidates if same_amount(proposal, tx)])
     if best is None:
         return
@@ -764,20 +768,21 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
     proposal.discrepancy = (
-        f"Same {'dollar' if _in_dollars(best) else 'BTC'} amount as tx #{best.id} ({_type_and_amount(best)}), "
+        f"Same {'dollar' if _in_dollars(best, book) else 'BTC'} amount as tx #{best.id} "
+        f"({_type_and_amount(best, book)}), "
         f"{'; '.join(what)}: it may be the same transaction"
     )
 
 
-def _in_dollars(tx: Transaction | RiverProposal) -> bool:
+def _in_dollars(tx: Transaction | RiverProposal, book: AccountBook) -> bool:
     """Whether its amount is dollars: the AI's rows can be dollar deposits,
     withdrawals and transfers, beside River's bitcoin ones (#525)."""
-    return _amount_currency(tx.type, tx.from_account_id, tx.to_account_id) == "USD"
+    return _amount_currency(tx.type, tx.from_account_id, tx.to_account_id, book) == "USD"
 
 
-def _type_and_amount(tx: Transaction) -> str:
+def _type_and_amount(tx: Transaction, book: AccountBook) -> str:
     """A transaction as a note names it: "Deposit $500.00", "Buy 0.00030000 BTC"."""
-    if _in_dollars(tx):
+    if _in_dollars(tx, book):
         return f"{tx.type} ${Decimal(tx.amount or 0):,.2f}"
     return f"{tx.type} {btc_text(tx.amount or 0)} BTC"
 
@@ -802,12 +807,13 @@ def _gap_text(gap: timedelta) -> str:
     return f"{count} {unit}{'' if count == 1 else 's'}"
 
 
-def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set) -> None:
+def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
+                   book: AccountBook) -> None:
     """A bitcoin move within ±20 % of a recorded one (pass 3): a move typed
     by hand, its network fee guessed, is approximate. Never a dollar row:
     dollars are typed to the cent, and $1,250 beside $1,500 is another
     payment (#581)."""
-    if _in_dollars(proposal):
+    if _in_dollars(proposal, book):
         return
     amount = _proposal_ledger_amount(proposal)
     close = [
@@ -823,6 +829,6 @@ def _match_roughly(proposal: RiverProposal, candidates: list[Transaction], used_
     proposal.status = STATUS_DISCREPANCY
     proposal.near_amount = True
     proposal.discrepancy = (
-        f"Likely the same event as tx #{best.id} ({_type_and_amount(best)}) recorded with a "
+        f"Likely the same event as tx #{best.id} ({_type_and_amount(best, book)}) recorded with a "
         f"different amount"
     )

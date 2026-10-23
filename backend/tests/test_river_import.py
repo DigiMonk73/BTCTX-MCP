@@ -741,7 +741,7 @@ class TestExecute:
             "cost_basis_usd": "25.00",
         }]})
         assert r.status_code == 400
-        assert "Bank" in r.text
+        assert "A Buy is paid from a bank or from an exchange's USD account." in r.json()["detail"]
 
     def test_atomic_rollback_on_failure(self):
         delete_all_transactions()

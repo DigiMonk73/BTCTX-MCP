@@ -14,7 +14,7 @@ from decimal import Decimal
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS
+from backend.constants import ACCOUNT_NAME_TO_ID
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth, import_failure
 from backend.schemas.river_import import (
@@ -25,6 +25,7 @@ from backend.schemas.river_import import (
     RiverProposalOut,
 )
 from backend.schemas.csv_import import CSVParseError
+from backend.services.account import AccountBook, account_book
 from backend.services import hourly_prices
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
@@ -185,7 +186,7 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    to_check = _rows_to_check(payload.rows)
+    to_check = _rows_to_check(payload.rows, account_book(db))
     reserved = {row.matched_tx_id for row in payload.rows if row.matched_tx_id is not None}
     imported_count = 0
     if to_check:
@@ -220,7 +221,7 @@ def execute_river_import(
     )
 
 
-def _rows_to_check(rows: list[RiverExecuteRow]) -> list[tuple[int, dict, RiverExecuteRow]]:
+def _rows_to_check(rows: list[RiverExecuteRow], book: AccountBook) -> list[tuple[int, dict, RiverExecuteRow]]:
     """The checked rows the import may save (#253), each with its number
     among the rows kept and its row: those the preview didn't find in the
     ledger, and those it found that the owner ticked (another transaction,
@@ -229,7 +230,7 @@ def _rows_to_check(rows: list[RiverExecuteRow]) -> list[tuple[int, dict, RiverEx
     the owner's edits can't move a match."""
     kept = [row for row in rows if not row.left_out]
     return [
-        (i + 1, tx_data, row) for i, (tx_data, row) in enumerate(zip(_validated_rows(kept), kept))
+        (i + 1, tx_data, row) for i, (tx_data, row) in enumerate(zip(_validated_rows(kept, book), kept))
         if row.matched_tx_id is None or row.not_a_duplicate
     ]
 
@@ -245,7 +246,7 @@ def _not_in_the_ledger(to_check: list[tuple[int, dict, RiverExecuteRow]], reserv
     return [tx_data for (_number, tx_data, _row), stub in zip(to_check, stubs) if stub.status == STATUS_NEW]
 
 
-def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
+def _validated_rows(rows: list[RiverExecuteRow], book: AccountBook) -> list[dict]:
     """Each row checked by the CSV import's row check, its Transfer's amount
     with its BTC fee in (_csv_row); 400 listing the first five errors when
     any row has one, each under the row number the preview showed (#455)."""
@@ -253,7 +254,7 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     all_errors: list[str] = []
     for i, row in enumerate(rows, start=1):
         number = row.row_number if row.row_number is not None else i
-        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row), number)
+        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row, book), number, book=book)
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
@@ -266,14 +267,14 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     return tx_datas
 
 
-def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
+def _csv_row(row: RiverExecuteRow, book: AccountBook) -> dict[str, str]:
     """A row as the CSV import reads it: text, River's own amounts but a
     Transfer's, which is BitcoinTX's (_ledger_amount)."""
     ts = row.date
     return {
         "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": row.type,
-        "amount": number_text(_ledger_amount(row)),
+        "amount": number_text(_ledger_amount(row, book)),
         "from_account": row.from_account,
         "to_account": row.to_account,
         "cost_basis_usd": number_text(row.cost_basis_usd),
@@ -288,7 +289,7 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
     }
 
 
-def _ledger_amount(row: RiverExecuteRow) -> Decimal:
+def _ledger_amount(row: RiverExecuteRow, book: AccountBook) -> Decimal:
     """
     River leaves a transfer's fee out of its amount; BitcoinTX's, the CSV's
     and the save's, has a BTC fee in (ledger_amount). The row check then
@@ -298,7 +299,7 @@ def _ledger_amount(row: RiverExecuteRow) -> Decimal:
     any other row keeps River's amount, so its error names its own column.
     """
     sender = ACCOUNT_NAME_TO_ID.get(row.from_account.strip().lower())
-    if row.type.strip().title() != "Transfer" or sender not in BTC_ACCOUNTS:
+    if row.type.strip().title() != "Transfer" or not book.is_btc(sender):
         return row.amount
     if not (_btc_number(row.amount) and row.amount > 0 and _btc_number(row.fee_amount) and row.fee_amount > 0):
         return row.amount

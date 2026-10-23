@@ -23,9 +23,11 @@ from backend.models.transaction import Transaction
 from backend.schemas.transaction import (
     BTC_DIGITS, BTC_PLACES, USD_DIGITS, USD_PLACES, validate_btc_storable, validate_usd_storable,
 )
+from backend.services.account import FIXED_BOOK, AccountBook
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
     FEE_CURRENCIES, MAX_TEXT, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
+    account_problems,
     amount_problem,
     create_transaction_record,
     fee_cents_problem,
@@ -52,11 +54,6 @@ from backend.constants import (
     GIFT_LIKE_PURPOSES,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
-    ACCOUNT_BANK,
-    ACCOUNT_EXCHANGE_USD,
-    ACCOUNT_EXCHANGE_BTC,
-    ACCOUNT_EXTERNAL,
-    BTC_ACCOUNTS,
     INHERITED_SOURCE,
     VALUED_AT_RECEIPT,
     normalized,
@@ -127,14 +124,16 @@ class ParseResult:
         return len({p.row_number for p in self.previews} | {e.row_number for e in self.errors if e.row_number > 0})
 
 
-def parse_csv_file(content: bytes, tz=timezone.utc) -> ParseResult:
+def parse_csv_file(content: bytes, tz=timezone.utc, book: AccountBook | None = None) -> ParseResult:
     """
     Every row of a CSV file checked, with its errors and warnings. `tz` is
     the tax timezone: a date without a timezone is local to it, and a date
-    alone means noon there (as the MCP entry import reads it).
+    alone means noon there (as the MCP entry import reads it). `book` is
+    the ledger's (account.account_book); without one, 1.x's accounts, all a
+    file can name until B5.
     """
     try:
-        return _parse_rows(content, tz)
+        return _parse_rows(content, tz, book or FIXED_BOOK)
     except csv.Error as exc:
         result = ParseResult()
         result.errors.append(unreadable_csv(exc))
@@ -212,7 +211,7 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     return _file_error(f"The file can't be read as CSV ({exc}).")
 
 
-def _parse_rows(content: bytes, tz) -> ParseResult:
+def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
     reader = csv.DictReader(io.StringIO(_decode(content)))
     header_error = _header_error(reader.fieldnames)
@@ -227,7 +226,7 @@ def _parse_rows(content: bytes, tz) -> ParseResult:
             continue
         names = ((k.lower().strip(), v) for k, v in row.items() if k)
         normalized = {name: _cell(name, v) for name, v in names}
-        tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz)
+        tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz, book)
         result.errors.extend(row_errors)
         result.warnings.extend(row_warnings)
         if tx_data and preview:
@@ -306,7 +305,8 @@ class _Rejected(Exception):
 
 @dataclass
 class _Row:
-    """A row's values once checked; account names as written, lower-cased."""
+    """A row's values once checked; account names as written, lower-cased,
+    and the book its accounts are asked of."""
     number: int
     timestamp: datetime
     tx_type: str
@@ -315,6 +315,7 @@ class _Row:
     from_id: int
     to_name: str
     to_id: int
+    book: AccountBook
     cost_basis_usd: Decimal | None
     proceeds_usd: Decimal | None
     fee_amount: Decimal | None
@@ -337,6 +338,7 @@ def _validate_row(
     row: dict[str, str],
     row_number: int,
     tz=timezone.utc,
+    book: AccountBook | None = None,
 ) -> tuple[dict[str, Any] | None, CSVRowPreview | None, list[CSVParseError], list[CSVParseError]]:
     """
     One row checked: (transaction data, preview, errors, warnings). The data
@@ -345,7 +347,7 @@ def _validate_row(
     """
     warnings: list[CSVParseError] = []
     try:
-        checked = _check_row(row, row_number, tz, warnings)
+        checked = _check_row(row, row_number, tz, warnings, book or FIXED_BOOK)
         _leave_out_btc_withdrawal_fields(checked, warnings)
         errors, type_warnings = _validate_type_specific(checked)
         warnings.extend(type_warnings)
@@ -357,7 +359,8 @@ def _validate_row(
     return _transaction_data(checked, warnings), _preview(checked), [], warnings
 
 
-def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParseError]) -> _Row:
+def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParseError],
+               book: AccountBook) -> _Row:
     """The row's values, in the order they're checked; _Rejected at the first
     that fails. A date in the next day (which the save takes) is a warning."""
     timestamp = _required_date(row, row_number, tz)
@@ -366,14 +369,14 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     tx_type = _required_type(row, row_number)
     amount = _required_amount(row, row_number)
     from_name, from_id, to_name, to_id = _required_accounts(row, row_number)
-    account_errors = _validate_accounts_for_type(tx_type, from_id, to_id, row_number)
+    account_errors = _validate_accounts_for_type(tx_type, from_id, to_id, row_number, book)
     if account_errors:
         raise _Rejected(*account_errors)
-    _check_amount_limits(amount, tx_type, from_id, to_id, row_number)
+    _check_amount_limits(amount, tx_type, from_id, to_id, row_number, book)
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
-    return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, **amounts, **options,
+    return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, book, **amounts, **options,
                 acquired_at=acquired_at)
 
 
@@ -391,7 +394,7 @@ def _leave_out_btc_withdrawal_fields(row: _Row, warnings: list[CSVParseError]) -
     out with a warning: the save drops them (#449), so the preview (the
     AI's too) shows what will be saved. Other text in purpose is a label,
     kept."""
-    if row.tx_type != "Withdrawal" or row.from_id in BTC_ACCOUNTS:
+    if row.tx_type != "Withdrawal" or row.book.is_btc(row.from_id):
         return
     ignored = [column for column in ("proceeds_usd", "fmv_usd") if getattr(row, column) is not None]
     if normalized(row.purpose) in ("spent", *GIFT_LIKE_PURPOSES):
@@ -411,7 +414,7 @@ def _check_original_date(row: _Row, tz) -> None:
     rules (so a misspelt source says so first), naming the row."""
     if row.acquired_at is None:
         return
-    problem = original_date_problem(row.tx_type, row.source, row.to_id in BTC_ACCOUNTS, row.acquired_at,
+    problem = original_date_problem(row.tx_type, row.source, row.book.is_btc(row.to_id), row.acquired_at,
                                     row.timestamp, tz)
     if problem:
         raise _Rejected(_error(row.number, "acquired_at", problem))
@@ -481,11 +484,12 @@ def _required_amount(row: dict[str, str], row_number: int) -> Decimal:
     return amount
 
 
-def _check_amount_limits(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int) -> None:
+def _check_amount_limits(amount: Decimal, tx_type: str, from_id: int, to_id: int, row_number: int,
+                         book: AccountBook) -> None:
     """The save's limits for the amount (transaction.amount_problem, #266,
     #285): cents at most in dollars, 21,000,000 at most in bitcoin. The
     column itself takes a BTC amount's 8 places."""
-    problem = amount_problem(amount, tx_type, _amount_currency(tx_type, from_id, to_id))
+    problem = amount_problem(amount, tx_type, _amount_currency(tx_type, from_id, to_id, book))
     if problem:
         raise _Rejected(_error(row_number, "amount", problem))
 
@@ -611,7 +615,7 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
             fields["proceeds_from_price"] = True
     if row.fee_amount is not None:  # a 0 too: an export's zero fee comes back as it was saved
         fields["fee_amount"] = row.fee_amount
-        fields["fee_currency"] = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
+        fields["fee_currency"] = row.fee_currency or _default_fee_currency(row)
     return fields
 
 
@@ -640,18 +644,11 @@ def _fmv_fields(row: _Row, warnings: list[CSVParseError]) -> dict[str, Any]:
     return {}
 
 
-def _amount_currency(tx_type: str, from_id: int, to_id: int) -> str | None:
+def _amount_currency(tx_type: str, from_id: int, to_id: int, book: AccountBook) -> str | None:
     """What the amount is counted in, as the ledger counts it
     (transaction._check_amount): the receiving account's currency for a
-    Deposit or Buy, the sending account's otherwise."""
-    return _currency(to_id if tx_type in ("Deposit", "Buy") else from_id)
-
-
-def _currency(account_id: int) -> str | None:
-    """An account's currency; None for External."""
-    if account_id == ACCOUNT_EXTERNAL:
-        return None
-    return "BTC" if account_id in BTC_ACCOUNTS else "USD"
+    Deposit or Buy, the sending account's otherwise; None for External."""
+    return book.currency(to_id if tx_type in ("Deposit", "Buy") else from_id)
 
 
 def _preview(row: _Row) -> CSVRowPreview:
@@ -662,7 +659,7 @@ def _preview(row: _Row) -> CSVRowPreview:
         date=row.timestamp,
         type=row.tx_type,
         amount=row.amount,
-        amount_currency=_amount_currency(row.tx_type, row.from_id, row.to_id),
+        amount_currency=_amount_currency(row.tx_type, row.from_id, row.to_id, row.book),
         from_account=ACCOUNT_ID_TO_NAME[row.from_id],
         to_account=ACCOUNT_ID_TO_NAME[row.to_id],
         cost_basis_usd=row.cost_basis_usd,
@@ -807,50 +804,13 @@ def _optional_decimal(
     return value
 
 
-# Each type's account rules: (column, broken(from_id, to_id), message), in the
-# order they're reported.
-_ACCOUNT_RULES = {
-    "Deposit": [
-        ("from_account", lambda f, t: f != ACCOUNT_EXTERNAL, "Deposit must have from_account = 'External'."),
-        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
-         "Deposit must have to_account as an internal account (not 'External')."),
-    ],
-    "Withdrawal": [
-        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL,
-         "Withdrawal must have from_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXTERNAL, "Withdrawal must have to_account = 'External'."),
-    ],
-    "Transfer": [
-        ("from_account", lambda f, t: f == ACCOUNT_EXTERNAL,
-         "Transfer must have from_account as an internal account (not 'External')."),
-        ("to_account", lambda f, t: t == ACCOUNT_EXTERNAL,
-         "Transfer must have to_account as an internal account (not 'External')."),
-        # Only Wallet or Exchange BTC can send to itself: a consolidation (#159)
-        ("to_account", lambda f, t: f == t and f not in BTC_ACCOUNTS,
-         "Transfer must have different from_account and to_account."),
-        # The save's rule: one currency (#266)
-        ("to_account", lambda f, t: ACCOUNT_EXTERNAL not in (f, t) and (f in BTC_ACCOUNTS) != (t in BTC_ACCOUNTS),
-         "Transfer must stay in one currency: bitcoin between Wallet and Exchange BTC, "
-         "dollars between Bank and Exchange USD."),
-    ],
-    "Buy": [
-        ("from_account", lambda f, t: f not in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD),
-         "Buy must have from_account = 'Bank' or 'Exchange USD'."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXCHANGE_BTC, "Buy must have to_account = 'Exchange BTC'."),
-    ],
-    "Sell": [
-        ("from_account", lambda f, t: f != ACCOUNT_EXCHANGE_BTC, "Sell must have from_account = 'Exchange BTC'."),
-        ("to_account", lambda f, t: t != ACCOUNT_EXCHANGE_USD, "Sell must have to_account = 'Exchange USD'."),
-    ],
-}
-
-
-def _validate_accounts_for_type(tx_type: str, from_id: int, to_id: int, row_number: int) -> list[CSVParseError]:
-    """Every account rule of the type the row breaks."""
+def _validate_accounts_for_type(tx_type: str, from_id: int, to_id: int, row_number: int,
+                                book: AccountBook) -> list[CSVParseError]:
+    """Every account rule of the type the row breaks, each under its column
+    (from_account, to_account), in the save's words (account_problems)."""
     return [
-        _error(row_number, column, message)
-        for column, broken, message in _ACCOUNT_RULES.get(tx_type, [])
-        if broken(from_id, to_id)
+        _error(row_number, f"{side}_account", message)
+        for side, message in account_problems(tx_type, from_id, to_id, book)
     ]
 
 
@@ -863,10 +823,10 @@ def _validate_type_specific(row: _Row) -> tuple[list[CSVParseError], list[CSVPar
 def _fee_cents_rule(row: _Row):
     """A fee in dollars is in cents, in the currency the import sends (#298);
     a fee given in another currency than its type's gets that error alone."""
-    own = fee_currency_used(row.tx_type, None, _currency(row.from_id), _currency(row.to_id))
+    own = fee_currency_used(row.tx_type, None, row.book.currency(row.from_id), row.book.currency(row.to_id))
     if row.fee_currency and row.fee_currency != own:
         return
-    fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
+    fee_cur = row.fee_currency or _default_fee_currency(row)
     yield from _problem(row, "fee_amount", fee_cents_problem(row.fee_amount or Decimal(0), fee_cur))
 
 
@@ -890,9 +850,10 @@ def _problem(row: _Row, column: str, problem: str | None):
 def _fee_currency_rules(row: _Row):
     """A deposit's or withdrawal's fee in its account's currency, as the save
     sees it: the currency given, else the one the import fills in (#285)."""
-    fee_cur = row.fee_currency or _default_fee_currency(row.tx_type, row.from_id)
+    fee_cur = row.fee_currency or _default_fee_currency(row)
     problem = fee_currency_problem(
-        row.tx_type, row.fee_amount or Decimal(0), fee_cur, _currency(row.from_id), _currency(row.to_id))
+        row.tx_type, row.fee_amount or Decimal(0), fee_cur, row.book.currency(row.from_id),
+        row.book.currency(row.to_id))
     if problem and not row.fee_currency:
         problem += f" (fee_currency is blank: the import uses {fee_cur})"
     yield from _problem(row, "fee_currency", problem)
@@ -908,7 +869,7 @@ _VALUED_AS = {
 def _deposit_rules(row: _Row):
     yield from _fee_currency_rules(row)
     source = row.source
-    into_btc = row.to_id in BTC_ACCOUNTS
+    into_btc = row.book.is_btc(row.to_id)
     if source and normalized(source) not in {c.lower() for c in DEPOSIT_SOURCES}:
         yield _error(row.number, "source", DEPOSIT_SOURCE_UNKNOWN)
         return
@@ -928,7 +889,7 @@ def _deposit_rules(row: _Row):
 
 def _withdrawal_rules(row: _Row):
     yield from _fee_currency_rules(row)
-    if row.from_id not in BTC_ACCOUNTS:
+    if not row.book.is_btc(row.from_id):
         return
     purpose = normalized(row.purpose)
     if purpose not in ("spent", "gift", "donation", "lost"):
@@ -941,15 +902,15 @@ def _withdrawal_rules(row: _Row):
 
 
 def _transfer_rules(row: _Row):
-    # The fee is paid from the account sending: BTC between BTC accounts,
-    # USD between Bank and Exchange USD.
-    expected = "BTC" if row.from_id in BTC_ACCOUNTS else "USD"
+    # The fee is paid from the account sending: BTC between bitcoin accounts,
+    # USD between dollar accounts.
+    expected = "BTC" if row.book.is_btc(row.from_id) else "USD"
     if row.fee_currency and row.fee_currency != expected:
         yield _error(row.number, "fee_currency", f"A transfer from this account pays its fee in {expected}.")
     else:  # a fee in the account's currency, comparable with the amount
         yield from _problem(row, "fee_amount", transfer_fee_problem(
-            _currency(row.from_id), row.fee_amount or Decimal(0), row.amount))
-    if row.from_id == row.to_id and row.from_id in BTC_ACCOUNTS and not row.fee_amount:
+            row.book.currency(row.from_id), row.fee_amount or Decimal(0), row.amount))
+    if row.from_id == row.to_id and row.book.is_btc(row.from_id) and not row.fee_amount:
         yield _error(row.number, "fee_amount", SAME_ACCOUNT_NEEDS_FEE)
 
 
@@ -962,12 +923,12 @@ _TYPE_RULES = {
 }
 
 
-def _default_fee_currency(tx_type: str, from_account_id: int | None = None) -> str:
+def _default_fee_currency(row: _Row) -> str:
     """The fee currency when the row leaves it blank: USD for Buy/Sell and
-    for moves out of a USD account, else BTC."""
-    if tx_type in ("Buy", "Sell"):
+    for moves out of a dollar account, else BTC."""
+    if row.tx_type in ("Buy", "Sell"):
         return "USD"
-    if from_account_id in (ACCOUNT_BANK, ACCOUNT_EXCHANGE_USD):
+    if row.book.currency(row.from_id) == "USD":
         return "USD"
     return "BTC"
 
