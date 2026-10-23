@@ -50,6 +50,20 @@ def wait_until(check, seconds: float = 2.0) -> bool:
     return bool(check())
 
 
+def thread_idents() -> set[int]:
+    return {thread.ident for thread in threading.enumerate() if thread.ident is not None}
+
+
+def wait_until_threads_end(idents: set[int]) -> bool:
+    """Wait for these threads to end, not for the process's whole count.
+
+    The count belongs to every test in the xdist worker: another test's thread
+    ending or starting while this one runs kept it from returning to its old
+    value, so the case failed for a reason unrelated to the lookup (#620).
+    """
+    return wait_until(lambda: not (idents & thread_idents()))
+
+
 class InParts(httpx.AsyncByteStream):
     """An answer arriving a byte every GAP seconds; `sent` counts what went out."""
 
@@ -164,12 +178,12 @@ def test_a_past_price_lookup_gives_up_at_the_deadline_and_its_thread_ends(monkey
     monkeypatch.setattr(outbound, "HISTORY_TIMEOUT", 0.1)
     monkeypatch.setattr(price_history, "find_prices", real_find_prices)
     use(price_source="mempool", mempool_url=NODE)
-    threads, start = threading.active_count(), time.monotonic()
+    before, start = thread_idents(), time.monotonic()
     with pytest.raises(HTTPException) as e:
         price_history.daily_price(db, DAY)
     assert e.value.status_code == 422 and time.monotonic() - start < outbound.WAITS * 0.1 + MARGIN
     assert answer.sent < len(answer.body)
-    assert wait_until(lambda: threading.active_count() == threads)  # the lookup's own thread has ended
+    assert wait_until_threads_end(thread_idents() - before)  # the lookup's own thread has ended
 
 
 def test_a_lookup_from_sync_code_returns_at_its_limit_and_its_thread_ends(monkeypatch):
@@ -184,11 +198,11 @@ def test_a_lookup_from_sync_code_returns_at_its_limit_and_its_thread_ends(monkey
         finally:
             ended.append(time.monotonic())
 
-    threads, start = threading.active_count(), time.monotonic()
+    before, start = thread_idents(), time.monotonic()
     with pytest.raises(TimeoutError):
         price_history._run(longer())
     assert time.monotonic() - start < 0.3 + MARGIN
-    assert wait_until(lambda: ended and threading.active_count() == threads)
+    assert wait_until_threads_end(thread_idents() - before)
     assert ended[0] - start < 0.3 + MARGIN  # cancelled at the limit, not left running
 
 
