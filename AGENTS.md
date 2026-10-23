@@ -692,7 +692,7 @@ from the Transaction row alone.
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~3,100 hermetic tests (backend + MCP), ~8 min
+make test-fast   # ~3,200 hermetic tests (backend + MCP), on every core, ~2 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min

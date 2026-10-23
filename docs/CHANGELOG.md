@@ -350,7 +350,8 @@ affected and what to do; most ledgers need nothing more.
   the `bundler` way (Vite 8 and the plugin publish their types only
   through `exports`). Vite 8 builds with Rolldown and Lightning CSS, not
   esbuild and Rollup, and its default target, Safari 16.4, is newer than
-  the Mac app's WebKit (Safari 15 on macOS 10.15), so
+  the Mac app's WebKit (Safari 15: macOS 11, the oldest the app runs on,
+  came with Safari 14 and updates to 16), so
   `frontend/vite.config.ts` keeps the build's target at Safari 15
   (`['es2020', 'safari15']`): newer JavaScript or CSS syntax is still
   rewritten for it. Nothing changes for users: the same screens, figures

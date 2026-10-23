@@ -175,10 +175,10 @@ and publishes each release first to its **Community Beta** registry, then,
 once tested there, to its **Community Registry**:
 
 1. In StartOS, open **Marketplace**, click **Switch** under the registry's
-   name and add `https://community-registry.start9.com`
-   ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
-   For each release as soon as it's out, add
-   `https://community-beta-registry.start9.com` instead.
+   name and choose **Community Registry**
+   (`https://community-registry.start9.com`). To get each release as soon
+   as it's out, add `https://community-beta-registry.start9.com` there
+   instead ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
 2. Choose **BitcoinTX** and click **Install**. New versions then show in the
    **Updates** tab ([Updating](https://docs.start9.com/start-os/updating.html)).
 3. Follow BitcoinTX's **Instructions** in StartOS
