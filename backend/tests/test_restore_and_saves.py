@@ -329,3 +329,44 @@ def test_only_a_save_the_swap_refused_says_so(name, answer, request, caplog):
 
     assert (r.status_code, r.json()["detail"]) == answer
     assert ("not saved: a restore replaced the database" in caplog.text) == (answer[0] == 503)
+
+
+# The last account id given (accounts_last_id, 2.0 spec 5.1, 5.11): a
+# restore keeps the higher of this install's and the backup's, so an id
+# handed out here, even while the restore ran, is never handed out again
+LAST_ID = "SELECT value FROM app_settings WHERE key = 'accounts_last_id'"
+
+
+def _last_id(live):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        return con.execute(LAST_ID).fetchall()
+
+
+def _add_wallet(client, name):
+    r = client.post("/api/accounts/", json={"kind": "wallet", "name": name})
+    assert r.status_code == 201, r.text
+    return r.json()[0]["id"]
+
+
+def test_a_restore_keeps_an_id_given_here_before_it(live, tmp_path):  # noqa: F811
+    blob, _ = _backup(tmp_path)
+    assert _add_wallet(live.client, "Jade") == 100  # not in the backup
+    assert _restore(live.client, blob).status_code == 200
+    assert _last_id(live) == [("100",)]
+    assert _add_wallet(_browser(), "Coldcard") == 101
+
+
+def test_a_restore_keeps_a_backups_higher_last_id(live, tmp_path):  # noqa: F811
+    _add_wallet(live.client, "Jade")
+    blob, _ = _backup(tmp_path, "INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', '150')")
+    assert _restore(live.client, blob).status_code == 200
+    assert _last_id(live) == [("150",)]
+
+
+def test_an_id_given_while_a_restore_runs_isnt_given_again(live, tmp_path, monkeypatch):  # noqa: F811
+    other, given = _browser(), []
+    blob, _ = _backup(tmp_path)
+    _once_rebuilt(monkeypatch, lambda: given.append(_add_wallet(other, "Jade")))
+    assert _restore(live.client, blob).status_code == 200
+    assert given == [100] and _last_id(live) == [("100",)]
+    assert _add_wallet(_browser(), "Coldcard") == 101

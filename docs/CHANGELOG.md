@@ -5,6 +5,19 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The account book and the account API** (B2b, #347). One place answers
+  every question about an account (its kind, currency, exchange, 1099-DA
+  switch, name), and the account API adds a bank, a wallet or an exchange
+  (as its two accounts, "<name> USD" and "<name> BTC"), hides and shows
+  one, and deletes only an account no transaction names; your first bank,
+  wallet and exchange can be hidden but not deleted, and the fee accounts
+  neither. A new account's id is never one used before, even after a
+  restore of an older backup. A name is one line of 1 to 40 characters (an
+  exchange's 36), alike no other ignoring case, and none of the names that
+  mean the first accounts in files ("Bank", "Wallet", "Exchange USD",
+  "Exchange BTC", the fee accounts' and "External"). No screen uses it
+  yet. The ledger now finds BTC Fees and USD Fees by their ids, so a fee
+  account renamed in an old database no longer gets a second one made.
 - **2.0's database: exchanges, and each account's kind** (B2a, #346). A
   new table of exchanges, and each account is now a bank, a wallet, one of
   an exchange's two accounts (dollars and bitcoin), or an internal fee

@@ -1,54 +1,37 @@
 """
-The account API's request and response shapes; a currency is USD or BTC.
+The account API's request and response shapes (2.0 spec 5.9). An account's
+kind and currency never change: none is taken after it's added, and the
+currency comes from the kind. Renames come later (B8).
 """
 
-from pydantic import BaseModel, field_validator, ConfigDict
+from typing import Literal
 
-VALID_CURRENCIES = {"USD", "BTC"}
+from pydantic import BaseModel, ConfigDict
 
 
-class AccountBase(BaseModel):
-    """
-    Common fields for an Account, used by create/read/update.
-    - 'name': a label like "Bank", "Wallet", "BTC Fees"
-    - 'currency': "USD" or "BTC"
-    """
+class AccountCreate(BaseModel):
+    """A bank, a wallet, or an exchange (its two accounts), with a name."""
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["bank", "wallet", "exchange"]
     name: str
-    currency: str
-
-    @field_validator("currency")
-    @classmethod
-    def currency_must_be_valid(cls, v):
-        if v not in VALID_CURRENCIES:
-            raise ValueError("currency must be 'USD' or 'BTC'")
-        return v
-
-
-class AccountCreate(AccountBase):
-    """A new account, owned by `user_id`."""
-    user_id: int
 
 
 class AccountUpdate(BaseModel):
-    """The name or currency of an account, either optional."""
-    name: str | None = None
-    currency: str | None = None
+    """Hide an account from the pickers, or show it again."""
+    model_config = ConfigDict(extra="forbid")
 
-    @field_validator("currency")
-    @classmethod
-    def currency_must_be_valid(cls, v):
-        if v is not None and v not in VALID_CURRENCIES:
-            raise ValueError("currency must be 'USD' or 'BTC'")
-        return v
+    hidden: bool
 
 
-class AccountRead(AccountBase):
-    """
-    Schema returned after fetching an Account.
-    Includes the DB-generated 'id' and the 'user_id' that references
-    which user owns this account.
-    """
+class AccountRead(BaseModel):
+    """An account as the API lists it: `exchange` is its exchange's name,
+    `in_use` whether a transaction names it."""
     id: int
-    user_id: int
-
-    model_config = ConfigDict(from_attributes=True)
+    name: str
+    kind: str
+    currency: str
+    exchange_id: int | None
+    exchange: str | None
+    hidden: bool
+    in_use: bool

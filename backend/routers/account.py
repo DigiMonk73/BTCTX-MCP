@@ -1,8 +1,10 @@
 """
-The accounts (the six fixed ones; database.FIXED_ACCOUNTS).
+Your accounts (2.0 spec 5.9): the list, one account, adding a bank, a
+wallet or an exchange, hiding and showing, and deleting an unused one.
+Login only.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead
 from backend.services import account as account_service
@@ -13,40 +15,33 @@ router = APIRouter(tags=["accounts"])
 
 @router.get("/", response_model=list[AccountRead])
 def list_accounts(db: Session = Depends(get_db)):
-    """Every account."""
-    return account_service.get_all_accounts(db)
+    """Banks, wallets, exchanges, then the fee accounts. Writes nothing."""
+    return account_service.listed(db)
 
 
 @router.get("/{account_id}", response_model=AccountRead)
 def get_account(account_id: int, db: Session = Depends(get_db)):
     """One account, or 404."""
-    account = account_service.get_account_by_id(account_id, db)
-    if not account:
-        raise HTTPException(status_code=404, detail="Account not found.")
-    return account
+    return account_service.one(db, account_id)
 
 
-@router.post("/", response_model=AccountRead)
+@router.post("/", response_model=list[AccountRead], status_code=201)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    """Create an account (user_id, name, currency)."""
-    new_account = account_service.create_account(account, db)
-    return new_account
+    """A bank or a wallet (one account), or an exchange (its two); 400 for a name it refuses."""
+    made = account_service.add_account(db, account.kind, account.name)
+    return account_service.listed(db, made)
 
 
 @router.put("/{account_id}", response_model=AccountRead)
-def update_account(account_id: int, account: AccountUpdate, db: Session = Depends(get_db)):
-    """Change an account's name or currency, or 404."""
-    updated_account = account_service.update_account(account_id, account, db)
-    if not updated_account:
-        raise HTTPException(status_code=404, detail="Account not found.")
-    return updated_account
+def update_account(account_id: int, change: AccountUpdate, db: Session = Depends(get_db)):
+    """Hide or show an account (an exchange's: both); 400 for a fee account, 404."""
+    account_service.set_hidden(db, account_id, change.hidden)
+    return account_service.one(db, account_id)
 
 
 @router.delete("/{account_id}", status_code=204)
 def delete_account(account_id: int, db: Session = Depends(get_db)):
-    """Delete an account: 204; 404 when it doesn't exist; 400 for a fixed
-    account; 409 while transactions name it."""
-    success = account_service.delete_account(account_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="Account not found or cannot be deleted.")
-    return
+    """204; 400 for your first bank, wallet or exchange and the fee
+    accounts; 409 while a transaction names it; 404."""
+    account_service.delete_account(db, account_id)
+    return Response(status_code=204)

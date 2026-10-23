@@ -17,6 +17,19 @@ ACCOUNT_EXTERNAL = 99
 # The accounts that hold bitcoin; the others hold dollars
 BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
 
+# The names that always mean these ids in a file (CSV, River, a 1.x
+# connector's rows), whatever those accounts are called now, and that no
+# other account can take (2.0 spec 5.1): services/account.py's book reads them
+RESERVED_NAMES = {
+    "Bank": ACCOUNT_BANK,
+    "Wallet": ACCOUNT_WALLET,
+    "Exchange USD": ACCOUNT_EXCHANGE_USD,
+    "Exchange BTC": ACCOUNT_EXCHANGE_BTC,
+    "BTC Fees": ACCOUNT_BTC_FEES,
+    "USD Fees": ACCOUNT_USD_FEES,
+    "External": ACCOUNT_EXTERNAL,
+}
+
 # The tax years a request may name: from Bitcoin's first (2009); far ahead
 # is refused rather than reaching the end of Python's years (#211)
 FIRST_TAX_YEAR, LAST_TAX_YEAR = 2009, 2100
