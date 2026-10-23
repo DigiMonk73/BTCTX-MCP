@@ -302,3 +302,30 @@ def test_a_body_under_the_limit_sent_with_a_file_changes_nothing(web_files, capl
     status, body, finished = get_with_a_body("/assets/index-abc123.js", [b" " * MB] * 4, arriving=True)
     assert (status, finished, body) == (200, True, web_files["/assets/index-abc123.js"])
     assert no_error_logged(caplog)
+
+
+def test_an_error_raised_while_handling_the_refusal_is_still_raised():
+    """#589's re-check: an app that fails while handling the refusal (not
+    raising from it) fails as itself, never folded into the 413, so it's
+    logged as unexpected."""
+    from backend.body_limit import _Counted
+
+    async def app(scope, receive, send):
+        try:
+            while True:
+                await receive()
+        except Exception:
+            raise KeyError("a handler failed")
+
+    chunks = iter([{"type": "http.request", "body": b"x" * 10, "more_body": True}] * 3)
+    sent = []
+
+    async def receive():
+        return next(chunks)
+
+    async def send(message):
+        sent.append(message)
+
+    with pytest.raises(KeyError):
+        asyncio.run(_Counted(15, receive, send).run(app, {"type": "http"}))
+    assert sent == []

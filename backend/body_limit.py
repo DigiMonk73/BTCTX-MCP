@@ -154,13 +154,16 @@ class _Counted:
 
 
 def _comes_from(error: BaseException | None, cause: BaseException) -> bool:
-    """Whether `error` is `cause`, or was raised from it or while handling it."""
+    """Whether `error` is `cause`, or was raised from it (`raise ... from`, as
+    Starlette's "response already started" is). One merely raised while
+    handling it is another failure: raised and logged, never folded into the
+    413 (#589's re-check)."""
     seen = set()
     while error is not None and id(error) not in seen:
         if error is cause:
             return True
         seen.add(id(error))
-        error = error.__cause__ or error.__context__
+        error = error.__cause__
     return False
 
 
