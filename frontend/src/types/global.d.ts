@@ -30,16 +30,9 @@ declare global {
     };
   }
 
-  // The dashboard's figures
-  interface AccountBalance {
-    account_id: number;
-    name: string;
-    currency: string;
-    balance: number | string; // parseDecimal
-  }
-
-  // The account book (GET /api/accounts/, 2.0 spec 5.9). An account is its id;
-  // `name` is only ever shown, never compared: the owner can rename it
+  // GET /api/accounts/ (2.0 spec 5.9): banks, wallets, exchanges, then the
+  // two fee accounts, each by id. An exchange is two accounts, its USD and its
+  // BTC, sharing an exchange_id; `exchange` is that exchange's name.
   type AccountKind = "bank" | "wallet" | "exchange" | "fee";
 
   interface LedgerAccount {
@@ -47,13 +40,22 @@ declare global {
     name: string;
     kind: AccountKind;
     currency: Currency;
-    exchange_id: number | null; // an exchange's two accounts share it
-    exchange: string | null; // that exchange's name
+    exchange_id: number | null;
+    exchange: string | null;
     hidden: boolean;
-    in_use: boolean; // a transaction or a ledger line names it
+    in_use: boolean;
   }
 
-  type AccountBook = readonly LedgerAccount[];
+  /** The account book as the API lists it (utils/accounts.ts answers from it). */
+  type AccountBook = LedgerAccount[];
+
+  // The dashboard's figures
+  interface AccountBalance {
+    account_id: number;
+    name: string;
+    currency: string;
+    balance: number | string; // parseDecimal
+  }
 
   interface AverageCostBasis {
     averageCostBasis: number;
