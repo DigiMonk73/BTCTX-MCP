@@ -328,7 +328,9 @@ more for restores.
    DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
    DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0013 -m "add foo to transactions"
    ```
-   Use the next number as `--rev-id` (sequential ids keep the history readable).
+   Use the next number as `--rev-id` (sequential ids keep the history readable):
+   on `develop`, 1.x's next (0013, 0014, …); on `2.0`, 2.0's next from 0100
+   (below).
 3. Read the generated file. Autogenerate misses renames (it emits drop + add,
    which loses data) and server defaults; SQLite column changes run as
    `batch_alter_table` (copy, swap), which `env.py` enables. A new NOT NULL
@@ -346,7 +348,31 @@ more for restores.
 - Upgrades must preserve data. `downgrade()` is best effort and not run by
   the app; going back a version means restoring the copy in `backups/`.
 - `backend/tests/fixtures/v0_7_0.db` was written by the real v0.7.0 code.
-  Don't regenerate it with current code.
+  Don't regenerate it with current code. Nor `old_accounts_1x.db` (1.x's
+  code wrote it: `fixtures/make_old_accounts_db.py`) or `reference_1x.db`
+  (v1.2.9's: `fixtures/make_reference_1x_db.py`).
+
+**2.0's migrations** (on the `2.0` branch while 2.0 is built; plan:
+`docs/temp/2.0-accounts.md` 5.3 and 7.2):
+
+- Their ids start at 0100, so 1.x, numbering on from its own head on
+  `develop`, never takes one of them (Alembic refuses two revisions with one
+  id, and no merge revision mends it).
+- The first, `0100_exchanges_and_kinds.py`, carries the marker
+  `STARTS_2_0 = True`, and only it. `migrate.py` walks the chain down to it
+  (`revisions_of_2_0`): it and every revision above it are 2.0's, every
+  other one 1.x's. A database at a 1.x revision (or unversioned) gets its
+  copy before the upgrade as the kind `pre-2.0`
+  (`backups/btctx-pre-2.0-from-<revision>-<time>.db`), never pruned: the
+  way back to 1.x. `test_migrations.py` pins the marker and the chain.
+- They always come after 1.x's. Until the first pre-release,
+  `v2.0.0-beta.1`, is published, a `develop` merge into `2.0` that brings a
+  1.x migration re-points `0100`'s `down_revision` to 1.x's new head (no
+  file renamed, the marker unmoved). After it (anyone may have installed
+  2.0 then), the 1.x migration stays as it is and an Alembic merge revision
+  (`alembic merge`) joins it to 2.0's head; a 2.0 database then upgrades
+  through the 1.x migration too, which must run on 2.0's schema. #251 says
+  which applies now.
 
 ## Deprecations
 

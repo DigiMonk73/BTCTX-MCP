@@ -7,6 +7,7 @@ finds the fee accounts by name, and every start puts a fixed account's
 name back, which a second account of that name would stop (#289).
 """
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
@@ -16,7 +17,7 @@ from backend.models.transaction import Transaction
 from backend.schemas.account import AccountCreate, AccountUpdate
 
 
-SPECIAL_ACCOUNTS = {a["id"]: {"name": a["name"], "currency": a["currency"]} for a in FIXED_ACCOUNTS}
+SPECIAL_ACCOUNTS = {a["id"]: a for a in FIXED_ACCOUNTS}
 FIXED_NAMES = frozenset(a["name"] for a in FIXED_ACCOUNTS)
 
 
@@ -45,11 +46,24 @@ def create_account(account_data: AccountCreate, db: Session):
         user_id=account_data.user_id,
         name=account_data.name,
         currency=account_data.currency,
+        # 1.x's accounts: a BTC one a wallet, else a bank (2.0 spec 5.3),
+        # until 2.0's account API adds by kind
+        kind="wallet" if account_data.currency == "BTC" else "bank",
     )
     db.add(new_account)
-    db.commit()
+    _commit_name(db, account_data.name)
     db.refresh(new_account)
     return new_account
+
+
+def _commit_name(db: Session, name: str | None) -> None:
+    """Commit; a name alike another account's ignoring case, which the
+    database refuses (accounts.name COLLATE NOCASE), is a 400."""
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"An account named {name} already exists.")
 
 
 def update_account(account_id: int, account_data: AccountUpdate, db: Session):
@@ -84,7 +98,7 @@ def update_account(account_id: int, account_data: AccountUpdate, db: Session):
     if account_data.currency is not None:
         account.currency = account_data.currency
 
-    db.commit()
+    _commit_name(db, account_data.name)
     db.refresh(account)
     return account
 
@@ -121,12 +135,7 @@ def ensure_special_accounts_exist(db: Session):
     for acc_id, info in SPECIAL_ACCOUNTS.items():
         special_acc = get_account_by_id(acc_id, db)
         if not special_acc:
-            new_acc = Account(
-                id=acc_id,
-                user_id=1,
-                name=info["name"],
-                currency=info["currency"],
-            )
+            new_acc = Account(user_id=1, **info)
             db.add(new_acc)
             try:
                 db.commit()

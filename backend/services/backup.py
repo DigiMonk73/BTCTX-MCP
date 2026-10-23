@@ -72,6 +72,7 @@ DAMAGED = "This file isn't a BitcoinTX backup, or it's damaged."
 NOT_UPGRADED = "This backup can't be restored: its database couldn't be brought up to this version of BitcoinTX."
 DOESNT_FIT = "This backup can't be restored: its {table} rows don't fit BitcoinTX's database."
 ONE_LOGIN = "This backup can't be restored: it holds more than one login, and BitcoinTX has one."
+ACCOUNTS_DONT_FIT = "This backup can't be restored: its accounts don't fit."
 NEWER = ("This backup can't be restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, "
          "or restore a backup made with this version.")
 BUSY = "Another restore is running: wait for it to finish, then try again."
@@ -364,8 +365,8 @@ def _rebuild(staging: Path, rebuilt: Path):
     """
     Check and upgrade the backup's database, make the new one with the
     migrations (as a fresh install does), copy the backup's own data into
-    it, seed the fixed accounts and require one login. Database errors come
-    back in plain words, never SQL.
+    it, seed the fixed accounts and require one login and whole exchanges.
+    Database errors come back in plain words, never SQL.
     """
     from backend.database import seed_defaults
     from backend.migrate import MigrationError, upgrade_database
@@ -378,6 +379,7 @@ def _rebuild(staging: Path, rebuilt: Path):
             _copy_own_data(new, staging)
             seed_defaults(new)
             _require_one_login(new)
+            _require_whole_exchanges(new)
             _read_as_the_app_does(new)
         finally:
             new.dispose()
@@ -645,6 +647,25 @@ def _require_one_login(new) -> None:
     with new.connect() as conn:
         if conn.exec_driver_sql("SELECT count(*) FROM users").scalar() != 1:
             raise ValueError(ONE_LOGIN)
+
+
+def _require_whole_exchanges(new) -> None:
+    """Each exchange has its two accounts, one in dollars and one in bitcoin,
+    and an exchange's account names an exchange there is, which no other
+    account does (2.0 spec 5.1, 5.11)."""
+    with new.connect() as conn:
+        broken = conn.exec_driver_sql("""
+            SELECT 1 FROM exchanges e
+             WHERE (SELECT count(*) FROM accounts a WHERE a.exchange_id = e.id) != 2
+                OR NOT EXISTS (SELECT 1 FROM accounts a WHERE a.exchange_id = e.id AND a.currency = 'USD')
+                OR NOT EXISTS (SELECT 1 FROM accounts a WHERE a.exchange_id = e.id AND a.currency = 'BTC')
+            UNION ALL
+            SELECT 1 FROM accounts a
+             WHERE (a.kind = 'exchange') != (a.exchange_id IS NOT NULL)
+                OR (a.exchange_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM exchanges e WHERE e.id = a.exchange_id))
+            LIMIT 1""").first()
+    if broken:
+        raise ValueError(ACCOUNTS_DONT_FIT)
 
 
 def _reason(error: BaseException) -> str:

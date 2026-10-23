@@ -5,6 +5,19 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **2.0's database: exchanges, and each account's kind** (B2a, #346). A
+  new table of exchanges, and each account is now a bank, a wallet, one of
+  an exchange's two accounts (dollars and bitcoin), or an internal fee
+  account; it can be hidden, and two accounts' names can't be alike in
+  case. Upgrading a 1.x ledger fills these in and moves no figure: today's
+  Exchange USD and Exchange BTC become exchange 1, "Exchange". An account
+  made through 1.x's account API is a wallet (bitcoin) or a bank (dollars);
+  a name that was alike another, or a reserved one, gets "(account N)"
+  added, and a second "BTC Fees" left by #289 is renamed, so it no longer
+  stops BitcoinTX starting. Before the upgrade BitcoinTX keeps a copy of
+  the 1.x database, `backups/btctx-pre-2.0-from-<revision>-<time>.db`,
+  never deleted: the way back to 1.x. A restore takes a 1.x or a 2.0
+  backup, and refuses one whose exchange lacks its two accounts.
 - **2.0's yardsticks** (B1, #345; tests and scripts only, nothing the app
   does changes). The second calculation of the tax figures
   (`scripts/independent_figures.py`) works from a ledger's own accounts:

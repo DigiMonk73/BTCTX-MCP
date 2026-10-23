@@ -65,7 +65,13 @@ DELETE_KIND = "before-delete"
 DELETE_COPIES_KEPT = 5
 # Every kind of copy. A kind may start with another's name ("before-delete",
 # "before"): each one's listing leaves the longer kinds' copies out.
-COPY_KINDS = ("before", DELETE_KIND, "ai", "review")
+# The copy of a 1.x database made before 2.0's upgrade (2.0 spec 5.3, Q21):
+# the way back to 1.x, never pruned.
+PRE_2_0_KIND = "pre-2.0"
+COPY_KINDS = ("before", DELETE_KIND, "ai", "review", PRE_2_0_KIND)
+# The first 2.0 migration (2.0 spec 5.3), the one whose module says
+# STARTS_2_0: it and the revisions above it are 2.0's, every other one 1.x's
+FIRST_2_0 = "0100"
 # A copy being written: a name no listing of copies matches.
 PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
@@ -103,6 +109,26 @@ def head_revision() -> str:
     return _script().get_current_head()
 
 
+def revisions_of_2_0() -> set[str]:
+    """2.0's revisions: the one marked STARTS_2_0 and every one above it (a
+    merge revision of a 1.x migration brought in later included), found by
+    walking the chain, since revision ids aren't ordered. Every other known
+    revision is 1.x's."""
+    script = _script()
+    return {rev.revision for rev in script.walk_revisions()
+            if FIRST_2_0 in {r.revision for r in script.iterate_revisions(rev.revision, "base")}}
+
+
+def copy_for(revision: str | None) -> tuple[str, str, int | None]:
+    """(kind, label, how many of that kind are kept) of the copy made before
+    upgrading a database at `revision` (None: unversioned): a 1.x one's is
+    "pre-2.0", named after the revision it holds and never pruned (2.0 spec
+    5.3); a 2.0 one's an ordinary "before" copy."""
+    if revision is None or revision not in revisions_of_2_0():
+        return PRE_2_0_KIND, f"from-{revision or 'unversioned'}", None
+    return "before", f"schema-{head_revision()}", BACKUPS_KEPT
+
+
 def current_revision(connection: Connection) -> str | None:
     return MigrationContext.configure(connection).get_current_revision()
 
@@ -133,14 +159,15 @@ def sqlite_file(engine: Engine) -> Path | None:
 
 
 # Backups
-def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int = BACKUPS_KEPT) -> Path:
+def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int | None = BACKUPS_KEPT) -> Path:
     """
     Consistent copy of a live SQLite file into <dir>/backups/ (mode 600),
     named <stem>-<kind>-<label>-<time>.db. Each kind ("before": pre-upgrade
     and pre-restore; "before-delete": before every transaction is deleted;
     "ai": asked for with the AI key, or made before its changes; "review":
-    before Ledger Review's hourly check is applied) keeps its own newest
-    `keep` (and "ai" more: prune_backups), so one kind never pushes out the
+    before Ledger Review's hourly check is applied; "pre-2.0": a 1.x
+    database before 2.0's upgrade) keeps its own newest `keep` (and "ai"
+    more: prune_backups; None: every one), so one kind never pushes out the
     other.
 
     It is written under a name no listing matches and renamed once
@@ -230,15 +257,17 @@ def backup_copies(db_path: Path, kind: str = "before", label: str | None = None)
     )
 
 
-def prune_backups(db_path: Path, keep: int = BACKUPS_KEPT, kind: str = "before",
+def prune_backups(db_path: Path, keep: int | None = BACKUPS_KEPT, kind: str = "before",
                   spare: Path | None = None) -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
-    copies more: _ai_copies_held) and delete the others, never `spare`: the
-    copy just made, which a clock set back would date before older ones.
-    Only files this module wrote (<stem>-<kind>-*.db) are touched. Returns
-    the deleted paths.
+    copies more: _ai_copies_held; None: every one) and delete the others,
+    never `spare`: the copy just made, which a clock set back would date
+    before older ones. Only files this module wrote (<stem>-<kind>-*.db) are
+    touched. Returns the deleted paths.
     """
+    if keep is None:
+        return []  # copies[None:] below would be every copy
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
     held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
@@ -415,7 +444,8 @@ def upgrade_database(engine: Engine, backup: bool = True) -> MigrationResult:
     fresh = rev is None and not tables
     db_path = sqlite_file(engine)
     if backup and not fresh and db_path is not None and db_path.exists():
-        result.backup = backup_sqlite(db_path, f"schema-{head}")
+        kind, label, keep = copy_for(rev)
+        result.backup = backup_sqlite(db_path, label, kind, keep)
         logger.info("Backed up the database to %s before upgrading its schema", result.backup)
 
     migrator = _transactional_engine(engine)
