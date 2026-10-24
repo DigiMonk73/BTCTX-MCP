@@ -52,7 +52,8 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
 interface LedgerReviewProps {
   /** Each answer, or null when the review failed: the section's summary (#355). A stable function. */
   onReview?: (review: LedgerReviewResponse | null) => void;
-  /** Changed by Settings once another section saved what the review reads (the 1099-DA switch): asked again. */
+  /** Changed by Settings once another section saved what the review reads (the tax timezone, Recalculate
+   * Ledger, an exchange's 1099-DA switch, #645): asked again. */
   round?: number;
 }
 

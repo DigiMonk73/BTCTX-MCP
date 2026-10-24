@@ -15,9 +15,14 @@ async function getUserId(): Promise<number | null> {
   }
 }
 
+interface AccountSettingsProps extends SettingsSectionProps {
+  /** The tax timezone saved or the ledger recalculated: what Ledger Review shows moved (#645). */
+  onFiguresChanged?: () => void;
+}
+
 /** Settings' Account section: log out, change the login, the tax timezone,
  * recalculate the ledger. */
-const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
+const AccountSettings: React.FC<AccountSettingsProps> = ({ loading, setLoading, setMessage, onFiguresChanged }) => {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -112,6 +117,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
     try {
       const res = await api.post<{ detail: string }>("/transactions/recalculate");
       setMessage(res.data.detail);
+      onFiguresChanged?.();
     } catch (error) {
       // The server says why (#337: the transaction naming a missing account, for one)
       const reason = extractErrorMessage(error);
@@ -196,7 +202,7 @@ const AccountSettings: React.FC<SettingsSectionProps> = ({ loading, setLoading, 
         </form>
       </div>
 
-      <TaxTimezoneSetting />
+      <TaxTimezoneSetting onSaved={onFiguresChanged} />
 
       <div className="settings-option">
         <div className="option-info">

@@ -34,8 +34,9 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(() => initiallyOpen(browserStore(), hash));
   const [review, setReview] = useState<LedgerReviewResponse | null>();
-  // Ledger Review asked again once another section saved what it reads
+  // Ledger Review asked again once another section saved what it reads (#645)
   const [reviewRound, setReviewRound] = useState(0);
+  const reviewAgain = () => setReviewRound((n) => n + 1);
   const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };
 
@@ -70,11 +71,11 @@ const Settings: React.FC = () => {
       <div className="card settings-container">
         <SettingsSection {...props("account")} title="Account"
           summary="Log out, your username and password, the tax timezone, and recalculating the ledger">
-          <AccountSettings {...section} />
+          <AccountSettings {...section} onFiguresChanged={reviewAgain} />
         </SettingsSection>
         <SettingsSection {...props("accounts")} title="Wallets, exchanges and banks"
           summary={accountsSummary(accounts.book)}>
-          <LedgerAccounts {...accounts} onFiguresChanged={() => setReviewRound((n) => n + 1)} />
+          <LedgerAccounts {...accounts} onFiguresChanged={reviewAgain} />
         </SettingsSection>
         <SettingsSection {...props("review")} title="Ledger Review" region="Ledger review"
           summary={reviewSummary(review)}>

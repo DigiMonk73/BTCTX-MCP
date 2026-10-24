@@ -21,8 +21,11 @@ All notable changes to BitcoinTX are documented in this file.
   bank" say what each is, and adding a second wallet or exchange while
   another has transactions says how earlier years were figured. River's import asks
   which exchange the file is from, and which wallet its sends and
-  receives go with, when there's more than one of either. Saving into an
-  added account still waits for a later step.
+  receives go with, when there's more than one of either. Ledger Review
+  is checked again once the tax timezone is saved, the ledger
+  recalculated or an exchange's switch turned, so it no longer shows the
+  old timezone's times or figures until Check again (fixed in 2.0; #645
+  for 1.x). Saving into an added account still waits for a later step.
 - **The other writes that can change an earlier tax year ask first too**
   (B6c, #353). Saving the tax timezone in Settings (it moves holding
   periods and which tax year a sale is in: a sale that only moves year is
