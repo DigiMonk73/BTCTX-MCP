@@ -181,7 +181,7 @@ The script:
 4. Checks `desktop/resources/icon.icns` (warns if missing) and
    `backend/assets/irs_templates/` (fails if missing)
 5. Runs `pyinstaller --clean --noconfirm BitcoinTX.spec`
-6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
+6. Creates `desktop/dist/BitcoinTX.dmg` (`BitcoinTX-Preview.dmg` for a pre-release) if `create-dmg` is installed
    (`brew install create-dmg`)
 
 Output: `desktop/dist/BitcoinTX.app`, or `BitcoinTX Preview.app` (and

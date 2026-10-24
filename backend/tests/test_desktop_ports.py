@@ -27,7 +27,8 @@ from desktop_ports import OTHER_PORT, QUIT, RETRY, bind_port, choose_socket, run
 @pytest.fixture(autouse=True)
 def a_release(monkeypatch):
     """BitcoinTX's own defaults, whatever VERSION is: from 2.0's first
-    pre-release it's a beta, whose own are test_beta_app_532.py's."""
+    pre-release (an alpha, then a beta) it's BitcoinTX Preview's, whose own
+    are test_preview_app_532.py's."""
     monkeypatch.setattr(desktop_paths, "app_version", lambda: "2.0.0")
 
 

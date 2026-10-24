@@ -38,7 +38,8 @@ password.
 | Server command | `uvx btctx-mcp==X.Y.Z` (PyPI), with the version from their prompt (their BitcoinTX version), so the server matches their BitcoinTX |
 
 Never use their BitcoinTX password: the server answers every tool with a
-refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing
+refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server as the prompt says: `bitcointx` (a
+2.0 alpha's or beta's: `bitcointx-preview`, below). Ask before installing
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
@@ -93,7 +94,10 @@ and give the user the steps to follow.
 
 One command, no environment variables. BitcoinTX must be open when the AI
 uses it, and the user must turn on **Settings → Connect an AI Assistant → Let
-AI assistants use BitcoinTX** (off by default); ask them to.
+AI assistants use BitcoinTX** (off by default); ask them to. For a 2.0 alpha
+or beta, the app is BitcoinTX Preview: use `bitcointx-preview` for
+`bitcointx` below and the prompt's `btctx-mcp==2.0.0aN` or `2.0.0bN`, beside
+any `bitcointx` server, which stays as it is.
 
 - **Claude Code:** `claude mcp add --scope user bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
 - **Grok Build:** `grok mcp add bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
@@ -213,7 +217,7 @@ BitcoinTX upgrade.
 
 | Error | Cause |
 |---|---|
-| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
+| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had its port (8765; BitcoinTX Preview's 8767): quit it, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
 | `BitcoinTX no longer uses your password …` | The configuration still has `BTCTX_PASSWORD`: section 3 |
 | `AI access is turned off` | Off by default: the user turns on **Let AI assistants use BitcoinTX** in BitcoinTX **Settings → Connect an AI Assistant** |
 | `AI key not accepted …` | The placeholder is still there, the key was copied wrong, or it was replaced or revoked: the user makes a new one (**New key**, or **Create AI key** after a revoke; in the Mac app, **Reset key**) |

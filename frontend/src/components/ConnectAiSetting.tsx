@@ -216,17 +216,18 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
 
 /**
  * How to update an AI app set up for an older version: under a pre-release's
- * own server name, or, away from the Mac, the bitcointx that reaches this
- * BitcoinTX (StartOS, which a pre-release updates in place).
+ * own server name, or, on a server install (StartOS, which a pre-release
+ * updates in place), the bitcointx that reaches this BitcoinTX. Never while
+ * it isn't known to be one: on a Mac that bitcointx is the installed app's.
  */
-const OlderVersionHint: React.FC<{ version?: string; keyMode: boolean }> = ({ version, keyMode }) => {
+export const OlderVersionHint: React.FC<{ version?: string; serverMode: boolean }> = ({ version, serverMode }) => {
   if (serverPackage(version) === "btctx-mcp") return null;
   const name = serverName(version);
   return (
     <p className="settings-option-subtitle">
       Set up with an older version? Change <code>btctx-mcp==</code> in your AI app&apos;s settings for{" "}
       <code>{name}</code>
-      {name !== SERVER_NAME && !keyMode && (
+      {name !== SERVER_NAME && serverMode && (
         <>
           {" "}
           (or for the <code>{SERVER_NAME}</code> that reaches this BitcoinTX)
@@ -289,7 +290,7 @@ const ConnectAiSetting: React.FC = () => {
             {access && !access.on && " Turn on AI access above first."}
           </p>
           <CopyBlock label="Setup prompt" text={buildAiPrompt(input)} rows={keyMode ? 12 : 18} />
-          <OlderVersionHint version={version} keyMode={keyMode} />
+          <OlderVersionHint version={version} serverMode={access?.mode === "server"} />
 
           <details className="ai-setup-manual">
             <summary>Set it up yourself</summary>

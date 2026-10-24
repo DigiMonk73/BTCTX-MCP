@@ -262,7 +262,7 @@ def test_the_desktop_modules_stay_importable_without_pywebview():
     assert desktop_paths.app_version.__module__ == "backend.version"
 
 
-def test_the_setup_code_is_looked_for_in_the_beta_apps_folder(monkeypatch):
+def test_the_setup_code_is_looked_for_in_the_preview_apps_folder(monkeypatch):
     """The login page's hint, when the Mac app's window can't fill the code in
     (its address in a browser): BitcoinTX Preview's folder, never BitcoinTX's."""
     from backend.services import first_run
