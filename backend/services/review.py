@@ -310,20 +310,20 @@ TOLERANCE = Decimal("0.05")
 CENT = Decimal("0.01")
 
 
-def _money(value) -> str | None:
+def money(value) -> str | None:
     return None if value is None else str(Decimal(value).quantize(Decimal("0.01")))
 
 
-def _item(t: Transaction, tz, book: AccountBook, issue: str, change: str) -> dict[str, Any]:
+def row_item(t: Transaction, tz, book: AccountBook, issue: str, change: str) -> dict[str, Any]:
     return {
         "id": t.id,
         "date": as_utc(t.timestamp).astimezone(tz).strftime("%Y-%m-%d %H:%M"),
         "type": t.type,
         "purpose": t.purpose,
         "source": t.source,
-        "amount": _money(t.amount) if _in_dollars(t, book) else btc_text(t.amount),
+        "amount": money(t.amount) if _in_dollars(t, book) else btc_text(t.amount),
         "unit": "USD" if _in_dollars(t, book) else "BTC",
-        "realized_gain_usd": _money(t.realized_gain_usd),
+        "realized_gain_usd": money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
@@ -380,20 +380,20 @@ def simulate_recalculation(db: Session):
 
     tz = get_tax_timezone(db)
     with scratch_copy(db) as scratch:
-        before = _snapshot(scratch, tz)
+        before = snapshot(scratch, tz)
         try:
             recalculate_all_transactions(scratch)
             scratch.flush()
-            after = _snapshot(scratch, tz)
+            after = snapshot(scratch, tz)
         except HTTPException as exc:  # e.g. a missing price: say so
             return None, exc.detail
         except Exception as exc:  # never its text in the log at ERROR (#430)
             log_unexpected("Ledger Review: the dry run of Recalculate Ledger", exc, logger)
             return None, DRY_RUN_FAILED
-    return _differences(before, after), None
+    return differences(before, after), None
 
 
-def _snapshot(db: Session, tz) -> dict[int, dict[str, Any]]:
+def snapshot(db: Session, tz) -> dict[int, dict[str, Any]]:
     """Each transaction's stored figures, its lot disposals' and its lots'."""
     figures = {t.id: {f: getattr(t, f) for f in FIGURES} for t in db.query(Transaction).all()}
     for tx_id, rows in _disposal_rows(db).items():
@@ -405,7 +405,7 @@ def _snapshot(db: Session, tz) -> dict[int, dict[str, Any]]:
     return figures
 
 
-def _differences(before: dict, after: dict) -> dict[int, dict[str, tuple]]:
+def differences(before: dict, after: dict) -> dict[int, dict[str, tuple]]:
     """Per transaction, each figure that moves, old -> new; or, when none
     does, its rows or the lots it made, if only how they split moves (#296)."""
     changes = {}
@@ -447,8 +447,8 @@ def _row_figures(rows: list[LotDisposal]) -> dict[str, Any]:
         # A row with no term stored (before 0.7) is short-term, as the reports count it
         "terms": frozenset("LONG" if d.holding_period == "LONG" else "SHORT" for d in rows),
         "rows": [{"term": d.holding_period, "fee": bool(d.is_fee), "btc": btc_text(d.disposed_btc),
-                  "basis": _money(d.disposal_basis_usd), "proceeds": _money(d.proceeds_usd_for_that_portion),
-                  "gain": _money(d.realized_gain_usd)} for d in rows],
+                  "basis": money(d.disposal_basis_usd), "proceeds": money(d.proceeds_usd_for_that_portion),
+                  "gain": money(d.realized_gain_usd)} for d in rows],
     }
 
 
@@ -465,7 +465,7 @@ def _lots_made(db: Session, tz) -> dict[int, dict[str, Any]]:
     return {tx_id: {
         "lot_cost": sum((Decimal(lot.cost_basis_usd or 0) for lot in lots), Decimal(0)),
         "lots": sorted(({"acquired": local_date(lot.acquired_date, tz).isoformat(), "btc": btc_text(lot.total_btc),
-                         "cost": _money(lot.cost_basis_usd)} for lot in lots),
+                         "cost": money(lot.cost_basis_usd)} for lot in lots),
                        key=lambda lot: (lot["acquired"], Decimal(lot["btc"]), Decimal(lot["cost"] or 0))),
     } for tx_id, lots in made.items()}
 
@@ -521,22 +521,22 @@ def _row_issues(t: Transaction, tz, book: AccountBook):
     purpose = normalized(t.purpose) if book.is_btc(t.from_account_id) else ""
     if t.type == "Withdrawal" and purpose == "spent" and t.gross_proceeds_usd is not None \
             and Decimal(t.gross_proceeds_usd) == 0 and received_known(t):  # else listed as an unknown purpose
-        yield "zero_proceeds_spend", _item(
+        yield "zero_proceeds_spend", row_item(
             t, tz, book, "Saved with $0 proceeds: its whole basis shows as a loss.",
             "Proceeds you enter replace $0; the gain changes by the same amount.",
         )
     if t.type == "Withdrawal" and purpose == "lost" and not (
         t.realized_gain_usd is not None and Decimal(t.realized_gain_usd) == 0
     ):
-        yield "lost_with_loss", _item(
-            t, tz, book, f"Stored gain {_money(t.realized_gain_usd) or 'not calculated'}.",
+        yield "lost_with_loss", row_item(
+            t, tz, book, f"Stored gain {money(t.realized_gain_usd) or 'not calculated'}.",
             "Gain becomes $0.00 after Recalculate Ledger.",
         )
     into_btc = t.type == "Deposit" and book.is_btc(t.to_account_id)
     if into_btc and normalized(t.source) in DATED_FROM_DEPOSIT and t.acquired_at is None:
-        yield "original_date_missing", _item(t, tz, book, "No date originally acquired.", "")
+        yield "original_date_missing", row_item(t, tz, book, "No date originally acquired.", "")
     if into_btc and normalized(t.source) == INHERITED_SOURCE and t.acquired_at is None:
-        yield "inherited_without_date", _item(t, tz, book, "No date of death.", "")
+        yield "inherited_without_date", row_item(t, tz, book, "No date of death.", "")
     if into_btc and normalized(t.source) not in DAY_VALUED and _is_zero_or_blank(t.cost_basis_usd):
         yield "deposit_without_basis", _no_basis_item(t, tz, book)
     if t.type == "Buy" and _is_zero_or_blank(t.cost_basis_usd):
@@ -545,7 +545,7 @@ def _row_issues(t: Transaction, tz, book: AccountBook):
 
 def _no_basis_item(t: Transaction, tz, book: AccountBook) -> dict[str, Any]:
     """A deposit's or a buy's item for its $0 or blank cost basis."""
-    return _item(
+    return row_item(
         t, tz, book, "Cost basis " + ("blank" if t.cost_basis_usd is None else "$0.00") + ".",
         "A basis you enter lowers the gain when this BTC is sold by the same amount.",
     )
@@ -556,7 +556,7 @@ def _purpose_issues(t: Transaction, tz, book: AccountBook):
     if t.type == "Withdrawal" and book.is_btc(t.from_account_id) \
             and (normalized(t.purpose) not in KNOWN_PURPOSES or _spaced_spent_unknown(t)):
         named = f'"{t.purpose}"' if (t.purpose or "").strip() else "blank"
-        yield "withdrawal_purpose_unknown", _item(
+        yield "withdrawal_purpose_unknown", row_item(
             t, tz, book, f"Purpose {named}: {_counted_as(t)}",
             "If it was a spend, choose Spent (with what you got for it, if none is recorded); as Gift, "
             "Donation or Lost it has no gain.",
@@ -580,7 +580,7 @@ def _account_missing_items(db: Session, tz, book: AccountBook) -> list[dict[str,
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
-    return [_item(t, tz, book, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
+    return [row_item(t, tz, book, _sentence(what_is_missing(missing_accounts(t, known))) + _stops_saves(t, known),
                   "Edit it into one of your accounts, or delete it.") for t in rows]
 
 
@@ -599,7 +599,7 @@ def _old_account_items(db: Session, tz, book: AccountBook) -> list[dict[str, Any
         .order_by(Transaction.timestamp, Transaction.id)
         .all()
     )
-    return [_item(t, tz, book, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows
+    return [row_item(t, tz, book, OLD_ROW_ISSUE, OLD_ROW_CHANGE) for t in rows
             if {t.from_account_id, t.to_account_id} & old and not missing_accounts(t, known)]
 
 
@@ -625,7 +625,7 @@ def _sale_may_differ_items(db: Session, tz, book: AccountBook) -> list[dict[str,
         wanted = {t.id for t in sells if t.from_account_id == account_id}
         ours, theirs = (replayed_lots(db, account_id, wanted, by_arrival)[0] for by_arrival in (False, True))
         differ |= {i for i in wanted if _covered(ours[i], account_id, tz) != _covered(theirs[i], account_id, tz)}
-    return [_item(t, tz, book, f"Counting coins moved into {book.name(t.from_account_id)} from their arrival, the "
+    return [row_item(t, tz, book, f"Counting coins moved into {book.name(t.from_account_id)} from their arrival, the "
                   "exchange's own order and BitcoinTX's take different coins bought there for this sale.", "")
             for t in sells if t.id in differ]
 
@@ -723,9 +723,9 @@ def _counted_as(t: Transaction) -> str:
     fee = " before its network fee" if (t.fee_currency or "").upper() == "BTC" \
         and Decimal(t.fee_amount or 0) > 0 else ""
     if Decimal(t.gross_proceeds_usd or 0) > 0:
-        return f"counted as Spent, with ${_money(t.gross_proceeds_usd)} proceeds{fee}."
+        return f"counted as Spent, with ${money(t.gross_proceeds_usd)} proceeds{fee}."
     if t.gross_proceeds_usd is None and Decimal(t.proceeds_usd or 0) > 0:
-        return f"counted as Spent, with the ${_money(t.proceeds_usd)} proceeds saved with it{fee}."
+        return f"counted as Spent, with the ${money(t.proceeds_usd)} proceeds saved with it{fee}."
     return "counted as Spent at $0 proceeds (none recorded), so its whole basis shows as a loss."
 
 
@@ -741,11 +741,11 @@ SPLITS = {"lot_rows": "Its rows, lot by lot, would be split differently",
           "lot_split": "The lots it made would differ (their dates, BTC or cost)"}
 
 
-def _change_text(diff: dict) -> str:
+def change_text(diff: dict) -> str:
     """What would change, in words: old -> new for each figure, or how it splits."""
     if any(f in SPLITS for f in diff):
         return "; ".join(SPLITS[f] for f in SPLITS if f in diff) + "; its totals stay the same."
-    return "; ".join(f"{FIGURE_NAMES[f]} {_money(old) or 'none'} -> {_money(new) or 'none'}"
+    return "; ".join(f"{FIGURE_NAMES[f]} {money(old) or 'none'} -> {money(new) or 'none'}"
                      for f, (old, new) in diff.items()) + "."
 
 
@@ -757,8 +757,8 @@ def _recalc_items(db: Session, moved: dict, tz, book: AccountBook) -> list[dict[
     items = []
     for t in sorted(rows, key=lambda t: (t.timestamp, t.id)):
         diff = moved[t.id]
-        item = _item(t, tz, book, "Stored figures differ from what the current rules give.", _change_text(diff))
-        item["changes"] = {f: list(pair) if f in SPLITS else [_money(pair[0]), _money(pair[1])]
+        item = row_item(t, tz, book, "Stored figures differ from what the current rules give.", change_text(diff))
+        item["changes"] = {f: list(pair) if f in SPLITS else [money(pair[0]), money(pair[1])]
                            for f, pair in diff.items()}
         items.append(item)
     return items
@@ -788,7 +788,7 @@ def _day_priced_items(db: Session, tz, book: AccountBook) -> tuple[list[dict[str
             items.append(_day_priced_item(t, tz, book, change))
     for year in years.values():
         for key in ("income", "basis", "proceeds", "gift_values", "fees"):
-            year[key] = _money(year[key])
+            year[key] = money(year[key])
     return items, [years[y] for y in sorted(years)]
 
 
@@ -796,16 +796,16 @@ def _day_priced_item(t: Transaction, tz, book: AccountBook, change: dict[str, An
     when = datetime.fromtimestamp(change["at"], tz=timezone.utc).strftime("%H:00 UTC")
     at = f"the price when its hour began ({when})"
     if change["moment"] == "hour":
-        issue = f"Valued at the day's 00:00 UTC price; at {at}, ${_money(change['price'])}:"
+        issue = f"Valued at the day's 00:00 UTC price; at {at}, ${money(change['price'])}:"
     else:
-        issue = f"Not at that day's 00:00 UTC price, ${_money(change['price'])} (no hourly price here):"
+        issue = f"Not at that day's 00:00 UTC price, ${money(change['price'])} (no hourly price here):"
     parts = []
     for field, (old, new) in change["values"].items():
         name = VALUE_NAMES.get(field) or ("Income and basis" if _is_income(t) else "Basis")
-        parts.append(f"{name} ${_money(old)} -> ${_money(new)}")
-    item = _item(t, tz, book, issue, "; ".join(parts) + ".")
+        parts.append(f"{name} ${money(old)} -> ${money(new)}")
+    item = row_item(t, tz, book, issue, "; ".join(parts) + ".")
     item.update(year=change["tax_year"], moment=change["moment"],
-                values={f: [_money(old), _money(new)] for f, (old, new) in change["values"].items()})
+                values={f: [money(old), money(new)] for f, (old, new) in change["values"].items()})
     return item
 
 
@@ -839,9 +839,9 @@ def _income_without_value_items(db: Session, rows: list[Transaction], tz, missin
         else:
             price, which = market
             expected = (price * Decimal(t.amount)).quantize(CENT)
-            issue += f"; at {which} price (${_money(price)}) it is ${_money(expected)}."
-            change = f"{figure} $0.00 -> ${_money(expected)} if you clear it."
-        items.append(_item(t, tz, book, issue, change))
+            issue += f"; at {which} price (${money(price)}) it is ${money(expected)}."
+            change = f"{figure} $0.00 -> ${money(expected)} if you clear it."
+        items.append(row_item(t, tz, book, issue, change))
     return items
 
 
@@ -858,13 +858,13 @@ def _gift_without_value_items(db: Session, rows: list[Transaction], tz, missing:
         issue = "Value blank: the tax report lists it as not given" if t.fmv_usd is None else "Value $0.00"
         market = _market_price(db, t, missing)
         if market is None:
-            items.append(_item(t, tz, book, issue + " (no price stored for that day).",
+            items.append(row_item(t, tz, book, issue + " (no price stored for that day).",
                                "Its value when it left becomes the value the report shows."))
             continue
         price, which = market
         expected = (price * Decimal(t.amount)).quantize(CENT)
-        items.append(_item(t, tz, book, f"{issue}; at {which} price (${_money(price)}) it is ${_money(expected)}.",
-                           f"Value {'blank' if t.fmv_usd is None else '$0.00'} -> ${_money(expected)} if you clear it."))
+        items.append(row_item(t, tz, book, f"{issue}; at {which} price (${money(price)}) it is ${money(expected)}.",
+                           f"Value {'blank' if t.fmv_usd is None else '$0.00'} -> ${money(expected)} if you clear it."))
     return items
 
 
@@ -883,11 +883,11 @@ def _income_value_items(db: Session, rows: list[Transaction], tz, missing: list[
         price, which = market
         expected = (price * Decimal(t.amount)).quantize(CENT)
         if _off(t.cost_basis_usd, expected):
-            items.append(_item(
-                t, tz, book, f"Basis ${_money(t.cost_basis_usd)}; at {which} price (${_money(price)}) "
-                       f"it is ${_money(expected)}.",
+            items.append(row_item(
+                t, tz, book, f"Basis ${money(t.cost_basis_usd)}; at {which} price (${money(price)}) "
+                       f"it is ${money(expected)}.",
                 f"{'Basis (and the income reported)' if _is_income(t) else 'Basis'} "
-                f"${_money(t.cost_basis_usd)} -> ${_money(expected)} if you change it.",
+                f"${money(t.cost_basis_usd)} -> ${money(expected)} if you change it.",
             ))
     return items
 

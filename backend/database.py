@@ -157,6 +157,7 @@ def scratch_copy(db: Session) -> Iterator[Session]:
         engine = create_engine("sqlite://", creator=lambda: memory, poolclass=StaticPool)
         try:
             scratch = Session(bind=engine)
+            scratch.info[SCRATCH] = True
             try:
                 yield scratch
             finally:
@@ -166,6 +167,10 @@ def scratch_copy(db: Session) -> Iterator[Session]:
     finally:
         memory.close()
 
+
+# Session.info key: a scratch copy's session (scratch_copy), whose writes are
+# thrown away with it
+SCRATCH = "btctx_scratch_copy"
 
 # Where services/account.py keeps a session's account book (Session.info)
 ACCOUNT_BOOK = "account_book"

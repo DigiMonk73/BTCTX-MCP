@@ -297,11 +297,27 @@ export async function openAddForm(page: Page, type: string) {
   await page.getByLabel("Transaction Type").selectOption(type);
 }
 
-/** Save the open form and wait for the panel to close. */
-export async function saveForm(page: Page, button = "Save Transaction") {
+/**
+ * Save the open form and wait for the panel to close. A save that changes an earlier tax year asks first (2.0
+ * spec 5.8): its dialog is confirmed here, since the tests' rows are nearly all dated in earlier years;
+ * past-years-352.e2e.ts checks the dialog. With `{ warning: false }` (a save that must move nothing), the
+ * dialog appearing fails the test.
+ */
+export async function saveForm(page: Page, button = "Save Transaction", { warning = true } = {}) {
   await page.getByRole("button", { name: button }).click();
-  await expect(page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ })).toHaveCount(0);
+  const formOpen = page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ });
+  const saveAnyway = page.getByRole("button", { name: SAVE_ANYWAY });
+  await expect.poll(async () => (await saveAnyway.isVisible()) || (await formOpen.count()) === 0).toBe(true);
+  if (await saveAnyway.isVisible()) {
+    expect(warning, "this save asked about an earlier tax year").toBe(true);
+    await saveAnyway.click();
+  }
+  await expect(formOpen).toHaveCount(0);
 }
+
+/** The past-year dialog's buttons (components/PastYearDialog.tsx). */
+export const SAVE_ANYWAY = "Save anyway (a copy is made first)";
+export const DELETE_ANYWAY = "Delete anyway (a copy is made first)";
 
 /** Seed a funded ledger over the API: $100k in the bank, 1 BTC bought 2023-01-10. */
 export async function seedFunds(request: APIRequestContext) {

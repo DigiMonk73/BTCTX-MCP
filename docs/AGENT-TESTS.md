@@ -117,6 +117,17 @@ Enter them in Transactions > **Add transaction**, then **Save
 transaction**. **Date & Time** is New York time. Leave any field not
 listed at its default.
 
+From 2.0, a save, an edit or a delete that changes an earlier tax year
+asks first (#352): a dialog names the years and what changes, with
+**Save anyway (a copy is made first)** and **Cancel** (a delete's says
+**Delete anyway**). Every golden row is in an earlier year, so the first
+add of each year asks "This adds to tax year 2023, which you may already
+have filed…"; tick **Don't ask again for adds to 2023 while this page is
+open** and click **Save anyway**, and that year's next adds save without
+asking. Edits and deletes always ask; a reload asks again. Each confirmed
+save leaves a copy, `btctx-pre-change-past-year-….db`, in the data folder's
+`backups`.
+
 | # | Date & Time | Transaction Type | Fields | Toast after saving |
 |---|---|---|---|---|
 | 1 | 2023-01-15 12:00 | Deposit | Account `Bank Account`, Amount `100000` | Transaction created successfully! |
@@ -170,6 +181,7 @@ import os
 import ssl
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 
 LEDGER = [
@@ -195,14 +207,28 @@ web = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookie
                                   urllib.request.HTTPSHandler(context=tls))
 
 
-def call(method, path, body=None):
-    req = urllib.request.Request(URL + path, method=method, headers={"Content-Type": "application/json"},
+def call(method, path, body=None, confirm=None):
+    query = "" if confirm is None else "?confirm=" + urllib.parse.quote(confirm)
+    req = urllib.request.Request(URL + path + query, method=method, headers={"Content-Type": "application/json"},
                                  data=None if body is None else json.dumps(body).encode())
     try:
         with web.open(req) as r:
             return json.loads(r.read() or "null")
     except urllib.error.HTTPError as e:
-        sys.exit(f"{method} {path}: {e.code} {e.read().decode()[:300]}")
+        answer = e.read().decode()
+        asked = _fingerprint(answer) if e.code == 409 and confirm is None else None
+        if asked is not None:  # 2.0's past-year warning: every row here is in an earlier tax year
+            return call(method, path, body, asked)
+        sys.exit(f"{method} {path}: {e.code} {answer[:300]}")
+
+
+def _fingerprint(answer):
+    """The past-year warning's `confirm`, sent back once; None for any other 409."""
+    try:
+        asked = json.loads(answer).get("confirm")
+    except (ValueError, AttributeError):
+        return None
+    return asked if isinstance(asked, str) else None
 
 
 call("POST", "/api/login", {"username": os.environ["BTCTX_USER"], "password": os.environ["BTCTX_PASSWORD"]})
@@ -276,8 +302,8 @@ Start from the `clean` snapshot.
 
 ### GLD: the golden ledger through the UI (price source Nobody)
 
-- **GLD-1** Enter the 14 golden transactions. Expect: each toast as in
-  the table.
+- **GLD-1** Enter the 14 golden transactions, confirming the past-year
+  dialog as above. Expect: each toast as in the table.
 - **GLD-2** Transactions list. Expect: 14 rows, grouped by day, newest
   first under **Sort by date**. **Last added** puts #14 first. Items per page
   `10` gives "Page 1 of 2", and **Next »** / **« Prev** move between the
@@ -306,13 +332,17 @@ Start from the `clean` snapshot.
     BTC".
 - **GLD-5** Edit #3 (the 2023-03-01 Buy). Expect: "Edit Transaction", with
   the Transaction Type select disabled. Change Amount USD to `13000` and
-  click **Update transaction**. Expect: #5 now Gain +$1,190.00, #7
+  click **Update transaction**: the past-year dialog names the years and
+  lists #5, #7 and #8 among the changes; click **Save anyway (a copy is
+  made first)**.
+  Expect: #5 now Gain +$1,190.00, #7
   +$7,200.00, #8 +$3,400.00. Change it back to `12000`. Expect: #5
   +$1,390.00, #7 +$7,800.00, #8 +$3,600.00. Every edit recalculates the
   whole ledger.
 - **GLD-6** Delete #9 (the income deposit). Expect the confirm "Are you
-  sure you want to delete this transaction?" and the toast "Transaction
-  deleted successfully!". Wallet (BTC) 0.37970000. Re-enter #9, which
+  sure you want to delete this transaction?", then the past-year dialog
+  (click **Delete anyway (a copy is made first)**), and the toast
+  "Transaction deleted successfully!". Wallet (BTC) 0.37970000. Re-enter #9, which
   makes it a backdated entry. Expect: every golden figure is back, Wallet
   0.39970000.
 - **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
