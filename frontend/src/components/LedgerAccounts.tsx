@@ -87,7 +87,15 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
   const add = (kind: YourKind, name: string) => change(null, () => api.post("/accounts/", { kind, name }));
 
   // A name moves no figure, so the server never asks (B6c's save): one request
-  const rename = (row: AccountRow, name: string) => change(row, () => api.put(`/accounts/${row.id}`, { name }));
+  const rename = (row: AccountRow, name: string) => {
+    void change(row, () => api.put(`/accounts/${row.id}`, { name }));
+  };
+
+  // A row opened or closed: a refusal one of its changes got is no longer news, as Add's isn't once it closes
+  const toggleRow = (row: AccountRow) => {
+    setOpenRow(openRow === row.key ? null : row.key);
+    setRefusal("");
+  };
 
   // Either of an exchange's accounts turns the exchange's switch; cancelled, nothing is saved and the box
   // shows the saved setting. The box is never disabled meanwhile: the dialog gives the keyboard back to it as
@@ -119,7 +127,7 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     <div className="ledger-accounts">
       {accountGroups(book).map((group) => (
         <AccountGroupList key={group.kind} group={group} book={book} balances={balances} busy={busy} switching={switching}
-          openRow={openRow} onToggleRow={(row) => setOpenRow(openRow === row.key ? null : row.key)}
+          openRow={openRow} onToggleRow={toggleRow}
           onHide={hide} onDelete={remove} onSwitch1099da={(row, on) => void switch1099da(row, on)} onRename={rename}
           onAdd={add}
           onAddClosed={() => setRefusal("")} />

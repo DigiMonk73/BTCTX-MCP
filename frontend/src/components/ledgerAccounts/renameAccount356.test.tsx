@@ -64,6 +64,16 @@ describe("Settings' Rename", () => {
     expect(view.reload).not.toHaveBeenCalled();
   });
 
+  it("a refusal is no longer news once its row closes", async () => {
+    const view = await mount("Wallet", async () => { throw refused(400, "An account named 'Bank' already exists."); });
+    await view.user.clear(view.field);
+    await view.user.type(view.field, "Bank");
+    await view.user.click(view.rename);
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    await view.user.click(screen.getByRole("button", { name: /^Wallet\b/ }));
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("an exchange's row renames the exchange, and says what its two accounts become", async () => {
     const view = await mount("Exchange", async () => ({ data: {} }));
     expect(view.field.value).toBe("Exchange");
@@ -78,7 +88,7 @@ describe("Settings' Rename", () => {
 
   it("says how files name a renamed account", async () => {
     const view = await mount("Wallet", async () => ({ data: {} }));
-    expect(within(view.details).getByText(/^A CSV file names accounts as they're named when you import it/))
+    expect(within(view.details).getByText(/^A CSV file names each account as it was named when the file was saved/))
       .toBeTruthy();
   });
 });

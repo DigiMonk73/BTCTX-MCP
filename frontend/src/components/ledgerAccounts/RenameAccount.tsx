@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { RENAME_FILES_NOTE, renameHelp, renameReady, type AccountRow } from "../../utils/ledgerAccounts";
+import { renameFilesNote, renameHelp, renameReady, type AccountRow } from "../../utils/ledgerAccounts";
 
 interface RenameAccountProps {
   row: AccountRow;
   /** A change is saving (or an exchange's switch): Rename waits. */
   busy: boolean;
-  /** Sends the new name; true once the server made it. */
-  onRename: (row: AccountRow, name: string) => Promise<boolean>;
+  /** Sends the new name: the section shows the server's answer and closes the row once it's saved. */
+  onRename: (row: AccountRow, name: string) => void;
 }
 
 /** A row's Rename (#356, 2.0 spec 5.9): its name, Rename, what an exchange's
@@ -20,7 +20,7 @@ const RenameAccount: React.FC<RenameAccountProps> = ({ row, busy, onRename }) =>
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (ready && !busy) void onRename(row, name);
+    if (ready && !busy) onRename(row, name);
   };
 
   return (
@@ -34,7 +34,7 @@ const RenameAccount: React.FC<RenameAccountProps> = ({ row, busy, onRename }) =>
           <button type="submit" className="btn btn-secondary btn-sm" disabled={busy || !ready}>Rename</button>
         </div>
         {help && <p id={`${field}-help`} className="field-hint">{help}</p>}
-        <p id={`${field}-files`} className="field-hint">{RENAME_FILES_NOTE}</p>
+        <p id={`${field}-files`} className="field-hint">{renameFilesNote(row)}</p>
       </div>
     </form>
   );

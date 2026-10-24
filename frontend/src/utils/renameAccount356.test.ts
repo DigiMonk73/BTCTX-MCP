@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../test/books";
-import { RENAME_FILES_NOTE, accountGroups, renameHelp, renameReady, type AccountRow } from "./ledgerAccounts";
+import { accountGroups, renameFilesNote, renameHelp, renameReady, type AccountRow } from "./ledgerAccounts";
 
 /** A book's row by its name ("Wallet", "River"). */
 function rowOf(book: AccountBook, name: string): AccountRow {
@@ -32,9 +32,19 @@ describe("Settings' Rename (#356, 2.0 spec 5.9)", () => {
     expect(renameHelp(rowOf(MANY, "Checking"), "Savings 2")).toBeNull();
   });
 
+  const FILES = "A CSV file names each account as it was named when the file was saved, and an import matches " +
+    "those names to your accounts as they're named then: a file saved before this rename names this account by " +
+    "its old name.";
+
   it("says how files name a renamed account (5.11)", () => {
-    expect(RENAME_FILES_NOTE).toBe(
-      "A CSV file names accounts as they're named when you import it: one saved before a rename still " +
-      "names this account by its old name.");
+    expect(renameFilesNote(rowOf(MANY, "Coldcard"))).toBe(FILES);
+    expect(renameFilesNote(rowOf(MANY, "Kraken"))).toBe(FILES);
+  });
+
+  it("the first bank, wallet and exchange keep their old names' meaning in files (5.1's reserved names)", () => {
+    expect(renameFilesNote(rowOf(MANY, "Checking"))).toBe(`${FILES} In a file, 'Bank' still means this account.`);
+    expect(renameFilesNote(rowOf(MANY, "Sparrow"))).toBe(`${FILES} In a file, 'Wallet' still means this account.`);
+    expect(renameFilesNote(rowOf(MANY, "River"))).toBe(
+      `${FILES} In a file, 'Exchange USD' and 'Exchange BTC' still mean this exchange's accounts.`);
   });
 });

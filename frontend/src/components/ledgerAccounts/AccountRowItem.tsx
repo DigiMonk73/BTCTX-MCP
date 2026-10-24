@@ -16,8 +16,8 @@ interface AccountRowItemProps {
   onDelete: (row: AccountRow) => void;
   /** An exchange's 1099-DA switch turned on or off. */
   onSwitch1099da: (row: AccountRow, on: boolean) => void;
-  /** A new name sent; true once the server made it (#356). */
-  onRename: (row: AccountRow, name: string) => Promise<boolean>;
+  /** A new name sent (#356). */
+  onRename: (row: AccountRow, name: string) => void;
 }
 
 // The API's own words for what it refuses (services/account.py), said before it's asked

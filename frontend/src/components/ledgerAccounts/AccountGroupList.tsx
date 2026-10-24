@@ -16,7 +16,7 @@ interface AccountGroupListProps {
   onHide: (row: AccountRow, hidden: boolean) => void;
   onDelete: (row: AccountRow) => void;
   onSwitch1099da: (row: AccountRow, on: boolean) => void;
-  onRename: (row: AccountRow, name: string) => Promise<boolean>;
+  onRename: (row: AccountRow, name: string) => void;
   onAdd: (kind: YourKind, name: string) => Promise<boolean>;
   /** The add form closed: a refusal it got is no longer news. */
   onAddClosed: () => void;
