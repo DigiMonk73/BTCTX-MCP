@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { balanceText, type AccountGroup, type AccountRow, type YourKind } from "../../utils/ledgerAccounts";
+import { balanceText, ledgerIds, type AccountGroup, type AccountRow, type YourKind } from "../../utils/ledgerAccounts";
 import AccountRowItem from "./AccountRowItem";
 import AddAccount from "./AddAccount";
 
@@ -27,9 +27,11 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
   const [showHidden, setShowHidden] = useState(false);
   const addButton = useRef<HTMLButtonElement>(null);
   const [refocus, setRefocus] = useState(false);
-  const heading = `ledger-group-${group.kind}`;
-  const hiddenList = `${heading}-hidden`;
-  const addForm = `${heading}-add`;
+  const heading = ledgerIds.group(group.kind);
+  const hiddenList = ledgerIds.hiddenList(group.kind);
+  const addForm = ledgerIds.addForm(group.kind);
+  // The last hidden one shown again: the next one hidden starts folded too
+  if (showHidden && group.hidden.length === 0) setShowHidden(false);
   // The keyboard goes back to the button the form opened from, once it's
   // enabled again (a disabled button can't take focus)
   const closeAdd = () => {
@@ -51,8 +53,9 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
     <div className="ledger-group" role="group" aria-labelledby={heading}>
       <div className="ledger-group-head">
         <h4 id={heading} className="ledger-group-title">{group.title}</h4>
-        <button ref={addButton} type="button" className="btn btn-secondary btn-sm" aria-expanded={adding}
-          aria-controls={addForm} disabled={busy} onClick={() => (adding ? closeAdd() : setAdding(true))}>
+        <button ref={addButton} id={ledgerIds.addButton(group.kind)} type="button" className="btn btn-secondary btn-sm"
+          aria-expanded={adding} aria-controls={adding ? addForm : undefined} disabled={busy}
+          onClick={() => (adding ? closeAdd() : setAdding(true))}>
           {group.add}
         </button>
       </div>
@@ -60,8 +63,9 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
       {group.shown.length > 0 && <ul className="ledger-account-list">{group.shown.map(item)}</ul>}
       {group.hidden.length > 0 && (
         <>
-          <button type="button" className="btn btn-quiet btn-sm ledger-show-hidden" aria-expanded={showHidden}
-            aria-controls={hiddenList} onClick={() => setShowHidden(!showHidden)}>
+          <button type="button" id={ledgerIds.showHidden(group.kind)} className="btn btn-quiet btn-sm ledger-show-hidden"
+            aria-expanded={showHidden} aria-controls={showHidden ? hiddenList : undefined}
+            onClick={() => setShowHidden(!showHidden)}>
             Show hidden ({group.hidden.length})
           </button>
           {showHidden && <ul id={hiddenList} className="ledger-account-list">{group.hidden.map(item)}</ul>}

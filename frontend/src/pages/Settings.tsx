@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import AboutSetting from "../components/AboutSetting";
 import AccountSettings from "../components/AccountSettings";
 import BackupRestore from "../components/BackupRestore";
@@ -30,23 +30,23 @@ const Settings: React.FC = () => {
   const [message, setMessage] = useState("");
   // The River preview's table takes the window's width while it's open
   const [wide, setWide] = useState(false);
-  const { hash } = useLocation();
+  const { hash, pathname } = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(() => initiallyOpen(browserStore(), hash));
-  const [seenHash, setSeenHash] = useState(hash);
   const [review, setReview] = useState<LedgerReviewResponse | null>();
   const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };
 
-  // A link followed while the page is open opens its section too
-  const linked = linkedSection(hash);
-  if (hash !== seenHash) {
-    setSeenHash(hash);
-    if (linked) setOpen(linked);
-  }
-
+  // A link's section opens, as if its button were pressed (remembered), and
+  // the link's "#" goes: a reload then shows what's open, not the link's again
   useEffect(() => {
-    if (linked) document.getElementById(`settings-${linked}-section`)?.scrollIntoView({ block: "start" });
-  }, [linked]);
+    const linked = linkedSection(hash);
+    if (!linked) return;
+    setOpen(linked);
+    rememberOpen(browserStore(), linked);
+    document.getElementById(`settings-${linked}-section`)?.scrollIntoView({ block: "start" });
+    navigate(pathname, { replace: true });
+  }, [hash, pathname, navigate]);
 
   const toggle = (id: SettingsSectionId) => {
     const next = toggled(open, id);

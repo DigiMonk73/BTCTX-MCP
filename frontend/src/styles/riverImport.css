@@ -11,6 +11,10 @@
   gap: var(--space-4);
   margin: var(--space-2) 0 var(--space-3);
 }
+/* A phone: a picker a thumb can hit */
+@media (max-width: 480px) {
+  .river-accounts .input { height: 44px; }
+}
 
 .river-preview {
   display: flex;

@@ -68,10 +68,18 @@ export function browserStore(): Store | undefined {
 
 /** Ledger Review's summary, from its last answer (undefined: not yet; null:
  * it failed), as the section's own text says it: a closed section still
- * shows whether something needs a look. */
-export function reviewSummary(review: { total: number; reminders: number } | null | undefined): string {
+ * shows whether something needs a look, a recalculation that would stop
+ * included, which no count holds. */
+export function reviewSummary(
+  review: { total: number; reminders: number; recalc_error?: string | null } | null | undefined,
+): string {
   if (review === undefined) return "Checking…";
   if (review === null) return "The review could not be loaded";
-  if (review.total === 0) return review.reminders > 0 ? "Nothing looks wrong" : "Nothing to review";
-  return `${review.total} transaction${review.total === 1 ? "" : "s"} to check`;
+  const stops = Boolean(review.recalc_error);
+  if (review.total === 0) {
+    if (stops) return "Recalculate Ledger would stop: see why";
+    return review.reminders > 0 ? "Nothing looks wrong" : "Nothing to review";
+  }
+  const toCheck = `${review.total} transaction${review.total === 1 ? "" : "s"} to check`;
+  return stops ? `${toCheck}; Recalculate Ledger would stop` : toCheck;
 }

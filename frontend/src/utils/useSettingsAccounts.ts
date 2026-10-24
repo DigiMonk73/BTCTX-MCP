@@ -5,7 +5,8 @@ import { useCallback, useRef, useState } from "react";
 import api from "../api";
 import { forgetAccounts, useAccounts, type AccountsState } from "./useAccounts";
 
-export function useSettingsAccounts(): AccountsState & { reload: () => void } {
+/** The book, and `reload`, which asks for it again and settles once it's there (or failed). */
+export function useSettingsAccounts(): AccountsState & { reload: () => Promise<void> } {
   const page = useAccounts();
   const [changed, setChanged] = useState<AccountsState>();
   const asked = useRef(0);
@@ -14,7 +15,7 @@ export function useSettingsAccounts(): AccountsState & { reload: () => void } {
     forgetAccounts();
     // Two changes in a row: only the last answer counts, whichever comes first
     const ask = ++asked.current;
-    api.get<AccountBook>("/accounts/").then(
+    return api.get<AccountBook>("/accounts/").then(
       (res) => {
         if (ask === asked.current) setChanged({ book: res.data, failed: false });
       },

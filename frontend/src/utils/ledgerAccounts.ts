@@ -85,6 +85,18 @@ function row(key: string, kind: YourKind, name: string, accounts: LedgerAccount[
   };
 }
 
+/** The section's element ids: its buttons name what they open by them, and
+ * the keyboard goes back to them after a change. */
+export const ledgerIds = {
+  rowToggle: (key: string) => `ledger-account-${key}-toggle`,
+  rowDetails: (key: string) => `ledger-account-${key}`,
+  group: (kind: YourKind) => `ledger-group-${kind}`,
+  addButton: (kind: YourKind) => `ledger-group-${kind}-add-button`,
+  addForm: (kind: YourKind) => `ledger-group-${kind}-add`,
+  showHidden: (kind: YourKind) => `ledger-group-${kind}-show-hidden`,
+  hiddenList: (kind: YourKind) => `ledger-group-${kind}-hidden`,
+};
+
 /** Delete is offered only for an account nothing names, and never your first bank, wallet or exchange (5.9). */
 export function canDelete(row: AccountRow): boolean {
   return !row.inUse && !row.accounts.some((a) => FIRST_OF_EACH.has(a.id));
@@ -141,11 +153,12 @@ export const POOLED_NOTE: Record<"wallet" | "exchange", string> = {
 };
 
 /** The help text under the name when adding (5.1, 5.9): an exchange's with the
- * name as the server will keep it (spaces trimmed and joined); none for a bank. */
+ * name as the server will keep it (5.1: each run of spaces one space, at the
+ * ends none); none for a bank. */
 export function addHelp(kind: YourKind, name: string): string | null {
   if (kind === "wallet") return WALLET_HELP;
   if (kind === "bank") return null;
-  const shown = name.trim().replace(/\s+/g, " ");
+  const shown = name.normalize("NFC").replace(/\p{Zs}+/gu, " ").replace(/^ | $/g, "");
   return shown ? exchangeHelp(shown) : EXCHANGE_HELP;
 }
 

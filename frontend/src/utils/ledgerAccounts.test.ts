@@ -106,6 +106,9 @@ describe("adding an account (5.1, 5.8, 5.9: their words, exactly)", () => {
       "BitcoinTX keeps an exchange's dollars and bitcoin as two accounts, 'Kraken Pro USD' and 'Kraken Pro BTC'.",
     );
     expect(addHelp("exchange", " ")).toBe(EXCHANGE_HELP);
+    // As the server keeps a name: runs of spaces (a no-break one too) made one; a tab isn't a space
+    expect(addHelp("exchange", "Kraken\u00a0 Pro")).toContain("'Kraken Pro USD'");
+    expect(addHelp("exchange", "Kraken\tPro")).toContain("'Kraken\tPro USD'");
     expect(EXCHANGE_HELP).toBe(
       "BitcoinTX keeps an exchange's dollars and bitcoin as two accounts, 'name USD' and 'name BTC'.",
     );

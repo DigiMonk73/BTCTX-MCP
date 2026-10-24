@@ -61,7 +61,7 @@ test("sections start closed, open one at a time by their buttons and the keyboar
   // section, closing the one before; Space closes it
   await toggle(page, "Account").focus();
   await page.keyboard.press("Tab");
-  await expect(toggle(page, "Wallets, exchanges and banks")).not.toBeFocused();
+  await expect(page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Logout" })).toBeFocused();
   await toggle(page, "Ledger Review").focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("region", { name: "Ledger review" })).toBeVisible();
@@ -82,13 +82,23 @@ test("sections start closed, open one at a time by their buttons and the keyboar
   for (const name of SECTIONS) await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
 });
 
-test("a link to a section opens it, in place of the one left open", async ({ authedPage: page }) => {
+test("a link to a section opens it, in place of the one left open, as if its button were pressed", async ({
+  authedPage: page,
+}) => {
   await page.getByRole("link", { name: "Settings" }).click();
   await toggle(page, "Account").click();
   await page.goto("/settings#privacy");
   await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByRole("region", { name: "Privacy & network" })).toBeVisible();
   await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "false");
+  // The link's "#" goes, and what's open now is what a reload shows
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.reload();
+  await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "true");
+  await toggle(page, "Account").click();
+  await page.reload();
+  await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "false");
 });
 
 test("your accounts by kind, each with its kind and balance, its details behind its row", async ({
@@ -196,6 +206,8 @@ test("hide, show and delete an unused account; your first wallet is hidden, neve
   await row(wallets, "Phone").click();
   await section.getByRole("region", { name: "Phone" }).getByRole("button", { name: "Hide" }).click();
   await expect(row(wallets, "Phone")).toHaveCount(0);
+  // The keyboard goes where the row went: its group's folded list of hidden ones
+  await expect(wallets.getByRole("button", { name: "Show hidden (1)" })).toBeFocused();
   await expect(toggle(page, "Wallets, exchanges and banks")).toHaveAccessibleDescription(
     "1 wallet · 1 exchange · 1 bank · 1 hidden",
   );
@@ -211,11 +223,13 @@ test("hide, show and delete an unused account; your first wallet is hidden, neve
   await phone.getByRole("button", { name: "Show" }).click();
   await expect(wallets.getByRole("button", { name: /^Show hidden/ })).toHaveCount(0);
   await expect(row(wallets, "Phone")).toHaveAccessibleName("Phone Wallet 0.00000000 BTC");
+  await expect(row(wallets, "Phone")).toBeFocused();
 
   await row(wallets, "Phone").click();
   await section.getByRole("region", { name: "Phone" }).getByRole("button", { name: "Delete" }).click();
   expect(dialogs).toEqual(["Delete Phone? It has no transactions."]);
   await expect(row(wallets, "Phone")).toHaveCount(0);
+  await expect(wallets.getByRole("button", { name: "Add a wallet" })).toBeFocused();
   expect((await listed(page)).map((a) => a.name)).not.toContain("Phone");
 
   // Unused, but your first wallet: Hide only
@@ -272,7 +286,8 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   await expect(exchange).toHaveValue("4");
   await expect(exchange.getByRole("option")).toHaveText(["Exchange", "Kraken"]);
   await expect(wallet).toHaveValue("2");
-  await expect(wallet.getByRole("option")).toHaveText(["Wallet", "Coldcard"]);
+  // A hidden one is still yours: offered, never chosen for you
+  await expect(wallet.getByRole("option")).toHaveText(["Wallet", "Coldcard", "Old phone (hidden)"]);
 
   // The choice goes with the file's preview
   await exchange.selectOption({ label: "Kraken" });
@@ -289,4 +304,13 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   await wallet.selectOption({ label: "Wallet" });
   await expect.poll(() => sentForms(page)).toHaveLength(2);
   expect((await sentForms(page))[1]).toEqual({ exchange_account_id: "102", wallet_account_id: "2" });
+  await expect(wallet).toHaveValue("2");
+
+  // One that fails leaves the pick and the rows as the preview on screen has them
+  await page.route("**/api/import/river/preview", (route) =>
+    route.fulfill({ status: 500, json: { detail: "Down for a moment." } }));
+  await wallet.selectOption({ label: "Coldcard" });
+  await expect.poll(() => sentForms(page)).toHaveLength(3);
+  await expect(page.getByText("Down for a moment.")).toBeVisible();
+  await expect(wallet).toHaveValue("2");
 });

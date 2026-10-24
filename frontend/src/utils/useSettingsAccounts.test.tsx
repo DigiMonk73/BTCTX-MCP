@@ -73,6 +73,29 @@ describe("useSettingsAccounts", () => {
     expect(screen.getByText("settings: 13 accounts")).toBeTruthy();
   });
 
+  it("settles once the book is there, so Settings can wait for it", async () => {
+    let answer: (value: AxiosResponse<AccountBook>) => void = () => {};
+    vi.spyOn(api, "get")
+      .mockResolvedValueOnce(answered(ONE_OF_EACH))
+      .mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+    let reloadNow: () => Promise<void> = async () => {};
+    const Waiting: React.FC = () => {
+      const state = useSettingsAccounts();
+      return <button type="button" onClick={() => { reloadNow = state.reload; }}>{`${state.book?.length ?? 0}`}</button>;
+    };
+    render(<Waiting />);
+    await settle();
+    fireEvent.click(screen.getByRole("button"));
+    let settled = false;
+    const done = act(() => reloadNow().then(() => { settled = true; }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    answer(answered(MANY));
+    await done;
+    expect(settled).toBe(true);
+    expect(screen.getByRole("button").textContent).toBe("13");
+  });
+
   it("says so when the book can't be had again", async () => {
     vi.spyOn(api, "get").mockResolvedValueOnce(answered(ONE_OF_EACH)).mockRejectedValue(new Error("down"));
     render(<Settings />);

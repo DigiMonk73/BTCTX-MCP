@@ -8,8 +8,8 @@ import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
 import {
-  chosenRiverAccounts, importRequestRows, importableRows, refusedCellPlace, riverAccountNames, riverChoices,
-  toEditableRow, type EditableRow, type RiverPick,
+  chosenRiverAccounts, importRequestRows, importableRows, previewOutOfDate, refusedCellPlace, riverAccountNames,
+  riverChoices, toEditableRow, type EditableRow, type RiverPick,
 } from "../utils/riverImport";
 import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 import RiverPreview from "./riverImport/RiverPreview";
@@ -31,16 +31,28 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [showMatched, setShowMatched] = useState(false);
   const [picked, setPicked] = useState<RiverPick>({});
+  // The pick the preview on screen was made with: its rows name those accounts
+  const [previewPick, setPreviewPick] = useState<RiverPick | null>(null);
+  const [outOfDate, setOutOfDate] = useState(false);
   useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
 
   // The file's exchange and wallet (5.11, 5.13)
   const choices = book ? riverChoices(book) : undefined;
   const chosen = chosenRiverAccounts(choices, picked);
   const unchosen = choices !== undefined && (chosen.exchange === undefined || chosen.wallet === undefined);
+  // An account the preview was made with is gone: its rows would go elsewhere than the pickers say
+  if (preview && previewOutOfDate(previewPick, chosen)) {
+    setPreview(null);
+    setRows([]);
+    setPreviewPick(null);
+    setOutOfDate(true);
+  }
 
   const reset = () => {
     setFile(null);
     setPreview(null);
+    setPreviewPick(null);
+    setOutOfDate(false);
     setRows([]);
     setShowMatched(false);
     const input = document.getElementById("river-csv-input") as HTMLInputElement;
@@ -61,6 +73,10 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       setPreview(res.data);
       setRows(res.data.proposals.map((p) => toEditableRow(p, accounts)));
       setShowMatched(false);
+      // The pickers show the pick only once its preview is there: a failed one leaves both as they were
+      setPicked(pick);
+      setPreviewPick(pick);
+      setOutOfDate(false);
     } catch (err) {
       toast.error(detailOr(err, "Failed to preview River CSV."));
     } finally {
@@ -70,8 +86,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
 
   // A new pick makes a new preview: the rows' accounts and what's already in the ledger follow it
   const choose = (pick: RiverPick) => {
-    setPicked(pick);
     if (preview) void handlePreview(pick);
+    else setPicked(pick);
   };
 
   const updateRow = (rowNumber: number, patch: Partial<EditableRow>) => {
@@ -131,6 +147,11 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       </div>
 
       {choices && <RiverAccountPickers choices={choices} chosen={chosen} disabled={loading} onChange={choose} />}
+      {outOfDate && (
+        <p className="note note-warning" role="status">
+          An account this file's preview used was deleted: preview the file again.
+        </p>
+      )}
 
       {preview && (
         <RiverPreview

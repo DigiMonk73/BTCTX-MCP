@@ -83,4 +83,12 @@ describe("Ledger Review's summary", () => {
     expect(reviewSummary({ total: 1, reminders: 0 })).toBe("1 transaction to check");
     expect(reviewSummary({ total: 3, reminders: 1 })).toBe("3 transactions to check");
   });
+
+  it("says so when Recalculate Ledger would stop, which no count includes", () => {
+    const stops = "Ledger not balanced for BTC";
+    expect(reviewSummary({ total: 0, reminders: 0, recalc_error: stops })).toBe("Recalculate Ledger would stop: see why");
+    expect(reviewSummary({ total: 2, reminders: 0, recalc_error: stops }))
+      .toBe("2 transactions to check; Recalculate Ledger would stop");
+    expect(reviewSummary({ total: 0, reminders: 0, recalc_error: null })).toBe("Nothing to review");
+  });
 });

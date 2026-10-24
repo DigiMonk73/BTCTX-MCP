@@ -1,13 +1,13 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api";
 import { extractErrorMessage } from "../utils/apiError";
-import { accountGroups, type AccountRow, type YourKind } from "../utils/ledgerAccounts";
+import { accountGroups, ledgerIds, type AccountRow, type YourKind } from "../utils/ledgerAccounts";
 import { ACCOUNTS_FAILED, type AccountsState } from "../utils/useAccounts";
 import AccountGroupList from "./ledgerAccounts/AccountGroupList";
 
 interface LedgerAccountsProps extends AccountsState {
-  /** Ask the server for the book again, after a change made here. */
-  reload: () => void;
+  /** Ask the server for the book again, after a change made here; settles once it's there. */
+  reload: () => Promise<void>;
 }
 
 /**
@@ -22,24 +22,43 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState("");
   const [openRow, setOpenRow] = useState<string | null>(null);
+  // The row a change was made from: the keyboard goes back to it once the list is new
+  const [refocus, setRefocus] = useState<AccountRow | null>(null);
+  const asked = useRef(0);
 
+  // Two changes in a row: only the last answer counts
   const loadBalances = useCallback(() => {
-    api
+    const ask = ++asked.current;
+    return api
       .get<AccountBalance[]>("/calculations/accounts/balances")
-      .then((res) => setBalances(res.data))
-      .catch(() => setBalances(undefined)); // the rows show no balance
+      .then((res) => ask === asked.current && setBalances(res.data))
+      .catch(() => ask === asked.current && setBalances(undefined)); // the rows show no balance
   }, []);
 
-  useEffect(loadBalances, [loadBalances]);
+  useEffect(() => {
+    void loadBalances();
+  }, [loadBalances]);
 
-  /** One change; true when the server made it. */
-  const change = async (request: () => Promise<unknown>): Promise<boolean> => {
+  // Hidden, the row is in its group's folded list; shown again, back in the
+  // list; deleted, gone: its button if it's there, else "Show hidden", else Add
+  useEffect(() => {
+    if (!refocus || busy) return;
+    const ids = [ledgerIds.rowToggle(refocus.key), ledgerIds.showHidden(refocus.kind), ledgerIds.addButton(refocus.kind)];
+    ids.map((id) => document.getElementById(id)).find((el) => el !== null)?.focus();
+    setRefocus(null);
+  }, [refocus, busy]);
+
+  /** One change, then the book and the balances as they are after it; true when the server made it. */
+  const change = async (row: AccountRow | null, request: () => Promise<unknown>): Promise<boolean> => {
     setBusy(true);
     setRefusal("");
     try {
       await request();
-      reload();
-      loadBalances();
+      await Promise.all([reload(), loadBalances()]);
+      if (row) {
+        setOpenRow(null);
+        setRefocus(row);
+      }
       return true;
     } catch (error) {
       setRefusal(extractErrorMessage(error));
@@ -49,17 +68,16 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
     }
   };
 
-  // The row moves between its group's lists: it closes, as it would if it were new
   const hide = (row: AccountRow, hidden: boolean) => {
-    void change(() => api.put(`/accounts/${row.id}`, { hidden })).then((done) => done && setOpenRow(null));
+    void change(row, () => api.put(`/accounts/${row.id}`, { hidden }));
   };
 
   const remove = (row: AccountRow) => {
     if (!window.confirm(`Delete ${row.name}? It has no transactions.`)) return;
-    void change(() => api.delete(`/accounts/${row.id}`)).then((done) => done && setOpenRow(null));
+    void change(row, () => api.delete(`/accounts/${row.id}`));
   };
 
-  const add = (kind: YourKind, name: string) => change(() => api.post("/accounts/", { kind, name }));
+  const add = (kind: YourKind, name: string) => change(null, () => api.post("/accounts/", { kind, name }));
 
   if (failed) return <p className="note note-error" role="alert">{ACCOUNTS_FAILED}</p>;
   if (!book) return <p className="loading-row">Loading your accounts…</p>;

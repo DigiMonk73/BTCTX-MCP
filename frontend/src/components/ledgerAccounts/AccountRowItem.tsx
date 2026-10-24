@@ -1,6 +1,6 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
-import { KIND_LABEL, canDelete, type AccountRow } from "../../utils/ledgerAccounts";
+import { KIND_LABEL, canDelete, ledgerIds, type AccountRow } from "../../utils/ledgerAccounts";
 
 interface AccountRowItemProps {
   row: AccountRow;
@@ -19,15 +19,16 @@ const FIRST_OF_EACH = "Your first bank, wallet and exchange can't be deleted. Hi
 /** One of your accounts (an exchange: its two) as a row: its name, kind and
  * balance; its details, Hide or Show and Delete while unused, open below it. */
 const AccountRowItem: React.FC<AccountRowItemProps> = ({ row, balance, open, busy, onToggle, onHide, onDelete }) => {
-  const details = `ledger-account-${row.key}`;
+  const details = ledgerIds.rowDetails(row.key);
   const deletable = canDelete(row);
   return (
     <li className="ledger-account">
       <button
         type="button"
+        id={ledgerIds.rowToggle(row.key)}
         className="ledger-account-toggle"
         aria-expanded={open}
-        aria-controls={details}
+        aria-controls={open ? details : undefined}
         onClick={() => onToggle(row)}
       >
         <span className="ledger-account-text">

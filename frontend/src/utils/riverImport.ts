@@ -77,6 +77,7 @@ export interface RiverChoice {
   id: number;
   /** The exchange's name ("Kraken"), or the wallet's. */
   name: string;
+  hidden: boolean;
 }
 
 export interface RiverChoices {
@@ -90,14 +91,16 @@ export interface RiverChoices {
 }
 
 /** What River's "Exchange" and "Wallet for sends and receives" offer (5.11,
- * 5.13): the ones shown, the first of each chosen; never a hidden one by
- * default. With every one of a kind hidden, those, and none chosen. */
+ * 5.13): every exchange and wallet, hidden ones too, since they're still
+ * yours; asked once there's more than one, so a file never goes to the only
+ * one shown unasked; the first shown one chosen, never a hidden one. */
 export function riverChoices(book: AccountBook): RiverChoices {
-  const exchanges = offered(book.filter((a) => a.kind === "exchange" && a.currency === "BTC"))
-    .map((a) => ({ id: a.id, name: a.exchange ?? a.name }));
-  const wallets = offered(book.filter((a) => a.kind === "wallet")).map((a) => ({ id: a.id, name: a.name }));
-  const exchange = firstShown(book, exchanges);
-  const wallet = firstShown(book, wallets);
+  const choice = (a: LedgerAccount, name: string) => ({ id: a.id, name, hidden: a.hidden });
+  const exchanges = book.filter((a) => a.kind === "exchange" && a.currency === "BTC")
+    .map((a) => choice(a, a.exchange ?? a.name));
+  const wallets = book.filter((a) => a.kind === "wallet").map((a) => choice(a, a.name));
+  const exchange = exchanges.find((c) => !c.hidden)?.id;
+  const wallet = wallets.find((c) => !c.hidden)?.id;
   return {
     exchanges, wallets,
     defaults: { exchange, wallet },
@@ -106,25 +109,16 @@ export function riverChoices(book: AccountBook): RiverChoices {
   };
 }
 
-/** The shown ones, or every one when all are hidden. */
-function offered(accounts: LedgerAccount[]): LedgerAccount[] {
-  const shown = accounts.filter((a) => !a.hidden);
-  return shown.length > 0 ? shown : accounts;
-}
-
-function firstShown(book: AccountBook, choices: RiverChoice[]): number | undefined {
-  return choices.find((c) => !book.find((a) => a.id === c.id)?.hidden)?.id;
-}
-
 /** The file's exchange (its bitcoin account) and wallet, by id; undefined: none chosen. */
 export interface RiverPick {
   exchange?: number;
   wallet?: number;
 }
 
-/** The file's exchange and wallet: the owner's pick while it's still offered
- * (not hidden or deleted since), else Q8's first shown one. Nothing before
- * the book is read: the server then takes your first exchange and wallet. */
+/** The file's exchange and wallet: the owner's pick while that account is
+ * there (hidden since, it stays: a preview made with it still names it),
+ * else Q8's first shown one. Nothing before the book is read: the server
+ * then takes your first exchange and wallet. */
 export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: RiverPick): RiverPick {
   if (!choices) return {};
   const offeredId = (id: number | undefined, list: RiverChoice[]) => (list.some((c) => c.id === id) ? id : undefined);
@@ -132,6 +126,15 @@ export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: R
     exchange: offeredId(picked.exchange, choices.exchanges) ?? choices.defaults.exchange,
     wallet: offeredId(picked.wallet, choices.wallets) ?? choices.defaults.wallet,
   };
+}
+
+/** Whether the preview on screen was made with another exchange or wallet
+ * than the one picked now (its account deleted since): its rows would then
+ * go elsewhere than the pickers say. One made before the book was read sent
+ * no ids, so it's never compared. */
+export function previewOutOfDate(made: RiverPick | null, now: RiverPick): boolean {
+  if (!made || made.exchange === undefined) return false;
+  return made.exchange !== now.exchange || made.wallet !== now.wallet;
 }
 
 /** The chosen exchange and wallet by the names the import reads; the first ones' until the book is read. */

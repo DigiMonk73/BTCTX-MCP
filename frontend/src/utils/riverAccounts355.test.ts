@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../test/books";
 import {
-  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, riverAccountNames, riverChoices, toEditableRow, typeChange,
+  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, previewOutOfDate, riverAccountNames, riverChoices, toEditableRow,
+  typeChange,
 } from "./riverImport";
 
 const hide = (book: AccountBook, ids: number[]) => book.map((a) => (ids.includes(a.id) ? { ...a, hidden: true } : a));
@@ -11,35 +12,44 @@ const hide = (book: AccountBook, ids: number[]) => book.map((a) => (ids.includes
 describe("the file's exchange and wallet", () => {
   it("with one of each, are today's, chosen already, and nothing is asked", () => {
     const choices = riverChoices(ONE_OF_EACH);
-    expect(choices.exchanges).toEqual([{ id: 4, name: "Exchange" }]);
-    expect(choices.wallets).toEqual([{ id: 2, name: "Wallet" }]);
+    expect(choices.exchanges).toEqual([{ id: 4, name: "Exchange", hidden: false }]);
+    expect(choices.wallets).toEqual([{ id: 2, name: "Wallet", hidden: false }]);
     expect(choices.defaults).toEqual({ exchange: 4, wallet: 2 });
     expect([choices.askExchange, choices.askWallet]).toEqual([false, false]);
   });
 
-  it("with more than one, are asked, the first of each chosen (Q8), each exchange by its name", () => {
+  it("with more than one, are asked, hidden ones too, the first shown of each chosen (Q8), each exchange by its name", () => {
     const choices = riverChoices(MANY);
-    // Closed and Old phone are hidden
-    expect(choices.exchanges).toEqual([{ id: 4, name: "River" }, { id: 103, name: "Kraken" }]);
-    expect(choices.wallets).toEqual([{ id: 2, name: "Sparrow" }, { id: 100, name: "Coldcard" }]);
+    expect(choices.exchanges).toEqual([
+      { id: 4, name: "River", hidden: false }, { id: 103, name: "Kraken", hidden: false },
+      { id: 106, name: "Closed", hidden: true },
+    ]);
+    expect(choices.wallets).toEqual([
+      { id: 2, name: "Sparrow", hidden: false }, { id: 100, name: "Coldcard", hidden: false },
+      { id: 104, name: "Old phone", hidden: true },
+    ]);
     expect(choices.defaults).toEqual({ exchange: 4, wallet: 2 });
     expect([choices.askExchange, choices.askWallet]).toEqual([true, true]);
-    // Only the kind with a choice is asked
-    expect(riverChoices(hide(MANY, [100])).askWallet).toBe(false);
+    // Only the kind with more than one is asked
+    const secondWallet = [...ONE_OF_EACH, { ...ONE_OF_EACH[1], id: 100, name: "Coldcard" }];
+    expect([riverChoices(secondWallet).askExchange, riverChoices(secondWallet).askWallet]).toEqual([false, true]);
   });
 
-  it("never default to a hidden one: the first shown is, and a hidden one isn't offered", () => {
+  it("never default to a hidden one: the first shown is chosen, and the screen still asks", () => {
+    // Your first exchange hidden and Kraken shown: a file isn't sent to Kraken unasked (the review of #355)
     const choices = riverChoices(hide(MANY, [2, 3, 4]));
     expect(choices.defaults).toEqual({ exchange: 103, wallet: 100 });
-    expect(choices.exchanges.map((e) => e.id)).toEqual([103]);
-    expect([choices.askExchange, choices.askWallet]).toEqual([false, false]);
+    expect(choices.exchanges.map((e) => e.id)).toEqual([4, 103, 106]);
+    expect([choices.askExchange, choices.askWallet]).toEqual([true, true]);
   });
 
-  it("with every one of a kind hidden, ask with none chosen, among the hidden ones", () => {
+  it("with every one of a kind hidden, ask with none chosen", () => {
     const choices = riverChoices(hide(MANY, [2, 100]));
     expect(choices.defaults).toEqual({ exchange: 4, wallet: undefined });
     expect(choices.wallets.map((w) => w.id)).toEqual([2, 100, 104]);
     expect(choices.askWallet).toBe(true);
+    // One wallet, hidden: still asked, so it isn't taken unasked
+    expect(riverChoices(hide(ONE_OF_EACH, [2])).askWallet).toBe(true);
   });
 
   it("are named in the rows as the import reads them: the exchange's BTC account, the wallet", () => {
@@ -74,13 +84,27 @@ describe("a row's type change keeps the file's exchange and wallet", () => {
 });
 
 describe("the pick", () => {
-  it("is the owner's while it's offered, else the first shown one; nothing before the book is read", () => {
+  it("is the owner's while that account is there, else the first shown one; nothing before the book is read", () => {
     const choices = riverChoices(MANY);
     expect(chosenRiverAccounts(choices, {})).toEqual({ exchange: 4, wallet: 2 });
     expect(chosenRiverAccounts(choices, { exchange: 103 })).toEqual({ exchange: 103, wallet: 2 });
-    // Kraken hidden since it was picked: back to the first shown
+    // Kraken hidden since it was picked: still the pick, so a preview made with it stands
     expect(chosenRiverAccounts(riverChoices(hide(MANY, [102, 103])), { exchange: 103 }))
-      .toEqual({ exchange: 4, wallet: 2 });
+      .toEqual({ exchange: 103, wallet: 2 });
+    // Deleted since: back to the first shown
+    const gone = MANY.filter((a) => a.exchange_id !== 2);
+    expect(chosenRiverAccounts(riverChoices(gone), { exchange: 103 })).toEqual({ exchange: 4, wallet: 2 });
     expect(chosenRiverAccounts(undefined, { exchange: 103 })).toEqual({});
+  });
+});
+
+describe("a preview made with one pick", () => {
+  it("is out of date once the pick differs, never for one made before the book was read", () => {
+    expect(previewOutOfDate({ exchange: 103, wallet: 100 }, { exchange: 103, wallet: 100 })).toBe(false);
+    expect(previewOutOfDate({ exchange: 103, wallet: 100 }, { exchange: 4, wallet: 100 })).toBe(true);
+    expect(previewOutOfDate({ exchange: 103, wallet: 100 }, { exchange: 103, wallet: 2 })).toBe(true);
+    // Sent without ids, the server took your first ones: what the book then picks says nothing about it
+    expect(previewOutOfDate({}, { exchange: 4, wallet: 2 })).toBe(false);
+    expect(previewOutOfDate(null, { exchange: 4, wallet: 2 })).toBe(false);
   });
 });
