@@ -36,6 +36,15 @@ All notable changes to BitcoinTX are documented in this file.
   executable a bundle names. BitcoinTX itself looks as it did. No figure
   changes.
 
+### Development
+- **A test that failed now and then, fixed** (#660). Three of the
+  exchange import card's tests chose "Another exchange: match its
+  columns" before the picker offered it (it does only once the saved
+  mappings have loaded), so a slow runner turned `2.0`'s CI red at
+  random ("not found in options"). They now wait for it, and the test's
+  mappings answer 50 ms late, so the race is there on every run. Tests
+  only: nothing in the app changes.
+
 ## [v2.0.0-alpha.1] - 2026-10-24 - 2.0's first alpha: your wallets, exchanges and banks, each wallet and exchange with its own coins
 
 **About this alpha.** BitcoinTX 2.0's first pre-release, for anyone who
