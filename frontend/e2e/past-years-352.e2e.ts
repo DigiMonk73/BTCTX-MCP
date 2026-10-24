@@ -32,7 +32,7 @@ test("an add into an earlier year asks: Cancel saves nothing, Save anyway saves 
   app, authedPage: page,
 }) => {
   await seedFunds(page.request);
-  await addWalletDeposit(page, "2022-06-01T12:00:00", "0.1"); // before every row: a backdated add
+  await addWalletDeposit(page, "2022-06-01T12:00:05", "0.1"); // before every row: a backdated add
   const dialog = warning(page);
   await expect(dialog).toContainText("This changes the figures of tax year 2022, which you may already have filed.");
   await expect(dialog).toContainText("Deposit");
@@ -42,34 +42,35 @@ test("an add into an earlier year asks: Cancel saves nothing, Save anyway saves 
   await expect(page.getByLabel("Amount")).toHaveValue("0.1");
   expect(await listTx(page.request)).toHaveLength(2);
 
+  const before = copies(app.dir); // seedFunds' 2023 Buy was confirmed too
   await page.getByRole("button", { name: "Save Transaction" }).click();
   await dialog.getByRole("button", { name: SAVE_ANYWAY }).click();
   await expect(page.getByRole("heading", { name: "Add Transaction" })).toHaveCount(0);
   expect(await listTx(page.request)).toHaveLength(3);
-  expect(copies(app.dir)).toHaveLength(1);
+  expect(copies(app.dir).filter((f) => !before.includes(f))).toHaveLength(1);
 });
 
 test("the box stops the asking for that year's adds while the page is open; a reload asks again", async ({
   authedPage: page,
 }) => {
   await seedFunds(page.request); // rows of 2023: adds to 2024 come after every one
-  await addWalletDeposit(page, "2024-02-01T12:00:00", "0.1");
+  await addWalletDeposit(page, "2024-02-01T12:00:05", "0.1");
   const dialog = warning(page);
   await expect(dialog).toContainText("This adds to tax year 2024, which you may already have filed.");
   await dialog.getByLabel("Don't ask again for adds to 2024 while this page is open").check();
   await dialog.getByRole("button", { name: SAVE_ANYWAY }).click();
   await expect(page.getByRole("heading", { name: "Add Transaction" })).toHaveCount(0);
 
-  await addWalletDeposit(page, "2024-03-01T12:00:00", "0.2"); // confirmed by the page itself
+  await addWalletDeposit(page, "2024-03-01T12:00:05", "0.2"); // confirmed by the page itself
   await expect(page.getByRole("heading", { name: "Add Transaction" })).toHaveCount(0);
   expect(await listTx(page.request)).toHaveLength(4);
 
-  await addWalletDeposit(page, "2025-03-01T12:00:00", "0.3"); // another year asks
+  await addWalletDeposit(page, "2025-03-01T12:00:05", "0.3"); // another year asks
   await expect(warning(page)).toContainText("tax year 2025");
   await warning(page).getByRole("button", { name: "Cancel" }).click();
 
   await page.reload();
-  await addWalletDeposit(page, "2024-04-01T12:00:00", "0.4");
+  await addWalletDeposit(page, "2024-04-01T12:00:05", "0.4");
   await expect(warning(page)).toContainText("tax year 2024");
 });
 
