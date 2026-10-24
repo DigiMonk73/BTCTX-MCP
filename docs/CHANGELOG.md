@@ -5,6 +5,29 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The pre-releases' own builds** (B10a, #532; the owner's decision 28 on
+  #251: alphas, then betas). A 2.0 pre-release (`VERSION` 2.0.0-alpha.N or
+  2.0.0-beta.N) builds a separate Mac app, **BitcoinTX Preview**, the same
+  for every alpha and beta, installed beside BitcoinTX, never in its place:
+  its own bundle id (`org.bitcointx.desktop.preview`), its own data and log
+  folders (`~/Library/Application Support/BitcoinTX Preview`,
+  `~/Library/Logs/BitcoinTX Preview`) and its own port (8767), so a
+  tester's real ledger is never opened or upgraded, and their test ledger
+  carries from one pre-release to the next. It refuses the installed app's
+  folder however that is spelled (another case, a link), with a message,
+  and a second launch brings forward the copy that's open by its bundle id,
+  never "BitcoinTX" by name (which would bring up the installed app on its
+  ledger). Every pre-release's Settings → Connect an AI Assistant (on a
+  Mac, StartOS or Docker) pins its own connector (`btctx-mcp==2.0.0aN` or
+  `2.0.0bN`), links its tag's `AI_SETUP.md` and names the server
+  `bitcointx-preview`; `AI_SETUP.md` tells the AI to leave the tester's
+  own `bitcointx` as it is, unless that one reaches this same BitcoinTX
+  (StartOS, updated in place). The pre-release connector's Mac key file is
+  BitcoinTX Preview's, and its version notice reads a pre-release on both
+  sides (the connector's 2.0.0bN is BitcoinTX's 2.0.0-beta.N; an alpha
+  sorts before the betas, a beta before its release). The StartOS
+  package's checks take `2.0.0-alpha.N:0` and `2.0.0-beta.N:0`, on `2.0`
+  only. 2.0.0 itself builds the ordinary app, with no edit.
 - **2.0's texts, and the way back to 1.x** (B9, #357). Every text that
   said BitcoinTX tracks one wallet and one exchange now describes your
   wallets, exchanges and banks, with one wording of the IRS rule

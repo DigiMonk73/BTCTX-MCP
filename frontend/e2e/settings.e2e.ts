@@ -312,9 +312,13 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await prompt.inputValue());
   }
 
-  // How to update an AI app set up for an older version
+  // How to update an AI app set up for an older version: a 2.0 pre-release's
+  // connector in PEP 440's form, X.Y.ZaN or X.Y.ZbN, under its own name (B10a)
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
-  await expect(ai.getByText("Set up with an older version?")).toContainText(`btctx-mcp==${version}`);
+  const pre = /^(\d+\.\d+\.\d+)-(alpha|beta)\.([1-9]\d*)$/.exec(version);
+  const older = ai.getByText("Set up with an older version?");
+  await expect(older).toContainText(`btctx-mcp==${pre ? `${pre[1]}${pre[2][0]}${pre[3]}` : version}`);
+  await expect(older).toContainText(pre ? "bitcointx-preview" : "bitcointx");
 
   await page.getByText("Set it up yourself").click();
   await expect(page.getByLabel("Claude Desktop config")).toHaveValue(/btctx/i);

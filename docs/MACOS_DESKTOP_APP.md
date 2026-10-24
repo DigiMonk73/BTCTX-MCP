@@ -137,6 +137,28 @@ sqlite3 ~/Library/Application\ Support/BitcoinTX/btctx.db  # inspect
 **Backups:** use the encrypted backup/restore in the app's Settings page, or
 quit the app and copy the whole `BitcoinTX` folder.
 
+### BitcoinTX Preview (a 2.0 alpha or beta)
+
+A build whose `VERSION` is a 2.0 pre-release, an alpha or a beta
+(`2.0.0-alpha.N`, `2.0.0-beta.N`), is another app, **BitcoinTX Preview**
+(`BitcoinTX Preview.app`, bundle id `org.bitcointx.desktop.preview`), the
+same app for every alpha and beta, installed beside BitcoinTX, never in its
+place. It keeps everything in `~/Library/Application Support/BitcoinTX
+Preview/`, logs to `~/Library/Logs/BitcoinTX Preview/`, and answers on
+`127.0.0.1:8767`, so it never opens or upgrades BitcoinTX's ledger, and a
+tester's test ledger carries from one pre-release to the next. The 1.x
+connector never reaches it, nor the pre-release connector
+(`btctx-mcp==2.0.0aN` or `2.0.0bN`) BitcoinTX: each reads its own app's key
+file. It refuses a data folder that is BitcoinTX's, however written
+(another case, a link), and says so. It starts empty: to try your records,
+download a backup in BitcoinTX and restore it in BitcoinTX Preview's
+Settings, which copies the data and leaves BitcoinTX's file as it is. Its
+names, folders and port come from `desktop/desktop_paths.py` and
+`desktop_ports.py` (`is_preview()`, from `VERSION`), which `BitcoinTX.spec`
+reads too. To test a pre-release build on a Mac where BitcoinTX is
+installed, run it only through `desktop/run-test-build.sh`, as any build
+("Testing a build").
+
 ## Building
 
 Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (Vite 8 needs it;
@@ -159,10 +181,12 @@ The script:
 4. Checks `desktop/resources/icon.icns` (warns if missing) and
    `backend/assets/irs_templates/` (fails if missing)
 5. Runs `pyinstaller --clean --noconfirm BitcoinTX.spec`
-6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
+6. Creates `desktop/dist/BitcoinTX.dmg` (`BitcoinTX-Preview.dmg` for a pre-release) if `create-dmg` is installed
    (`brew install create-dmg`)
 
-Output: `desktop/dist/BitcoinTX.app`.
+Output: `desktop/dist/BitcoinTX.app`, or `BitcoinTX Preview.app` (and
+`BitcoinTX-Preview.dmg`) for a 2.0 alpha or beta. The build empties
+`desktop/dist` first, so it holds only the app just built.
 
 ### Testing a build
 
@@ -172,7 +196,7 @@ run its binary by itself:** either opens the real ledger in
 the installed app out). Run it with the script instead, for every launch:
 
 ```bash
-desktop/run-test-build.sh                    # desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh                    # the one app in desktop/dist
 desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
 desktop/run-test-build.sh --fresh            # start again from an empty folder
 desktop/run-test-build.sh --background       # detached (for an agent's shell)
@@ -182,8 +206,8 @@ It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`btctx-test-build` in the
 user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
 8766, the same on every launch from any shell, so a reopen or a second
 launch finds the same data. It uses only a folder that is empty or that it
-marked as its own (`.btctx-test-folder`), never the installed app's folder
-however it is spelled; `--fresh` is refused while a test run answers on
+marked as its own (`.btctx-test-folder`), never an installed app's folder
+(BitcoinTX's, or BitcoinTX Preview's) however it is spelled; `--fresh` is refused while a test run answers on
 8766. That folder holds everything the app would keep in Application
 Support (`btctx.db`, the session key, `mcp.json`, `setup-code.txt`,
 `btc-prices/`, `backups/`) and its log

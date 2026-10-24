@@ -189,6 +189,22 @@ def test_license_is_upstreams_license_alone():
     assert read("LICENSE") == (ROOT / "LICENSE").read_text()
 
 
+# A package version: X.Y.Z:N, or a 2.0 pre-release's X.Y.Z-alpha.N:0 or
+# X.Y.Z-beta.N:0 (Start9's ExVer for an upstream alpha or beta, versions.md;
+# on the 2.0 branch only, 2.0 plan 7.4, B10a: a pre-release never reaches the
+# mirror)
+PACKAGE_VERSION = re.compile(r"\d+\.\d+\.\d+:\d+|\d+\.\d+\.\d+-(alpha|beta)\.[1-9]\d*:0")
+
+
+@pytest.mark.parametrize("version, ok", [
+    ("1.2.10:0", True), ("1.2.4:1", True), ("2.0.0-beta.1:0", True), ("2.0.0-beta.12:0", True),
+    ("2.0.0-alpha.1:0", True), ("2.0.0-alpha.1:1", False), ("2.0.0-alpha.0:0", False),
+    ("2.0.0-beta.1:1", False), ("2.0.0-beta.0:0", False), ("2.0.0-rc.1:0", False), ("2.0.0", False),
+])
+def test_a_package_version_is_a_release_or_a_pre_release(version, ok):
+    assert bool(PACKAGE_VERSION.fullmatch(version)) is ok
+
+
 def test_start9s_release_workflow_reads_one_id_and_one_version():
     # Start9's Tag and Release greps these from the text (its extract-version
     # action), so versions.md: "Write version as a quoted string literal".
@@ -196,7 +212,7 @@ def test_start9s_release_workflow_reads_one_id_and_one_version():
     current = read("startos/versions/current.ts")
     assert re.findall(r"id:\s*['\"]([^'\"]*)", manifest) == ["btctx"]
     versions = re.findall(r"version:\s*['\"]([^'\"]*)", current)
-    assert len(versions) == 1 and re.fullmatch(r"\d+(\.\d+)*:\d+", versions[0]), versions
+    assert len(versions) == 1 and PACKAGE_VERSION.fullmatch(versions[0]), versions
 
 
 def test_one_exact_sdk_and_siblings_at_next():

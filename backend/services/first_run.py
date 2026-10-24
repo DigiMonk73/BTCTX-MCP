@@ -34,6 +34,7 @@ from sqlalchemy.orm import Session
 from backend.database import DATABASE_FILE
 from backend.models.user import User
 from backend.services.desktop import is_desktop
+from backend.version import app_version, is_prerelease_version
 
 logger = logging.getLogger(__name__)
 
@@ -127,8 +128,10 @@ def prepare(db: Session) -> None:
 
 def _where_the_code_is() -> str:
     if is_desktop():
+        # a 2.0 pre-release is BitcoinTX Preview, with a folder of its own (2.0 plan 7.4, B10a)
+        app = "BitcoinTX Preview" if is_prerelease_version(app_version()) else "BitcoinTX"
         return (f"It is in {CODE_FILENAME} in the Mac app's data folder "
-                "(~/Library/Application Support/BitcoinTX); the app's own window normally fills it in.")
+                f"(~/Library/Application Support/{app}); the app's own window normally fills it in.")
     return f"It is in the server's log (docker logs <container>) and in {CODE_FILENAME} in the data folder."
 
 
