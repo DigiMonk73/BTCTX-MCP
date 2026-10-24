@@ -73,10 +73,9 @@
   cursor: pointer;
 }
 /* Settings' chevron, centred on the label and no taller than the line */
-.balance-line-toggle .chevron { margin: -4px 0 -4px var(--space-1); vertical-align: middle; }
+.balance-line-toggle .chevron { margin: calc(-1 * var(--space-1)) 0 calc(-1 * var(--space-1)) var(--space-1); vertical-align: middle; }
 /* Its accounts under it, indented and quieter than its total; an amount goes
-   under its name when both don't fit on one line. Without bullets Safari's
-   VoiceOver no longer calls it a list: the list says role="list" itself */
+   under its name when both don't fit on one line */
 .balance-line-accounts {
   list-style: none;
   margin: calc(-1 * var(--space-1)) 0 var(--space-3);

@@ -30,6 +30,7 @@ const BalanceLineRow: React.FC<BalanceLineRowProps> = ({ line, open, onToggle })
           <span>{figure(line.total)}</span>
         </button>
       </p>
+      {/* role="list": without bullets, Safari's VoiceOver no longer calls a list one */}
       <ul id={id} className="balance-line-accounts" role="list" aria-label={`${line.label} accounts`} hidden={!open}>
         {line.accounts.map((account) => (
           <li key={account.key}>

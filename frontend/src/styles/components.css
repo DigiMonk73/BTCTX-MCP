@@ -1,7 +1,8 @@
 /* ============================================
    components.css - the shared building blocks
    Base type, card, buttons, inputs, checkboxes, the segmented control,
-   badges, spinner and the empty/error notes. Page stylesheets only lay
+   the chevron of a button that opens what's under it, badges, spinner and
+   the empty/error notes. Page stylesheets only lay
    these out; they don't restyle them.
 ============================================ */
 
