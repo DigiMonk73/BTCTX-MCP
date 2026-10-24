@@ -8,21 +8,35 @@ import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
 import {
-  importRequestRows, importableRows, refusedCellPlace, toEditableRow, type EditableRow,
+  chosenRiverAccounts, importRequestRows, importableRows, refusedCellPlace, riverAccountNames, riverChoices,
+  toEditableRow, type EditableRow, type RiverPick,
 } from "../utils/riverImport";
+import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 import RiverPreview from "./riverImport/RiverPreview";
 import "../styles/riverImport.css";
 
-/** `onPreviewShown(true)` while a preview is open: its table needs the
- * window's width, wider than the Settings card (#259). */
-const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ onPreviewShown }) => {
+interface RiverImportProps {
+  /** `onPreviewShown(true)` while a preview is open: its table needs the
+   * window's width, wider than the Settings card (#259). */
+  onPreviewShown: (shown: boolean) => void;
+  /** Your accounts, for the file's exchange and wallet; undefined until read. */
+  book?: AccountBook;
+}
+
+const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [showMatched, setShowMatched] = useState(false);
+  const [picked, setPicked] = useState<RiverPick>({});
   useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
+
+  // The file's exchange and wallet (5.11, 5.13)
+  const choices = book ? riverChoices(book) : undefined;
+  const chosen = chosenRiverAccounts(choices, picked);
+  const unchosen = choices !== undefined && (chosen.exchange === undefined || chosen.wallet === undefined);
 
   const reset = () => {
     setFile(null);
@@ -33,21 +47,31 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
     if (input) input.value = "";
   };
 
-  const handlePreview = async () => {
+  const handlePreview = async (pick: RiverPick = chosen) => {
     if (!file) return;
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      // Before the book is read none is sent, and the server takes your first exchange and wallet
+      if (pick.exchange !== undefined) formData.append("exchange_account_id", String(pick.exchange));
+      if (pick.wallet !== undefined) formData.append("wallet_account_id", String(pick.wallet));
       const res = await api.post<RiverPreviewResponse>("/import/river/preview", formData);
+      const accounts = riverAccountNames(book, pick);
       setPreview(res.data);
-      setRows(res.data.proposals.map(toEditableRow));
+      setRows(res.data.proposals.map((p) => toEditableRow(p, accounts)));
       setShowMatched(false);
     } catch (err) {
       toast.error(detailOr(err, "Failed to preview River CSV."));
     } finally {
       setLoading(false);
     }
+  };
+
+  // A new pick makes a new preview: the rows' accounts and what's already in the ledger follow it
+  const choose = (pick: RiverPick) => {
+    setPicked(pick);
+    if (preview) void handlePreview(pick);
   };
 
   const updateRow = (rowNumber: number, patch: Partial<EditableRow>) => {
@@ -97,14 +121,16 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
             className="csv-file-input"
           />
           <button
-            onClick={handlePreview}
-            disabled={loading || !file}
+            onClick={() => void handlePreview()}
+            disabled={loading || !file || unchosen}
             className="btn btn-secondary"
           >
             {loading && !preview ? "Processing..." : "Preview"}
           </button>
         </div>
       </div>
+
+      {choices && <RiverAccountPickers choices={choices} chosen={chosen} disabled={loading} onChange={choose} />}
 
       {preview && (
         <RiverPreview

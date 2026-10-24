@@ -19,9 +19,9 @@ import { useAccounts } from "../utils/useAccounts";
 import "../styles/settings.css";
 
 /**
- * The Settings page: sections that open when asked, the open ones
- * remembered by this browser, a link such as /settings#privacy opening one
- * (#355, P7's mockups). The Account, Data Management and Backup & Restore
+ * The Settings page: sections that open when asked, one at a time, the open
+ * one remembered by this browser, a link such as /settings#privacy opening
+ * it (#355, P7's mockups). The Account, Data Management and Backup & Restore
  * sections share one action at a time (their buttons wait while one runs)
  * and the message line below them. About BitcoinTX comes last.
  */
@@ -41,7 +41,7 @@ const Settings: React.FC = () => {
   const linked = linkedSection(hash);
   if (hash !== seenHash) {
     setSeenHash(hash);
-    if (linked && !open.includes(linked)) setOpen(toggled(open, linked));
+    if (linked) setOpen(linked);
   }
 
   useEffect(() => {
@@ -53,10 +53,10 @@ const Settings: React.FC = () => {
     setOpen(next);
     rememberOpen(browserStore(), next);
   };
-  const props = (id: SettingsSectionId) => ({ id, open: open.includes(id), onToggle: toggle });
+  const props = (id: SettingsSectionId) => ({ id, open: open === id, onToggle: toggle });
 
   return (
-    <div className={wide && open.includes("river") ? "settings-page settings-page-wide" : "settings-page"}>
+    <div className={wide && open === "river" ? "settings-page settings-page-wide" : "settings-page"}>
       <h2 className="page-title">Settings</h2>
       <div className="card settings-container">
         <SettingsSection {...props("account")} title="Account"
@@ -85,7 +85,7 @@ const Settings: React.FC = () => {
         </SettingsSection>
         <SettingsSection {...props("river")} title="Import from River"
           summary="River's bitcoin activity file, with a preview before anything is saved">
-          <RiverImport onPreviewShown={setWide} />
+          <RiverImport onPreviewShown={setWide} book={accounts.book} />
         </SettingsSection>
         <SettingsSection {...props("backup")} title="Backup & Restore"
           summary="A CSV export, an encrypted backup, or a restore from one">

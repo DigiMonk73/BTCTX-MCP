@@ -38,8 +38,8 @@ declare global {
     balance: number | string; // parseDecimal
   }
 
-  // The account book (GET /api/accounts/, 2.0 spec 5.9): an account is its id;
-  // its name is only ever shown, never compared
+  // The account book (GET /api/accounts/, 2.0 spec 5.9). An account is its id;
+  // `name` is only ever shown, never compared: the owner can rename it
   type AccountKind = "bank" | "wallet" | "exchange" | "fee";
 
   interface LedgerAccount {
@@ -48,9 +48,9 @@ declare global {
     kind: AccountKind;
     currency: Currency;
     exchange_id: number | null; // an exchange's two accounts share it
-    exchange: string | null;    // that exchange's name
+    exchange: string | null; // that exchange's name
     hidden: boolean;
-    in_use: boolean;            // a transaction or a ledger line names it
+    in_use: boolean; // a transaction or a ledger line names it
   }
 
   type AccountBook = readonly LedgerAccount[];

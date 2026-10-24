@@ -1,8 +1,8 @@
-// Settings' sections (#355): which are open, remembered per browser, and a
-// link that opens one.
+// Settings' sections (#355): one open at a time, remembered per browser, and
+// a link that opens one.
 import { describe, expect, it } from "vitest";
 import {
-  OPEN_SECTIONS_KEY, SETTINGS_SECTIONS, initiallyOpen, linkedSection, rememberOpen, rememberedOpen, reviewSummary,
+  OPEN_SECTION_KEY, SETTINGS_SECTIONS, initiallyOpen, linkedSection, rememberOpen, rememberedOpen, reviewSummary,
   toggled,
 } from "./settingsSections";
 
@@ -20,34 +20,36 @@ const refusing = {
   setItem: () => { throw new Error("QuotaExceededError"); },
 };
 
-describe("the open sections", () => {
-  it("start all closed in a browser that has none stored", () => {
-    expect(rememberedOpen(store())).toEqual([]);
-    expect(rememberedOpen(undefined)).toEqual([]);
+describe("the open section", () => {
+  it("is none in a browser that has none stored", () => {
+    expect(rememberedOpen(store())).toBeNull();
+    expect(rememberedOpen(undefined)).toBeNull();
   });
 
-  it("are remembered for this browser, in the page's order", () => {
+  it("is remembered for this browser, and forgotten once closed", () => {
     const s = store();
-    rememberOpen(s, ["river", "accounts"]);
-    expect(rememberedOpen(s)).toEqual(["accounts", "river"]);
-    expect(JSON.parse(s.data.get(OPEN_SECTIONS_KEY)!)).toEqual(["river", "accounts"]);
+    rememberOpen(s, "river");
+    expect(rememberedOpen(s)).toBe("river");
+    expect(s.data.get(OPEN_SECTION_KEY)).toBe('"river"');
+    rememberOpen(s, null);
+    expect(rememberedOpen(s)).toBeNull();
   });
 
-  it("leave out what isn't a section, and anything stored that isn't a list", () => {
-    expect(rememberedOpen(store({ [OPEN_SECTIONS_KEY]: '["about", "nope", 3, null]' }))).toEqual(["about"]);
-    expect(rememberedOpen(store({ [OPEN_SECTIONS_KEY]: '{"about": true}' }))).toEqual([]);
-    expect(rememberedOpen(store({ [OPEN_SECTIONS_KEY]: "not json" }))).toEqual([]);
+  it("is none when what's stored isn't a section", () => {
+    expect(rememberedOpen(store({ [OPEN_SECTION_KEY]: '"nope"' }))).toBeNull();
+    expect(rememberedOpen(store({ [OPEN_SECTION_KEY]: '["about"]' }))).toBeNull();
+    expect(rememberedOpen(store({ [OPEN_SECTION_KEY]: "not json" }))).toBeNull();
   });
 
-  it("are all closed when the storage can't be read, and only forgotten when it can't be written", () => {
-    expect(rememberedOpen(refusing)).toEqual([]);
-    expect(() => rememberOpen(refusing, ["about"])).not.toThrow();
+  it("is none when the storage can't be read, and only forgotten when it can't be written", () => {
+    expect(rememberedOpen(refusing)).toBeNull();
+    expect(() => rememberOpen(refusing, "about")).not.toThrow();
   });
 
-  it("open and close one at a time, others left as they are", () => {
-    expect(toggled([], "privacy")).toEqual(["privacy"]);
-    expect(toggled(["about", "account"], "privacy")).toEqual(["account", "privacy", "about"]);
-    expect(toggled(["account", "privacy"], "privacy")).toEqual(["account"]);
+  it("is one at a time: opening one closes the one before; pressing the open one closes it", () => {
+    expect(toggled(null, "privacy")).toBe("privacy");
+    expect(toggled("account", "privacy")).toBe("privacy");
+    expect(toggled("privacy", "privacy")).toBeNull();
   });
 
   it("every section has an id of its own", () => {
@@ -64,11 +66,11 @@ describe("a link to a section", () => {
     expect(linkedSection("#no-such-section")).toBeNull();
   });
 
-  it("opens it beside the remembered ones", () => {
-    const s = store({ [OPEN_SECTIONS_KEY]: '["about"]' });
-    expect(initiallyOpen(s, "#privacy")).toEqual(["privacy", "about"]);
-    expect(initiallyOpen(s, "#about")).toEqual(["about"]);
-    expect(initiallyOpen(s, "")).toEqual(["about"]);
+  it("opens it in place of the remembered one", () => {
+    const s = store({ [OPEN_SECTION_KEY]: '"about"' });
+    expect(initiallyOpen(s, "#privacy")).toBe("privacy");
+    expect(initiallyOpen(s, "")).toBe("about");
+    expect(initiallyOpen(store(), "")).toBeNull();
   });
 });
 

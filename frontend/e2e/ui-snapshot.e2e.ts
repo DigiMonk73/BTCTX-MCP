@@ -6,7 +6,7 @@
 //   UI_SNAPSHOT_DIR=/tmp/ui-before npx playwright test ui-snapshot --project=chicago
 //   (change the code, rebuild, run again into /tmp/ui-after)
 //   diff -r /tmp/ui-before /tmp/ui-after
-import { test, expect, openAddForm, seedKnownLedger } from "./fixtures";
+import { test, expect, openAddForm, seedKnownLedger, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -146,6 +146,7 @@ test("edit forms", async ({ authedPage: page }) => {
 
 test("imports", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from River");
   const river = page.getByRole("region", { name: "Import from River" });
   await river.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),

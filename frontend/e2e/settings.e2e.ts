@@ -2,18 +2,25 @@
 // restore, CSV export, Ledger Review, Privacy & Network, the Connect an AI
 // Assistant prompt, and About BitcoinTX.
 import {
-  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
-  BLOCKED_KEY_FOLDER,
+  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, openSection, python, USER, PASSWORD,
+  REPO, BLOCKED_KEY_FOLDER,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-async function openSettings(page: Page) {
+/** Settings, with one of its sections open (#355: one at a time); its region. */
+async function openSettings(page: Page, section: string) {
   await page.getByRole("link", { name: "Settings" }).click();
-  await expect(page.getByText("Recalculate Ledger")).toBeVisible();
+  return openSection(page, section);
 }
+
+// Settings' sections, in the page's order
+const SECTIONS = [
+  "Account", "Wallets, exchanges and banks", "Ledger Review", "Privacy & Network", "Connect an AI Assistant",
+  "Data Management", "Import from River", "Backup & Restore", "About BitcoinTX",
+];
 
 async function historyCsv(page: Page, year: number) {
   const r = await page.request.get(`/api/reports/simple_transaction_history?year=${year}&format=csv`);
@@ -28,7 +35,7 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
     type: "Sell", timestamp: "2024-12-31T20:00:00Z", from_account_id: 4, to_account_id: 3,
     amount: "0.01", gross_proceeds_usd: "900", fee_amount: "0", fee_currency: "USD",
   });
-  await openSettings(page);
+  await openSettings(page, "Account");
   const select = page.getByLabel("Tax timezone");
   await expect(select).toHaveValue("America/Chicago");
   await expect(page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
@@ -44,7 +51,7 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
 test("recalculate ledger leaves the figures unchanged", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  await openSettings(page);
+  await openSettings(page, "Account");
   await page.getByRole("button", { name: "Recalculate" }).click();
   await expect(page.getByText("Recalculated 6 transaction(s).")).toBeVisible();
   const after = await listTx(page.request);
@@ -56,7 +63,7 @@ test("recalculate ledger leaves the figures unchanged", async ({ authedPage: pag
 test("reset username and password keeps transactions", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const dialogs = acceptDialogs(page);
-  await openSettings(page);
+  await openSettings(page, "Account");
   await page.getByLabel("New username").fill("renamed-user");
   await page.getByLabel("New password").fill("\u{1F511}".repeat(6)); // 6 characters, 12 in .length (#405)
   await page.getByRole("button", { name: "Update" }).click();
@@ -81,8 +88,9 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   expect(await listTx(page.request)).toHaveLength(6);
 });
 
-/** Settings → Delete, then the dialog with DELETE typed (#256). */
+/** Settings → Data Management → Delete, then the dialog with DELETE typed (#256). */
 async function deleteAll(page: Page, count: number) {
+  await openSection(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
@@ -94,7 +102,7 @@ test("delete all: a dialog says what goes, deletes only once DELETE is typed, af
   authedPage: page, app,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   page.on("dialog", () => { throw new Error("no browser confirm any more"); });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
@@ -129,7 +137,7 @@ test("delete all: a transaction saved while the dialog is open is shown, not del
   authedPage: page,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
@@ -157,7 +165,7 @@ test("delete all: the same count over other tax years is a change too (#390's re
   authedPage: page,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
@@ -186,7 +194,7 @@ test("delete all: the same count over other tax years is a change too (#390's re
 
 test("delete all: the dialog downloads the encrypted backup first (#256)", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await dialog.getByRole("button", { name: "Download a backup first" }).click();
@@ -206,7 +214,7 @@ test("delete all: the dialog downloads the encrypted backup first (#256)", async
 test("encrypted backup downloads and restores", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   // Privacy audit 2026-09-29 (3d): the plain safety copies are mentioned
   await expect(page.getByText("unencrypted safety copies")).toBeVisible();
 
@@ -223,6 +231,7 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   expect(await listTx(page.request)).toHaveLength(0);
 
   // A wrong password is refused and changes nothing.
+  await openSection(page, "Backup & Restore");
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("wrong");
   await page.getByRole("button", { name: "Restore", exact: true }).click();
@@ -244,7 +253,7 @@ test("the backup password is hidden, 12+ characters and typed twice alike", asyn
   // shown as typed and asked once, so a typo made a backup no one could open.
   let downloads = 0;
   page.on("download", () => downloads++);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   await expect(page.getByLabel("Encrypt with password")).toHaveAttribute("type", "password");
   await expect(page.getByLabel("Repeat password")).toHaveAttribute("type", "password");
   await page.getByLabel("Encrypt with password").fill("backup-secret");
@@ -262,7 +271,7 @@ test("the backup password is hidden, 12+ characters and typed twice alike", asyn
 
 test("export as CSV", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   const d = await download;
@@ -278,7 +287,7 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
   // WebKit has no clipboard permissions to grant; read the clipboard back in Chromium only.
   const canReadClipboard = browserName === "chromium";
   if (canReadClipboard) await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await openSettings(page);
+  await openSettings(page, "Connect an AI Assistant");
   await expect(page.getByRole("heading", { name: "Connect an AI Assistant" })).toBeVisible();
   // The privacy warning comes before the setup prompt.
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
@@ -315,7 +324,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
     expect(first.url).toBe(app.url);
     expect(statSync(keyFile).mode & 0o777).toBe(0o600);
 
-    await openSettings(page);
+    await openSettings(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     await expect(ai.getByText("No AI key yet: press Reset key.")).toHaveCount(0); // it has one (#238)
     const prompt = ai.getByLabel("Setup prompt");
@@ -362,7 +371,7 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
   test.use({ appMode: "mac", keyFileBlocked: true });
 
   test("Settings says so, and Reset key writes one once it can", async ({ authedPage: page, app }) => {
-    await openSettings(page);
+    await openSettings(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     const noKey = ai.getByText("No AI key yet: press Reset key.");
     await expect(noKey).toBeVisible();
@@ -382,7 +391,7 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
 });
 
 test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
-  await openSettings(page);
+  await openSettings(page, "Connect an AI Assistant");
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
   const anon = await playwrightRequest.newContext({ baseURL: app.url });
   const works = async (key: string) =>
@@ -410,7 +419,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
 
   // Leaving the page forgets it: a reload shows no key.
   await page.reload();
-  await openSettings(page);
+  await openSettings(page, "Connect an AI Assistant");
   await expect(ai.getByRole("group", { name: "New AI key" })).toHaveCount(0);
   await expect(page.getByText(first)).toHaveCount(0);
 
@@ -440,7 +449,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
 
 test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   await expect(review.getByText("Nothing to review.")).toBeVisible();
 
@@ -463,7 +472,7 @@ test("ledger review: a My BTC deposit without its original date is a folded remi
     type: "Deposit", timestamp: "2024-06-01T15:00:00Z", from_account_id: 99, to_account_id: 2,
     amount: "0.01", cost_basis_usd: "500", fee_amount: "0", fee_currency: "BTC", source: "MyBTC",
   });
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   const title = "Reminder: My BTC and Gift deposits counted from their deposit date";
   await expect(review.getByText("Nothing looks wrong.")).toBeVisible();
@@ -489,7 +498,7 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
   await page.request.post("/api/transactions/recalculate");
 
   const dialogs = acceptDialogs(page);
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   const title = "Values priced at the day's price that the hour would change";
   await expect(review.getByText(`${title}: 1`)).toBeVisible();
@@ -522,7 +531,7 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
 test("privacy & network: the price card, its fields and errors; Nobody shows on the dashboard", async ({
   authedPage: page,
 }) => {
-  await openSettings(page);
+  await openSettings(page, "Privacy & Network");
   const net = page.getByRole("region", { name: "Privacy & network" });
   const save = net.getByRole("button", { name: "Save" });
   await expect(net.getByLabel(/^Public price sites/)).toBeChecked();
@@ -599,7 +608,7 @@ test.describe("a fresh install asks where prices come from", () => {
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
     await page.reload();
     await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
-    await openSettings(page);
+    await openSettings(page, "Privacy & Network");
     await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel(/^Public price sites/)).toBeChecked();
   });
 });
@@ -611,7 +620,7 @@ test.describe("prices set by StartOS", () => {
     authedPage: page,
   }) => {
     await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
-    await openSettings(page);
+    await openSettings(page, "Privacy & Network");
     const net = page.getByRole("region", { name: "Privacy & network" });
     await expect(net.getByText("Set in StartOS. To change it: BitcoinTX › Actions › Price Source & Privacy.")).toBeVisible();
     const chosen = net.locator(".price-choice.chosen");
@@ -628,11 +637,12 @@ test.describe("prices set by StartOS", () => {
 });
 
 test("settings rows: text fields sit under their text, and no control rises above its row", async ({ authedPage: page }) => {
-  await openSettings(page);
+  await page.getByRole("link", { name: "Settings" }).click();
   const textField = 'input:not([type]), input[type="text"], input[type="url"], input[type="password"], textarea';
-  // Desktop, the tablet sidebar layout, and a phone.
-  for (const width of [1280, 960, 390]) {
+  // Desktop, the tablet sidebar layout, and a phone; each section open in turn (#355)
+  for (const [width, section] of [1280, 960, 390].flatMap((w) => SECTIONS.map((s) => [w, s] as const))) {
     await page.setViewportSize({ width, height: 900 });
+    await openSection(page, section);
     const problems = await page.locator(".settings-option").evaluateAll((rows, textField) =>
       rows.flatMap((row) => {
         const title = row.querySelector(".settings-option-title");
@@ -654,12 +664,12 @@ test("settings rows: text fields sit under their text, and no control rises abov
         }
         return out;
       }), textField);
-    expect(problems, `at ${width}px wide`).toEqual([]);
+    expect(problems, `${section} at ${width}px wide`).toEqual([]);
   }
 });
 
 test("About BitcoinTX shows the version and where to report a problem", async ({ authedPage: page }) => {
-  await openSettings(page);
+  await openSettings(page, "About BitcoinTX");
   const about = page.getByRole("region", { name: "About BitcoinTX" });
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
   await expect(about.getByText(`Version ${version}`)).toBeVisible();

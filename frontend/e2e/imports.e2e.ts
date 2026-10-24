@@ -1,6 +1,6 @@
 // River CSV import (preview statuses, edits, execute, re-import) and the
 // generic CSV import (template, instructions, empty-database import).
-import { test, expect, createTx, listTx, acceptDialogs, seedFunds } from "./fixtures";
+import { test, expect, createTx, listTx, acceptDialogs, seedFunds, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -27,6 +27,7 @@ function riverRow(page: Page, n: number) {
 
 async function previewRiver(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from River");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
@@ -121,6 +122,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
 
 test("River import rejects a file that isn't a River export", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from River");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "other.csv", mimeType: "text/csv", buffer: Buffer.from("date,type,amount\n2026-01-01,Buy,1\n"),
@@ -159,6 +161,7 @@ async function download(page: Page, button: string) {
 
 test("CSV import: template and instructions download; the template imports into an empty ledger", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Data Management");
   const tpl = await download(page, "Template");
   expect(tpl.name).toBe("btctx_import_template.csv");
   const template = readFileSync(tpl.file, "utf8");
@@ -190,6 +193,7 @@ test("CSV import: template and instructions download; the template imports into 
 test("CSV import refuses a ledger that already has transactions", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Data Management");
   const tpl = await download(page, "Template");
   await data(page).getByLabel("CSV file to import").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: readFileSync(tpl.file),

@@ -1,9 +1,9 @@
 // Settings in sections, and its "Wallets, exchanges and banks" (#355; 2.0 spec
-// 5.9, 7.4's B7b; P7's mockups, #572): each section opens when asked, by its
-// button or the keyboard, and stays open for this browser; your accounts by
+// 5.9, 7.4's B7b; P7's mockups, #572): one section open at a time, by its
+// button or the keyboard, the open one remembered by this browser; your accounts by
 // kind, Add with its help text and Q5's note, Hide, Show and Delete. Saving
 // into a new account waits for the gate (B7a), whose rows this spec gains then.
-import { test, expect, seedKnownLedger } from "./fixtures";
+import { test, expect, openSection, seedKnownLedger } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 const SECTIONS = [
@@ -24,9 +24,7 @@ const toggle = (page: Page, name: string) => page.getByRole("button", { name, ex
 
 async function openAccounts(page: Page): Promise<Locator> {
   await page.getByRole("link", { name: "Settings" }).click();
-  const button = toggle(page, "Wallets, exchanges and banks");
-  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
-  return page.getByRole("region", { name: "Wallets, exchanges and banks" });
+  return openSection(page, "Wallets, exchanges and banks");
 }
 
 /** One kind's group in the section ("Wallets", "Exchanges", "Banks"). */
@@ -42,54 +40,55 @@ async function listed(page: Page) {
   return (await r.json()) as { id: number; name: string; kind: string; currency: string; hidden: boolean }[];
 }
 
-test.describe("sections", () => {
-  test.use({ settingsOpen: "remembered" });
+test("sections start closed, open one at a time by their buttons and the keyboard, and the open one stays open for this browser", async ({
+  authedPage: page,
+}) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  for (const name of SECTIONS) await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
+  // Each with its one-line summary, read with its button
+  await expect(toggle(page, "Wallets, exchanges and banks")).toHaveAccessibleDescription(
+    "1 wallet · 1 exchange · 1 bank",
+  );
+  await expect(toggle(page, "Ledger Review")).toHaveAccessibleDescription("Nothing to review");
+  await expect(page.getByRole("region", { name: "Account" })).toHaveCount(0);
+  await expect(page.getByText("Recalculate Ledger")).toBeHidden();
 
-  test("start closed, open and close by their buttons and the keyboard, and stay open for this browser", async ({
-    authedPage: page,
-  }) => {
-    await page.getByRole("link", { name: "Settings" }).click();
-    for (const name of SECTIONS) await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
-    // Each with its one-line summary, read with its button
-    await expect(toggle(page, "Wallets, exchanges and banks")).toHaveAccessibleDescription(
-      "1 wallet · 1 exchange · 1 bank",
-    );
-    await expect(toggle(page, "Ledger Review")).toHaveAccessibleDescription("Nothing to review");
-    await expect(page.getByRole("region", { name: "Account" })).toHaveCount(0);
-    await expect(page.getByText("Recalculate Ledger")).toBeHidden();
+  await toggle(page, "Account").click();
+  await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("region", { name: "Account" }).getByText("Recalculate Ledger")).toBeVisible();
 
-    await toggle(page, "Account").click();
-    await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("region", { name: "Account" }).getByText("Recalculate Ledger")).toBeVisible();
+  // The keyboard: Tab goes into the open section first; Enter opens a
+  // section, closing the one before; Space closes it
+  await toggle(page, "Account").focus();
+  await page.keyboard.press("Tab");
+  await expect(toggle(page, "Wallets, exchanges and banks")).not.toBeFocused();
+  await toggle(page, "Ledger Review").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("region", { name: "Ledger review" })).toBeVisible();
+  await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("region", { name: "Account" })).toHaveCount(0);
+  await page.keyboard.press(" ");
+  await expect(page.getByRole("region", { name: "Ledger review" })).toHaveCount(0);
+  await page.keyboard.press("Enter");
 
-    // The keyboard: Tab to a section's button, Enter opens it, Space closes it
-    await toggle(page, "Account").focus();
-    await page.keyboard.press("Tab");
-    await expect(toggle(page, "Wallets, exchanges and banks")).not.toBeFocused(); // Account's own fields come first
-    await toggle(page, "Ledger Review").focus();
-    await page.keyboard.press("Enter");
-    await expect(page.getByRole("region", { name: "Ledger review" })).toBeVisible();
-    await page.keyboard.press(" ");
-    await expect(page.getByRole("region", { name: "Ledger review" })).toHaveCount(0);
-    await page.keyboard.press("Enter");
+  // Remembered by this browser
+  await page.reload();
+  await expect(toggle(page, "Ledger Review")).toHaveAttribute("aria-expanded", "true");
+  for (const name of SECTIONS.filter((n) => n !== "Ledger Review")) {
+    await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
+  }
+  await toggle(page, "Ledger Review").click();
+  await page.reload();
+  for (const name of SECTIONS) await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
+});
 
-    // Remembered by this browser
-    await page.reload();
-    await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "true");
-    await expect(toggle(page, "Ledger Review")).toHaveAttribute("aria-expanded", "true");
-    await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "false");
-    await toggle(page, "Account").click();
-    await toggle(page, "Ledger Review").click();
-    await page.reload();
-    for (const name of SECTIONS) await expect(toggle(page, name)).toHaveAttribute("aria-expanded", "false");
-  });
-
-  test("a link to a section opens it", async ({ authedPage: page }) => {
-    await page.goto("/settings#privacy");
-    await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("region", { name: "Privacy & network" })).toBeVisible();
-    await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "false");
-  });
+test("a link to a section opens it, in place of the one left open", async ({ authedPage: page }) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  await toggle(page, "Account").click();
+  await page.goto("/settings#privacy");
+  await expect(toggle(page, "Privacy & Network")).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("region", { name: "Privacy & network" })).toBeVisible();
+  await expect(toggle(page, "Account")).toHaveAttribute("aria-expanded", "false");
 });
 
 test("your accounts by kind, each with its kind and balance, its details behind its row", async ({
@@ -125,8 +124,11 @@ test("add a wallet and an exchange: their help texts, Q5's note, the server's re
   const section = await openAccounts(page);
   const wallets = group(section, "Wallets");
 
-  await wallets.getByRole("button", { name: "Add a wallet" }).click();
+  const addWalletButton = wallets.getByRole("button", { name: "Add a wallet" });
+  await addWalletButton.click();
+  await expect(addWalletButton).toHaveAttribute("aria-expanded", "true");
   const addWallet = section.getByRole("form", { name: "Add a wallet" });
+  await expect(addWallet.getByLabel("Name")).toBeFocused();
   await expect(addWallet).toContainText(WALLET_HELP);
   await expect(addWallet).toContainText(POOLED_WALLET); // Wallet has transactions
   await addWallet.getByLabel("Name").fill("wallet");
@@ -137,6 +139,7 @@ test("add a wallet and an exchange: their help texts, Q5's note, the server's re
   await addWallet.getByLabel("Name").fill("Coldcard");
   await addWallet.getByRole("button", { name: "Add", exact: true }).click();
   await expect(addWallet).toHaveCount(0);
+  await expect(addWalletButton).toBeFocused(); // the keyboard back where the form opened from
   await expect(row(wallets, "Coldcard")).toHaveAccessibleName("Coldcard Wallet 0.00000000 BTC");
   await expect(toggle(page, "Wallets, exchanges and banks")).toHaveAccessibleDescription(
     "2 wallets · 1 exchange · 1 bank",
@@ -165,6 +168,7 @@ test("add a wallet and an exchange: their help texts, Q5's note, the server's re
   await expect(addBank.getByRole("note")).toHaveCount(0);
   await addBank.getByRole("button", { name: "Cancel" }).click();
   await expect(addBank).toHaveCount(0);
+  await expect(group(section, "Banks").getByRole("button", { name: "Add a bank" })).toBeFocused();
   expect(await listed(page)).toHaveLength(9);
 });
 
@@ -219,4 +223,70 @@ test("hide, show and delete an unused account; your first wallet is hidden, neve
   const first = section.getByRole("region", { name: "Wallet" });
   await expect(first.getByRole("button", { name: "Delete" })).toHaveCount(0);
   await expect(first).toContainText("Your first bank, wallet and exchange can't be deleted. Hide one you don't use.");
+});
+
+// River's file: a send of River's to the wallet (row 2) and a buy (row 3)
+const RIVER_CSV = [
+  "Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Tag",
+  "2026-02-15 10:00:00,0.00100000,BTC,,,0.00000500,BTC,",
+  "2026-02-03 15:30:00,148.50,USD,0.00180000,BTC,1.50,USD,Buy",
+].join("\n") + "\n";
+
+/** From now on, the text fields of each form the page sends (Chromium keeps
+ * no body of a request with a file for Playwright to read). */
+async function recordForms(page: Page) {
+  await page.evaluate(() => {
+    const sent: Record<string, string>[] = [];
+    Object.assign(window, { sentForms: sent });
+    const send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (body) {
+      if (body instanceof FormData) {
+        sent.push(Object.fromEntries([...body.entries()].filter((e): e is [string, string] => typeof e[1] === "string")));
+      }
+      return send.call(this, body);
+    };
+  });
+}
+
+const sentForms = (page: Page) => page.evaluate(() => (window as unknown as { sentForms: Record<string, string>[] }).sentForms);
+
+test("River: with one of each nothing is asked; with two of each the file's exchange and wallet, never a hidden one", async ({
+  authedPage: page,
+}) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  const river = await openSection(page, "Import from River");
+  await expect(river.getByLabel("River CSV file")).toBeVisible();
+  await expect(river.getByLabel("Exchange", { exact: true })).toHaveCount(0);
+  await expect(river.getByLabel("Wallet for sends and receives")).toHaveCount(0);
+
+  for (const [kind, name] of [["wallet", "Coldcard"], ["exchange", "Kraken"], ["wallet", "Old phone"]]) {
+    expect((await page.request.post("/api/accounts/", { data: { kind, name } })).status()).toBe(201);
+  }
+  const phone = (await listed(page)).find((a) => a.name === "Old phone")!;
+  expect((await page.request.put(`/api/accounts/${phone.id}`, { data: { hidden: true } })).ok()).toBeTruthy();
+  await page.reload();
+
+  // Asked, the first of each chosen (Q8); a hidden wallet isn't offered
+  const exchange = river.getByLabel("Exchange", { exact: true });
+  const wallet = river.getByLabel("Wallet for sends and receives");
+  await expect(exchange).toHaveValue("4");
+  await expect(exchange.getByRole("option")).toHaveText(["Exchange", "Kraken"]);
+  await expect(wallet).toHaveValue("2");
+  await expect(wallet.getByRole("option")).toHaveText(["Wallet", "Coldcard"]);
+
+  // The choice goes with the file's preview
+  await exchange.selectOption({ label: "Kraken" });
+  await wallet.selectOption({ label: "Coldcard" });
+  await river.getByLabel("River CSV file").setInputFiles({
+    name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
+  });
+  await recordForms(page);
+  await river.getByRole("button", { name: "Preview" }).click();
+  await expect(river.getByText("2 rows in file")).toBeVisible();
+  expect(await sentForms(page)).toEqual([{ exchange_account_id: "102", wallet_account_id: "100" }]);
+
+  // A new pick makes a new preview
+  await wallet.selectOption({ label: "Wallet" });
+  await expect.poll(() => sentForms(page)).toHaveLength(2);
+  expect((await sentForms(page))[1]).toEqual({ exchange_account_id: "102", wallet_account_id: "2" });
 });

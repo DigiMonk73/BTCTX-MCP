@@ -5,6 +5,22 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **Settings in sections, and "Wallets, exchanges and banks"** (B7b,
+  #355). Settings opens as a list of its sections, each with a line on
+  what's inside (Ledger Review's says how many transactions it wants you
+  to check); one opens at a time, by its button or the keyboard, and the
+  one left open is open again next time in that browser; a link to a
+  section opens it (the dashboard's "Change the price source" opens
+  Privacy & Network). The new section after Account lists your wallets,
+  exchanges and banks by kind, each with its balance (an exchange's
+  dollars and bitcoin on one row), the hidden ones under "Show hidden";
+  each opens to Hide or Show, and to Delete while no transaction names
+  it. "Add a wallet", "Add an exchange" and "Add a bank" say what each
+  is, and adding a second wallet or exchange while another has
+  transactions says how earlier years were figured. River's import asks
+  which exchange the file is from, and which wallet its sends and
+  receives go with, when there's more than one of either. Saving into an
+  added account still waits for a later step.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and

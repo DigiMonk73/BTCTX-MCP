@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { balanceText, type AccountGroup, type AccountRow, type YourKind } from "../../utils/ledgerAccounts";
 import AccountRowItem from "./AccountRowItem";
 import AddAccount from "./AddAccount";
@@ -25,8 +25,23 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
 }) => {
   const [adding, setAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const [refocus, setRefocus] = useState(false);
   const heading = `ledger-group-${group.kind}`;
   const hiddenList = `${heading}-hidden`;
+  const addForm = `${heading}-add`;
+  // The keyboard goes back to the button the form opened from, once it's
+  // enabled again (a disabled button can't take focus)
+  const closeAdd = () => {
+    setAdding(false);
+    onAddClosed();
+    setRefocus(true);
+  };
+  useEffect(() => {
+    if (!refocus || busy) return;
+    addButton.current?.focus();
+    setRefocus(false);
+  }, [refocus, busy]);
   const item = (row: AccountRow) => (
     <AccountRowItem key={row.key} row={row} balance={balanceText(row, balances)} open={openRow === row.key}
       busy={busy} onToggle={onToggleRow} onHide={onHide} onDelete={onDelete} />
@@ -36,14 +51,12 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
     <div className="ledger-group" role="group" aria-labelledby={heading}>
       <div className="ledger-group-head">
         <h4 id={heading} className="ledger-group-title">{group.title}</h4>
-        {!adding && (
-          <button type="button" className="btn btn-secondary btn-sm" disabled={busy} onClick={() => setAdding(true)}>
-            {group.add}
-          </button>
-        )}
+        <button ref={addButton} type="button" className="btn btn-secondary btn-sm" aria-expanded={adding}
+          aria-controls={addForm} disabled={busy} onClick={() => (adding ? closeAdd() : setAdding(true))}>
+          {group.add}
+        </button>
       </div>
-      {adding && <AddAccount kind={group.kind} book={book} busy={busy} onAdd={onAdd}
-        onClose={() => { setAdding(false); onAddClosed(); }} />}
+      {adding && <AddAccount id={addForm} kind={group.kind} book={book} busy={busy} onAdd={onAdd} onClose={closeAdd} />}
       {group.shown.length > 0 && <ul className="ledger-account-list">{group.shown.map(item)}</ul>}
       {group.hidden.length > 0 && (
         <>

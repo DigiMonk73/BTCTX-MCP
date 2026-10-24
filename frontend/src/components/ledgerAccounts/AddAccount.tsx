@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ADD_LABEL, addHelp, pooledNote, type YourKind } from "../../utils/ledgerAccounts";
 
 interface AddAccountProps {
+  id: string;
   kind: YourKind;
   book: AccountBook;
   busy: boolean;
@@ -12,7 +13,7 @@ interface AddAccountProps {
 
 /** One kind's "Add a …" (5.9): the name, its help text and Q5's note, Add and
  * Cancel. The name goes as typed: the server cleans it and says what it refuses. */
-const AddAccount: React.FC<AddAccountProps> = ({ kind, book, busy, onAdd, onClose }) => {
+const AddAccount: React.FC<AddAccountProps> = ({ id, kind, book, busy, onAdd, onClose }) => {
   const [name, setName] = useState("");
   const field = `ledger-add-${kind}`;
   const help = addHelp(kind, name);
@@ -24,7 +25,7 @@ const AddAccount: React.FC<AddAccountProps> = ({ kind, book, busy, onAdd, onClos
   };
 
   return (
-    <form className="ledger-add-form" aria-label={ADD_LABEL[kind]} onSubmit={submit}>
+    <form id={id} className="ledger-add-form" aria-label={ADD_LABEL[kind]} onSubmit={submit}>
       <div className="field">
         <label htmlFor={field}>Name</label>
         <input id={field} className="input" value={name} autoFocus autoComplete="off" spellCheck={false}

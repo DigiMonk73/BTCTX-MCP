@@ -9,7 +9,6 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { OPEN_SECTIONS_KEY, SETTINGS_SECTIONS } from "../src/utils/settingsSections";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -219,12 +218,6 @@ type Fixtures = {
   serverTor: boolean;
   /** true (with appMode "mac"): the key file can't be written at start, so the app has no AI key (#238). */
   keyFileBlocked: boolean;
-  /**
-   * "all": Settings opens with every section open, as it showed them before
-   * it had sections (#355), for the specs of what a section holds.
-   * "remembered": as a browser that never opened one, every section closed.
-   */
-  settingsOpen: "all" | "remembered";
   app: App;
   /** A page whose browser session is logged in (via the UI) on a fresh account. */
   authedPage: Page;
@@ -236,17 +229,6 @@ export const test = base.extend<Fixtures>({
   fakeInternet: [false, { option: true }],
   serverTor: [false, { option: true }],
   keyFileBlocked: [false, { option: true }],
-  settingsOpen: ["all", { option: true }],
-  page: async ({ page, settingsOpen }, use) => {
-    // Before the app's own code, and only while this browser has none
-    // stored: a section the test closes stays closed after a reload
-    if (settingsOpen === "all") {
-      await page.addInitScript(({ key, open }) => {
-        if (window.localStorage.getItem(key) === null) window.localStorage.setItem(key, open);
-      }, { key: OPEN_SECTIONS_KEY, open: JSON.stringify(SETTINGS_SECTIONS) });
-    }
-    await use(page);
-  },
   app: async ({ appMode, priceSource, fakeInternet, serverTor, keyFileBlocked }, use, testInfo) => {
     const { app, proc, log } = await startApp((dir, port) => ({
       ...(appMode === "mac" ? macAppEnv(dir, port, keyFileBlocked) : {}),
@@ -291,6 +273,24 @@ export async function openAddForm(page: Page, type: string) {
   await page.getByRole("button", { name: "Add Transaction" }).click();
   await expect(page.getByRole("heading", { name: "Add Transaction" })).toBeVisible();
   await page.getByLabel("Transaction Type").selectOption(type);
+}
+
+// Settings' sections whose region tests know by another name than their title
+const SECTION_REGION: Record<string, string> = {
+  "Ledger Review": "Ledger review",
+  "Privacy & Network": "Privacy & network",
+};
+
+/**
+ * One of Settings' sections, opened by its button if it isn't, on the
+ * Settings page already: its region. One is open at a time (#355), so
+ * opening one closes the one before.
+ */
+export async function openSection(page: Page, title: string) {
+  const button = page.getByRole("button", { name: title, exact: true });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  return page.getByRole("region", { name: SECTION_REGION[title] ?? title });
 }
 
 /** Save the open form and wait for the panel to close. */

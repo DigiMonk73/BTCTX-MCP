@@ -3,6 +3,15 @@
 .river-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .river-input-row input[type="file"] { flex: 1 1 240px; }
 
+/* The file's exchange and wallet, when there's more than one of either (#355):
+   side by side, one under the other on a phone */
+.river-accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
 .river-preview {
   display: flex;
   flex-direction: column;

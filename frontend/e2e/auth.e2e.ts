@@ -1,5 +1,5 @@
 import { request as playwrightRequest, type Page } from "@playwright/test";
-import { test, expect, USER, PASSWORD, claimAccount, createTx, loginViaUi, setupCode, type App } from "./fixtures";
+import { test, expect, USER, PASSWORD, claimAccount, createTx, loginViaUi, setupCode, type App, openSection } from "./fixtures";
 
 test("Create account shows only until the default login is claimed", async ({ page, app }) => {
   // Afterwards /register resets the account (every transaction deleted).
@@ -212,6 +212,7 @@ test("on a phone every header tab, Logout too, is on screen without scrolling", 
 test("logout from Settings", async ({ authedPage: page }) => {
   page.on("dialog", (d) => void d.accept());
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Account");
   await page.getByRole("button", { name: "Logout" }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect((await page.request.get("/api/transactions")).status()).toBe(401);
@@ -245,6 +246,7 @@ test("a login leaves the tax timezone alone once the ledger has transactions (#3
   const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
   expect(tz).toEqual({ timezone: "UTC", source: "default" });
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Account");
   const suggestion = page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" });
   await expect(suggestion).toContainText(`This computer is set to ${info.project.use.timezoneId}: if that's where you file`);
 
@@ -362,6 +364,7 @@ test.describe("the Mac app", () => {
     const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
     expect(tz).toEqual({ timezone: "UTC", source: "default" });
     await page.getByRole("link", { name: "Settings" }).click();
+    await openSection(page, "Account");
     await expect(page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" }))
       .toContainText(`This computer is set to ${info.project.use.timezoneId}`);
   });
@@ -410,6 +413,7 @@ test.describe("the Mac app", () => {
     });
     expect(r.ok(), await r.text()).toBeTruthy();
     await page.goto("/settings");
+    await openSection(page, "Account");
     const hint = page.getByText("This is still the default login");
     await expect(hint).toContainText("Application Support/BitcoinTX");
     await expect(hint).not.toContainText("docker logs");

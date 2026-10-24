@@ -18,16 +18,15 @@ function loadAccounts(): Promise<AccountBook> {
   if (loading) return loading;
   const request = api.get<AccountBook>("/accounts/").then((res) => res.data);
   loading = request;
-  // A rejection clears this request only while it is still the one stored:
-  // forgetAccounts may have started a newer one, which stays
+  // A failure forgets only this request: a newer one forgetAccounts started stays
   request.catch(() => {
     if (loading === request) loading = undefined;
   });
   return request;
 }
 
-/** The next useAccounts() asks the server again: Settings calls it after
- * adding, hiding, showing or deleting an account. */
+/** The next useAccounts() asks the server again: Settings calls it after adding,
+ * renaming, hiding or deleting an account, and tests between cases. */
 export function forgetAccounts(): void {
   loading = undefined;
 }
@@ -37,7 +36,7 @@ export function useAccounts(): AccountsState & { reload: () => void } {
   const [state, setState] = useState<AccountsState>({ failed: false });
   const [asked, setAsked] = useState(0);
   useEffect(() => {
-    // An unmounted screen sets no state
+    // A screen gone meanwhile sets no state
     let live = true;
     loadAccounts().then(
       (book) => {

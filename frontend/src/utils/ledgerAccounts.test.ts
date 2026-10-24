@@ -1,37 +1,15 @@
 // Settings' "Wallets, exchanges and banks" (#355, 2.0 spec 5.9): its rows,
 // grouped by kind, and its texts word for word.
 import { describe, expect, it } from "vitest";
+import { ONE_OF_EACH, TWO_OF_EACH } from "../test/accountBooks";
 import {
   ADD_LABEL, EXCHANGE_HELP, POOLED_NOTE, WALLET_HELP, accountGroups, accountsSummary, addHelp, balanceText,
   canDelete, pooledNote,
 } from "./ledgerAccounts";
 
-const account = (over: Partial<LedgerAccount> & Pick<LedgerAccount, "id" | "name" | "kind" | "currency">): LedgerAccount => ({
-  exchange_id: null, exchange: null, hidden: false, in_use: false, ...over,
-});
-
-/** A new install's book (B2b's GET /api/accounts/): banks, wallets, exchanges, then the fee accounts. */
-const BOOK: AccountBook = [
-  account({ id: 1, name: "Bank", kind: "bank", currency: "USD", in_use: true }),
-  account({ id: 2, name: "Wallet", kind: "wallet", currency: "BTC", in_use: true }),
-  account({ id: 3, name: "Exchange USD", kind: "exchange", currency: "USD", exchange_id: 1, exchange: "Exchange", in_use: true }),
-  account({ id: 4, name: "Exchange BTC", kind: "exchange", currency: "BTC", exchange_id: 1, exchange: "Exchange", in_use: true }),
-  account({ id: 5, name: "BTC Fees", kind: "fee", currency: "BTC" }),
-  account({ id: 6, name: "USD Fees", kind: "fee", currency: "USD" }),
-];
-
-/** The same, with an account of each kind added (ids from 100, 5.1), one wallet hidden. */
-const MORE: AccountBook = [
-  ...BOOK.slice(0, 1),
-  account({ id: 103, name: "Savings", kind: "bank", currency: "USD" }),
-  ...BOOK.slice(1, 2),
-  account({ id: 100, name: "Coldcard", kind: "wallet", currency: "BTC", in_use: true }),
-  account({ id: 104, name: "Old phone", kind: "wallet", currency: "BTC", hidden: true }),
-  ...BOOK.slice(2, 4),
-  account({ id: 101, name: "Kraken USD", kind: "exchange", currency: "USD", exchange_id: 2, exchange: "Kraken" }),
-  account({ id: 102, name: "Kraken BTC", kind: "exchange", currency: "BTC", exchange_id: 2, exchange: "Kraken" }),
-  ...BOOK.slice(4),
-];
+/** One of each, and two of each with one wallet hidden (src/test/accountBooks.ts). */
+const BOOK = ONE_OF_EACH;
+const MORE = TWO_OF_EACH;
 
 describe("the rows", () => {
   it("are grouped wallets, exchanges, banks, each with its Add button; never the fee accounts", () => {
@@ -47,30 +25,32 @@ describe("the rows", () => {
   it("show an exchange as one row of its two accounts, dollars first, by its own name", () => {
     const [, exchanges] = accountGroups(MORE);
     expect(exchanges.shown.map((r) => [r.name, r.accounts.map((a) => a.id)])).toEqual([
-      ["Exchange", [3, 4]], ["Kraken", [101, 102]],
+      ["Exchange", [3, 4]], ["Kraken", [102, 103]],
     ]);
   });
 
   it("keep the book's order within a kind, and put hidden ones apart", () => {
     const [wallets, , banks] = accountGroups(MORE);
-    expect(wallets.shown.map((r) => r.name)).toEqual(["Wallet", "Coldcard"]);
-    expect(wallets.hidden.map((r) => r.name)).toEqual(["Old phone"]);
-    expect(banks.shown.map((r) => r.name)).toEqual(["Bank", "Savings"]);
+    expect(wallets.shown.map((r) => r.name)).toEqual(["Wallet", "Cold Storage"]);
+    expect(wallets.hidden.map((r) => r.name)).toEqual(["Old Wallet"]);
+    expect(banks.shown.map((r) => r.name)).toEqual(["Bank", "Credit Union"]);
   });
 
   it("an exchange is hidden when its accounts are, in use when either is", () => {
-    const half: AccountBook = MORE.map((a) => (a.id === 102 ? { ...a, in_use: true } : a));
-    const kraken = accountGroups(half)[1].shown[1];
+    // Kraken's dollars unused, its bitcoin in use
+    const kraken = accountGroups(MORE)[1].shown[1];
     expect([kraken.hidden, kraken.inUse]).toEqual([false, true]);
     const gone: AccountBook = MORE.map((a) => (a.exchange_id === 2 ? { ...a, hidden: true } : a));
     expect(accountGroups(gone)[1].hidden.map((r) => r.name)).toEqual(["Kraken"]);
   });
 
   it("offer Delete only for an account no transaction names, never your first bank, wallet or exchange", () => {
-    const rows = accountGroups(MORE).flatMap((g) => [...g.shown, ...g.hidden]);
-    expect(rows.filter(canDelete).map((r) => r.name)).toEqual(["Old phone", "Kraken", "Savings"]);
+    const rows = (book: AccountBook) => accountGroups(book).flatMap((g) => [...g.shown, ...g.hidden]);
+    expect(rows(MORE).filter(canDelete).map((r) => r.name)).toEqual(["Credit Union"]);
+    const added = MORE.map((a) => (a.id >= 100 ? { ...a, in_use: false } : a));
+    expect(rows(added).filter(canDelete).map((r) => r.name)).toEqual(["Cold Storage", "Old Wallet", "Kraken", "Credit Union"]);
     const unused = BOOK.map((a) => ({ ...a, in_use: false }));
-    expect(accountGroups(unused).flatMap((g) => g.shown).filter(canDelete)).toEqual([]);
+    expect(rows(unused).filter(canDelete)).toEqual([]);
   });
 });
 
