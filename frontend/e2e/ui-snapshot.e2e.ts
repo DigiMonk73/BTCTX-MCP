@@ -83,19 +83,19 @@ const FORM_VARIANTS: Array<[string, string, Array<[string, string]>]> = [
   ["deposit-bank", "Deposit", [["Account", "Bank"]]],
   ["deposit-wallet", "Deposit", [["Account", "Wallet"]]],
   ["deposit-wallet-income", "Deposit", [["Account", "Wallet"], ["Source", "Income"]]],
-  ["deposit-exchange-usd", "Deposit", [["Account", "Exchange"], ["Currency", "USD"]]],
-  ["deposit-exchange-btc", "Deposit", [["Account", "Exchange"], ["Currency", "BTC"], ["Source", "Gift"]]],
+  ["deposit-exchange-usd", "Deposit", [["Account", "Exchange USD"]]],
+  ["deposit-exchange-btc", "Deposit", [["Account", "Exchange BTC"], ["Source", "Gift"]]],
   ["withdrawal-bank", "Withdrawal", [["Account", "Bank"]]],
   ["withdrawal-wallet-spent", "Withdrawal", [["Account", "Wallet"], ["Purpose (BTC only)", "Spent"]]],
   ["withdrawal-wallet-gift", "Withdrawal", [["Account", "Wallet"], ["Purpose (BTC only)", "Gift"]]],
   ["withdrawal-exchange-btc-lost", "Withdrawal",
-    [["Account", "Exchange"], ["Currency", "BTC"], ["Purpose (BTC only)", "Lost"]]],
+    [["Account", "Exchange BTC"], ["Purpose (BTC only)", "Lost"]]],
   ["transfer-bank", "Transfer", [["From Account", "Bank"]]],
   ["transfer-wallet", "Transfer", [["From Account", "Wallet"]]],
-  ["transfer-exchange-usd", "Transfer", [["From Account", "Exchange"], ["From Currency", "USD"]]],
-  ["transfer-exchange-btc", "Transfer", [["From Account", "Exchange"], ["From Currency", "BTC"]]],
+  ["transfer-exchange-usd", "Transfer", [["From Account", "Exchange USD"]]],
+  ["transfer-exchange-btc", "Transfer", [["From Account", "Exchange BTC"]]],
   ["buy", "Buy", []],
-  ["buy-bank", "Buy", [["From Account", "Bank"]]],
+  ["buy-bank", "Buy", [["Paid from", "Bank (auto-buy)"]]],
   ["sell", "Sell", []],
 ];
 
@@ -135,7 +135,10 @@ test("add form: errors on an empty save", async ({ authedPage: page }) => {
 test("edit forms", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await page.getByRole("link", { name: "Transactions" }).click();
+  // Counted once the list is in: counted at once, it was 0 and recorded nothing
+  await expect(page.getByRole("listitem").first()).toBeVisible();
   const count = await page.getByRole("listitem").count();
+  expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
     await page.goto("/transactions");
     await page.getByRole("listitem").nth(i).getByRole("button", { name: "Edit" }).click();

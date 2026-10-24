@@ -280,7 +280,9 @@ Frontend (from `frontend/package.json`): React 19, Vite 8 (its build target
 pinned to Safari 15 in `frontend/vite.config.ts`, for the Mac app's WebKit:
 Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
-`frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react.
+`frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react;
+dev only, Testing Library and jsdom, for the tests that mount the
+transaction form (`src/test/renderForm.tsx`, #351).
 Docker frontend build and CI use Node 24.
 `@playwright/test` is pinned exactly (1.64.1 since 2026-10-21, for Ubuntu
 26.04, which Playwright supports from 1.61) and bumped only on purpose,

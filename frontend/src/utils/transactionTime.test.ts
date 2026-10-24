@@ -3,6 +3,7 @@
 process.env.TZ = "America/Chicago";
 
 import { describe, expect, it } from "vitest";
+import { ONE_OF_EACH as book } from "../test/books";
 import {
   buildTransactionPayload,
   mapTransactionToFormData,
@@ -25,8 +26,8 @@ const sell = {
 } as unknown as ITransaction;
 
 function editAndSave(timestamp: string): string {
-  const form = mapTransactionToFormData({ ...sell, timestamp } as ITransaction);
-  return buildTransactionPayload(form).timestamp as string;
+  const form = mapTransactionToFormData({ ...sell, timestamp } as ITransaction, book);
+  return buildTransactionPayload(form, book).timestamp as string;
 }
 
 describe("editing a transaction in a non-UTC timezone", () => {
@@ -35,7 +36,7 @@ describe("editing a transaction in a non-UTC timezone", () => {
   });
 
   it("shows the stored time as local time", () => {
-    const form = mapTransactionToFormData({ ...sell, timestamp: "2026-07-31T20:16:07Z" } as ITransaction);
+    const form = mapTransactionToFormData({ ...sell, timestamp: "2026-07-31T20:16:07Z" } as ITransaction, book);
     expect(form.timestamp).toBe("2026-07-31T15:16:07");
   });
 
