@@ -318,7 +318,8 @@ def _btc_number(value: Decimal | None) -> bool:
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
     """A checked row in the shape the duplicate check reads: River's amount
-    and fee, as the preview's proposal had them."""
+    and fee, as the preview's proposal had them, and a buy's funding bank,
+    which River's file never names."""
     return RiverProposal(
         row_number=row_number,
         timestamp=tx_data["timestamp"],
@@ -331,4 +332,5 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         proceeds_usd=tx_data.get("proceeds_usd"),
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
+        unnamed_bank="from" if tx_data["type"] == "Buy" else None,
     )

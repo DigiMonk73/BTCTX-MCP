@@ -172,6 +172,10 @@ class RiverProposal:
     # The side ("from" or "to") whose account is the file's guess, not River's
     # word: a send's or receive's wallet (5.11; the owner's decision, 2026-10-16)
     guessed: str | None = None
+    # The side whose bank River's file never names: a buy's funding, the
+    # preview's default or the owner's edit (the build lead's call under the
+    # owner's decision 25, 2026-10-23): another bank there still matches
+    unnamed_bank: str | None = None
     # The book naming its accounts
     book: AccountBook = field(default=FIXED_BOOK, repr=False, compare=False)
 
@@ -434,7 +438,7 @@ class _RiverAdapter:
             amount=row.received,
             cost_basis_usd=row.sent,
             fee_amount=row.fee, fee_currency="USD" if row.fee else None,
-            funding_choices=accounts.funding_choices(), book=accounts.book,
+            funding_choices=accounts.funding_choices(), unnamed_bank="from", book=accounts.book,
         )
 
     def sell(self, row: RiverRow) -> RiverProposal | None:
@@ -712,7 +716,7 @@ def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, gue
     name another wallet, and then counts as going the same way: the file
     chose its wallet, River didn't (the owner's decision, 2026-10-16), so a
     deposit typed into the other wallet is offered too."""
-    alike = _other_accounts_alike(proposal, tx, book)
+    alike = [side for side in _other_accounts_alike(proposal, tx, book) if not _unnamed_bank(proposal, side, book)]
     guessed = guess and proposal.guessed in alike
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
@@ -731,6 +735,13 @@ def _other_accounts_alike(proposal: RiverProposal, tx: Transaction, book: Accoun
     return [side for side, ours, theirs in sides
             if ours != theirs and book.kind(ours) is not None
             and (book.kind(ours), book.currency(ours)) == (book.kind(theirs), book.currency(theirs))]
+
+
+def _unnamed_bank(proposal: RiverProposal, side: str, book: AccountBook) -> bool:
+    """A bank River's file never names (a buy's funding): another bank on
+    that side doesn't stop a match, as an edit of the funding never did."""
+    account = proposal.from_account_id if side == "from" else proposal.to_account_id
+    return side == proposal.unnamed_bank and book.kind(account) == "bank"
 
 
 def account_differences(proposal: RiverProposal, tx: Transaction, book: AccountBook,

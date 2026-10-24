@@ -185,3 +185,34 @@ def test_a_1x_ledgers_notes_are_as_they_were(fresh_app, monkeypatch):
     assert (found(send), send["discrepancy"]) == (("discrepancy", tx, False), (
         f"Same BTC amount as tx #{tx} (Withdrawal 0.00100000 BTC), recorded 3 hours earlier: it may be the same "
         "transaction"))
+
+
+# River's funding bank: never River's word (the build lead's call, 2026-10-23,
+# under the owner's decision 25): a second bank still matches exactly
+RECURRING = [f"2026-03-0{day} 12:00:00,25.00,USD,0.000{day}0000,BTC,,,Buy" for day in range(2, 6)]
+CREDIT_UNION = 101
+
+
+def test_buys_paid_from_the_second_bank_are_found_again(client):
+    """Four recurring buys imported with their funding set to the second
+    bank, then the same file again (its default: the first bank): each is
+    already recorded, never imported twice."""
+    first = river(client, *RECURRING)
+    assert {p["from_account"] for p in first} == {"Bank"}
+    rows = [{k: p[k] for k in ("row_number", "date", "type", "amount", "to_account", "cost_basis_usd")}
+            | {"from_account": "Credit Union"} for p in first]
+    r = client.post("/api/import/river/execute", json={"rows": rows})
+    assert r.status_code == 200 and r.json()["imported_count"] == 4, r.text
+    saved = {t["id"] for t in client.get("/api/transactions").json() if t["from_account_id"] == CREDIT_UNION}
+    again = river(client, *RECURRING)
+    assert {p["status"] for p in again} == {"matched"}
+    assert {p["matched_tx_id"] for p in again} == saved
+
+
+def test_the_ais_buy_names_its_bank(client):
+    """The AI's rows name their accounts: a buy paid from another bank is
+    another buy (the owner's rule of 2026-10-15 stands for them)."""
+    record(client, "Buy", CREDIT_UNION, EXCHANGE_BTC, "0.01", cost_basis_usd="500")
+    result = ai_preview(client, type="Buy", from_account="Bank", to_account="Exchange BTC", source=None,
+                        cost_basis_usd="500")
+    assert (result["status"], result["matched_transaction_id"]) == ("ready", None)

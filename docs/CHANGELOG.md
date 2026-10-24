@@ -22,7 +22,8 @@ All notable changes to BitcoinTX are documented in this file.
   a transaction in another wallet, another exchange or another bank for a
   row's copy; River's file doesn't say which wallet a send went to, so one
   already typed into another wallet is marked Review, imported unless you
-  untick it. The AI connector takes any of your accounts by name, refuses
+  untick it, nor which bank paid a buy, so a buy recorded as paid from
+  another bank is still found. The AI connector takes any of your accounts by name, refuses
   one you haven't added before it sends anything (and a renamed account's
   old name, saying its new one), lists your accounts in get_portfolio, and
   tells BitcoinTX it is a 2.0 connector; the AI key may read the account
