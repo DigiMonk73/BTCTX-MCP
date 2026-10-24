@@ -13,6 +13,11 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const REPO = path.resolve(__dirname, "..", "..");
+// A 2.0 pre-release (2.0.0-alpha.N, 2.0.0-beta.N; B10a): on a Mac, BitcoinTX
+// Preview, whose AI setup names its server bitcointx-preview
+const PRERELEASE = /^\d+\.\d+\.\d+-(alpha|beta)\.[1-9]\d*$/.test(readFileSync(path.join(REPO, "VERSION"), "utf8").trim());
+export const MAC_APP = PRERELEASE ? "BitcoinTX Preview" : "BitcoinTX";
+export const AI_SERVER_NAME = PRERELEASE ? "bitcointx-preview" : "bitcointx";
 export const USER = "e2e-user";
 export const PASSWORD = "e2e-password-123";
 export const HISTORICAL_PRICE = 50000;

@@ -3,7 +3,7 @@
 // Assistant prompt, and About BitcoinTX.
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, openSection, python, USER, PASSWORD,
-  REPO, BLOCKED_KEY_FOLDER, sendConfirmed, SAVE_ANYWAY,
+  REPO, BLOCKED_KEY_FOLDER, sendConfirmed, SAVE_ANYWAY, AI_SERVER_NAME,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
@@ -343,7 +343,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
       await expect(prompt).not.toHaveValue(new RegExp(secret));
     }
     await ai.getByText("Set it up yourself").click();
-    await expect(ai.getByLabel("Grok Build command")).toHaveValue(/^grok mcp add bitcointx -- uvx/);
+    await expect(ai.getByLabel("Grok Build command")).toHaveValue(new RegExp(`^grok mcp add ${AI_SERVER_NAME} -- uvx`));
     await expect(ai.getByLabel("Claude Code command")).not.toHaveValue(/-e /);
 
     // Off until the owner turns it on.
