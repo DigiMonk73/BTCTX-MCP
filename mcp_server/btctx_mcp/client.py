@@ -5,7 +5,9 @@ Two ways in, both with an AI key sent as a bearer token (never a password):
 - The Mac app on the same computer: no settings needed. The app writes
   ~/Library/Application Support/BitcoinTX/mcp.json (owner-only) with its URL
   and the key; the client reads it, and reads it again if the key was reset
-  or the app restarted.
+  or the app restarted. A 2.0 pre-release of the connector (2.0.0aN, 2.0.0bN)
+  reads BitcoinTX Preview's instead, the Mac pre-release app installed beside
+  BitcoinTX, so it never reaches the installed app's real ledger.
 - Docker or StartOS: BTCTX_URL and BTCTX_AI_KEY, the key the owner created
   in BitcoinTX Settings.
 
@@ -19,6 +21,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import socket
 import sys
 from pathlib import Path
@@ -151,10 +154,19 @@ def _home_name(name: str) -> bool:
     return name.endswith(HOME_SUFFIXES) if "." in name else True
 
 
-def default_key_file() -> Path:
+def mac_app(version: str | None = None) -> str:
+    """The Mac app this connector (or `version` of it) belongs with:
+    BitcoinTX, or BitcoinTX Preview for a 2.0 pre-release of the connector,
+    an alpha or a beta (PEP 440's 2.0.0aN, 2.0.0bN; 2.0 plan 7.4, B10a), the
+    pre-release app installed beside it."""
+    pre = re.fullmatch(r"\d+\.\d+\.\d+[ab][1-9]\d*", __version__ if version is None else version)
+    return "BitcoinTX Preview" if pre else "BitcoinTX"
+
+
+def default_key_file(version: str | None = None) -> Path:
     if os.environ.get("BTCTX_MCP_FILE"):
         return Path(os.environ["BTCTX_MCP_FILE"]).expanduser()
-    return Path.home() / "Library" / "Application Support" / "BitcoinTX" / "mcp.json"
+    return Path.home() / "Library" / "Application Support" / mac_app(version) / "mcp.json"
 
 
 def _pid_alive(pid: Any) -> bool:
@@ -257,10 +269,10 @@ class BtctxClient:
 
         token, url, pid = data.get("token"), data.get("url"), data.get("pid")
         if not token or not url:
-            looked.append(f"{path}: incomplete (no key or URL); reopen BitcoinTX")
+            looked.append(f"{path}: incomplete (no key or URL); reopen {mac_app()}")
             raise BtctxError(self._not_found(looked))
         if not _pid_alive(pid):
-            looked.append(f"{path}: written by BitcoinTX (pid {pid}), which is no longer running")
+            looked.append(f"{path}: written by {mac_app()} (pid {pid}), which is no longer running")
             # Or the app is open but couldn't write this run's key, leaving the earlier one (#238)
             raise BtctxError(self._not_found(looked, reset_key=True))
         url = normalize_base_url(url)
@@ -278,7 +290,7 @@ class BtctxClient:
         """Why BitcoinTX can't be reached, and what to do. `reset_key`: an open app may
         have no key of this run (its file couldn't be written): Reset key writes one (#238)."""
         also = ", or, if it's open, press Reset key in its Settings (Connect an AI Assistant)" if reset_key else ""
-        return f"Cannot reach BitcoinTX. Open the BitcoinTX app and try again{also}. Looked at:\n- " + "\n- ".join(looked)
+        return f"Cannot reach BitcoinTX. Open the {mac_app()} app and try again{also}. Looked at:\n- " + "\n- ".join(looked)
 
     # The key from BTCTX_AI_KEY
     async def _connect(self) -> None:

@@ -141,14 +141,19 @@ echo ""
 echo "[5/6] Building application bundle..."
 
 cd "$SCRIPT_DIR"
+# Only this build's app in dist/: BitcoinTX.app, or BitcoinTX Preview.app for a
+# 2.0 pre-release (the spec takes its name from VERSION)
+rm -rf "$SCRIPT_DIR/dist"
 pyinstaller --clean --noconfirm BitcoinTX.spec
 
 # Step 6: Report results
 echo ""
 echo "[6/6] Build complete!"
 
-APP_PATH="$SCRIPT_DIR/dist/BitcoinTX.app"
-if [ -d "$APP_PATH" ]; then
+APPS=("$SCRIPT_DIR"/dist/*.app)
+APP_PATH="${APPS[0]}"
+APP_NAME="$(basename "$APP_PATH" .app)"
+if [ "${#APPS[@]}" = 1 ] && [ -d "$APP_PATH" ]; then
     APP_SIZE=$(du -sh "$APP_PATH" | cut -f1)
     echo ""
     echo "  Application: $APP_PATH"
@@ -161,14 +166,14 @@ if [ -d "$APP_PATH" ]; then
     # Create DMG if create-dmg is available
     if command -v create-dmg &> /dev/null; then
         echo "Creating DMG installer..."
-        DMG_PATH="$SCRIPT_DIR/dist/BitcoinTX.dmg"
+        DMG_PATH="$SCRIPT_DIR/dist/${APP_NAME// /-}.dmg"
         rm -f "$DMG_PATH"
         create-dmg \
-            --volname "BitcoinTX" \
+            --volname "$APP_NAME" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --icon "BitcoinTX.app" 150 190 \
+            --icon "$APP_NAME.app" 150 190 \
             --app-drop-link 450 190 \
             "$DMG_PATH" \
             "$APP_PATH"
@@ -184,7 +189,7 @@ if [ -d "$APP_PATH" ]; then
         echo "  brew install create-dmg"
         echo ""
         echo "Then run:"
-        echo "  create-dmg --volname BitcoinTX --app-drop-link 450 190 BitcoinTX.dmg $APP_PATH"
+        echo "  create-dmg --volname \"$APP_NAME\" --app-drop-link 450 190 \"${APP_NAME// /-}.dmg\" \"$APP_PATH\""
     fi
 else
     echo "  ERROR: Application bundle not created"

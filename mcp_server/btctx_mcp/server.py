@@ -10,7 +10,8 @@ reads the app's AI key file):
   BTCTX_URL          BitcoinTX base URL (default http://localhost:80)
   BTCTX_AI_KEY       the AI key created in BitcoinTX Settings (Docker, StartOS)
   BTCTX_MCP_FILE     the Mac app's key file, if not in the default place
-                     (~/Library/Application Support/BitcoinTX/mcp.json)
+                     (~/Library/Application Support/BitcoinTX/mcp.json; a
+                     2.0 pre-release connector's: BitcoinTX Preview's)
   BTCTX_VERIFY_TLS   "false" to accept a self-signed certificate
   BTCTX_CA_BUNDLE    path to a CA bundle for a private certificate
 BTCTX_PASSWORD is no longer used: while it is set, every tool says to replace
@@ -23,6 +24,7 @@ import functools
 import importlib.metadata
 import inspect
 import logging
+import re
 from datetime import datetime, time, timezone, tzinfo
 from decimal import Decimal
 from typing import Annotated, Any, Dict, Literal  # noqa: UP035 (ToolResult)
@@ -138,23 +140,47 @@ def connector_version() -> str | None:
         return None
 
 
+# A version: BitcoinTX's X.Y.Z or a 2.0 pre-release's X.Y.Z-alpha.N or
+# X.Y.Z-beta.N, or the connector's own, in PEP 440's form (X.Y.ZaN, X.Y.ZbN)
+VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:(?:-(alpha|beta)\.|([ab]))([1-9]\d*))?")
+# An alpha sorts before a beta, a beta before its release
+STAGES = {"a": 0, "b": 1}
+FINAL = 2
+
+
 def _release(version: str) -> tuple | None:
-    try:
-        return tuple(int(part) for part in version.split("."))
-    except ValueError:
+    """A version to compare: a release sorts after its betas, a beta after
+    the alphas (2.0 plan 7.4, B10a), so BitcoinTX's 2.0.0-beta.1 and the
+    connector's 2.0.0b1 are one."""
+    found = VERSION.fullmatch(version)
+    if not found:
         return None
+    x, y, z, word, letter, n = found.groups()
+    stage = (word or letter or "")[:1]
+    return int(x), int(y), int(z), STAGES.get(stage, FINAL), int(n or 0)
+
+
+def _pinned(version: str) -> str:
+    """The version as btctx-mcp== takes it: PEP 440's X.Y.ZaN, X.Y.ZbN for a pre-release."""
+    release = _release(version)
+    if release is None:
+        return version
+    x, y, z, stage, n = release
+    return f"{x}.{y}.{z}" if stage == FINAL else f"{x}.{y}.{z}{'ab'[stage]}{n}"
 
 
 def mismatch_notice(connector: str | None, app: str | None) -> str | None:
     """The line every tool reply starts with when the versions differ."""
     if not connector or not app or connector == app:
         return None
-    head = f"Your BitcoinTX connector is v{connector} but BitcoinTX is v{app}."
     c, a = _release(connector), _release(app)
+    if c and c == a:
+        return None
+    head = f"Your BitcoinTX connector is v{connector} but BitcoinTX is v{app}."
     if c and a and c > a:
-        return f"{head} Update BitcoinTX, or set the connector back to v{app} in your AI app's settings."
+        return f"{head} Update BitcoinTX, or set the connector back to v{_pinned(app)} in your AI app's settings."
     return (f"{head} In your AI app's settings, change btctx-mcp=={connector} in its uvx command "
-            f"to btctx-mcp=={app}, then restart the AI app.")
+            f"to btctx-mcp=={_pinned(app)}, then restart the AI app.")
 
 
 _version = {"checked": False, "notice": None}

@@ -20,7 +20,16 @@ from backend.tests.conftest import MAC_APP_HOST
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_ports  # noqa: E402
+import desktop_paths  # noqa: E402
 from desktop_ports import OTHER_PORT, QUIT, RETRY, bind_port, choose_socket, running_instance  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def a_release(monkeypatch):
+    """BitcoinTX's own defaults, whatever VERSION is: from 2.0's first
+    pre-release (an alpha, then a beta) it's BitcoinTX Preview's, whose own
+    are test_preview_app_532.py's."""
+    monkeypatch.setattr(desktop_paths, "app_version", lambda: "2.0.0")
 
 
 def _free_port() -> int:
@@ -169,9 +178,10 @@ def test_desktop_info_endpoint(auth_client, monkeypatch):
 
 @pytest.mark.parametrize("bring_forward, activates", [(True, True), (False, False)])
 def test_a_test_run_never_activates_bitcointx_by_name(monkeypatch, bring_forward, activates):
-    """AppleScript finds "BitcoinTX" by name: during a test run on a throwaway
-    data folder it could bring forward, or start, the installed app on its
-    real ledger, so a test run only says it's already open."""
+    """AppleScript finds the app by its bundle id, the installed app's for a
+    release build: during a test run on a throwaway data folder it could
+    bring forward, or start, the installed app on its real ledger, so a test
+    run only says it's already open."""
     scripts = []
     monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
     monkeypatch.setattr(desktop_ports, "_osascript", lambda script: scripts.append(script))

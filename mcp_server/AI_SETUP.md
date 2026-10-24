@@ -22,7 +22,9 @@ password.
 - **The BitcoinTX Mac app on this computer** (0.9.2 or later; the prompt says
   the server "finds it by itself"): no URL, key or password in the
   configuration. The app writes its address and the AI key to a private file
-  (`~/Library/Application Support/BitcoinTX/mcp.json`) that the server reads.
+  (`~/Library/Application Support/BitcoinTX/mcp.json`; a 2.0 alpha's or
+  beta's, BitcoinTX Preview's, in `~/Library/Application Support/BitcoinTX
+  Preview/`) that the server reads.
   **Never put a password in the configuration.** Do section 1 (only uv) and
   section 2A, then section 4.
 - **Docker or StartOS** (1.0.3 or later): the values below. If you don't have
@@ -36,12 +38,33 @@ password.
 | Server command | `uvx btctx-mcp==X.Y.Z` (PyPI), with the version from their prompt (their BitcoinTX version), so the server matches their BitcoinTX |
 
 Never use their BitcoinTX password: the server answers every tool with a
-refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server `bitcointx`. Ask before installing
+refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server as the prompt says: `bitcointx` (a
+2.0 alpha's or beta's: `bitcointx-preview`, below). Ask before installing
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
-**Already set up?** If their AI app already has a `bitcointx` server, don't
-add it again: change only the version in its arguments to
+**A BitcoinTX 2.0 alpha or beta** (its prompt names the server
+`bitcointx-preview` and the connector `btctx-mcp==2.0.0aN` or `2.0.0bN`):
+- a `bitcointx-preview` server already there: change only the version in
+  its arguments, as below;
+- only on StartOS (the prompt's `BTCTX_URL` is a StartOS server's MCP
+  address, `https://…/api`), where the pre-release updated the user's
+  BitcoinTX in place: a `bitcointx` server that reaches that same StartOS
+  server is this same BitcoinTX. Compare the host and port, ignoring the
+  trailing `/api`; the server's `.local` name, its IP address and its
+  `.onion` address are the same server. Change that server's version
+  instead of adding another, keeping its key;
+- otherwise add it as `bitcointx-preview`, and leave any `bitcointx` server
+  exactly as it is: it reaches the user's own BitcoinTX (another address,
+  or, with no `BTCTX_URL`, the BitcoinTX Mac app). On Docker a pre-release
+  runs on a new volume, with its own AI key, even at an address 1.x once
+  had; on a Mac it is a separate app, BitcoinTX Preview, which must be
+  open, and its prompt has no address: never change a `bitcointx` server
+  in either.
+
+**Already set up?** (A release; for a 2.0 alpha or beta, the rule just
+above.) If their AI app already has a `bitcointx` server, don't add it
+again: change only the version in its arguments to
 `btctx-mcp==X.Y.Z`, keep its key and certificate path, and restart the app
 ([Updating](README.md#updating)).
 
@@ -73,7 +96,10 @@ and give the user the steps to follow.
 
 One command, no environment variables. BitcoinTX must be open when the AI
 uses it, and the user must turn on **Settings → Connect an AI Assistant → Let
-AI assistants use BitcoinTX** (off by default); ask them to.
+AI assistants use BitcoinTX** (off by default); ask them to. For a 2.0 alpha
+or beta, the app is BitcoinTX Preview: use `bitcointx-preview` for
+`bitcointx` below and the prompt's `btctx-mcp==2.0.0aN` or `2.0.0bN`, beside
+any `bitcointx` server, which stays as it is.
 
 - **Claude Code:** `claude mcp add --scope user bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
 - **Grok Build:** `grok mcp add bitcointx -- uvx 'btctx-mcp==X.Y.Z'`
@@ -93,6 +119,11 @@ plain-text file. The key can be turned off or reset in **Settings → Connect
 an AI Assistant**; after a reset the server picks up the new key by itself.
 
 ## 2B. Docker or StartOS: add the server to the app you're running in
+
+For a 2.0 alpha or beta, use the prompt's name, `bitcointx-preview`, for
+`bitcointx` below and its `btctx-mcp==2.0.0aN` or `2.0.0bN`, beside any
+`bitcointx` server, unless the rule above (StartOS) has you change the
+`bitcointx` that reaches this same server.
 
 Use these environment variables (drop `BTCTX_CA_BUNDLE` unless needed):
 
@@ -193,7 +224,7 @@ BitcoinTX upgrade.
 
 | Error | Cause |
 |---|---|
-| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had port 8765: quit BitcoinTX, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
+| `Cannot reach BitcoinTX …` | The error lists where the server looked. Mac app: open BitcoinTX (it writes `mcp.json` when it starts; if it's open and there's no `mcp.json`, it may not have been able to write it: the user presses **Reset key** in **Settings → Connect an AI Assistant**); if it shows a "running on port N this session" banner, another program had its port (8765; BitcoinTX Preview's 8767): quit it, close that program and reopen it. Server install: wrong `BTCTX_URL`, or BitcoinTX isn't running |
 | `BitcoinTX no longer uses your password …` | The configuration still has `BTCTX_PASSWORD`: section 3 |
 | `AI access is turned off` | Off by default: the user turns on **Let AI assistants use BitcoinTX** in BitcoinTX **Settings → Connect an AI Assistant** |
 | `AI key not accepted …` | The placeholder is still there, the key was copied wrong, or it was replaced or revoked: the user makes a new one (**New key**, or **Create AI key** after a revoke; in the Mac app, **Reset key**) |
