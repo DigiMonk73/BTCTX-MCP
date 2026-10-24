@@ -152,10 +152,10 @@ class Write:
         return []
 
     def gone_item(self, db: Session, tz) -> dict[int, dict]:
-        """A delete's row as Ledger Review lists it, taken before it goes."""
-        if self.kind != DELETE:
-            return {}
-        return {self.tx_id: review.row_item(db.get(Transaction, self.tx_id), tz, account_book(db), "", "")}
+        """A delete's row as Ledger Review lists it, taken before it goes;
+        none for a row already gone (its save answers 404)."""
+        row = db.get(Transaction, self.tx_id) if self.kind == DELETE else None
+        return {} if row is None else {self.tx_id: review.row_item(row, tz, account_book(db), "", "")}
 
     def parts(self) -> list:
         """What the fingerprint takes of it: the write as its request gives it."""

@@ -147,6 +147,16 @@ describe("the keyboard and the busy state", () => {
     outside.remove();
   });
 
+  it("focused itself (a click on its text), Shift+Tab goes to its last button, never behind it", async () => {
+    const { user } = renderDialog("edit");
+    const outside = document.createElement("input");
+    document.body.prepend(outside);
+    screen.getByRole("dialog").focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Save anyway (a copy is made first)" }));
+    outside.remove();
+  });
+
   it("the page's own confirm of a quiet year refused: said why it asks", () => {
     renderDialog("add", { changed: "quiet" });
     expect(screen.getByRole("alert").textContent).toBe(

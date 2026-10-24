@@ -31,7 +31,7 @@ test("a gift saved unchanged keeps no proceeds; made a Spent through the API, it
   await seedFunds(page.request);
   const gift = await createTx(page.request, GIFT);
   await openEdit(page);
-  await saveForm(page, "Update Transaction");
+  await saveForm(page, "Update Transaction", { warning: false }); // unchanged: it doesn't ask
   expect(await saved(page, gift.id)).toMatchObject({ purpose: "Gift", gross_proceeds_usd: null, proceeds_usd: null });
 
   // What the AI connector's update_transaction(purpose="Spent") sends

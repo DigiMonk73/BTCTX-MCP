@@ -14,7 +14,8 @@ export function keepFocusIn(container: HTMLElement | null, event: KeyboardEvent)
   }
   const first = items[0];
   const last = items[items.length - 1];
-  const inside = container.contains(document.activeElement);
+  // The dialog itself focused (a click on its text) is outside its controls
+  const inside = document.activeElement !== container && container.contains(document.activeElement);
   if (event.shiftKey && (document.activeElement === first || !inside)) {
     event.preventDefault();
     last.focus();
