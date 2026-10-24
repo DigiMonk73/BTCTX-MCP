@@ -94,7 +94,8 @@ const AccountSelect: React.FC<{
 
 /**
  * One of the row's accounts, by id (2.0 spec 5.13): blank and required
- * while more than one fits, filled and read-only when exactly one does. A
+ * while more than one fits, filled and read-only when exactly one does and
+ * may be filled in (`fillable`: never a Transfer's From itself). A
  * saved account the book lacks is named "account N (missing)" and its
  * picker shows blank, so a save can't put the row into the first account.
  */
