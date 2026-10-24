@@ -45,12 +45,20 @@ ROWS = {
                "to_account_id": WALLET, "amount": "0.05", "source": "Income", **NO_FEE},
     "gift": {"type": "Withdrawal", "timestamp": "2024-06-01T12:00:00Z", "from_account_id": WALLET,
              "to_account_id": EXTERNAL, "amount": "0.05", "purpose": "Gift", **NO_FEE},
+    "gift with a fee": {"type": "Withdrawal", "timestamp": "2024-06-02T12:00:00Z", "from_account_id": WALLET,
+                        "to_account_id": EXTERNAL, "amount": "0.05", "purpose": "Gift", **BTC_FEE},
+    # Valued at the date of death's price: a row priced at the day by nature
+    "inherited": {"type": "Deposit", "timestamp": "2024-07-01T12:00:00Z", "from_account_id": EXTERNAL,
+                  "to_account_id": WALLET, "amount": "0.05", "source": "Inherited",
+                  "acquired_at": "2024-06-15", **NO_FEE},
+    "transfer": {"type": "Transfer", "timestamp": "2024-07-02T12:00:00Z", "from_account_id": WALLET,
+                 "to_account_id": 4, "amount": "0.1", **BTC_FEE},
 }
-# What the form sends back unchanged: every field it shows, the values as
-# shown (never a priced fee's value)
+# What the form sends back unchanged (frontend/src/utils/transactionForm.ts,
+# buildTransactionPayload): every field it shows, the values as shown, a
+# Spent's proceeds as proceeds_usd, never a priced fee's value
 SHOWN = ("type", "timestamp", "from_account_id", "to_account_id", "amount", "fee_amount", "fee_currency",
-         "source", "purpose", "acquired_at", "broker_reporting")
-SHOWN_VALUES = {"Deposit": ("cost_basis_usd",), "Withdrawal": ("gross_proceeds_usd", "fmv_usd")}
+         "acquired_at", "broker_reporting")
 
 
 class Ledger:
@@ -79,9 +87,17 @@ class Ledger:
         return ({(at, when) for first, at, when in self.asked if first},
                 {(at, when) for first, at, when in self.asked if not first})
 
-    def echo(self, tx_id: int) -> dict:
+    def echo(self, tx_id: int, **change) -> dict:
+        """The form's save of the row, with `change` made in it."""
         stored = self.client.get(f"/api/transactions/{tx_id}").json()
-        return {key: stored[key] for key in SHOWN + SHOWN_VALUES.get(stored["type"], ())}
+        sent = {key: stored[key] for key in SHOWN}
+        if stored["type"] == "Deposit":
+            sent.update(source=stored["source"], cost_basis_usd=stored["cost_basis_usd"])
+        elif stored["type"] == "Withdrawal":
+            sent.update(purpose=stored["purpose"], cost_basis_usd=None, fmv_usd=stored["fmv_usd"])
+            if stored["purpose"] == "Spent":
+                sent["proceeds_usd"] = stored["gross_proceeds_usd"]
+        return {**sent, **change}
 
 
 @pytest.fixture
@@ -177,3 +193,55 @@ def test_a_dollar_deposit_moved_into_a_wallet_as_income_has_its_value_found_firs
                         "fee_amount": "0", "fee_currency": "USD"})
     found, asked = ledger.edit(tx_id, {"to_account_id": WALLET, "amount": "0.01", "source": "Income", **NO_FEE})
     assert found == asked == {hour("2024-03-05T12:00:00Z")}
+
+
+# The form's edits send the value they show (the review of #646): the save
+# prices it again all the same when it isn't typed
+@pytest.mark.parametrize("name, moment", [("priced spend", "hour"), ("priced spend", "day"),
+                                          ("gift with a fee", "hour"), ("income", "hour")])
+def test_the_forms_amount_edit_has_the_value_it_shows_found_first(ledger, name, moment):
+    tx_id = ledger.add(ROWS[name], moment=moment)
+    found, asked = ledger.edit(tx_id, ledger.echo(tx_id, amount="0.04"))
+    assert asked and found == asked
+
+
+def test_the_forms_date_of_death_moved_has_the_days_price_found_first(ledger):
+    tx_id = ledger.add(ROWS["inherited"])
+    found, asked = ledger.edit(tx_id, ledger.echo(tx_id, acquired_at="2024-06-20"))
+    assert found == asked == {("day", price_history.utc_day(datetime(2024, 6, 20, 12, tzinfo=timezone.utc)))}
+
+
+def test_proceeds_sent_as_0_are_priced_and_found_first(ledger):
+    found, asked = ledger.edit(ledger.add(ROWS["priced spend"]), {"proceeds_usd": "0"})
+    assert asked and found == asked
+
+
+@pytest.mark.parametrize("change", [{"amount": "0.08"}, {"proceeds_usd": None}])
+def test_a_fees_value_sent_back_is_typed_so_the_proceeds_take_the_hour(ledger, change):
+    """A day-priced Spent whose fee's value comes back typed: the save prices
+    its proceeds at the hour (nothing keeps the day), and so is it found."""
+    tx_id = ledger.add(spend("2024-03-06"), moment="day")
+    fee = ledger.client.get(f"/api/transactions/{tx_id}").json()["fee_usd"]
+    found, asked = ledger.edit(tx_id, {**change, "fee_usd": fee})
+    assert asked and found == asked
+
+
+def test_a_fee_sent_alone_has_its_currency_filled_and_its_value_found_first(ledger):
+    """A Spent saved without a fee, so without a fee currency: the save fills
+    BTC for a fee sent alone (_check_edit), and prices it."""
+    tx_id = ledger.add({k: v for k, v in spend("2024-03-07", gross_proceeds_usd="5000").items()
+                        if k != "fee_currency"} | {"fee_amount": "0"})
+    found, asked = ledger.edit(tx_id, {"fee_amount": "0.0001"})
+    assert found == asked == {hour("2024-03-07T12:00:00Z")}
+
+
+@pytest.mark.parametrize("name, change", [
+    ("income", {"source": "Income"}), ("income", {"source": "Reward"}),
+    ("inherited", {"acquired_at": "2024-06-15"}), ("transfer", {"amount": "0.08"}),
+    ("typed spend", {"fee_amount": "0"}),
+])
+def test_an_edit_the_save_prices_nothing_for_finds_nothing(ledger, name, change):
+    """A source sent unchanged, Income to Reward (both valued alike), a date
+    of death sent back, a transfer's amount (its fee hangs on the fee), a fee
+    removed."""
+    assert ledger.edit(ledger.add(ROWS[name]), change) == (set(), set())
