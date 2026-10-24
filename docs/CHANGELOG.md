@@ -15,9 +15,11 @@ All notable changes to BitcoinTX are documented in this file.
   exchanges and banks by kind, each with its balance (an exchange's
   dollars and bitcoin on one row), the hidden ones under "Show hidden";
   each opens to Hide or Show, and to Delete while no transaction names
-  it. "Add a wallet", "Add an exchange" and "Add a bank" say what each
-  is, and adding a second wallet or exchange while another has
-  transactions says how earlier years were figured. River's import asks
+  it; an exchange's also to "This exchange sends me a Form 1099-DA" (on
+  unless you turn it off), which asks first when it moves an earlier
+  year's Form 8949 boxes. "Add a wallet", "Add an exchange" and "Add a
+  bank" say what each is, and adding a second wallet or exchange while
+  another has transactions says how earlier years were figured. River's import asks
   which exchange the file is from, and which wallet its sends and
   receives go with, when there's more than one of either. Saving into an
   added account still waits for a later step.

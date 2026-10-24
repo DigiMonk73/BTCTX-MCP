@@ -163,7 +163,7 @@ describe("an exchange's 1099-DA switch (5.9)", () => {
 
   it("is on unless the exchange's accounts say off, and is only an exchange's", () => {
     const [wallets, exchanges] = accountGroups(MANY);
-    expect(sends1099da(exchanges.shown[0])).toBe(true); // a book from before the switch: on, the default
+    expect(sends1099da(exchanges.shown[0])).toBe(true); // on, the default
     const off = MANY.map((a) => (a.exchange_id === 2 ? { ...a, sends_1099da: false } : { ...a, sends_1099da: true }));
     expect(accountGroups(off)[1].shown.map((r) => [r.name, sends1099da(r)])).toEqual([["River", true], ["Kraken", false]]);
     expect(sends1099da(wallets.shown[0])).toBeNull();

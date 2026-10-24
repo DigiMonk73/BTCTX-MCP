@@ -179,7 +179,7 @@
 .ledger-show-hidden { align-self: flex-start; }
 /* An exchange's 1099-DA switch: the box beside its label, the help under the label */
 .ledger-switch { display: flex; align-items: flex-start; gap: var(--space-3); }
-.ledger-switch input { flex-shrink: 0; width: 20px; height: 20px; margin: 2px 0 0; }
+.ledger-switch input { flex-shrink: 0; margin: 3px 0 0; }
 .ledger-switch-text { display: flex; flex-direction: column; gap: 2px; }
 .ledger-switch-text label { cursor: pointer; }
 .ledger-add-form {

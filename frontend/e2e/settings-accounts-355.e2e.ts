@@ -328,6 +328,10 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   await expect(wallet).toHaveValue("2");
 });
 
+/** What the switch moves for that sale (long-term, bought on the exchange in 2023): from K, reported without its
+ * basis, to L, on no 1099-DA (5.7); the box a sentence of its own (5.8). Its time is Chicago's, the test's tax timezone. */
+const BOX_MOVE = "2025-03-03 09:00 · Sell · 0.10000000 BTC — Form 8949 box K -> L.";
+
 test("an exchange's 1099-DA switch: in 5.9's words, and past years' boxes move only once the owner says so", async ({
   authedPage: page,
 }) => {
@@ -348,14 +352,20 @@ test("an exchange's 1099-DA switch: in 5.9's words, and past years' boxes move o
     "It decides the Form 8949 box, not the gain.",
   );
   // A bank or a wallet has none
-  await row(group(section, "Wallets"), "Wallet").click();
-  await expect(section.getByRole("region", { name: "Wallet" }).getByRole("checkbox")).toHaveCount(0);
+  for (const [kind, name] of [["Wallets", "Wallet"], ["Banks", "Bank"]]) {
+    await row(group(section, kind), name).click();
+    const other = section.getByRole("region", { name });
+    await expect(other.getByRole("button", { name: "Hide" })).toBeVisible();
+    await expect(other.getByRole("checkbox")).toHaveCount(0);
+  }
   await row(group(section, "Exchanges"), "Exchange").click();
 
-  // Off: asked first, and Cancel saves nothing
+  // Off: asked first, the box as saved while it asks, and Cancel saves nothing
   await box.click();
   const dialog = page.getByRole("dialog", { name: "Change an earlier tax year?" });
-  await expect(dialog).toContainText("2025");
+  await expect(dialog).toContainText("tax year 2025");
+  await expect(dialog).toContainText(BOX_MOVE);
+  await expect(box).toBeChecked();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(box).toBeChecked();

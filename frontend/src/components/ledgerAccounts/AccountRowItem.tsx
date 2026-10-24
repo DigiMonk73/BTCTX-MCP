@@ -8,6 +8,8 @@ interface AccountRowItemProps {
   balance: string;
   open: boolean;
   busy: boolean;
+  /** An exchange's switch is saving: Hide, Show and Delete wait; the switch itself never turns grey. */
+  switching: boolean;
   onToggle: (row: AccountRow) => void;
   onHide: (row: AccountRow, hidden: boolean) => void;
   onDelete: (row: AccountRow) => void;
@@ -23,7 +25,7 @@ const FIRST_OF_EACH = "Your first bank, wallet and exchange can't be deleted. Hi
  * balance; its details, an exchange's 1099-DA switch, Hide or Show and Delete
  * while unused, open below it. */
 const AccountRowItem: React.FC<AccountRowItemProps> = ({
-  row, balance, open, busy, onToggle, onHide, onDelete, onSwitch1099da,
+  row, balance, open, busy, switching, onToggle, onHide, onDelete, onSwitch1099da,
 }) => {
   const details = ledgerIds.rowDetails(row.key);
   const deletable = canDelete(row);
@@ -54,12 +56,13 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({
             <ExchangeSwitch rowKey={row.key} on={sends} busy={busy} onChange={(on) => onSwitch1099da(row, on)} />
           )}
           <div className="ledger-account-actions">
-            <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
+            <button type="button" className="btn btn-secondary btn-sm" disabled={busy || switching}
               onClick={() => onHide(row, !row.hidden)}>
               {row.hidden ? "Show" : "Hide"}
             </button>
             {deletable && (
-              <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={() => onDelete(row)}>
+              <button type="button" className="btn btn-danger btn-sm" disabled={busy || switching}
+                onClick={() => onDelete(row)}>
                 Delete
               </button>
             )}

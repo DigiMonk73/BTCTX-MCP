@@ -133,7 +133,8 @@ export const SWITCH_HELP =
   "It decides the Form 8949 box, not the gain.";
 
 /** An exchange's switch: on (the default, the owner's decision of 2026-10-15)
- * unless its accounts say off; null for a bank's or a wallet's row. */
+ * unless its accounts say off (they say the same: it's the exchange's); null
+ * for a bank's or a wallet's row. */
 export function sends1099da(row: AccountRow): boolean | null {
   if (row.kind !== "exchange") return null;
   return !row.accounts.some((a) => a.sends_1099da === false);

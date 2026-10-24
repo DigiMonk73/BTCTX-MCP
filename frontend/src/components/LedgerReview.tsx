@@ -52,6 +52,8 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
 interface LedgerReviewProps {
   /** Each answer, or null when the review failed: the section's summary (#355). A stable function. */
   onReview?: (review: LedgerReviewResponse | null) => void;
+  /** Changed by Settings once another section saved what the review reads (the 1099-DA switch): asked again. */
+  round?: number;
 }
 
 /**
@@ -60,7 +62,7 @@ interface LedgerReviewProps {
  * nothing; the owner edits a transaction or runs Recalculate Ledger
  * themselves, or applies the hourly check's values (#144).
  */
-const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview }) => {
+const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview, round }) => {
   const [review, setReview] = useState<LedgerReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -83,7 +85,7 @@ const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview }) => {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, round]);
 
   // Only the hourly check applies anything: it asks first (HourlyCheck)
   // Its outcome stays shown after the review reloads (load() clears `failed`)

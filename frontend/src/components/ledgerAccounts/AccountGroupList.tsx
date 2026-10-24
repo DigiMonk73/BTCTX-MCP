@@ -8,6 +8,8 @@ interface AccountGroupListProps {
   book: AccountBook;
   balances: AccountBalance[] | undefined;
   busy: boolean;
+  /** An exchange's switch is saving: every other change waits. */
+  switching: boolean;
   /** The row whose details are open, of any group: one at a time. */
   openRow: string | null;
   onToggleRow: (row: AccountRow) => void;
@@ -22,7 +24,7 @@ interface AccountGroupListProps {
 /** One kind's accounts (Wallets, Exchanges or Banks): its Add button and
  * form, its rows, and the hidden ones under "Show hidden (n)". */
 const AccountGroupList: React.FC<AccountGroupListProps> = ({
-  group, book, balances, busy, openRow, onToggleRow, onHide, onDelete, onSwitch1099da, onAdd, onAddClosed,
+  group, book, balances, busy, switching, openRow, onToggleRow, onHide, onDelete, onSwitch1099da, onAdd, onAddClosed,
 }) => {
   const [adding, setAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
@@ -47,7 +49,7 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
   }, [refocus, busy]);
   const item = (row: AccountRow) => (
     <AccountRowItem key={row.key} row={row} balance={balanceText(row, balances)} open={openRow === row.key}
-      busy={busy} onToggle={onToggleRow} onHide={onHide} onDelete={onDelete} onSwitch1099da={onSwitch1099da} />
+      busy={busy} switching={switching} onToggle={onToggleRow} onHide={onHide} onDelete={onDelete} onSwitch1099da={onSwitch1099da} />
   );
 
   return (
@@ -55,7 +57,7 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
       <div className="ledger-group-head">
         <h4 id={heading} className="ledger-group-title">{group.title}</h4>
         <button ref={addButton} id={ledgerIds.addButton(group.kind)} type="button" className="btn btn-secondary btn-sm"
-          aria-expanded={adding} aria-controls={adding ? addForm : undefined} disabled={busy}
+          aria-expanded={adding} aria-controls={adding ? addForm : undefined} disabled={busy || switching}
           onClick={() => (adding ? closeAdd() : setAdding(true))}>
           {group.add}
         </button>

@@ -10,16 +10,19 @@ import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 interface LedgerAccountsProps extends AccountsState {
   /** Ask the server for the book again, after a change made here; settles once it's there. */
   reload: () => Promise<void>;
+  /** A change here moved figures: the 1099-DA switch moves Form 8949 boxes, which Ledger Review reads. */
+  onFiguresChanged?: () => void;
 }
 
 /**
  * Settings' "Wallets, exchanges and banks" (2.0 spec 5.9; P7's mockups,
  * #572): your accounts grouped by kind, each a row whose details open below
- * it; Add, Hide or Show, and Delete while unused. Each change is one request,
+ * it; Add, Hide or Show, Delete while unused, and each exchange's 1099-DA
+ * switch, through the past-year warning (5.8). Each change is one request,
  * then the book and the balances again; the server's refusal is shown in its
  * words. Renames come with B8.
  */
-const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload }) => {
+const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, onFiguresChanged }) => {
   const [balances, setBalances] = useState<AccountBalance[]>();
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState("");
@@ -84,21 +87,26 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
   const add = (kind: YourKind, name: string) => change(null, () => api.post("/accounts/", { kind, name }));
 
   // Either of an exchange's accounts turns the exchange's switch; cancelled, nothing is saved and the box
-  // shows the saved setting. Never disabled meanwhile: the dialog gives the keyboard back to it as it closes,
-  // which a disabled box can't take; one change at a time all the same.
-  const switching = useRef(false);
+  // shows the saved setting. The box is never disabled meanwhile: the dialog gives the keyboard back to it as
+  // it closes, which a disabled box can't take; a second click is let go instead, and the other changes wait.
+  const switchingNow = useRef(false);
+  const [switching, setSwitching] = useState(false);
   const switch1099da = async (row: AccountRow, on: boolean) => {
-    if (switching.current) return;
-    switching.current = true;
+    if (switchingNow.current) return;
+    switchingNow.current = true;
+    setSwitching(true);
     setRefusal("");
     try {
       const saved = await pastYears.attempt("setting", (confirm) =>
         api.put(`/accounts/${row.id}`, { sends_1099da: on }, confirm ? { params: { confirm } } : undefined));
-      if (saved !== null) await reload();
+      if (saved !== null) onFiguresChanged?.();
     } catch (error) {
       setRefusal(extractErrorMessage(error));
     } finally {
-      switching.current = false;
+      // What's saved, whatever the answer: a confirmed save whose answer was lost shows too
+      await reload();
+      switchingNow.current = false;
+      setSwitching(false);
     }
   };
 
@@ -107,7 +115,7 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
   return (
     <div className="ledger-accounts">
       {accountGroups(book).map((group) => (
-        <AccountGroupList key={group.kind} group={group} book={book} balances={balances} busy={busy}
+        <AccountGroupList key={group.kind} group={group} book={book} balances={balances} busy={busy} switching={switching}
           openRow={openRow} onToggleRow={(row) => setOpenRow(openRow === row.key ? null : row.key)}
           onHide={hide} onDelete={remove} onSwitch1099da={(row, on) => void switch1099da(row, on)} onAdd={add}
           onAddClosed={() => setRefusal("")} />

@@ -34,6 +34,8 @@ const Settings: React.FC = () => {
   const navigate = useNavigate();
   const [open, setOpen] = useState(() => initiallyOpen(browserStore(), hash));
   const [review, setReview] = useState<LedgerReviewResponse | null>();
+  // Ledger Review asked again once another section saved what it reads
+  const [reviewRound, setReviewRound] = useState(0);
   const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };
 
@@ -72,11 +74,11 @@ const Settings: React.FC = () => {
         </SettingsSection>
         <SettingsSection {...props("accounts")} title="Wallets, exchanges and banks"
           summary={accountsSummary(accounts.book)}>
-          <LedgerAccounts {...accounts} />
+          <LedgerAccounts {...accounts} onFiguresChanged={() => setReviewRound((n) => n + 1)} />
         </SettingsSection>
         <SettingsSection {...props("review")} title="Ledger Review" region="Ledger review"
           summary={reviewSummary(review)}>
-          <LedgerReview onReview={setReview} />
+          <LedgerReview onReview={setReview} round={reviewRound} />
         </SettingsSection>
         <SettingsSection {...props("privacy")} title="Privacy & Network" region="Privacy & network"
           summary="Where BitcoinTX asks for bitcoin prices, and through what">
