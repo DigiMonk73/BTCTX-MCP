@@ -5,6 +5,23 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The transaction form names accounts by the account book** (B6a, #351).
+  Editing a transaction keeps the accounts it was saved with: a Buy or a
+  Sell stays on its exchange, a Transfer keeps its destination. Where more
+  than one account fits, the field starts blank and one must be chosen (a
+  new Buy's "Paid from", and a bitcoin Transfer's To, the other account or
+  a consolidation); where exactly one fits, it's filled in. Hidden accounts
+  aren't offered, but for the transaction that uses one, and one naming an
+  account that no longer exists shows "account N (missing)" until another
+  is chosen. With one bank, wallet and exchange the form looks as before,
+  except: the accounts are listed by their names (Bank, Wallet, Exchange
+  USD, Exchange BTC) rather than Bank Account, Bitcoin Wallet and Exchange
+  with a choice of currency, the currency being the account's; a Transfer
+  from the Bank goes to Exchange USD, so named; a Buy's From Account is
+  called Paid from; and changing a new transaction's type clears the
+  account chosen for the type before. A page left open while BitcoinTX is
+  updated to 2.0 can't save: "BitcoinTX was updated: reload the page." No
+  figure changes.
 - **The past-year warning's groundwork** (B6p, #568; tests and scripts
   only, nothing the app does changes). One clock for "this tax year", in
   the tax timezone (`tax_time.current_tax_year`), which the warning before
