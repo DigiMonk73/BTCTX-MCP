@@ -108,6 +108,9 @@ All notable changes to BitcoinTX are documented in this file.
   quickly (10 seconds), the warning names every year from the
   transaction's date on instead of exactly what changes. No figure of any
   ledger moves: a save confirmed is saved as before.
+  Before it checks, it looks up the prices the save will use, and the
+  form's unchanged edit of a past-year transaction asks for none (#646;
+  a value priced at the day is still looked up at the day, #647).
 - **The forms and the report per exchange** (B4, #349). Form 8949's boxes
   ask the account book: a Sell is on a Form 1099-DA when its exchange's
   "This exchange sends me a Form 1099-DA" is on (with it off, its Sells
