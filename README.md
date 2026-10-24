@@ -1,8 +1,9 @@
 # BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
 A minimalist, self-hosted Bitcoin portfolio tracker and tax report generator
-for **one self-custody wallet and one exchange account** (see [One wallet, one
-exchange](#one-wallet-one-exchange)), with an **MCP server** so an AI
+for **your self-custody wallets, exchange accounts and banks**, each wallet
+and exchange with its own cost-basis lots (see [Wallets, exchanges and
+banks](#wallets-exchanges-and-banks)), with an **MCP server** so an AI
 assistant can enter transactions for you. What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
@@ -20,21 +21,28 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 ## Features
 
-- **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
+- **Dashboard**: your banks, exchanges and wallets on three cards (one
+  with more than one wallet, exchange or bank opens to list them), BTC
+  holdings, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   or deletion, and every entry dated before your latest one, recalculates
   the whole ledger, so backdated entries come out right.
-- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
-  a consolidation (Wallet to Wallet, or between exchanges BitcoinTX counts as
-  one) records only its network fee
+- **FIFO lots per wallet and per exchange**: a transfer between your
+  accounts keeps each lot's acquisition date and basis; a consolidation (a
+  wallet, or an exchange's BTC account, to itself) records only its network
+  fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
-  tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
-  says something different for a sale, record that on the transaction and the
-  right Form 8949 box follows. Each year's final IRS forms come in an update
+  tax report, and transaction history (PDF/CSV). Each exchange's sales go in
+  the boxes its own 1099-DA uses (an exchange you mark as sending none, in
+  the boxes for no broker form), and the report adds up its sales beside
+  each 1099-DA. When your broker's 1099-DA says something different for a
+  sale, record that on the transaction and the right Form 8949 box follows. Each year's final IRS forms come in an update
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
-- **Imports**: River CSV export, generic CSV (into an empty ledger), and the
-  AI route below
+- **Imports**: an exchange's own CSV export into a ledger in use, ready-made
+  for River, Coinbase, Kraken, Strike, Swan and Cash App, or any other once
+  you match its columns (the preview leaves out what's already recorded);
+  BitcoinTX's own CSV (into an empty ledger); and the AI route below
 - **AI entry (MCP)**: paste an exchange email or a wallet history, or type
   "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
   previews the rows (duplicate check, fair market value, resulting gains) and
@@ -68,34 +76,52 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   Bitstamp your address; the live price stays on Tor. You can change the
   answer in Settings. With No, use your own Mempool for newer values, or
   type them
-- **Tax timezone** (Settings): decides which tax year a late-night Dec 31
+- **Tax timezone** (Settings → Account): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
 
 How each part works, the same wherever BitcoinTX runs:
 [docs/USING.md](docs/USING.md).
 
-## One wallet, one exchange
+## Wallets, exchanges and banks
 
 > [!IMPORTANT]
-> BitcoinTX tracks one self-custody wallet and one exchange account. Since
-> 2025, IRS rules require cost basis to be figured wallet by wallet and
-> account by account, so if you use multiple wallets or exchange accounts,
-> BitcoinTX's gains can differ from what the rules give: keep separate
-> records for each, or ask your tax preparer.
+> Add each wallet, exchange and bank you use in Settings, under Wallets,
+> exchanges and banks. From 2025, cost basis is figured wallet by wallet and
+> account by account; unless you identify the coins you sell, first in,
+> first out within each, by the date first acquired (Treas. Reg.
+> §1.1012-1(j)). BitcoinTX keeps each wallet's and each exchange's own lots
+> and always sells them first in, first out. If you kept multiple wallets or
+> exchanges together in BitcoinTX 1.x, years before you added them were
+> figured together: ask a tax professional whether an earlier return needs
+> a change.
 
-BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
-**Exchange** (USD and BTC) and one **Bank**. The two bitcoin accounts, Wallet
-and Exchange, each keep their own FIFO lots. That fits someone who keeps their
-bitcoin in one wallet and buys and sells through one exchange.
+A new BitcoinTX starts with a **Bank**, a **Wallet** and an **Exchange**
+(its dollars, **Exchange USD**, and its bitcoin, **Exchange BTC**). Add more in Settings, under Wallets, exchanges and banks, and
+rename, hide or delete them there:
 
-Multiple wallets or exchanges all go into those two accounts. The rule is
-Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
-coins held on that date. With multiple wallets, BitcoinTX may figure a sale
-from one wallet with the cost and purchase date of coins that were in
-another. Multiple wallets and exchanges, each with its own lots, are planned
-for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
-see [Versions](#versions)).
+- **A wallet** is one set of keys: every address it makes is part of it. A
+  backup of the same keys (a seed phrase, or another device with the same
+  keys) isn't a second wallet.
+- **An exchange** keeps its dollars and its bitcoin as two accounts,
+  "*name* USD" and "*name* BTC". Each exchange has its own "This exchange
+  sends me a Form 1099-DA" switch, on by default: turn it off for an exchange that
+  sends none (usually one outside the US), and its sales go in the Form
+  8949 boxes for no broker form.
+- **External** is everything outside BitcoinTX: other people, merchants,
+  an account you don't track.
+
+Coins move between your accounts by a Transfer, which keeps each lot's date
+and cost. A new account starts empty: move coins into it with a Transfer
+dated when they really moved (BitcoinTX moves the oldest coins first). A
+save that would change an earlier tax year's figures, one you may already
+have filed, shows which years and what changes, and asks before it saves.
+
+BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
+cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
+nor record an allocation you made: its figures from 2025 on follow its own
+history. Your 2024 Complete Tax Report lists each account's lots at the end
+of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
@@ -285,7 +311,7 @@ longer accepts it for AI access. (1) In **Settings → Connect an AI
 Assistant**, turn on AI access and create an AI key; (2) in your AI app's
 settings, replace `BTCTX_PASSWORD` (and `BTCTX_USERNAME`) with `BTCTX_AI_KEY`
 set to that key, and delete the password; (3) change your BitcoinTX password
-(Settings → Reset Username & Password), or on StartOS run **Set Login
+(Settings → Account → Reset Username & Password), or on StartOS run **Set Login
 Credentials**, because the old one sat in that file. Mac app users: nothing
 to do.
 
@@ -298,11 +324,11 @@ to do.
    every figure a recalculation would change (old → new) and saved entries
    worth a second look, such as income and rebate deposits with a $0 or
    blank value, and Inherited deposits without a date of death. After them
-   comes a reminder, not an error: My BTC and Gift
-   deposits without a date originally acquired, counted from their deposit
-   date until you add one. The release notes say which to fix.
-4. Click **Settings → Recalculate Ledger** when you agree.
-5. Check your **Tax Timezone** in Settings.
+   come two reminders, not errors: My BTC and Gift deposits without a date
+   originally acquired, counted from their deposit date until you add one,
+   and exchange sales your exchange's Form 1099-DA may show differently. The release notes say which to fix.
+4. Click **Settings → Account → Recalculate Ledger** when you agree.
+5. Check your **Tax Timezone** in Settings → Account.
 6. If you use the AI connector: in your AI app's settings, change
    `btctx-mcp==<old version>` to `btctx-mcp==<new version>`, then restart
    the AI app. No new key, nothing to set up again. If you forget, every

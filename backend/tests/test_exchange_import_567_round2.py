@@ -100,7 +100,7 @@ def test_a_huge_dollar_amount_in_an_own_mapping_is_a_rows_error(client):
 def test_a_negative_bitcoin_amount_where_coins_come_in_is_left_out(client, row):
     """Whatever a file's signs mean, coins coming in are never negative: a reversal, never a second buy."""
     answer = preview(client, "When,Type,Coins,Dollars", [row], mapping=OWN)
-    assert answer["proposals"] == [] and "go the other way" in said(answer)
+    assert answer["proposals"] == [] and "Row 2 goes the other way" in said(answer)
 
 
 def test_a_send_written_negative_is_still_a_send(client):
@@ -130,10 +130,10 @@ def test_a_header_repeated_by_joined_files_is_left_out_as_one(client):
     answer = preview(client, KRAKEN, [*BUY_LINES, KRAKEN, '"L3","Q1","2025-03-05 18:45:00","deposit","","currency",'
                                                           '"BTC","spot / main",0.0010000000,0,0'], mapping_id="kraken")
     assert answer["errors"] == [] and len(answer["proposals"]) == 2
-    assert "Row 4 repeat the file's header (files joined)" in said(answer)
+    assert "Row 4 repeats the file's header (files joined)" in said(answer)
     own = preview(client, "When,Type,Coins,Dollars", ["2025-04-01 09:00,Bought,0.01,100.00", "When,Type,Coins,Dollars",
                                                       "2025-04-02 09:00,Bought,0.02,200.00"], mapping=OWN)
-    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeat the file's header" in said(own)
+    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeats the file's header" in said(own)
 
 
 def test_another_assets_unreadable_number_leaves_its_kraken_line_out_with_the_rest(client):
@@ -162,7 +162,7 @@ def test_rows_after_another_header_with_other_columns_are_never_read_by_the_firs
 def test_a_header_again_with_a_byte_order_mark_or_a_trailing_empty_cell_is_the_header_again(client):
     own = preview(client, "When,Type,Coins,Dollars", ["2025-04-01 09:00,Bought,0.01,100.00", "﻿When,Type,Coins,Dollars,",
                                                       "2025-04-02 09:00,Bought,0.02,200.00"], mapping=OWN)
-    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeat the file's header" in said(own)
+    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeats the file's header" in said(own)
 
 
 def test_the_column_matcher_never_lists_a_header_again_as_a_word(client):

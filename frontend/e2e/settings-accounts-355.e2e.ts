@@ -418,7 +418,7 @@ test("a second exchange added in Settings takes a Buy and a Sell, which keep it 
   await page.getByLabel("Amount BTC").fill("0.05");
   await saveForm(page);
   await openAddForm(page, "Sell");
-  await page.getByLabel("Account", { exact: true }).selectOption({ label: "Kraken" });
+  await page.getByLabel("Exchange", { exact: true }).selectOption({ label: "Kraken" });
   await page.getByLabel("Amount BTC").fill("0.02");
   await page.getByLabel("Gross Proceeds (USD)").fill("1500");
   await saveForm(page);
@@ -431,7 +431,7 @@ test("a second exchange added in Settings takes a Buy and a Sell, which keep it 
 
   // Edited, each keeps Kraken: never your first exchange's accounts by default
   await editNewest(page, "Sell");
-  await expect(page.getByLabel("Account", { exact: true })).toHaveValue(String(krakenBtc));
+  await expect(page.getByLabel("Exchange", { exact: true })).toHaveValue(String(krakenBtc));
   await page.getByLabel("Amount BTC").fill("0.03");
   await saveForm(page, "Update Transaction");
   const buy = page.getByRole("listitem").filter({ hasText: "+0.05000000 BTC" });

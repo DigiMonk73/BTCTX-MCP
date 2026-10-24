@@ -90,7 +90,7 @@ test("another exchange's file: its columns matched, previewed, and the mapping s
   await card.getByRole("button", { name: "Preview" }).click();
   await expect(card.getByText("3 rows in file")).toBeVisible();
   await expect(card.getByText("2 new")).toBeVisible();
-  await expect(card.getByText(/Row 5 are waiting, not completed/)).toBeVisible();
+  await expect(card.getByText(/Row 5 is waiting, not completed/)).toBeVisible();
 
   await card.getByLabel("Mapping's name").fill("Example Exchange");
   await card.getByRole("button", { name: "Save this mapping" }).click();

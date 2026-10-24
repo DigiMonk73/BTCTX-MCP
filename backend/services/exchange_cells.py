@@ -92,21 +92,22 @@ class Header:
         return self.names[place] if place is not None else None
 
 
-def find_header(rows: Records, needed: dict[str, tuple[str, ...]], whose: str) -> Header | CSVParseError:
+def find_header(rows: Records, needed: dict[str, tuple[str, ...]], name: str) -> Header | CSVParseError:
     """The first of the file's first rows naming a column for each of
     `needed`'s roles (any of its names); else an error naming those the
     likeliest row lacks."""
-    best, missing = None, list(needed)
+    missing = list(needed)
     for number, cells in rows[:HEADER_SEARCH]:
         header = Header(number, cells)
         lacking = [role for role, names in needed.items() if header.place(names) is None]
         if not lacking:
             return header
         if len(lacking) < len(missing):
-            best, missing = header, lacking
+            missing = lacking
     said = ", ".join(needed[role][0] for role in missing)
-    return CSVParseError(row_number=best.number if best else 0, column=None, severity="error",
-                         message=f"This does not look like {whose} file. Missing columns: {said}")
+    # The file's, never a row's (no "Row 1:"), as River's says it (#357)
+    return CSVParseError(row_number=0, column=None, severity="error",
+                         message=f"This does not look like a file for “{name}”. Missing columns: {said}")
 
 
 class Cells:
@@ -136,7 +137,15 @@ class RowError(ValueError):
         return CSVParseError(row_number=row_number, column=self.column, severity="error", message=str(self))
 
 
-HEADER_AGAIN = "repeat the file's header (files joined)"
+@dataclass(frozen=True)
+class Reason:
+    """Why rows are left out, said of many rows and of one ("Rows 12 and 13
+    move coins …", "Row 9 is …", #357)."""
+    many: str
+    one: str
+
+
+HEADER_AGAIN = Reason("repeat the file's header (files joined)", "repeats the file's header (files joined)")
 
 
 def another_header(number: int) -> CSVParseError:
@@ -159,14 +168,15 @@ class LeftOut:
     rows, so a long file's other assets don't give a warning a row."""
 
     def __init__(self):
-        self.reasons: dict[str, list[int]] = {}
+        self.reasons: dict[Reason, list[int]] = {}
 
-    def add(self, reason: str, number: int) -> None:
+    def add(self, reason: Reason, number: int) -> None:
         self.reasons.setdefault(reason, []).append(number)
 
     def warnings(self) -> list[CSVParseError]:
         return [CSVParseError(row_number=0, column=None, severity="warning",
-                              message=f"{rows_said(numbers)} {reason}: left out.")
+                              message=f"{rows_said(numbers)} {reason.one if len(numbers) == 1 else reason.many}: "
+                                      "left out.")
                 for reason, numbers in self.reasons.items()]
 
 

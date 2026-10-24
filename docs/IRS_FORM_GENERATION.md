@@ -139,7 +139,7 @@ Timestamps are stored in UTC. The tax timezone decides:
   MM/DD/YYYY in the tax timezone.
 - **the holding period** (next section).
 
-Where the timezone comes from: **Settings → Tax Timezone** (the
+Where the timezone comes from: **Settings → Account → Tax Timezone** (the
 `tax_timezone` row in `app_settings`), then the `BTCTX_TIMEZONE` env var,
 then UTC. Only the names of the `tzdata` package BitcoinTX ships with are
 saved (#407), the same list on every machine: a restore elsewhere reads the

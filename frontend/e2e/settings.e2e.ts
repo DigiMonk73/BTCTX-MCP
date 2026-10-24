@@ -679,9 +679,10 @@ test("About BitcoinTX shows the version and where to report a problem", async ({
   const about = page.getByRole("region", { name: "About BitcoinTX" });
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
   await expect(about.getByText(`Version ${version}`)).toBeVisible();
-  // The one-wallet notice and the disclaimer, worded as everywhere else
+  // The notice on wallets and exchanges and the disclaimer, worded as everywhere else (#357)
   await expect(about.getByRole("note")).toContainText(
-    "Important: one wallet, one exchange. BitcoinTX tracks one self-custody wallet and one exchange account.");
+    "Important: add each wallet and exchange. Add each wallet, exchange and bank you use in Settings, under " +
+    "Wallets, exchanges and banks. From 2025, cost basis is figured wallet by wallet and account by account;");
   await expect(about.getByText("BitcoinTX is software, not tax, legal or financial advice.")).toBeVisible();
   const github = "https://github.com/DigiMonk73/BTCTX-MCP";
   for (const [name, href] of [

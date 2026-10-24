@@ -27,7 +27,7 @@ test.describe("BTC deposits", () => {
       await setWhen(page);
       await page.getByLabel("Account").selectOption("Wallet");
       await expect(page.getByLabel("Currency")).toHaveValue("BTC");
-      await expect(page.getByText("One self-custody wallet: see Settings → About BitcoinTX.")).toBeVisible();
+      await expect(page.getByText("A wallet is one set of keys: add each one you use in Settings → Wallets, exchanges and banks.")).toBeVisible();
       await page.getByLabel("Amount").fill("0.25");
       await page.getByLabel("Source").selectOption(source);
       // A gift's basis is the giver's (#115), not what the BTC cost you
@@ -220,7 +220,7 @@ test("transfer Exchange → Wallet with a BTC network fee", async ({ authedPage:
   // Two fit, the Wallet and a move within the exchange: none is chosen for you (5.13)
   await expect(page.getByLabel("To Account")).toHaveValue("");
   await page.getByLabel("To Account").selectOption("Wallet");
-  await expect(page.getByText("One self-custody wallet: see Settings → About BitcoinTX.")).toBeVisible();
+  await expect(page.getByText("A wallet is one set of keys: add each one you use in Settings → Wallets, exchanges and banks.")).toBeVisible();
   await page.getByLabel("Amount (From)").fill("0.5");
   await page.getByLabel("Amount (To)").fill("0.4999");
   await expect(page.getByLabel("Fee (BTC)")).toHaveValue("0.0001");
@@ -336,7 +336,7 @@ test("sell with a USD fee: proceeds net of the fee, short-term gain", async ({ a
   await seedFunds(page.request);
   await openAddForm(page, "Sell");
   await page.getByLabel("Date & Time").fill("2023-06-01T09:00:05");
-  await expect(page.getByLabel("Account")).toHaveValue("Exchange");
+  await expect(page.getByLabel("Exchange", { exact: true })).toHaveValue("Exchange");
   await page.getByLabel("Amount BTC").fill("0.25");
   await page.getByLabel("Gross Proceeds (USD)").fill("7000");
   await expect(page.getByText("BitcoinTX takes the fee off to give the net proceeds.")).toBeVisible();

@@ -77,10 +77,10 @@ class TransactionInput(BaseModel):
     type: TxTypeName
     amount: AmountValue = Field(
         gt=0,
-        description="BTC amount (max 8 decimals), or USD for Bank/Exchange USD cash moves. "
-                    "BTC Transfer: total that left the source INCLUDING the network fee (Wallet to Wallet, "
+        description="BTC amount (max 8 decimals), or USD for dollars (a bank or an exchange's USD account). "
+                    "BTC Transfer: total that left the source INCLUDING the network fee (a wallet to itself, "
                     "a consolidation: only the fee is recorded). "
-                    "USD Transfer (Bank <-> Exchange USD): what arrived; the fee is on top. "
+                    "USD Transfer (a bank <-> an exchange's USD account): what arrived; the fee is on top. "
                     "Withdrawal: what the recipient got; the network fee is on top.",
     )
     from_account: AccountName
@@ -91,7 +91,7 @@ class TransactionInput(BaseModel):
     proceeds_usd: UsdValue | None = Field(
         default=None, description="Sell: gross USD before fees. Withdrawal/Spent: USD value received (auto-filled if omitted).")
     fee_amount: AmountValue | None = Field(
-        default=None, description="Fee amount; USD for Buy/Sell and moves out of Bank/Exchange USD, "
+        default=None, description="Fee amount; USD for Buy/Sell and moves out of a bank or an exchange's USD account, "
                                   "BTC for on-chain moves.")
     fee_currency: Literal["BTC", "USD"] | None = None
     source: DepositSource | None = Field(default=None, description="Required for BTC deposits.")
@@ -103,10 +103,10 @@ class TransactionInput(BaseModel):
         default=None, description="A BTC network fee's USD value, if the user knows it (otherwise fee x the "
                                   "price when its hour began is stored).")
     acquired_at: str | None = Field(
-        default=None, description="MyBTC/Gift deposits into Wallet or Exchange BTC: when the coins were originally "
-                                  "acquired (for a gift, by the giver), e.g. 2021-03-14. The holding period and "
-                                  "Form 8949's date acquired use it; omitted, the deposit's date. Inherited "
-                                  "deposits: the date of death (required).")
+        default=None, description="MyBTC/Gift deposits into a wallet or an exchange's BTC account: when the "
+                                  "coins were originally acquired (for a gift, by the giver), e.g. 2021-03-14. "
+                                  "The holding period and Form 8949's date acquired use it; omitted, the "
+                                  "deposit's date. Inherited deposits: the date of death (required).")
     not_a_duplicate_of: int | None = Field(
         default=None, description="Only when the user says this row is another transaction than the one "
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "

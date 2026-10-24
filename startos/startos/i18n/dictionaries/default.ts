@@ -30,7 +30,7 @@ const dict = {
 
   // actions/recalculateLedger.ts
   'Recalculate Ledger': 24,
-  'Rebuild every ledger entry, lot and gain from your transactions, the same as Settings > Recalculate Ledger in BitcoinTX. Run it once after an update that changes how gains are calculated.': 25,
+  'Rebuild every ledger entry, lot and gain from your transactions, the same as Settings > Account > Recalculate Ledger in BitcoinTX. Run it once after an update that changes how gains are calculated.': 25,
   'This rebuilds all lots and gains from your transactions. Your transactions themselves are not changed. It can take a minute on a large ledger.': 26,
   'Ledger Recalculated': 27,
 

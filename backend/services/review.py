@@ -169,7 +169,7 @@ CHECKS: dict[str, tuple] = {
     ),
     "recalc_changes": (
         "Figures that Recalculate Ledger would change",
-        "Back up first, then run Recalculate Ledger (Settings) when you agree. Editing or deleting any "
+        "Back up first, then run Recalculate Ledger (Settings, Account) when you agree. Editing or deleting any "
         "transaction also recalculates everything.",
     ),
     "day_priced_values": (
@@ -207,7 +207,7 @@ CHECKS: dict[str, tuple] = {
         "Inherited deposits without a date of death",
         "Edit each one: enter the date of death, and check the Cost Basis is the value that day. Until then it "
         "is dated by the deposit. Its coins are long-term, with INHERITED on Form 8949, from the next "
-        "recalculation: Recalculate Ledger (Settings), or editing it or any other transaction.",
+        "recalculation: Recalculate Ledger (Settings, Account), or editing it or any other transaction.",
     ),
     "income_without_value": (
         "Income and rebate deposits with a $0 or blank value",
