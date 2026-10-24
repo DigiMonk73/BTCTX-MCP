@@ -21,7 +21,8 @@ class AccountUpdate(BaseModel):
     """Hide an account from the pickers, or show it again."""
     model_config = ConfigDict(extra="forbid")
 
-    hidden: bool
+    hidden: bool | None = None
+    sends_1099da: bool | None = None  # TEMP: a stand-in for B6c's switch (#353), reverted before B6c merges in
 
 
 class AccountRead(BaseModel):
