@@ -1108,8 +1108,9 @@ def _edit_as_saved(tx: Transaction, tx_data: dict, stored: dict, db: Session, bo
 def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
     """Leave blank each value the save prices again: one from a price whose
     inputs the edit changes, the value sent with it included when it's the
-    one shown sent back (the form sends what it shows: never a typed one),
-    and a gift's blank or $0 one (_gift_priced_by_edit)."""
+    one shown sent back (a value sent back unchanged isn't a typed one), and
+    a gift's the save fills (_gift_priced_by_edit: a blank one, or a sale's
+    $0 it becomes a gift with)."""
     if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
     if tx.proceeds_from_price and not _typed_proceeds(tx, edit) and _proceeds_priced_by_edit(tx, edit):
