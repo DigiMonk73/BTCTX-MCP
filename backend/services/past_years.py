@@ -1,8 +1,11 @@
 """
-The past-year warning on adds, edits and deletes (2.0 spec 5.8; the owner's
-Q4, widened on 2026-10-15): a write that would change the figures of a tax
-year before this one (its gains, Form 8949 boxes, dates acquired or income)
-is saved only once confirmed, after a copy of the database.
+The past-year warning (2.0 spec 5.8; the owner's Q4, widened on
+2026-10-15): a write that would change the figures of a tax year before this
+one (its gains, Form 8949 boxes, dates acquired or income) is saved only
+once confirmed, after a copy of the database. Adds, edits and deletes are
+the Write here; the imports, the tax timezone, an exchange's 1099-DA switch
+and the AI's Recalculate Ledger are writes of their own
+(services/past_year_writes.py), through the same save.
 
 Unconfirmed, the write is worked out on a scratch copy with the lock free
 (the dry run): when nothing earlier moves it saves as it always has, else a
@@ -75,8 +78,68 @@ NO_COPY = "Not saved: BitcoinTX couldn't make its copy of the database first."
 CARRIED = (*hourly_prices.SAVE_KEYS, tx_service.DEADLINE)
 
 
+class PastYearWrite:
+    """
+    What the warning asks of a write: how to make it uncommitted (`apply`,
+    which both passes and the confirmed save take) and as it always saved
+    (`save`), which tax years it can reach, and what its fingerprint takes
+    of it (`parts`). The defaults are a write that replays the ledger and
+    fills no value from a price.
+    """
+    kind = ""
+    # What it changes is what a recalculation alone would (the AI's
+    # Recalculate Ledger): listed as pending, with no recalculation without it
+    pending_only = False
+    changes_text, adds_text = CHANGES, ADDS
+    by_date_text, by_date_with_fixes_text = BY_DATE, BY_DATE_WITH_FIXES
+
+    def apply(self, db: Session) -> Any:
+        """The write and what it recalculates, uncommitted."""
+        raise NotImplementedError
+
+    def save(self, db: Session) -> Any:
+        """The write as it always saved: committed."""
+        raise NotImplementedError
+
+    def earliest_year(self, db: Session, tz) -> int | None:
+        """The tax year of the earliest moment it can change; None when it
+        can change nothing (it saves at once)."""
+        raise NotImplementedError
+
+    def parts(self) -> list:
+        """What the fingerprint takes of it: the write as its request gives it."""
+        raise NotImplementedError
+
+    def this_year(self, tz) -> int:
+        """This tax year: the years before it are the ones the warning asks about."""
+        return tax_time.current_tax_year(tz)
+
+    def appends(self, db: Session) -> bool:
+        """Whether it only adds rows dated after every other: no replay."""
+        return False
+
+    def recalculates(self, db: Session) -> bool:
+        """Whether its save replays the ledger, applying any pending change."""
+        return not self.appends(db)
+
+    def moves_no_figure(self, db: Session) -> bool:
+        """Whether it can't move any tax year's figures, whatever its dates."""
+        return False
+
+    def priced_rows(self, db: Session) -> list[dict]:
+        """The rows whose values it fills from a price, for transaction.find_prices_first."""
+        return []
+
+    def gone_item(self, db: Session, tz) -> dict[int, dict]:
+        """The rows it deletes, as Ledger Review lists them, taken before they go."""
+        return {}
+
+    def check_there(self, db: Session) -> None:
+        """Under the confirmed save's lock: what it changes is still there."""
+
+
 @dataclass(frozen=True)
-class Write:
+class Write(PastYearWrite):
     """
     An add, an edit or a delete as its request gives it: `data` holds the
     new row's or the edit's fields (none for a delete), never completed in
@@ -118,7 +181,7 @@ class Write:
         except tax_time.DateOutOfRange:
             return None
 
-    def dollars_only(self, db: Session) -> bool:
+    def moves_no_figure(self, db: Session) -> bool:
         """Neither the row as stored nor as the write leaves it is a bitcoin
         one (a Buy, a Sell, or a bitcoin account on a side): it moves no
         figure of any year, and with a login nothing pending asks."""
@@ -158,11 +221,14 @@ class Write:
         return {} if row is None else {self.tx_id: review.row_item(row, tz, account_book(db), "", "")}
 
     def parts(self) -> list:
-        """What the fingerprint takes of it: the write as its request gives it."""
         return [self.kind, self.tx_id, self.data]
 
+    def check_there(self, db: Session) -> None:
+        if self.kind != ADD and db.get(Transaction, self.tx_id) is None:
+            raise HTTPException(status_code=404, detail="Transaction not found.")  # deleted meanwhile
 
-def save(write: Write, db: Session, confirm: str | None, by_ai: bool,
+
+def save(write: PastYearWrite, db: Session, confirm: str | None, by_ai: bool,
          before_saving: Callable[[], None] = lambda: None):
     """
     The write, through the warning: what its save returns, or the 409 (a
@@ -170,35 +236,59 @@ def save(write: Write, db: Session, confirm: str | None, by_ai: bool,
     (the AI's hourly copy, made before its changes).
     """
     tz = tax_time.get_tax_timezone(db)
-    this_year = tax_time.current_tax_year(tz)
-    earliest = write.earliest_year(db, tz)
-    nothing_pending = not by_ai or write.appends(db) or recalculated_by.matches(db)
-    if earliest is None or (nothing_pending and (earliest >= this_year or write.dollars_only(db))):
-        warning = None  # nothing earlier can move: no dry run
-    elif confirm is not None:
-        return _save_confirmed(write, db, confirm, by_ai)
-    else:
+    this_year = write.this_year(tz)
+    if not _saves_at_once(write, db, by_ai, tz, this_year):
+        if confirm is not None:
+            return _save_confirmed(write, db, confirm, by_ai)
         warning = _dry_run(write, db, by_ai, tz, this_year)
-    if warning is not None:
-        return JSONResponse(status_code=409, content=warning)
+        if warning is not None:
+            return JSONResponse(status_code=409, content=warning)
     before_saving()
     return write.save(db)
+
+
+def warning(write: PastYearWrite, db: Session, by_ai: bool) -> dict | None:
+    """The 409's body the write gets as the ledger is now, or None when it
+    saves at once: what a preview shows before the write is sent (the AI's
+    import). Its fingerprint confirms the write."""
+    tz = tax_time.get_tax_timezone(db)
+    this_year = write.this_year(tz)
+    return None if _saves_at_once(write, db, by_ai, tz, this_year) else _dry_run(write, db, by_ai, tz, this_year)
+
+
+def years_dated_before(db: Session, moments) -> list[int]:
+    """The tax years before this one (tax timezone) that these moments are
+    in: a write dated there can change those years' figures."""
+    tz = tax_time.get_tax_timezone(db)
+    this_year = tax_time.current_tax_year(tz)
+    return sorted({year for year in (tax_time.local_date(when, tz).year for when in moments) if year < this_year})
+
+
+def _saves_at_once(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int) -> bool:
+    """Nothing earlier can move: no dry run. Its earliest moment is this
+    tax year or later, or it moves no figure, while nothing can be pending
+    that its save would apply (with the AI key, a pending change asks)."""
+    earliest = write.earliest_year(db, tz)
+    nothing_pending = not by_ai or not write.recalculates(db) or recalculated_by.matches(db)
+    return earliest is None or (nothing_pending and (earliest >= this_year or write.moves_no_figure(db)))
 
 
 @dataclass
 class _Found:
     """What a write changes (year_changes.moved), what else its save applies
-    (pending), and the figures their words are read from."""
+    (pending), the figures their words are read from, and the tax timezone
+    after the write, which their dates are in."""
     changes: dict
     pending: dict
     recalc_error: str | None
     rows: dict
     gone: dict
     appended: bool
+    tz: Any
     result: Any = None
 
 
-def _dry_run(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict | None:
+def _dry_run(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int) -> dict | None:
     """The 409's body, or None when nothing earlier moves: worked out on a
     scratch copy, with the lock free, within DRY_RUN_SECONDS."""
     tx_service.find_prices_first(db, write.priced_rows(db))  # kept in the live database: the confirm needs them
@@ -207,19 +297,21 @@ def _dry_run(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict
         with scratch_copy(db) as scratch:
             scratch.info[tx_service.DEADLINE] = time.monotonic() + DRY_RUN_SECONDS
             found = _compare(write, scratch, tz, _needs_without(write, db), appended)
-            return _warning(write, found, by_ai, this_year, scratch, tz)
+            return _warning(write, found, by_ai, this_year, scratch)
     except tx_service.OutOfTime:
         return _by_date(write, db, by_ai, tz, this_year)
 
 
-def _needs_without(write: Write, db: Session) -> bool:
+def _needs_without(write: PastYearWrite, db: Session) -> bool:
     """Whether a recalculation without the write could change anything: not
-    for an add dated last (it applies nothing pending), nor while this
-    BitcoinTX last recalculated the ledger (nothing is pending)."""
-    return not write.appends(db) and not recalculated_by.matches(db)
+    for a write that replays nothing (an add dated last, the 1099-DA
+    switch: they apply nothing pending), nor for the AI's Recalculate
+    Ledger (that recalculation is the write), nor while this BitcoinTX last
+    recalculated the ledger (nothing is pending)."""
+    return write.recalculates(db) and not write.pending_only and not recalculated_by.matches(db)
 
 
-def _compare(write: Write, db: Session, tz, needs_without: bool, appended: bool) -> _Found:
+def _compare(write: PastYearWrite, db: Session, tz, needs_without: bool, appended: bool) -> _Found:
     """
     What the write changes on `db`, which holds the stored ledger: the write
     and its own recalculation, then, when one could change anything (a
@@ -229,21 +321,24 @@ def _compare(write: Write, db: Session, tz, needs_without: bool, appended: bool)
     as its save would before the time budget can run out on the other. A
     without pass that fails (a ledger the replay can't pass as it is) is
     compared no further: the write is compared with the stored figures, or
-    the edit that repairs such a ledger could never be saved.
+    the edit that repairs such a ledger could never be saved. Each pass
+    reads its dates in its own tax timezone: the write's own after it (a
+    new tax timezone moves holding periods and tax years).
     """
     stored = year_changes.figures(db, tz)
     gone = write.gone_item(db, tz)
     with scratch_copy(db) if needs_without else nullcontext() as without:
         result = write.apply(db)
         db.flush()
-        after = year_changes.figures(db, tz)
+        tz_after = tax_time.get_tax_timezone(db)
+        after = year_changes.figures(db, tz_after)
         if without is None:
             before, pending, recalc_error = stored, {}, None
         else:
             without.info.update({key: db.info[key] for key in CARRIED if key in db.info})
             before, pending, recalc_error = _without_pass(without, tz, stored)
     return _Found(year_changes.moved(before, after), pending, recalc_error, {**stored, **before, **after}, gone,
-                  appended, result)
+                  appended, tz_after, result)
 
 
 def _without_pass(db: Session, tz, stored: dict) -> tuple[dict, dict, str | None]:
@@ -258,17 +353,20 @@ def _without_pass(db: Session, tz, stored: dict) -> tuple[dict, dict, str | None
     return before, year_changes.moved(stored, before), None
 
 
-def _warning(write: Write, found: _Found, by_ai: bool, this_year: int, db: Session, tz) -> dict | None:
+def _warning(write: PastYearWrite, found: _Found, by_ai: bool, this_year: int, db: Session) -> dict | None:
     """The 409's body, or None when nothing asks: with a login only the
     write's own changes to an earlier year, with the AI key also those its
-    save applies (pending) there."""
+    save applies (pending) there; the AI's Recalculate Ledger's changes are
+    all pending."""
     changes = year_changes.reaching(found.changes, this_year)
     pending = year_changes.reaching(found.pending, this_year)
+    if write.pending_only:
+        changes, pending = {}, changes
     if not changes and not (by_ai and pending):
         return None
-    book = account_book(db)
+    book, tz = account_book(db), found.tz
     years = year_changes.years({**changes, **pending} if by_ai else changes)
-    text = ADDS if found.appended else CHANGES
+    text = write.adds_text if found.appended else write.changes_text
     return _with_fingerprint(write, {
         "detail": text.format(years=_years_text(years)),
         "years": years,
@@ -280,7 +378,7 @@ def _warning(write: Write, found: _Found, by_ai: bool, this_year: int, db: Sessi
     })
 
 
-def _by_date(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict | None:
+def _by_date(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int) -> dict | None:
     """The 409's body when the exact check took too long: every year from
     the write's date, or, with the AI key while a change a recalculation
     alone would make may be pending in any year, from the ledger's first."""
@@ -293,7 +391,7 @@ def _by_date(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict
     years = list(range(start, this_year))
     if not years:
         return None
-    text = BY_DATE if start == own else BY_DATE_WITH_FIXES
+    text = write.by_date_text if start == own else write.by_date_with_fixes_text
     return _with_fingerprint(write, {
         "detail": text.format(year=start),
         "years": years,
@@ -305,7 +403,7 @@ def _by_date(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict
     })
 
 
-def _with_fingerprint(write: Write, body: dict) -> dict:
+def _with_fingerprint(write: PastYearWrite, body: dict) -> dict:
     """The body with its confirm: a SHA-256 of the write as given, of what
     it changes and of what its save applies, so a confirm can't be sent
     blind and holds only while they stay the same."""
@@ -320,14 +418,14 @@ def _years_text(years: list[int]) -> str:
     return f"tax years {', '.join(str(y) for y in years[:-1])} and {years[-1]}"
 
 
-def _save_confirmed(write: Write, db: Session, confirm: str, by_ai: bool):
+def _save_confirmed(write: PastYearWrite, db: Session, confirm: str, by_ai: bool):
     """The confirmed write, in hourly_prices.with_prices_found: no price is
     asked for under the lock (#442). A run rolled back for one removes its
     own copy, so one confirmed save leaves one copy."""
     return hourly_prices.with_prices_found(db, lambda: _confirmed(write, db, confirm, by_ai))
 
 
-def _confirmed(write: Write, db: Session, confirm: str, by_ai: bool):
+def _confirmed(write: PastYearWrite, db: Session, confirm: str, by_ai: bool):
     """
     Under the write lock: the copy, then the write, then its fingerprint
     worked out again as the dry run did (the date-based one first, which
@@ -339,11 +437,10 @@ def _confirmed(write: Write, db: Session, confirm: str, by_ai: bool):
         raise HTTPException(status_code=503, detail=BUSY)
     copy = None
     try:
-        if write.kind != ADD and db.get(Transaction, write.tx_id) is None:
-            raise HTTPException(status_code=404, detail="Transaction not found.")  # deleted meanwhile
+        write.check_there(db)
         copy = _copy(db, by_ai)
         tz = tax_time.get_tax_timezone(db)
-        this_year = tax_time.current_tax_year(tz)
+        this_year = write.this_year(tz)
         result, warning = _checked_write(write, db, confirm, by_ai, tz, this_year)
         if warning is not None and warning["confirm"] != confirm:
             raise _Stale(warning)
@@ -366,14 +463,14 @@ class _Stale(Exception):
         self.warning = warning
 
 
-def _checked_write(write: Write, db: Session, confirm: str, by_ai: bool, tz, this_year: int):
+def _checked_write(write: PastYearWrite, db: Session, confirm: str, by_ai: bool, tz, this_year: int):
     """(the write's result, the 409's body it gives now, or None). A confirm
     of the date-based warning checks the write and its years only."""
     by_date = _by_date(write, db, by_ai, tz, this_year)
     if by_date is not None and by_date["confirm"] == confirm:
         return write.apply(db), None
     found = _compare(write, db, tz, _needs_without(write, db), write.appends(db))
-    return found.result, _warning(write, found, by_ai, this_year, db, tz)
+    return found.result, _warning(write, found, by_ai, this_year, db)
 
 
 def _copy(db: Session, by_ai: bool) -> Path | None:

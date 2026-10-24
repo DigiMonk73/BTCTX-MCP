@@ -712,3 +712,97 @@ async def test_the_row_limit_reaches_the_ai(mcp_client):
         assert f"BitcoinTX returned 400: Too many transactions. Maximum is {AI_MAX_ROWS} rows per request " \
                "with the AI key: send them in smaller groups, oldest first." in error, error
     assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0
+
+
+# The past-year warning (2.0 spec 5.8, 5.12; #353): a write that would change
+# an earlier tax year's figures answers 409, which reaches the tool as its
+# answer (saved: false, the years, the changes, the fingerprint); sent again
+# with the fingerprint, it saves
+
+OLD_DEPOSIT = {"date": "2023-12-01T12:00:00Z", "type": "Deposit", "amount": "0.01", "from_account": "External",
+               "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "100.00"}
+SALE_2025 = {"date": "2025-03-01T12:00:00Z", "type": "Sell", "amount": "0.005", "from_account": "Exchange BTC",
+             "to_account": "Exchange USD", "proceeds_usd": "300.00"}
+ASKED = {"saved", "detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "confirm",
+         "to_confirm"}
+
+
+@pytest.fixture
+async def past_year_ledger(mcp_client, tax_year):
+    """A 2024 buy and a 2025 sale from it; then this tax year is 2026."""
+    created = (await call(mcp_client, "add_transactions", {"transactions": [BUY, SALE_2025]}))["created"]
+    tax_year(2026)
+    return {"buy": created[0]["id"], "sale": created[1]["id"]}
+
+
+async def test_a_past_year_409_reaches_the_tool_and_its_confirm_saves(mcp_client, past_year_ledger):
+    asked = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT]})
+    assert set(asked) == ASKED
+    assert asked["saved"] is False and re.fullmatch(r"[0-9a-f]{64}", asked["confirm"])
+    assert asked["years"] == [2023, 2025] and asked["changes"] and asked["pending"] == []
+    assert "add_transactions again with the same arguments and confirm" in asked["to_confirm"]
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 2  # nothing saved
+    added = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT], "confirm": asked["confirm"]})
+    assert added["imported_count"] == 1
+
+
+async def test_the_preview_shows_the_past_years_the_add_asks_about(mcp_client, past_year_ledger):
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [OLD_DEPOSIT]})
+    asked = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT]})
+    assert (preview["past_years"]["years"], preview["past_years"]["confirm"]) == (asked["years"], asked["confirm"])
+    this_year = dict(OLD_DEPOSIT, date="2026-03-01T12:00:00Z")
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [this_year]}))["past_years"] is None
+
+
+async def test_update_transactions_confirm_move(mcp_client, past_year_ledger):
+    change = {"transaction_id": past_year_ledger["buy"], "cost_basis_usd": "400.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    assert set(asked) == ASKED and asked["years"] == [2024, 2025]  # the lots it made, and the sale from them
+    assert "update_transaction again with the same arguments and confirm_move" in asked["to_confirm"]
+    updated = await call(mcp_client, "update_transaction", {**change, "confirm_move": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("400.00")
+
+
+async def test_delete_transactions_confirm(mcp_client, past_year_ledger):
+    asked = await call(mcp_client, "delete_transaction", {"transaction_id": past_year_ledger["sale"]})
+    assert set(asked) == ASKED and asked["years"] == [2025]
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 2
+    deleted = await call(mcp_client, "delete_transaction",
+                         {"transaction_id": past_year_ledger["sale"], "confirm": asked["confirm"]})
+    assert deleted["deleted"]["id"] == past_year_ledger["sale"]
+
+
+async def test_recalculate_ledger_confirms_a_change_pending_in_an_earlier_year(mcp_client, backend_db,
+                                                                              past_year_ledger):
+    from sqlalchemy import text
+
+    with backend_db.begin() as con:  # a stored figure a recalculation would put right
+        con.execute(text("UPDATE transactions SET realized_gain_usd = '1.00' WHERE id = :i"),
+                    {"i": past_year_ledger["sale"]})
+    asked = await call(mcp_client, "recalculate_ledger")
+    assert set(asked) == ASKED and asked["years"] == [2025] and asked["changes"] == []
+    assert [item["id"] for item in asked["pending"]] == [past_year_ledger["sale"]]
+    out = await call(mcp_client, "recalculate_ledger", {"confirm": asked["confirm"]})
+    assert out["transactions"] == 2
+
+
+async def test_each_request_waits_as_long_as_it_can_take():
+    """1,200 s for the writes that can answer the past-year warning and the
+    long reads (each can replay the whole ledger more than once: #352's
+    measurement on the StartOS test VM; #637), 120 s for the rest."""
+    waits = {}
+
+    def answer(request):
+        waits[(request.method, request.url.path)] = request.extensions["timeout"]["read"]
+        return httpx.Response(200, json={})
+
+    btctx = BtctxClient(base_url="http://testserver", ai_key="k", transport=httpx.MockTransport(answer))
+    long, short = [("POST", "/api/import/entries/preview"), ("POST", "/api/import/entries/execute"),
+                   ("POST", "/api/transactions"), ("PUT", "/api/transactions/5"),
+                   ("DELETE", "/api/transactions/5"), ("POST", "/api/transactions/recalculate"),
+                   ("GET", "/api/review")], [("GET", "/api/transactions"), ("GET", "/api/transactions/5"),
+                                             ("GET", "/api/bitcoin/price"), ("POST", "/api/backup/ai-copy")]
+    for method, path in long + short:
+        await btctx.request(method, path)
+    await btctx.aclose()
+    assert waits == {**dict.fromkeys(long, 1200.0), **dict.fromkeys(short, 120.0)}
