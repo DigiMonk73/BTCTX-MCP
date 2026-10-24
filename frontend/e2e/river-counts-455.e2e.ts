@@ -1,7 +1,7 @@
 // #455: the River preview counted only the rows it could read and listed
 // the first ten errors, and an Import refusal named a row by its place among
 // the ticked rows, not the file's row number the preview showed.
-import { test, expect, acceptDialogs } from "./fixtures";
+import { test, expect, acceptDialogs, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 const RIVER_HEADER =
@@ -13,6 +13,7 @@ function river(page: Page) {
 
 async function previewRiver(page: Page, rows: string[]) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from River");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from([RIVER_HEADER, ...rows].join("\n") + "\n"),

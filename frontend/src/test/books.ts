@@ -6,7 +6,9 @@
 type Shape = Pick<LedgerAccount, "id" | "name" | "kind" | "currency"> & Partial<LedgerAccount>;
 
 function account(shape: Shape): LedgerAccount {
-  return { exchange_id: null, exchange: null, hidden: false, in_use: false, ...shape };
+  // An exchange's 1099-DA switch is on unless turned off (5.9); no other account has one
+  const sends_1099da = shape.kind === "exchange" ? true : null;
+  return { exchange_id: null, exchange: null, sends_1099da, hidden: false, in_use: false, ...shape };
 }
 
 const FEES = [

@@ -297,6 +297,24 @@ export async function openAddForm(page: Page, type: string) {
   await page.getByLabel("Transaction Type").selectOption(type);
 }
 
+// Settings' sections whose region tests know by another name than their title
+const SECTION_REGION: Record<string, string> = {
+  "Ledger Review": "Ledger review",
+  "Privacy & Network": "Privacy & network",
+};
+
+/**
+ * One of Settings' sections, opened by its button if it isn't, on the
+ * Settings page already: its region. One is open at a time (#355), so
+ * opening one closes the one before.
+ */
+export async function openSection(page: Page, title: string) {
+  const button = page.getByRole("button", { name: title, exact: true });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  return page.getByRole("region", { name: SECTION_REGION[title] ?? title });
+}
+
 /**
  * Save the open form and wait for the panel to close. A save that changes an earlier tax year asks first (2.0
  * spec 5.8): its dialog is confirmed here, since the tests' rows are nearly all dated in earlier years;
