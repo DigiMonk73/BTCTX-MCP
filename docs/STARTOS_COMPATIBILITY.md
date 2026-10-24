@@ -91,7 +91,10 @@ copy of the drop to `btctx`.
                            applied, before every transaction is deleted
                            (Delete All, Create account), or the AI key's
                            first change in an hour, or asked for with the
-                           AI key (mode 600; only created when needed)
+                           AI key, or before a change of an earlier tax
+                           year the owner confirmed; and the copy of a 1.x
+                           database made before 2.0's upgrade, never
+                           removed (mode 600; only created when needed)
 ```
 
 On every start the app migrates `btctx.db` to the current schema
@@ -230,7 +233,8 @@ Change these only together with the package (`startos/`):
 - **App location:** code at `/app` in the image (its `WORKDIR`, where every
   step runs), `VERSION` at `/app/VERSION`.
 - **Maintenance CLI** (`backend/cli.py`, run from `/app`):
-  - `python -m backend.cli migrate`: schema upgrade + default user/accounts;
+  - `python -m backend.cli migrate`: schema upgrade + default user and the
+    first bank, wallet and exchange (ids 1–4) with the fee accounts;
     the package runs it as a oneshot before the web server starts.
   - `python -m backend.cli set-password [--username NAME] --password-stdin`:
     sets the first user's password through the app's own bcrypt hashing

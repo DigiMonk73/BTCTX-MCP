@@ -126,7 +126,7 @@ describe("a row naming a missing account", () => {
     ["a Withdrawal from it", { ...btcWithdrawal(MISSING_ID) }, "Account"],
     ["a Transfer into it", { ...btcTransfer(2, MISSING_ID) }, "To Account"],
     ["a Transfer from it", { ...btcTransfer(MISSING_ID, 2) }, "From Account"],
-    ["a Sell from it", { ...sell(MISSING_ID, 3) }, "Account"],
+    ["a Sell from it", { ...sell(MISSING_ID, 3) }, "Exchange"],
   ] as const)("%s: shown as missing, the picker empty, not saved", async (_name, row, label) => {
     const form = await renderForm({ book: ONE_OF_EACH, transaction: row });
     expect(screen.getByText(`account ${MISSING_ID} (missing)`)).toBeTruthy();

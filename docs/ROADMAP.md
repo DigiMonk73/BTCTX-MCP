@@ -53,9 +53,10 @@ new features go into 2.0, below. No dates are promised.
 
 ## Later
 
-- [ ] Specific-lot identification (per account, as the IRS has required
-      since 2025; for exchange lots it must match the standing order you gave
-      the broker). FIFO is the default today.
+- [ ] Specific-lot identification: choosing which coins to sell, in a
+      wallet or at an exchange (for exchange lots, matching the standing
+      order you gave the broker). BitcoinTX always sells first in, first
+      out, the IRS's default when you don't identify the coins.
 - [ ] Multi-year reports
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
 

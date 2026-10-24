@@ -27,6 +27,7 @@ from backend.services.exchange_cells import (
     FileRead,
     Header,
     LeftOut,
+    Reason,
     RowError,
     find_header,
     read_amount,
@@ -65,6 +66,9 @@ from backend.services.river_import import (
 # What the column matcher shows of a file: its first rows, and the words in each column
 SAMPLES, MAX_VALUES = 5, 30
 NO_ROWS = "No data rows found in file."
+# A group of rows sharing an id whose bitcoin and dollars add up to nothing
+CANCELLED = Reason("were reversed or cancelled (their pieces add up to nothing)",
+                   "was reversed or cancelled (its pieces add up to nothing)")
 
 
 @dataclass
@@ -95,8 +99,8 @@ def read_file(content: bytes, mapping: Mapping) -> FileRead:
     if isinstance(rows, CSVParseError):
         return FileRead(errors=[rows])
     if mapping.reader == KRAKEN_LEDGER:
-        return read_ledger(rows, f"{mapping.name}'s")
-    header = find_header(rows, _needed(mapping), f"{mapping.name}'s")
+        return read_ledger(rows, mapping.name)
+    header = find_header(rows, _needed(mapping), mapping.name)
     if isinstance(header, CSVParseError):
         return FileRead(errors=[header])
     return _read_rows([(n, cells) for n, cells in rows if n > header.number], header, mapping)
@@ -161,10 +165,13 @@ def _without_repeats(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> 
         row_id = row.get(names)
         cells = (row_id, tuple(c.strip() for c in row.cells))
         if row_id and cells in seen_rows:
-            left_out.add(f"repeat an earlier row ({column} and every cell the same)", row.number)
+            left_out.add(Reason(f"repeat an earlier row ({column} and every cell the same)",
+                                f"repeats an earlier row ({column} and every cell the same)"), row.number)
         elif row_id and row_id in seen_ids and not mapping.merge_same_id:
-            left_out.add(f"have the id of an earlier row ({column}) with other cells: only the first is read, "
-                         "so check the file", row.number)
+            left_out.add(Reason(f"have the id of an earlier row ({column}) with other cells: only the first is "
+                                "read, so check the file",
+                                f"has the id of an earlier row ({column}) with other cells: only the first is "
+                                "read, so check the file"), row.number)
         else:
             seen_rows.add(cells)
             seen_ids.add(row_id)
@@ -186,7 +193,7 @@ def _merged(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[Cell
             kept.append(group[0])
         elif _adds_up_to_nothing(group, mapping) is True:
             for row in group:
-                left_out.add("were reversed or cancelled (their pieces add up to nothing)", row.number)
+                left_out.add(CANCELLED, row.number)
         else:
             face = next((row for row in group if row.get(mapping.columns.btc)), group[0])
             kept.append(Cells(face.number, face.header, face.cells, pieces=group))
@@ -221,7 +228,7 @@ def _kind_if_read(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None
     return kind
 
 
-def _left_out_whatever_its_kind(row: Cells, mapping: Mapping, word: str) -> str | None:
+def _left_out_whatever_its_kind(row: Cells, mapping: Mapping, word: str) -> Reason | None:
     """Why the row isn't read, whatever its kind: a trade of bitcoin for
     another coin, another asset, a row not completed, or one of the
     mapping's own rules; else None."""
@@ -233,20 +240,22 @@ def _left_out_whatever_its_kind(row: Cells, mapping: Mapping, word: str) -> str 
         return _not_bitcoin(asset, word)
     status = _unfinished(row, mapping)
     if status is not None:
-        return f"are {status}, not completed"
+        return Reason(f"are {status}, not completed", f"is {status}, not completed")
     return next((rule.reason for rule in mapping.leave_out
                  if row.header.place((rule.column,)) is not None and rule.applies(row.get((rule.column,)))), None)
 
 
-def _not_as_its_kind(row: Cells, kind: str, mapping: Mapping, word: str) -> str | None:
+def _not_as_its_kind(row: Cells, kind: str, mapping: Mapping, word: str) -> Reason | None:
     """Why a row of a kind that's read isn't, after all: a move of dollars
     alone, or money going the other way than its kind's; else None."""
     columns = mapping.columns
     if kind in (SEND, RECEIVE, *PAYOUT_SOURCES) and not row.get(columns.btc) and row.get(columns.usd):
-        return f"move dollars, not bitcoin (“{word}”)"
+        return _dollars(word)
     if _against_kind(row, kind, mapping):
-        return (f"go the other way than “{word}” does (a reversal or a refund?): add any that moved bitcoin "
-                "by hand")
+        return Reason(f"go the other way than “{word}” does (a reversal or a refund?): add any that moved "
+                      "bitcoin by hand",
+                      f"goes the other way than “{word}” does (a reversal or a refund?): add it by hand if it "
+                      "moved bitcoin")
     return None
 
 
@@ -279,20 +288,28 @@ def _mentions_bitcoin(row: Cells, mapping: Mapping) -> bool:
             or re.search(r"\bBTC\b", row.get(mapping.notes), re.IGNORECASE) is not None)
 
 
-def _convert(word: str) -> str:
+def _convert(word: str) -> Reason:
     """Why a trade of bitcoin for another coin is left out, and how to add it."""
-    return (f"trade bitcoin for another asset (“{word}”): add each by hand, bitcoin given up as a Withdrawal, "
-            "purpose Spent, with its dollar value as proceeds (a disposal: IRS Notice 2014-21), bitcoin "
-            "received as a Deposit with its dollar value as cost basis")
+    how = ("by hand, bitcoin given up as a Withdrawal, purpose Spent, with its dollar value as proceeds (a "
+           "disposal: IRS Notice 2014-21), bitcoin received as a Deposit with its dollar value as cost basis")
+    return Reason(f"trade bitcoin for another asset (“{word}”): add each {how}",
+                  f"trades bitcoin for another asset (“{word}”): add it {how}")
 
 
-def _not_bitcoin(asset: str, word: str) -> str:
+def _dollars(word: str) -> Reason:
+    """Why a row moving dollars alone is left out."""
+    said = f" (“{word}”)" if word else ""
+    return Reason(f"move dollars, not bitcoin{said}", f"moves dollars, not bitcoin{said}")
+
+
+def _not_bitcoin(asset: str, word: str) -> Reason:
     """Why a row of another asset is left out."""
     if asset.upper() in ("USD", "ZUSD"):
-        return f"move dollars, not bitcoin (“{word}”)" if word else "move dollars, not bitcoin"
+        return _dollars(word)
     if not asset:
-        return "aren't bitcoin (their asset is blank)"
-    return f"are {asset}, not bitcoin (BitcoinTX tracks bitcoin only)"
+        return Reason("aren't bitcoin (their asset is blank)", "isn't bitcoin (its asset is blank)")
+    return Reason(f"are {asset}, not bitcoin (BitcoinTX tracks bitcoin only)",
+                  f"is {asset}, not bitcoin (BitcoinTX tracks bitcoin only)")
 
 
 def _unfinished(row: Cells, mapping: Mapping) -> str | None:
@@ -318,14 +335,18 @@ def _kind(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None:
     if kind in EVENTS:
         return kind
     if kind == DOLLARS:
-        left_out.add(f"move dollars, not bitcoin (“{word}”)", row.number)
+        left_out.add(_dollars(word), row.number)
     elif kind == CONVERT:
         left_out.add(_convert(word), row.number)
     elif kind == LEAVE_OUT:
-        left_out.add(f"are “{word}”, which this mapping leaves out", row.number)
+        left_out.add(Reason(f"are “{word}”, which this mapping leaves out",
+                            f"is “{word}”, which this mapping leaves out"), row.number)
     else:
-        left_out.add(f"are “{word or 'blank'}”, a kind of row this mapping doesn't read (add any that moved "
-                     "bitcoin by hand)", row.number)
+        said = word or "blank"
+        left_out.add(Reason(f"are “{said}”, a kind of row this mapping doesn't read (add any that moved bitcoin "
+                            "by hand)",
+                            f"is “{said}”, a kind of row this mapping doesn't read (add it by hand if it moved "
+                            "bitcoin)"), row.number)
     return None
 
 

@@ -161,6 +161,27 @@ def test_instructions_describe_the_service_as_it_is():
     assert update_words.findall(read("instructions.md")) == []
 
 
+def store_descriptions(name: str) -> dict[str, str]:
+    """One of manifest/i18n.ts's descriptions, by locale: each a single-quoted string."""
+    block = re.search(rf"export const {name} = \{{(.*?)\n\}}", read("startos/manifest/i18n.ts"), re.S).group(1)
+    return {locale: text.replace("\\'", "'") for locale, text in re.findall(r"(\w\w_\w\w):\s*'((?:[^'\\]|\\.)*)'", block)}
+
+
+def test_store_descriptions_keep_start9s_limits():
+    # manifest.md, "How long each one may be": short 120 and long 2,000
+    # characters in every locale (an overrun fails the build), the English
+    # short well inside the tile's two lines (about 80), and not opening
+    # with the service's name, which the tile shows just above it.
+    locales = {"en_US", "es_ES", "de_DE", "pl_PL", "fr_FR"}
+    short, long = store_descriptions("short"), store_descriptions("long")
+    assert set(short) == set(long) == locales
+    for locale in locales:
+        assert len(short[locale]) <= 120, (locale, len(short[locale]))
+        assert len(long[locale]) <= 2000, (locale, len(long[locale]))
+        assert not short[locale].startswith("BitcoinTX"), locale
+    assert len(short["en_US"]) <= 80, len(short["en_US"])
+
+
 def test_license_is_upstreams_license_alone():
     # project-structure.md: "It carries upstream's license text alone"; with a
     # pre-built image, "copy the license text directly from the upstream

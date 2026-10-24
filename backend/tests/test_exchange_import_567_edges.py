@@ -103,8 +103,8 @@ def test_a_row_with_an_earlier_rows_id_is_left_out_even_when_its_cells_differ(cl
                               "2025-04-01 09:00,Bought,0.01,1000.00,10.00,r-1",
                               "2025-04-02 09:00,Bought,0.02,2000.00,20.00,r-1"])
     assert [p["row_number"] for p in answer["proposals"]] == [2]
-    assert "Row 3 repeat an earlier row" in said(answer)
-    assert "Row 4 have the id of an earlier row" in said(answer)
+    assert "Row 3 repeats an earlier row" in said(answer)
+    assert "Row 4 has the id of an earlier row" in said(answer)
 
 
 # S4: a unit that contradicts its column
@@ -139,7 +139,7 @@ def test_a_fee_cell_that_says_bitcoin_is_bitcoin(client):
 ])
 def test_a_row_whose_money_goes_the_other_way_than_its_kind_is_left_out(client, mapping_id, header, row):
     answer = preview(client, [row], header=header, mapping_id=mapping_id)
-    assert answer["proposals"] == [] and "go the other way" in said(answer)
+    assert answer["proposals"] == [] and "Row 2 goes the other way" in said(answer)
 
 
 # S6: what the checklist claimed and no test held

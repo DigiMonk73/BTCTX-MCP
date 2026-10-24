@@ -245,3 +245,45 @@ def test_an_edit_the_save_prices_nothing_for_finds_nothing(ledger, name, change)
     of death sent back, a transfer's amount (its fee hangs on the fee), a fee
     removed."""
     assert ledger.edit(ledger.add(ROWS[name]), change) == (set(), set())
+
+
+# A row priced at the day (#647): the edit's save prices at the day only
+# while its values must share the day's price (_keeps_a_day_price), else at
+# the hour; a Spent's blank proceeds the replay prices at the row's moment
+def _stored(ledger, tx_id: int, key: str):
+    return ledger.client.get(f"/api/transactions/{tx_id}").json()[key]
+
+
+@pytest.mark.parametrize("name, change", [
+    ("income", {"amount": "0.04"}),  # an income's value: the hour
+    ("transfer", {"fee_amount": "0.0002"}),  # a transfer's fee: the hour
+    ("priced spend", {"timestamp": "2024-04-01T15:00:00Z"}),  # proceeds and fee both priced again: the hour
+    ("gift", {"amount": "0.04"}),  # a gift without a fee: the hour
+    ("typed spend", {"proceeds_usd": None}),  # proceeds the replay prices, the fee's kept: the day
+])
+def test_a_day_rows_value_is_found_at_the_moment_the_save_prices_it(ledger, name, change):
+    found, asked = ledger.edit(ledger.add(ROWS[name], moment="day"), change)
+    assert asked and found == asked
+
+
+def test_a_day_gifts_value_with_its_fee_typed_takes_the_hour(ledger):
+    """The fee's value sent back is typed, so nothing keeps the day: the gift's priced at the hour."""
+    tx_id = ledger.add(ROWS["gift with a fee"], moment="day")
+    found, asked = ledger.edit(tx_id, ledger.echo(tx_id, amount="0.04", fee_usd=_stored(ledger, tx_id, "fee_usd")))
+    assert asked and found == asked
+
+
+def test_an_inheritance_made_income_is_found_at_the_hour(ledger):
+    """An inheritance is valued at its date of death's day; as income, at its hour."""
+    found, asked = ledger.edit(ledger.add(ROWS["inherited"]), {"source": "Income"})
+    assert asked == {hour(ROWS["inherited"]["timestamp"])} and found == asked
+
+
+def test_a_fee_added_without_its_currency_to_a_day_spend_is_found_as_the_save_prices_it(ledger):
+    """The save asks _keeps_a_day_price before it fills the fee's currency,
+    so it prices this fee at the hour (#649); found first the same way, so
+    the two stay in step when #649 moves that fill."""
+    tx_id = ledger.add({k: v for k, v in spend("2024-03-08").items() if k != "fee_currency"} | {"fee_amount": "0"},
+                       moment="day")
+    found, asked = ledger.edit(tx_id, {"fee_amount": "0.0001"})
+    assert asked and found == asked

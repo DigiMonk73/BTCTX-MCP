@@ -101,8 +101,8 @@ def test_a_mapping_previewed_unsaved_reads_the_file(client):
          "2025-04-05T14:00:00"),
     ]
     said = "\n".join(w["message"] for w in answer["warnings"])
-    assert "Row 7 are waiting, not completed" in said
-    assert "Row 9 are “Card”, a kind of row this mapping doesn't read" in said
+    assert "Row 7 is waiting, not completed" in said
+    assert "Row 9 is “Card”, a kind of row this mapping doesn't read" in said
     assert answer["total_rows"] == 6
 
 
@@ -133,7 +133,7 @@ def test_a_mapping_saved_is_listed_used_replaced_and_deleted(client):
     r = client.put(f"/api/import/exchange/mappings/{saved['id']}", json=changed)
     assert r.status_code == 200, r.text
     r = client.post("/api/import/exchange/preview", data={"mapping_id": saved["id"]}, files=upload())
-    assert "Row 9 are “Card”, which this mapping leaves out" in "\n".join(w["message"] for w in r.json()["warnings"])
+    assert "Row 9 is “Card”, which this mapping leaves out" in "\n".join(w["message"] for w in r.json()["warnings"])
 
     assert client.delete(f"/api/import/exchange/mappings/{saved['id']}").status_code == 204
     assert own(client) == []

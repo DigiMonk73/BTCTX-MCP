@@ -12,7 +12,7 @@ const SellFields: React.FC<{ book: AccountBook }> = ({ book }) => {
     <>
       <AccountPicker
         id="tx-account"
-        label="Account"
+        label="Exchange"
         field="fromAccountId"
         book={book}
         choices={(saved) => sellExchanges(book, saved)}

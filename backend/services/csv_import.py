@@ -1022,7 +1022,7 @@ TEMPLATE_ROWS = [
      "2000.00", "", "10.00", "USD", "", "", "Auto-buy: Purchase BTC directly from bank"],
     # BTC deposits, every source
     ["2024-01-10T10:00:00Z", "Deposit", "1.0", "External", "Wallet",
-     "20000.00", "", "", "", "MyBTC", "", "Transfer from my own cold storage"],
+     "20000.00", "", "", "", "MyBTC", "", "My own BTC from a wallet BitcoinTX doesn't track"],
     ["2024-01-15T10:00:00Z", "Deposit", "0.1", "External", "Wallet",
      "0", "", "", "", "Gift", "", "BTC received as a birthday gift; cost_basis_usd is the giver's basis (0 if unknown)"],
     ["2024-01-20T10:00:00Z", "Deposit", "0.05", "External", "Wallet",

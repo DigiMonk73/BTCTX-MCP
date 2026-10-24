@@ -6,12 +6,15 @@ export const DISCLAIMER =
   "BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: " +
   "check its figures with a tax professional before you file.";
 
-/** The one-wallet notice, after its bold "Important: one wallet, one exchange." */
-export const ONE_WALLET_NOTICE =
-  "BitcoinTX tracks one self-custody wallet and one exchange account. Since 2025, IRS rules require cost " +
-  "basis to be figured wallet by wallet and account by account, so if you use multiple wallets or exchange " +
-  "accounts, BitcoinTX's gains can differ from what the rules give: keep separate records for each, or ask " +
-  "your tax preparer.";
+/** The notice on wallets and exchanges, after its bold "Important: add each wallet and exchange.", with
+ * 5.14's one wording of the IRS rule and Q5's note for a ledger kept together in 1.x (2.0 spec 5.9, Q20) */
+export const ACCOUNTS_NOTICE =
+  "Add each wallet, exchange and bank you use in Settings, under Wallets, exchanges and banks. From 2025, " +
+  "cost basis is figured wallet by wallet and account by account; unless you identify the coins you sell, " +
+  "first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). BitcoinTX keeps " +
+  "each wallet's and each exchange's own lots and always sells them first in, first out. If you kept multiple " +
+  "wallets or exchanges together in BitcoinTX 1.x, years before you added them were figured together: ask a " +
+  "tax professional whether an earlier return needs a change.";
 
-/** The light hint next to the Bitcoin Wallet choice. */
-export const ONE_WALLET_HINT = "One self-custody wallet: see Settings → About BitcoinTX.";
+/** The light hint next to a wallet's choice. */
+export const WALLET_HINT = "A wallet is one set of keys: add each one you use in Settings → Wallets, exchanges and banks.";

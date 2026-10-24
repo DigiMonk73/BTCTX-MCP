@@ -13,6 +13,7 @@ from pypdf import PdfReader
 
 from backend.routers.reports import get_supported_years
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
+from backend.tests.test_texts_2_0_357 import IRS_RULE
 
 
 def report_text(**data) -> str:
@@ -45,10 +46,27 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
         assert blank in text
     assert "Write the name and social security number on every Form 8949 page and on Schedule D" in text
     assert "Print single-sided" in text
-    assert "one self-custody wallet and one exchange account" in text and "Rev. Proc. 2024-28" in text
-    assert "multiple wallets or exchange accounts are pooled here" in text
+    # 5.14's one wording of the rule, and what BitcoinTX does and doesn't record (3.7)
+    assert IRS_RULE in text
+    assert ("BitcoinTX uses first in, first out in each wallet and exchange account and records no Rev. Proc. "
+            "2024-28 allocation.") in text
+    assert "one exchange account" not in text and "pooled here" not in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text
+
+
+def test_the_notes_say_other_coins_can_give_other_figures():
+    """2.0 spec 3.7: coins identified on the user's own books, or a broker's
+    own order, make BitcoinTX's FIFO figures differ, and the report says so
+    (in its notes: "Using these forms" keeps to one page)."""
+    pdf = generate_comprehensive_tax_report({"tax_year": 2025, "tax_timezone": "America/New_York",
+                                             "report_date": "2026-02-01 15:00:00",
+                                             "period": "2025-01-01 to 2025-12-31", "irs_forms": "final"})
+    text = " ".join("\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(pdf)).pages).split())
+    notes = text[text.rindex("7. Notes"):]
+    assert "first in, first out (FIFO) method within each wallet and exchange account" in notes
+    assert ("Coins you identified on your own books, or an exchange's own order of coins, can give other "
+            "figures.") in notes
 
 
 def test_the_bitcoin_only_figures_add_up_the_lines():
