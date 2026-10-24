@@ -25,7 +25,7 @@ def price_of(when: datetime) -> Decimal:
 
 
 @pytest.fixture
-def client(gate_open, fresh_app, monkeypatch) -> TestClient:
+def client(fresh_app, monkeypatch) -> TestClient:
     stub_prices_at(monkeypatch, price_of)
     c = TestClient(app)
     assert c.post("/api/login", json=default_login()).status_code == 200

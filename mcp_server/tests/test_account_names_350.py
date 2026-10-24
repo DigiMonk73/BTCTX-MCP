@@ -22,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.main import app
 from backend.models.account import Account
 from backend.services import account as account_service
-from backend.services import ai_key, csv_import, transaction
+from backend.services import ai_key
 import btctx_mcp
 from btctx_mcp import accounts, client as connector, server
 from btctx_mcp.client import BtctxClient
@@ -60,14 +60,6 @@ class Recording(httpx.AsyncBaseTransport):
             status, detail = self.answers[request.url.path]
             return httpx.Response(status, json={"detail": detail}, request=request)
         return await self.inner.handle_async_request(request)
-
-
-@pytest.fixture
-def gate_open(monkeypatch):
-    """The gate opened as B7a will (backend/tests/conftest.py's gate_open)."""
-    opened = frozenset(transaction.USER_ACCOUNTS) | frozenset(range(100, 1000))
-    monkeypatch.setattr(transaction, "USER_ACCOUNTS", opened)
-    monkeypatch.setattr(csv_import, "USER_ACCOUNTS", opened)
 
 
 def add(engine, kind: str, name: str) -> list[int]:
@@ -115,7 +107,7 @@ async def test_an_account_name_is_any_text_in_the_tools_schemas(seen):
     assert len(tools) == 11
 
 
-async def test_rows_into_added_accounts_by_their_names(gate_open, backend_db, seen):  # noqa: F811
+async def test_rows_into_added_accounts_by_their_names(backend_db, seen):  # noqa: F811
     """The row goes to BitcoinTX with the account's name as it lists it."""
     assert add(backend_db, "wallet", "Cold Storage") == [100]
     added = await call(seen.mcp, "add_transactions", {"transactions": [dict(DEPOSIT, to_account="cold storage")]})
@@ -140,12 +132,12 @@ async def test_the_list_is_read_once_then_again_on_a_name_it_doesnt_know(backend
     add(backend_db, "wallet", "Jade")
     preview = await call(seen.mcp, "preview_transactions", {"transactions": [dict(DEPOSIT, to_account="jade")]})
     assert paths(seen).count("/api/accounts/") == 2
-    # Sent by its name; until B7a's gate opens, the server still takes only the first four
+    # Sent by its name, as the server lists it
     assert json.loads(seen.sent["/api/import/entries/preview"])["rows"][0]["to_account"] == "Jade"
-    assert preview["results"][0]["errors"][0].startswith("Invalid account 'Jade'.")
+    assert preview["results"][0]["status"] == "ready", preview
 
 
-async def test_an_id_is_sent_after_reading_the_list_again(gate_open, backend_db, seen):  # noqa: F811
+async def test_an_id_is_sent_after_reading_the_list_again(backend_db, seen):  # noqa: F811
     """Jade deleted and added again between two calls: the id sent is the
     new Jade's, never the one read before."""
     await call(seen.mcp, "add_transactions", {"transactions": [DEPOSIT]})

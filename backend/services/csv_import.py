@@ -26,7 +26,7 @@ from backend.schemas.transaction import (
 from backend.services.account import FIXED_BOOK, AccountBook
 from backend.services.transaction import (
     DEPOSIT_BASIS_REQUIRED, DEPOSIT_SOURCE_UNKNOWN, DEPOSIT_SOURCES, INHERITED_NEEDS_DATE, SAME_ACCOUNT_NEEDS_FEE,
-    FEE_CURRENCIES, MAX_TEXT, TEXT_ON_ONE_LINE, USER_ACCOUNTS,
+    FEE_CURRENCIES, MAX_TEXT, TEXT_ON_ONE_LINE,
     account_problems,
     amount_problem,
     create_transaction_record,
@@ -502,7 +502,8 @@ def _check_amount_limits(amount: Decimal, tx_type: str, from_id: int, to_id: int
 def _required_accounts(row: dict[str, str], row_number: int, book: AccountBook) -> tuple[str, int, str, int]:
     """(from name, from id, to name, to id): both names given before either
     is looked up, each by the book (a reserved name, then a name now,
-    ignoring case: 5.11) and one of the accounts a file may name."""
+    ignoring case: 5.11), and each one of yours or External (5.10): never
+    BTC Fees or USD Fees, the ledger's own (#266)."""
     from_name = row.get("from_account", "").strip()
     to_name = row.get("to_account", "").strip()
     if not from_name:
@@ -512,18 +513,11 @@ def _required_accounts(row: dict[str, str], row_number: int, book: AccountBook) 
     ids = []
     for column, name in (("from_account", from_name), ("to_account", to_name)):
         account_id = book.id_for(name)
-        if account_id != ACCOUNT_EXTERNAL and account_id not in files_name(book):
-            names = ", ".join(book.name(i) for i in files_name(book))
+        if account_id != ACCOUNT_EXTERNAL and not book.is_yours(account_id):
+            names = ", ".join(book.name(i) for i in book.yours())
             raise _Rejected(_error(row_number, column, UNKNOWN_ACCOUNT.format(name=name, names=names)))
         ids.append(account_id)
     return from_name, ids[0], to_name, ids[1]
-
-
-def files_name(book: AccountBook) -> list[int]:
-    """Your accounts a file may name (External aside), in the book's order:
-    those the save takes, so never BTC Fees or USD Fees, the ledger's own
-    (#266), and until B7a's gate only 1 to 4 (USER_ACCOUNTS, 5.10)."""
-    return [i for i in book.yours() if i in USER_ACCOUNTS]
 
 
 def _hidden_accounts(from_id: int, to_id: int, row_number: int, book: AccountBook) -> list[CSVParseError]:

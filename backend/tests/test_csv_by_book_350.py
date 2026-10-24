@@ -5,8 +5,8 @@ wallet and exchange) or by its name now, ignoring case; any other name is
 refused, saying which names the file may use. A hidden account is still
 yours: warned about, never refused. The preview and the export write each
 account's name as it is now, and a blank fee currency is the one the save
-fills in (#303). Until B7a's gate a file names only 1 to 4 and External, so
-the round trip with added accounts opens it as B7a will (gate_open).
+fills in (#303). A file names any of your accounts and External (B7a's
+gate, #354), so the round trip keeps the added accounts.
 """
 
 import csv as csv_module
@@ -93,15 +93,7 @@ def test_the_refusal_says_the_accounts_names_now(fresh_app, client):
         ("to_account", UNKNOWN.format("Kraken BTC", "Bank, Wallet, Coinbase USD, Coinbase BTC"))]
 
 
-def test_an_added_account_waits_for_the_gate(client):
-    """B7a opens the gate: until then a file names only the first bank,
-    wallet and exchange, and the refusal lists only them."""
-    add_them(client)
-    answer = preview(client, "2024-01-05T10:00:00Z,Deposit,0.1,External,Cold Storage,100,,,,MyBTC,")
-    assert preview_errors(answer) == [("to_account", UNKNOWN.format("Cold Storage", FIRST))]
-
-
-def test_with_the_gate_open_an_added_account_is_read_by_its_name(gate_open, client):
+def test_an_added_account_is_read_by_its_name(client):
     add_them(client)
     answer = preview(client, "2024-01-05T10:00:00Z,Deposit,0.1,External,cold storage,100,,,,MyBTC,",
                      "2024-01-06T10:00:00Z,Deposit,0.1,External,Nowhere,100,,,,MyBTC,")
@@ -174,7 +166,7 @@ def test_an_id_with_no_account_is_exported_blank_as_before(fresh_app, client):
     assert [(r["from_account"], r["to_account"]) for r in exported(client)] == [("External", "")]
 
 
-# The round trip with added accounts (the gate open, as B7a opens it)
+# The round trip with added accounts
 ROWS = [
     {"type": "Deposit", "timestamp": "2024-01-01T12:00:00Z", "from_account_id": 99, "to_account_id": 101,
      "amount": "5000"},
@@ -204,7 +196,7 @@ def ledger(client: TestClient) -> dict:
             "gains": client.get("/api/calculations/gains-and-losses").json()}
 
 
-def test_a_csv_round_trip_keeps_the_added_accounts(gate_open, client):
+def test_a_csv_round_trip_keeps_the_added_accounts(client):
     add_them(client)
     for tx in ROWS:
         r = client.post("/api/transactions", json=tx)
