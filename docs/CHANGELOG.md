@@ -4,6 +4,22 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+## [v2.0.0-alpha.1] - 2026-10-24 - 2.0's first alpha: your wallets, exchanges and banks, each with its own coins
+
+**About this alpha.** BitcoinTX 2.0's first pre-release, for anyone who
+chooses to try 2.0 before it's released: never for real records (the owner's
+decision 28, #251: alphas first, then betas, then 2.0 on Start9). 2.0 tracks
+each wallet, exchange and bank you use, each wallet and exchange with its own
+cost-basis lots; fills Form 8949 and the tax report per exchange, with each
+exchange's own Form 1099-DA setting; imports any exchange's CSV file; asks
+before a change moves an earlier tax year's figures; and upgrades a 1.x
+ledger without moving a figure, keeping a copy of the 1.x database to go
+back to. On a Mac it is a separate app, BitcoinTX Preview, beside BitcoinTX;
+on StartOS it updates BitcoinTX in place, after a StartOS backup; on Docker,
+start it on a new volume. Every 1.x change up to 1.2.10, and those since
+(under [Unreleased] below), is in it too. The AI connector is
+`btctx-mcp==2.0.0a1`.
+
 ### Added
 - **The pre-releases' own builds** (B10a, #532; the owner's decision 28 on
   #251: alphas, then betas). A 2.0 pre-release (`VERSION` 2.0.0-alpha.N or

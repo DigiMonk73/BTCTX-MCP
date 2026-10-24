@@ -1,5 +1,5 @@
 import { request as playwrightRequest, type Page } from "@playwright/test";
-import { test, expect, USER, PASSWORD, claimAccount, createTx, loginViaUi, setupCode, type App, openSection } from "./fixtures";
+import { test, expect, USER, PASSWORD, MAC_APP, claimAccount, createTx, loginViaUi, setupCode, type App, openSection } from "./fixtures";
 
 test("Create account shows only until the default login is claimed", async ({ page, app }) => {
   // Afterwards /register resets the account (every transaction deleted).
@@ -422,7 +422,7 @@ test.describe("the Mac app", () => {
   test("a window that can't supply the code offers the typed field and says where it is", async ({ page, app }) => {
     await asTheAppWindow(page, setupCode(app), false);
     await page.goto("/login");
-    await expect(page.getByText("setup-code.txt in BitcoinTX's data folder")).toBeVisible();
+    await expect(page.getByText(`setup-code.txt in ${MAC_APP}'s data folder`)).toBeVisible();
     await expect(page.getByText("set your own username and password in Settings")).toBeVisible();
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("password");
