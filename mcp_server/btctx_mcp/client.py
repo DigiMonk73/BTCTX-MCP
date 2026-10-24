@@ -5,9 +5,9 @@ Two ways in, both with an AI key sent as a bearer token (never a password):
 - The Mac app on the same computer: no settings needed. The app writes
   ~/Library/Application Support/BitcoinTX/mcp.json (owner-only) with its URL
   and the key; the client reads it, and reads it again if the key was reset
-  or the app restarted. A 2.0 pre-release of the connector (2.0.0bN) reads
-  BitcoinTX Beta's instead, the Mac beta app installed beside BitcoinTX, so
-  it never reaches the installed app's real ledger.
+  or the app restarted. A 2.0 pre-release of the connector (2.0.0aN, 2.0.0bN)
+  reads BitcoinTX Preview's instead, the Mac pre-release app installed beside
+  BitcoinTX, so it never reaches the installed app's real ledger.
 - Docker or StartOS: BTCTX_URL and BTCTX_AI_KEY, the key the owner created
   in BitcoinTX Settings.
 
@@ -156,10 +156,11 @@ def _home_name(name: str) -> bool:
 
 def mac_app(version: str | None = None) -> str:
     """The Mac app this connector (or `version` of it) belongs with:
-    BitcoinTX, or BitcoinTX Beta for a 2.0 pre-release of the connector
-    (PEP 440's 2.0.0bN; 2.0 plan 7.4, B10a), the beta app installed beside it."""
-    beta = re.fullmatch(r"\d+\.\d+\.\d+b[1-9]\d*", __version__ if version is None else version)
-    return "BitcoinTX Beta" if beta else "BitcoinTX"
+    BitcoinTX, or BitcoinTX Preview for a 2.0 pre-release of the connector,
+    an alpha or a beta (PEP 440's 2.0.0aN, 2.0.0bN; 2.0 plan 7.4, B10a), the
+    pre-release app installed beside it."""
+    pre = re.fullmatch(r"\d+\.\d+\.\d+[ab][1-9]\d*", __version__ if version is None else version)
+    return "BitcoinTX Preview" if pre else "BitcoinTX"
 
 
 def default_key_file(version: str | None = None) -> Path:

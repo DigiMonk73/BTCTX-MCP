@@ -22,7 +22,9 @@ password.
 - **The BitcoinTX Mac app on this computer** (0.9.2 or later; the prompt says
   the server "finds it by itself"): no URL, key or password in the
   configuration. The app writes its address and the AI key to a private file
-  (`~/Library/Application Support/BitcoinTX/mcp.json`) that the server reads.
+  (`~/Library/Application Support/BitcoinTX/mcp.json`; a 2.0 alpha's or
+  beta's, BitcoinTX Preview's, in `~/Library/Application Support/BitcoinTX
+  Preview/`) that the server reads.
   **Never put a password in the configuration.** Do section 1 (only uv) and
   section 2A, then section 4.
 - **Docker or StartOS** (1.0.3 or later): the values below. If you don't have
@@ -40,20 +42,26 @@ refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server `bitcoi
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
-**A BitcoinTX 2.0 beta** (its prompt names the server `bitcointx-beta` and
-the connector `btctx-mcp==2.0.0bN`):
-- a `bitcointx-beta` server already there: change only the version in its
-  arguments, as below;
-- a `bitcointx` server with the same `BTCTX_URL` as the prompt's is this
-  same BitcoinTX (on StartOS the beta updated the user's BitcoinTX in
-  place): change its version instead of adding another server;
-- otherwise add it as `bitcointx-beta`, and leave any `bitcointx` server
+**A BitcoinTX 2.0 alpha or beta** (its prompt names the server
+`bitcointx-preview` and the connector `btctx-mcp==2.0.0aN` or `2.0.0bN`):
+- a `bitcointx-preview` server already there: change only the version in
+  its arguments, as below;
+- only when the prompt gives a `BTCTX_URL` (Docker or StartOS): a
+  `bitcointx` server that reaches the same server is this same BitcoinTX
+  (on StartOS the pre-release updated the user's BitcoinTX in place).
+  Compare the host and port, ignoring a trailing `/api` (StartOS's MCP
+  address ends in it); a StartOS server's `.local` name, its IP address and
+  its `.onion` address are the same server. Change that server's version
+  instead of adding another;
+- otherwise add it as `bitcointx-preview`, and leave any `bitcointx` server
   exactly as it is: it reaches the user's own BitcoinTX (another address,
-  or, with no `BTCTX_URL`, the BitcoinTX Mac app; on a Mac the beta is a
-  separate app, BitcoinTX Beta, and its prompt has no address either).
+  or, with no `BTCTX_URL`, the BitcoinTX Mac app). On a Mac the pre-release
+  is a separate app, BitcoinTX Preview, which must be open, and its prompt
+  has no address: never change a `bitcointx` server there.
 
-**Already set up?** If their AI app already has a `bitcointx` server, don't
-add it again: change only the version in its arguments to
+**Already set up?** (A release; for a 2.0 alpha or beta, the rule just
+above.) If their AI app already has a `bitcointx` server, don't add it
+again: change only the version in its arguments to
 `btctx-mcp==X.Y.Z`, keep its key and certificate path, and restart the app
 ([Updating](README.md#updating)).
 

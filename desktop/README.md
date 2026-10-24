@@ -27,8 +27,8 @@ Creates `desktop/.venv`, installs the locks `backend/requirements.txt` and
 `desktop/requirements.txt` (hashes checked), builds the frontend, and runs
 PyInstaller.
 Output: `desktop/dist/BitcoinTX.app` (plus `BitcoinTX.dmg` if `create-dmg`
-is installed); for a 2.0 pre-release (`VERSION` 2.0.0-beta.N), `BitcoinTX
-Beta.app` and `BitcoinTX-Beta.dmg`. The build empties `desktop/dist` first.
+is installed); for a 2.0 pre-release, an alpha or a beta, `BitcoinTX
+Preview.app` and `BitcoinTX-Preview.dmg`. The build empties `desktop/dist` first.
 
 To try the build on a Mac where BitcoinTX is installed, never `open` it
 or run its binary by itself: that opens the real ledger. Use the script, for

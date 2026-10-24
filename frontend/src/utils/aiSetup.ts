@@ -12,18 +12,19 @@
  * pasted into an AI chat is sent to the AI provider, so every configuration
  * carries a placeholder the user replaces on their own computer.
  *
- * A 2.0 pre-release (2.0.0-beta.N, 2.0 plan 7.4, B10a) pins its own
- * connector (PEP 440's 2.0.0bN), links its tag's guide, and names the server
- * "bitcointx-beta": unpinned, the latest 1.x connector would run, whose key
- * file is the installed Mac app's, and under "bitcointx" the AI app's entry
- * for the tester's own BitcoinTX would be replaced.
+ * A 2.0 pre-release, an alpha or a beta (2.0.0-alpha.N, 2.0.0-beta.N; 2.0
+ * plan 7.4, B10a), pins its own connector (PEP 440's 2.0.0aN, 2.0.0bN),
+ * links its tag's guide, and names the server "bitcointx-preview": unpinned,
+ * the latest 1.x connector would run, whose key file is the installed Mac
+ * app's, and under "bitcointx" the AI app's entry for the tester's own
+ * BitcoinTX would be replaced.
  */
 
-import { betaParts } from "./betaVersion";
+import { macApp, prereleaseParts } from "./prereleaseVersion";
 
 export const REPO_URL = "https://github.com/DigiMonk73/BTCTX-MCP";
 export const SERVER_NAME = "bitcointx";
-export const BETA_SERVER_NAME = "bitcointx-beta";
+export const PREVIEW_SERVER_NAME = "bitcointx-preview";
 export const KEY_PLACEHOLDER = "YOUR_BITCOINTX_AI_KEY";
 export const CA_BUNDLE_PLACEHOLDER = "/path/to/root-ca.crt";
 
@@ -40,23 +41,23 @@ const RELEASE = /^\d+\.\d+\.\d+$/;
 
 /** The release (or pre-release) tag matching this app, or main when the version is unknown. */
 export function gitRef(version?: string): string {
-  return version && (RELEASE.test(version) || betaParts(version)) ? `v${version}` : "main";
+  return version && (RELEASE.test(version) || prereleaseParts(version)) ? `v${version}` : "main";
 }
 
-/** The name the AI app knows this BitcoinTX by: a beta's apart from the tester's own. */
+/** The name the AI app knows this BitcoinTX by: a pre-release's apart from the tester's own. */
 export function serverName(version?: string): string {
-  return betaParts(version) ? BETA_SERVER_NAME : SERVER_NAME;
+  return prereleaseParts(version) ? PREVIEW_SERVER_NAME : SERVER_NAME;
 }
 
 /**
  * The MCP server from PyPI, pinned to this app's release (btctx-mcp==X.Y.Z,
- * a beta's btctx-mcp==X.Y.ZbN): the AI app runs exactly that version and
+ * an alpha's btctx-mcp==X.Y.ZaN, a beta's X.Y.ZbN): the AI app runs exactly that version and
  * asks nothing new at each start. When BitcoinTX is updated, the server's
  * replies say which version to set.
  */
 export function serverPackage(version?: string): string {
-  const beta = betaParts(version);
-  if (beta) return `btctx-mcp==${beta.release}b${beta.beta}`;
+  const pre = prereleaseParts(version);
+  if (pre) return `btctx-mcp==${pre.release}${pre.stage}${pre.n}`;
   return version && RELEASE.test(version) ? `btctx-mcp==${version}` : "btctx-mcp";
 }
 
@@ -101,12 +102,14 @@ export function buildAiPrompt(input: AiSetupInput): string {
     "",
     "If you can't change your own configuration, give me the exact steps instead. " +
       "Once it's connected, call get_portfolio to confirm it works" +
-      (input.keyMode ? " (BitcoinTX must be open)." : "."),
+      (input.keyMode ? ` (${macApp(input.version)} must be open).` : "."),
   ];
   if (input.keyMode) {
     return [
       ...intro,
-      "BitcoinTX is the Mac app on this computer. The MCP server finds it by itself, so it needs no " +
+      // A pre-release's own Mac app, beside BitcoinTX: the server reads its key file
+      `BitcoinTX is the Mac app ${macApp(input.version) === "BitcoinTX" ? "" : `${macApp(input.version)} `}` +
+        "on this computer. The MCP server finds it by itself, so it needs no " +
         "URL, key or password: don't add any to the configuration, and don't ask me for my password.",
       `- Server command: uvx ${serverPackage(input.version)}`,
       ...outro,

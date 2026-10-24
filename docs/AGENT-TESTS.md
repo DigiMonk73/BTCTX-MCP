@@ -60,10 +60,10 @@ isn't ready for this walk.
 | Release candidate | the `develop` commit that bumps `VERSION` to the new version (call it `X.Y.Z`, the commit `$SHA`) |
 | `btctx_x86_64.s9pk` | that commit's CI run, artifact `btctx-s9pk-x86_64` (`gh run download <run id> -n btctx-s9pk-x86_64`) |
 | Previous release's `btctx.s9pk` | the latest release on https://github.com/DigiMonk73/BTCTX-MCP/releases (Track B) |
-| Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Beta-macOS`, holding `BitcoinTX Beta.app` |
+| Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Preview-macOS`, holding `BitcoinTX Preview.app` |
 | MCP connector | not on PyPI until the release, so run it from the commit: `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP@$SHA#subdirectory=mcp_server" btctx-mcp` |
 | The last 1.x release (2.0 and its pre-releases: Track B, AI-15, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
-| A pre-release (BETA) | the GitHub pre-release `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Beta-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` and the connector `uvx btctx-mcp==2.0.0bN`; for BETA-2 also the pre-release before it |
+| A pre-release (BETA) | the GitHub pre-release `v2.0.0-alpha.N` or `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Preview-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` (or `-alpha.N`) and the connector `uvx btctx-mcp==2.0.0bN` (an alpha's `2.0.0aN`); for BETA-2 also the pre-release before it |
 
 After the release is published, repeat INS-1 to INS-7 and AI-7 to AI-8
 with the published `btctx.s9pk` and `uvx btctx-mcp==X.Y.Z`. That confirms
@@ -1689,7 +1689,7 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   Choose its login as MAC-3 does, run `golden_loader.py` with
   `BTCTX_URL=http://127.0.0.1:8766` and that login, record the Dashboard
   figures, and quit. Start the candidate's app (Track C's UNPACKED; for a
-  pre-release, `BitcoinTX Beta.app`) with the script, without `--fresh`.
+  pre-release, `BitcoinTX Preview.app`) with the script, without `--fresh`.
   Expect `curl http://127.0.0.1:8766/api/health` with `"schema": "0100"`,
   the same figures, and `ls DATA/backups` listing
   `btctx-pre-2.0-from-0012-….db`. Quit it. The way back: `cp
@@ -1775,16 +1775,21 @@ point, leave it alone, touch nothing in it, and record that.
   this build has asked no public site). Set it back to **Nobody** and clear
   the address.
 
-## BETA: what a beta tester meets (2.0's pre-releases only)
+## BETA: what a tester of an alpha or a beta meets (2.0's pre-releases only)
 
-2.0's betas are GitHub pre-releases, `v2.0.0-beta.N`: never "Latest",
-never on Start9's registries, and `uvx btctx-mcp` without a version, the
-Docker tags `:latest` and `:main` and the Mac app's download all stay on
-1.x. Before each pre-release, beside Tracks A, B and C, WAY and REF on its
-commit's artifacts, run these with the pre-release's own files (Inputs).
-For beta.1 their names come from B10a's plan (7.4 of
-`docs/temp/2.0-accounts.md`): a name that differs in the build is a
-FAIL to report, not a step to skip.
+2.0's pre-releases are GitHub pre-releases, first alphas (`v2.0.0-alpha.N`),
+then betas (`v2.0.0-beta.N`; #251's decision 28): never "Latest", never on
+Start9's registries, and `uvx btctx-mcp` without a version, the Docker tags
+`:latest` and `:main` and the Mac app's download all stay on 1.x. The cases
+say "beta"; an alpha's are the same with `alpha` for `beta` (its connector
+`2.0.0aN`). Before beta.1, beside Tracks A, B and C, WAY (WAY-3 included)
+and REF on its commit's artifacts, run these with the pre-release's own
+files (Inputs); before a later one, those of what changed. (Before alpha.1
+the gate is CI's full set green on `2.0` and B9's VM trial repeated on that
+build: the update over Start9's 1.2.10 and the ways back.) Their names come
+from B10a's plan (7.4 of `docs/temp/2.0-accounts.md`, with decision 28's
+"BitcoinTX Preview"): a name that differs in the build is a FAIL to report,
+not a step to skip.
 
 - **BETA-1** (StartOS VM, from `clean`; needs the second disk and the VM's
   StartOS password) As a tester would: install BitcoinTX from Start9's
@@ -1813,10 +1818,10 @@ FAIL to report, not a step to skip.
   otherwise; and no new `btctx-pre-2.0-….db` (only an update from 1.x
   makes one). At the release (B10b), the same from the last pre-release
   to the release candidate.
-- **BETA-3** (a Mac) The beta app, "BitcoinTX Beta", only through the
-  script (Track C's rules): unpack `BitcoinTX-Beta-macOS.zip` into a temp
+- **BETA-3** (a Mac) The pre-release app, "BitcoinTX Preview", only through the
+  script (Track C's rules): unpack `BitcoinTX-Preview-macOS.zip` into a temp
   folder (UNPACKED) and start it with `REPO/desktop/run-test-build.sh
-  --app "UNPACKED/BitcoinTX Beta.app" --fresh --background`. Expect its
+  --app "UNPACKED/BitcoinTX Preview.app" --fresh --background`. Expect its
   window, and `curl http://127.0.0.1:8766/api/health` with
   `2.0.0-beta.N`. Choose its login as MAC-3 does. Settings, open **Backup
   & Restore**: Restore from Backup with UPG-1's `golden-1x.btx` and
@@ -1825,14 +1830,14 @@ FAIL to report, not a step to skip.
   MAC-3's login works; every golden figure; **Wallets, exchanges and
   banks** "1 wallet · 1 exchange · 1 bank". The script sets the folder,
   port and home itself, so the beta's own (its folder `~/Library/Application
-  Support/BitcoinTX Beta`, its own port) are B10a's unit tests', not
-  checked here: never start the beta app by itself on a Mac with
+  Support/BitcoinTX Preview`, its own port) are B10a's unit tests', not
+  checked here: never start the Preview app by itself on a Mac with
   BitcoinTX installed.
-- **BETA-4** (with BETA-3's app) The AI setup the beta hands out.
+- **BETA-4** (with BETA-3's app) The AI setup the pre-release hands out.
   Settings, open **Connect an AI Assistant**. Expect the Setup prompt and
   every command shown (Claude Desktop, Claude Code, Grok Build) to run
   `btctx-mcp==2.0.0bN`, never an unpinned `btctx-mcp` nor 1.x's, under the
-  server name `bitcointx-beta` (never `bitcointx`, the installed app's), and
+  server name `bitcointx-preview` (never `bitcointx`, the installed app's), and
   the prompt to link `v2.0.0-beta.N`'s `AI_SETUP.md`. Tick **Let AI assistants
   use BitcoinTX** and run that connector as MAC-4 does, with
   `MCP="uvx btctx-mcp==2.0.0bN"` and `-e BTCTX_MCP_FILE=DATA/mcp.json`.
@@ -1941,7 +1946,7 @@ exchange's published format, never from a real export, and the screen
 says so ("… not yet checked against a real one: check the preview's rows
 against your file before you import them."). Before 2.0's release, anyone
 who holds a real export of one of them runs MAP-1 for it, on a test
-install only (the beta app through `desktop/run-test-build.sh`, a
+install only (the Preview app through `desktop/run-test-build.sh`, a
 throwaway Docker container or the VM), never on their own ledger. The
 export stays on their machine: never committed, attached to an issue,
 pasted anywhere or given to an AI, and no figure from it is written down.

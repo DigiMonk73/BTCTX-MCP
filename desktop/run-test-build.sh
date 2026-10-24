@@ -9,7 +9,7 @@
 #   desktop/run-test-build.sh --where       # print the folder (mcp.json is in it)
 #
 #   --app PATH     the build to run (default: the one app in desktop/dist,
-#                  BitcoinTX.app or a pre-release's BitcoinTX Beta.app); one
+#                  BitcoinTX.app or a pre-release's BitcoinTX Preview.app); one
 #                  older than this script also gets a test home (HOME=<folder>/home),
 #                  so it can't reach the real ledger either
 #   --fresh        empty the test folder first (refused while a test run is open)
@@ -18,7 +18,7 @@
 # The folder is $BTCTX_TEST_DATA_DIR, else btctx-test-build in the user's
 # temp folder. The script uses only a folder that is empty or that it marked
 # as its own, and never an installed app's folder (BitcoinTX's, or BitcoinTX
-# Beta's: a tester's copy of their ledger) however it is spelled. An
+# Preview's: a tester's copy of their ledger) however it is spelled. An
 # MCP server reaches the test run with BTCTX_MCP_FILE=<folder>/mcp.json in
 # the server's own environment (the MCP Inspector's -e, a client's "env" block).
 set -euo pipefail
@@ -58,7 +58,7 @@ lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 # the way up, so a symlink or another spelling is caught too.
 in_real_folder() {
   local real
-  for real in "$HOME/Library/Application Support/BitcoinTX" "$HOME/Library/Application Support/BitcoinTX Beta"; do
+  for real in "$HOME/Library/Application Support/BitcoinTX" "$HOME/Library/Application Support/BitcoinTX Preview"; do
     in_folder "$1" "$real" && return 0
   done
   return 1

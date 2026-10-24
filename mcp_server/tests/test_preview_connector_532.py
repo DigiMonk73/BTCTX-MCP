@@ -1,12 +1,14 @@
 """
-The connector of a 2.0 pre-release (2.0 plan 7.4, B10a, point 2; #532).
+The connector of a 2.0 pre-release, an alpha or a beta (2.0 plan 7.4, B10a,
+point 2; #532; #251's decision 28).
 
-On PyPI a beta is btctx-mcp 2.0.0bN (PEP 440's form of 2.0.0-beta.N). It
-belongs with BitcoinTX Beta, the Mac beta app installed beside BitcoinTX:
-its default key file is that app's, so a beta connector never reaches the
-installed app's real ledger. And it reads a beta version on either side:
-PEP 440 sorts 2.0.0b1 below 2.0.0, and BitcoinTX says 2.0.0-beta.1 where
-the connector says 2.0.0b1.
+On PyPI an alpha is btctx-mcp 2.0.0aN and a beta 2.0.0bN (PEP 440's forms of
+2.0.0-alpha.N and 2.0.0-beta.N). Each belongs with BitcoinTX Preview, the
+Mac pre-release app installed beside BitcoinTX: its default key file is that
+app's, so a pre-release connector never reaches the installed app's real
+ledger. And it reads a pre-release version on either side: PEP 440 sorts
+2.0.0a1 below 2.0.0b1 below 2.0.0, and BitcoinTX says 2.0.0-beta.1 where the
+connector says 2.0.0b1.
 """
 
 from pathlib import Path
@@ -26,10 +28,10 @@ def home(monkeypatch, tmp_path):
 
 
 @pytest.mark.parametrize("version, app", [
-    ("2.0.0b1", "BitcoinTX Beta"), ("2.0.0b12", "BitcoinTX Beta"),
+    ("2.0.0b1", "BitcoinTX Preview"), ("2.0.0b12", "BitcoinTX Preview"), ("2.0.0a1", "BitcoinTX Preview"),
     ("2.0.0", "BitcoinTX"), ("1.2.10", "BitcoinTX"), ("unknown", "BitcoinTX"),
 ])
-def test_a_beta_connectors_key_file_is_the_beta_apps(home, version, app):
+def test_a_pre_release_connectors_key_file_is_the_preview_apps(home, version, app):
     assert client.mac_app(version) == app
     assert client.default_key_file(version) == home / SUPPORT / app / "mcp.json"
 
@@ -39,7 +41,7 @@ def test_the_connector_takes_its_own_version(home, monkeypatch):
     from_env takes when no key is configured (the Mac app's key file)."""
     monkeypatch.delenv("BTCTX_AI_KEY", raising=False)
     monkeypatch.delenv("BTCTX_PASSWORD", raising=False)
-    for version, app in (("2.0.0b1", "BitcoinTX Beta"), ("1.2.10", "BitcoinTX")):
+    for version, app in (("2.0.0b1", "BitcoinTX Preview"), ("2.0.0a2", "BitcoinTX Preview"), ("1.2.10", "BitcoinTX")):
         monkeypatch.setattr(client, "__version__", version)
         assert client.default_key_file() == home / SUPPORT / app / "mcp.json"
         assert client.BtctxClient.from_env()._key_file == home / SUPPORT / app / "mcp.json"
@@ -50,16 +52,18 @@ def test_btctx_mcp_file_still_wins(home, monkeypatch):
     assert client.default_key_file("2.0.0b1") == home / "elsewhere.json"
 
 
-def test_a_beta_connector_says_to_open_the_beta_app(monkeypatch):
+def test_a_pre_release_connector_says_to_open_the_preview_app(monkeypatch):
     monkeypatch.setattr(client, "__version__", "2.0.0b1")
-    assert "Open the BitcoinTX Beta app and try again" in client.BtctxClient._not_found(["x: not found"])
+    assert "Open the BitcoinTX Preview app and try again" in client.BtctxClient._not_found(["x: not found"])
     monkeypatch.setattr(client, "__version__", "1.2.10")
     assert "Open the BitcoinTX app and try again" in client.BtctxClient._not_found(["x: not found"])
 
 
-def test_the_same_beta_on_both_sides_is_no_mismatch():
+def test_the_same_pre_release_on_both_sides_is_no_mismatch():
     assert server.mismatch_notice("2.0.0b1", "2.0.0-beta.1") is None
     assert server.mismatch_notice("2.0.0b3", "2.0.0-beta.3") is None
+    assert server.mismatch_notice("2.0.0a2", "2.0.0-alpha.2") is None
+    assert server.mismatch_notice("2.0.0a1", "2.0.0-beta.1") is not None  # alpha.1 is not beta.1
 
 
 def test_another_beta_gets_the_pin_pip_takes():
@@ -68,6 +72,13 @@ def test_another_beta_gets_the_pin_pip_takes():
     assert "change btctx-mcp==2.0.0b1 in its uvx command to btctx-mcp==2.0.0b2" in older
     newer = server.mismatch_notice("2.0.0b3", "2.0.0-beta.2")
     assert "Update BitcoinTX, or set the connector back to v2.0.0b2" in newer
+
+
+def test_an_alpha_sorts_before_the_betas():
+    assert "to btctx-mcp==2.0.0b1," in server.mismatch_notice("2.0.0a3", "2.0.0-beta.1")
+    assert "Update BitcoinTX, or set the connector back to v2.0.0a3" in server.mismatch_notice("2.0.0b1", "2.0.0-alpha.3")
+    assert "to btctx-mcp==2.0.0a2," in server.mismatch_notice("2.0.0a1", "2.0.0-alpha.2")
+    assert "to btctx-mcp==2.0.0a1," in server.mismatch_notice("1.2.10", "2.0.0-alpha.1")
 
 
 def test_a_release_sorts_after_its_betas():

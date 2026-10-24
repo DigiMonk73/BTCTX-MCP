@@ -141,7 +141,7 @@ echo ""
 echo "[5/6] Building application bundle..."
 
 cd "$SCRIPT_DIR"
-# Only this build's app in dist/: BitcoinTX.app, or BitcoinTX Beta.app for a
+# Only this build's app in dist/: BitcoinTX.app, or BitcoinTX Preview.app for a
 # 2.0 pre-release (the spec takes its name from VERSION)
 rm -rf "$SCRIPT_DIR/dist"
 pyinstaller --clean --noconfirm BitcoinTX.spec

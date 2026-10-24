@@ -7,10 +7,11 @@ The installed app's data folder holds the owner's real ledger. A test build
 run as is would open that ledger, so BTCTX_DESKTOP_DATA_DIR points a test run
 at a throwaway folder instead, with its log kept there too.
 
-A 2.0 pre-release (VERSION 2.0.0-beta.N, 2.0 plan 7.4, B10a) is another app,
-"BitcoinTX Beta", installed beside BitcoinTX, never in its place: its own
-bundle id and its own folders, so a tester's real ledger is never opened or
-upgraded. It refuses the installed app's folder however that is spelled, as
+A 2.0 pre-release (VERSION 2.0.0-alpha.N or 2.0.0-beta.N, 2.0 plan 7.4,
+B10a; #251's decision 28) is another app, "BitcoinTX Preview", installed
+beside BitcoinTX, never in its place: its own bundle id and its own folders,
+so a tester's real ledger is never opened or upgraded, and their test ledger
+carries from one alpha or beta to the next. It refuses the installed app's folder however that is spelled, as
 desktop/run-test-build.sh does.
 """
 
@@ -19,31 +20,31 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from backend.version import app_version, is_beta_version
+from backend.version import app_version, is_prerelease_version
 
 DATA_DIR_ENV = "BTCTX_DESKTOP_DATA_DIR"
 APP_NAME = "BitcoinTX"
 APP_ID = "org.bitcointx.desktop"
-BETA_APP_NAME = "BitcoinTX Beta"
-BETA_APP_ID = "org.bitcointx.desktop.beta"
+PREVIEW_APP_NAME = "BitcoinTX Preview"
+PREVIEW_APP_ID = "org.bitcointx.desktop.preview"
 
 
 class InstalledAppsFolder(RuntimeError):
-    """The beta was given the installed app's folder: it won't open it."""
+    """BitcoinTX Preview was given the installed app's folder: it won't open it."""
 
 
-def is_beta() -> bool:
-    """Whether this build is a 2.0 pre-release, BitcoinTX Beta."""
-    return is_beta_version(app_version())
+def is_preview() -> bool:
+    """Whether this build is a 2.0 pre-release, an alpha or a beta: BitcoinTX Preview."""
+    return is_prerelease_version(app_version())
 
 
 def own_name() -> str:
     """The app's own name: its bundle's, its folders' and its window's."""
-    return BETA_APP_NAME if is_beta() else APP_NAME
+    return PREVIEW_APP_NAME if is_preview() else APP_NAME
 
 
 def bundle_id() -> str:
-    return BETA_APP_ID if is_beta() else APP_ID
+    return PREVIEW_APP_ID if is_preview() else APP_ID
 
 
 def data_dir_override() -> Path | None:
@@ -84,12 +85,12 @@ def log_dir() -> Path:
 
 
 def _refuse_installed_folder(folder: Path, installed: Path, what: str) -> None:
-    """The beta never uses the installed app's folder, nor one inside it."""
-    if is_beta() and _is_or_inside(folder, installed):
+    """BitcoinTX Preview never uses the installed app's folder, nor one inside it."""
+    if is_preview() and _is_or_inside(folder, installed):
         holds = ", which holds its ledger" if what == "data folder" else ""
         raise InstalledAppsFolder(
-            f"{BETA_APP_NAME} won't use {folder}: it is, or is inside, the installed BitcoinTX's "
-            f"{what}{holds}. Give BitcoinTX Beta a folder of its own."
+            f"{PREVIEW_APP_NAME} won't use {folder}: it is, or is inside, the installed BitcoinTX's "
+            f"{what}{holds}. Give BitcoinTX Preview a folder of its own."
         )
 
 

@@ -14,9 +14,9 @@ from PyInstaller.utils.hooks import collect_submodules
 SPEC_DIR = Path(SPECPATH)
 PROJECT_ROOT = SPEC_DIR.parent
 
-# The app's name and bundle id: BitcoinTX, or BitcoinTX Beta for a 2.0
-# pre-release (VERSION 2.0.0-beta.N), installed beside it (2.0 plan 7.4,
-# B10a). desktop_paths reads VERSION as the app will
+# The app's name and bundle id: BitcoinTX, or BitcoinTX Preview for a 2.0
+# pre-release (VERSION 2.0.0-alpha.N or 2.0.0-beta.N), installed beside it
+# (2.0 plan 7.4, B10a; #251's decision 28). desktop_paths reads VERSION as the app will
 sys.path[:0] = [str(PROJECT_ROOT), str(SPEC_DIR)]
 from desktop_paths import bundle_id, own_name  # noqa: E402
 
@@ -274,7 +274,7 @@ coll = COLLECT(
     name="BitcoinTX",
 )
 
-# Apple takes only numbers for a bundle's version: a beta's bundle says
+# Apple takes only numbers for a bundle's version: a pre-release's bundle says
 # X.Y.Z, and the app shows its VERSION itself
 app = BUNDLE(
     coll,

@@ -11,7 +11,7 @@ reads the app's AI key file):
   BTCTX_AI_KEY       the AI key created in BitcoinTX Settings (Docker, StartOS)
   BTCTX_MCP_FILE     the Mac app's key file, if not in the default place
                      (~/Library/Application Support/BitcoinTX/mcp.json; a
-                     2.0 pre-release connector's: BitcoinTX Beta's)
+                     2.0 pre-release connector's: BitcoinTX Preview's)
   BTCTX_VERIFY_TLS   "false" to accept a self-signed certificate
   BTCTX_CA_BUNDLE    path to a CA bundle for a private certificate
 BTCTX_PASSWORD is no longer used: while it is set, every tool says to replace
@@ -140,28 +140,33 @@ def connector_version() -> str | None:
         return None
 
 
-# A version: BitcoinTX's X.Y.Z or a 2.0 pre-release's X.Y.Z-beta.N, or the
-# connector's own, in PEP 440's form (X.Y.ZbN for a beta)
-VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:(?:-beta\.|b)([1-9]\d*))?")
+# A version: BitcoinTX's X.Y.Z or a 2.0 pre-release's X.Y.Z-alpha.N or
+# X.Y.Z-beta.N, or the connector's own, in PEP 440's form (X.Y.ZaN, X.Y.ZbN)
+VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)(?:(?:-(alpha|beta)\.|([ab]))([1-9]\d*))?")
+# An alpha sorts before a beta, a beta before its release
+STAGES = {"a": 0, "b": 1}
+FINAL = 2
 
 
 def _release(version: str) -> tuple | None:
-    """A version to compare: a release sorts after its betas (2.0 plan 7.4,
-    B10a), so BitcoinTX's 2.0.0-beta.1 and the connector's 2.0.0b1 are one."""
+    """A version to compare: a release sorts after its betas, a beta after
+    the alphas (2.0 plan 7.4, B10a), so BitcoinTX's 2.0.0-beta.1 and the
+    connector's 2.0.0b1 are one."""
     found = VERSION.fullmatch(version)
     if not found:
         return None
-    x, y, z, beta = found.groups()
-    return int(x), int(y), int(z), 0 if beta else 1, int(beta or 0)
+    x, y, z, word, letter, n = found.groups()
+    stage = (word or letter or "")[:1]
+    return int(x), int(y), int(z), STAGES.get(stage, FINAL), int(n or 0)
 
 
 def _pinned(version: str) -> str:
-    """The version as btctx-mcp== takes it: PEP 440's X.Y.ZbN for a beta."""
+    """The version as btctx-mcp== takes it: PEP 440's X.Y.ZaN, X.Y.ZbN for a pre-release."""
     release = _release(version)
     if release is None:
         return version
-    x, y, z, final, beta = release
-    return f"{x}.{y}.{z}" if final else f"{x}.{y}.{z}b{beta}"
+    x, y, z, stage, n = release
+    return f"{x}.{y}.{z}" if stage == FINAL else f"{x}.{y}.{z}{'ab'[stage]}{n}"
 
 
 def mismatch_notice(connector: str | None, app: str | None) -> str | None:

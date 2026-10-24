@@ -1,9 +1,11 @@
 """
-The Mac beta app, "BitcoinTX Beta" (2.0 plan 7.4, B10a, point 2; #532).
+The Mac pre-release app, "BitcoinTX Preview" (2.0 plan 7.4, B10a, point 2;
+#532; #251's decision 28: one app for every alpha and beta).
 
-A build is the beta when VERSION has a pre-release suffix (2.0.0-beta.N),
-and the ordinary app otherwise, so 2.0.0 builds BitcoinTX with no edit. The
-beta is installed beside BitcoinTX, never in its place: its own name and
+A build is BitcoinTX Preview when VERSION has a pre-release suffix
+(2.0.0-alpha.N or 2.0.0-beta.N), and the ordinary app otherwise, so 2.0.0
+builds BitcoinTX with no edit. The Preview is installed beside BitcoinTX,
+never in its place: its own name and
 bundle id, its own data and log folders, its own port. So a tester's real
 ledger is never opened or upgraded, and like desktop/run-test-build.sh it
 refuses the installed app's folder however that is spelled.
@@ -24,7 +26,7 @@ sys.path.insert(0, str(DESKTOP))
 import desktop_paths  # noqa: E402
 import desktop_ports  # noqa: E402
 
-BETA, RELEASE = "2.0.0-beta.1", "2.0.0"
+BETA, ALPHA, RELEASE = "2.0.0-beta.1", "2.0.0-alpha.1", "2.0.0"
 
 
 @pytest.fixture
@@ -44,28 +46,32 @@ def installed(home: Path) -> Path:
     return home / "Library" / "Application Support" / "BitcoinTX"
 
 
-@pytest.mark.parametrize("value, beta", [
-    ("2.0.0-beta.1", True), ("2.0.0-beta.12", True),
+@pytest.mark.parametrize("value, preview", [
+    ("2.0.0-beta.1", True), ("2.0.0-beta.12", True), ("2.0.0-alpha.1", True), ("2.0.0-alpha.7", True),
     ("2.0.0", False), ("1.2.10", False), ("unknown", False), ("2.0.0-rc.1", False), ("2.0.0-beta.0", False),
+    ("2.0.0-alpha.0", False), ("2.0.0b1", False),
 ])
-def test_a_build_is_the_beta_only_when_version_is_a_beta(monkeypatch, value, beta):
+def test_a_build_is_the_preview_only_when_version_is_an_alpha_or_a_beta(monkeypatch, value, preview):
     version(monkeypatch, value)
-    assert desktop_paths.is_beta() is beta
+    assert desktop_paths.is_preview() is preview
 
 
-def test_the_beta_has_its_own_name_and_bundle_id(monkeypatch, home):
-    version(monkeypatch, BETA)
-    assert (desktop_paths.own_name(), desktop_paths.bundle_id()) == ("BitcoinTX Beta", "org.bitcointx.desktop.beta")
-    assert desktop_paths.app_name() == "BitcoinTX Beta"
+@pytest.mark.parametrize("value", [ALPHA, BETA])
+def test_every_alpha_and_beta_is_one_app_with_its_own_name_and_bundle_id(monkeypatch, home, value):
+    version(monkeypatch, value)
+    assert (desktop_paths.own_name(), desktop_paths.bundle_id()) == ("BitcoinTX Preview", "org.bitcointx.desktop.preview")
+    assert desktop_paths.app_name() == "BitcoinTX Preview"
     version(monkeypatch, RELEASE)
     assert (desktop_paths.own_name(), desktop_paths.bundle_id()) == ("BitcoinTX", "org.bitcointx.desktop")
     assert desktop_paths.app_name() == "BitcoinTX"
 
 
-def test_the_beta_keeps_its_data_and_log_in_folders_of_its_own(monkeypatch, home):
-    version(monkeypatch, BETA)
-    assert desktop_paths.data_dir() == home / "Library" / "Application Support" / "BitcoinTX Beta"
-    assert desktop_paths.log_dir() == home / "Library" / "Logs" / "BitcoinTX Beta"
+@pytest.mark.parametrize("value", [ALPHA, BETA])
+def test_the_preview_keeps_its_data_and_log_in_folders_of_its_own(monkeypatch, home, value):
+    """The same folders for an alpha and a beta: a tester's test ledger carries over."""
+    version(monkeypatch, value)
+    assert desktop_paths.data_dir() == home / "Library" / "Application Support" / "BitcoinTX Preview"
+    assert desktop_paths.log_dir() == home / "Library" / "Logs" / "BitcoinTX Preview"
     assert not installed(home).exists()
     assert not (home / "Library" / "Logs" / "BitcoinTX").exists()
 
@@ -76,10 +82,10 @@ def test_the_release_keeps_the_installed_apps_folders(monkeypatch, home):
     assert desktop_paths.log_dir() == home / "Library" / "Logs" / "BitcoinTX"
 
 
-def test_a_beta_test_run_calls_itself_bitcointx_beta_test(monkeypatch, home):
+def test_a_preview_test_run_calls_itself_bitcointx_preview_test(monkeypatch, home):
     version(monkeypatch, BETA)
     monkeypatch.setenv(desktop_paths.DATA_DIR_ENV, str(home / "test-data"))
-    assert desktop_paths.app_name() == "BitcoinTX Beta Test"
+    assert desktop_paths.app_name() == "BitcoinTX Preview Test"
     assert desktop_paths.data_dir() == home / "test-data"
     assert desktop_paths.log_dir() == home / "test-data" / "logs"
 
@@ -94,8 +100,9 @@ def spellings(home: Path) -> list[Path]:
             real / "backups", home / "link", home / "link" / "sub", Path(f"{support}/./BitcoinTX/")]
 
 
-def test_the_beta_refuses_the_installed_apps_folder_however_it_is_spelled(monkeypatch, home):
-    version(monkeypatch, BETA)
+@pytest.mark.parametrize("value", [ALPHA, BETA])
+def test_the_preview_refuses_the_installed_apps_folder_however_it_is_spelled(monkeypatch, home, value):
+    version(monkeypatch, value)
     for folder in spellings(home):
         monkeypatch.setenv(desktop_paths.DATA_DIR_ENV, str(folder))
         with pytest.raises(desktop_paths.InstalledAppsFolder, match="the installed BitcoinTX's"):
@@ -105,18 +112,18 @@ def test_the_beta_refuses_the_installed_apps_folder_however_it_is_spelled(monkey
     assert list(installed(home).iterdir()) == []
 
 
-def test_the_beta_refuses_its_own_folder_when_it_leads_to_the_installed_apps(monkeypatch, home):
-    """A ~/Library/Application Support/BitcoinTX Beta that is a link to
+def test_the_preview_refuses_its_own_folder_when_it_leads_to_the_installed_apps(monkeypatch, home):
+    """A ~/Library/Application Support/BitcoinTX Preview that is a link to
     BitcoinTX's folder is refused too, and so is such a log folder."""
     version(monkeypatch, BETA)
     support = home / "Library" / "Application Support"
     installed(home).mkdir(parents=True)
-    (support / "BitcoinTX Beta").symlink_to(installed(home))
+    (support / "BitcoinTX Preview").symlink_to(installed(home))
     with pytest.raises(desktop_paths.InstalledAppsFolder):
         desktop_paths.data_dir()
     logs = home / "Library" / "Logs"
     (logs / "BitcoinTX").mkdir(parents=True)
-    (logs / "BitcoinTX Beta").symlink_to(logs / "BitcoinTX")
+    (logs / "BitcoinTX Preview").symlink_to(logs / "BitcoinTX")
     with pytest.raises(desktop_paths.InstalledAppsFolder):
         desktop_paths.log_dir()
 
@@ -132,26 +139,28 @@ def test_a_release_test_run_may_still_name_any_folder(monkeypatch, home):
 def test_a_folder_beside_the_installed_one_is_fine(monkeypatch, home):
     version(monkeypatch, BETA)
     installed(home).mkdir(parents=True)
-    for name in ("BitcoinTX Beta", "BitcoinTX2", "BitcoinTX-test"):
+    for name in ("BitcoinTX Preview", "BitcoinTX2", "BitcoinTX-test"):
         monkeypatch.setenv(desktop_paths.DATA_DIR_ENV, str(installed(home).parent / name))
         assert desktop_paths.data_dir().name == name
 
 
-def test_the_beta_answers_on_a_port_of_its_own(monkeypatch, home):
-    version(monkeypatch, BETA)
-    port = desktop_ports.preferred_port()
-    assert port == desktop_ports.BETA_PORT
-    assert port not in (8765, 8766)  # the installed app's; desktop/run-test-build.sh's
+def test_the_preview_answers_on_a_port_of_its_own(monkeypatch, home):
+    for value in (ALPHA, BETA):
+        version(monkeypatch, value)
+        port = desktop_ports.preferred_port()
+        assert port == desktop_ports.PREVIEW_PORT
+        assert port not in (8765, 8766)  # the installed app's; desktop/run-test-build.sh's
     version(monkeypatch, RELEASE)
     assert desktop_ports.preferred_port() == 8765
     monkeypatch.setenv("BTCTX_DESKTOP_PORT", "8800")
     assert desktop_ports.preferred_port() == 8800
 
 
-@pytest.mark.parametrize("value, app_id", [(BETA, "org.bitcointx.desktop.beta"), (RELEASE, "org.bitcointx.desktop")])
+@pytest.mark.parametrize("value, app_id", [(BETA, "org.bitcointx.desktop.preview"), (ALPHA, "org.bitcointx.desktop.preview"),
+                                           (RELEASE, "org.bitcointx.desktop")])
 def test_a_second_launch_brings_forward_its_own_app_by_bundle_id(monkeypatch, home, value, app_id):
     """By name, "BitcoinTX" would bring forward, or start, the installed app
-    on its real ledger when the beta is opened twice."""
+    on its real ledger when the Preview is opened twice."""
     version(monkeypatch, value)
     scripts = []
     monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
@@ -167,7 +176,7 @@ def test_a_refusal_is_told_in_a_dialog_with_its_words_quoted(monkeypatch, home):
     monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
     monkeypatch.setattr(desktop_ports, "_osascript", lambda s: scripts.append(s) or "")
     desktop_ports.tell_refused('refusing /Users/a "b"\\c')
-    assert 'display dialog "refusing /Users/a \\"b\\"\\\\c" with title "BitcoinTX Beta"' in scripts[0]
+    assert 'display dialog "refusing /Users/a \\"b\\"\\\\c" with title "BitcoinTX Preview"' in scripts[0]
     assert "with icon stop" in scripts[0]
 
 
@@ -197,19 +206,27 @@ def test_the_build_script_finds_the_app_the_spec_made():
 def test_a_test_run_takes_the_one_app_built_and_refuses_either_installed_folder():
     script = (DESKTOP / "run-test-build.sh").read_text()
     assert 'APP="$ROOT/desktop/dist/BitcoinTX.app"' not in script
-    assert '"$HOME/Library/Application Support/BitcoinTX Beta"' in script
+    assert '"$HOME/Library/Application Support/BitcoinTX Preview"' in script
 
 
 # The entry point, run in a process of its own: a stand-in for pywebview, a
-# test home, VERSION read as a beta's, and the dialog written down instead of
-# shown. It imports nothing of the backend before it refuses.
+# test home, VERSION read as an alpha's, macOS's path through its logging
+# (also on CI's Linux), and the refusal's dialog written down instead of
+# shown. Any other dialog, a look at a port or a socket fails the run: it
+# starts nothing before it refuses, and imports nothing of the backend.
 ENTRY = """
 import os, sys
 sys.path[:0] = [{root!r}, {desktop!r}]
 import backend.version
-backend.version.app_version = lambda: "2.0.0-beta.1"
+backend.version.app_version = lambda: "2.0.0-alpha.1"
 sys.modules["webview"] = type(sys)("webview")
+sys.platform = "darwin"
+import desktop_ports
+def never(*args, **kwargs):
+    raise SystemExit("it went past the refusal")
+desktop_ports._osascript = desktop_ports.running_instance = desktop_ports.choose_socket = never
 import entrypoint
+entrypoint.running_instance = entrypoint.choose_socket = never
 told = []
 entrypoint.tell_refused = told.append
 entrypoint.main()
@@ -219,7 +236,7 @@ print("DATABASE_FILE" in os.environ, any(m.startswith("backend.main") for m in s
 
 
 @pytest.mark.parametrize("given", ["Application Support/BitcoinTX", "Application Support/BitcoinTX/sub"])
-def test_the_beta_given_the_installed_apps_folder_says_so_and_opens_nothing(tmp_path, given):
+def test_the_preview_given_the_installed_apps_folder_says_so_and_opens_nothing(tmp_path, given):
     """Its log too would be in that folder: the log is left out, the app
     starts no further, and the dialog says why (a crash at import said nothing)."""
     import subprocess
@@ -232,7 +249,7 @@ def test_the_beta_given_the_installed_apps_folder_says_so_and_opens_nothing(tmp_
         **os.environ, "HOME": str(home), desktop_paths.DATA_DIR_ENV: str(home / "Library" / given)})
     assert made.returncode == 0, made.stderr
     told, opened = made.stdout.strip().splitlines()[-2:]
-    assert "BitcoinTX Beta won't use" in told and "the installed BitcoinTX's" in told
+    assert "BitcoinTX Preview won't use" in told and "the installed BitcoinTX's" in told
     assert opened == "False False"  # no database named, no backend imported
     assert list(installed.iterdir()) == []
 
@@ -247,11 +264,12 @@ def test_the_desktop_modules_stay_importable_without_pywebview():
 
 def test_the_setup_code_is_looked_for_in_the_beta_apps_folder(monkeypatch):
     """The login page's hint, when the Mac app's window can't fill the code in
-    (its address in a browser): BitcoinTX Beta's folder, never BitcoinTX's."""
+    (its address in a browser): BitcoinTX Preview's folder, never BitcoinTX's."""
     from backend.services import first_run
 
     monkeypatch.setattr(first_run, "is_desktop", lambda: True)
-    monkeypatch.setattr(first_run, "app_version", lambda: BETA)
-    assert "(~/Library/Application Support/BitcoinTX Beta)" in first_run.code_refused(None)
+    for value in (ALPHA, BETA):
+        monkeypatch.setattr(first_run, "app_version", lambda value=value: value)
+        assert "(~/Library/Application Support/BitcoinTX Preview)" in first_run.code_refused(None)
     monkeypatch.setattr(first_run, "app_version", lambda: RELEASE)
     assert "(~/Library/Application Support/BitcoinTX)" in first_run.code_refused(None)

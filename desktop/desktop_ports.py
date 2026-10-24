@@ -3,8 +3,8 @@ Port handling for the Mac app, and its checks of its own address (imported
 by entrypoint.py; no pywebview here, so the tests run on any OS).
 
 The app serves on a fixed port (127.0.0.1:8765, BTCTX_DESKTOP_PORT) so the
-MCP server can find it; BitcoinTX Beta, a 2.0 pre-release, on one of its own
-(BETA_PORT), so it never answers in the installed app's place. Up to v0.9.1 a probe bind without SO_REUSEADDR
+MCP server can find it; BitcoinTX Preview, a 2.0 alpha or beta, on one of its
+own (PREVIEW_PORT), so it never answers in the installed app's place. Up to v0.9.1 a probe bind without SO_REUSEADDR
 decided whether the port was free: connections from the previous run still
 in TIME_WAIT made it fail, and the app silently moved to a random port for the
 whole session. Now the listening socket itself is bound, with SO_REUSEADDR
@@ -26,15 +26,15 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 
-from desktop_paths import app_name, bundle_id, is_beta
+from desktop_paths import app_name, bundle_id, is_preview
 
 logger = logging.getLogger("BitcoinTX")
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-# BitcoinTX Beta's (2.0 plan 7.4, B10a): not the installed app's, nor
+# BitcoinTX Preview's (2.0 plan 7.4, B10a): not the installed app's, nor
 # desktop/run-test-build.sh's 8766
-BETA_PORT = 8767
+PREVIEW_PORT = 8767
 # This computer's own address never goes through a proxy set for the whole
 # machine (HTTP_PROXY and co., the Mac's system proxy, #474): one elsewhere
 # can't reach this Mac's 127.0.0.1, and the app would quit or misjudge
@@ -47,7 +47,7 @@ def open_here(url: str, timeout: float):
 
 
 def preferred_port() -> int:
-    return int(os.environ.get("BTCTX_DESKTOP_PORT", BETA_PORT if is_beta() else DEFAULT_PORT))
+    return int(os.environ.get("BTCTX_DESKTOP_PORT", PREVIEW_PORT if is_preview() else DEFAULT_PORT))
 
 
 def _listening_socket(port: int) -> socket.socket:
@@ -200,7 +200,7 @@ def ask_port_busy(port: int) -> str:
 def tell_already_running(port: int, bring_forward: bool = True) -> None:
     """
     Say BitcoinTX is already open and bring it forward, by its own bundle
-    id: by name, a second BitcoinTX Beta would bring forward, or start, the
+    id: by name, a second BitcoinTX Preview would bring forward, or start, the
     installed BitcoinTX on its real ledger. A test run (bring_forward=False)
     only says so: AppleScript finds the app by its id, so it could bring
     forward, or start, the installed app on its real ledger instead of the
@@ -220,7 +220,7 @@ def tell_already_running(port: int, bring_forward: bool = True) -> None:
 
 
 def tell_refused(message: str) -> None:
-    """Say why the app won't start (BitcoinTX Beta given the installed app's
+    """Say why the app won't start (BitcoinTX Preview given the installed app's
     folder, desktop_paths.InstalledAppsFolder)."""
     if sys.platform != "darwin":
         logger.error("%s", message)

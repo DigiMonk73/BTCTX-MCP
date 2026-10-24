@@ -3,7 +3,7 @@
 BitcoinTX Desktop Application Entry Point
 
 Starts the FastAPI backend on 127.0.0.1:8765 (BTCTX_DESKTOP_PORT; BitcoinTX
-Beta, a 2.0 pre-release, on its own port) and opens a pywebview window.
+Preview, a 2.0 alpha or beta, on its own port) and opens a pywebview window.
 Handles graceful shutdown and data directory management.
 """
 
@@ -26,10 +26,10 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 def setup_logging() -> None:
     """
     Log to stderr and, on macOS, to ~/Library/Logs/BitcoinTX/BitcoinTX.log
-    (rotating; desktop_paths.log_dir; BitcoinTX Beta's in its own folder): a
+    (rotating; desktop_paths.log_dir; BitcoinTX Preview's in its own folder): a
     Finder-launched app has no terminal, so without the file nothing it logs
-    (such as why it couldn't use its port) is kept. A beta given the
-    installed app's folder logs nothing there.
+    (such as why it couldn't use its port) is kept. BitcoinTX Preview given
+    the installed app's folder logs nothing there.
     """
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if sys.platform == "darwin":
@@ -76,7 +76,7 @@ def main():
     """Main entry point for the desktop application."""
     import webview
 
-    # Set up data directory: BitcoinTX Beta never opens the installed app's
+    # Set up data directory: BitcoinTX Preview never opens the installed app's
     try:
         app_support = data_dir()
     except InstalledAppsFolder as exc:

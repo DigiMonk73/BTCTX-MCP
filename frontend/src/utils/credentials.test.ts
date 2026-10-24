@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { macApp, passwordTooShort, setupCodeHint } from "./credentials";
+import { passwordTooShort, setupCodeHint } from "./credentials";
+import { macApp } from "./prereleaseVersion";
 
 describe("passwordTooShort", () => {
   it("wants 12 characters", () => {
@@ -16,8 +17,9 @@ describe("passwordTooShort", () => {
 });
 
 describe("the Mac app's setup code hint", () => {
-  it("names BitcoinTX Beta's own folder for a 2.0 pre-release (B10a)", () => {
-    expect(macApp("2.0.0-beta.3")).toBe("BitcoinTX Beta");
+  it("names BitcoinTX Preview's own folder for a 2.0 alpha or beta (B10a)", () => {
+    expect(macApp("2.0.0-beta.3")).toBe("BitcoinTX Preview");
+    expect(macApp("2.0.0-alpha.1")).toBe("BitcoinTX Preview");
     expect(macApp("2.0.0")).toBe("BitcoinTX");
     expect(macApp("1.2.10")).toBe("BitcoinTX");
     expect(macApp("2.0.0-rc.1")).toBe("BitcoinTX");
