@@ -1,0 +1,151 @@
+"""
+What a write changes, tax year by tax year (2.0 spec 5.8): for each
+transaction, Ledger Review's snapshot of its stored figures, its lot
+disposals' Form 8949 boxes and column (b), and its tax year. The boxes and
+dates are compared even when every dollar matches: a covered sale can turn
+noncovered with the same gain (G to H), and two lots of the same cost and
+term can swap. A row with no figures (dollars only) changes no tax year,
+wherever it moves.
+"""
+
+from typing import Any
+
+from sqlalchemy.orm import Session, joinedload
+
+from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
+from backend.services import review
+from backend.services.account import AccountBook, account_book
+from backend.services.reports.form_8949 import acquired_text, disposal_box
+from backend.services.tax_time import local_date
+
+# Compared beside Ledger Review's figures: each disposal's box and column
+# (b), in the order they were made
+COLUMNS = ("boxes", "acquired")
+# A row's figures, any one of which set makes it count (a dollar row never does)
+COUNTED = review.FIGURES + ("rows", "lots")
+# What an added or deleted row's text names, when it has them
+NAMED = review.FIGURES + review.ROW_TOTALS
+CHANGES_WITH_THIS_SAVE = "Changes with this save."
+PENDING = "Stored figures differ from what the current rules give."
+
+
+def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
+    """Each transaction's stored figures (review.snapshot), its disposals'
+    Form 8949 boxes and column (b), its tax year (tax timezone), and whether
+    it's dollars only."""
+    found = review.snapshot(db, tz)
+    book = account_book(db)
+    for tx_id, when, kind, *sides in db.query(Transaction.id, Transaction.timestamp, Transaction.type,
+                                             Transaction.from_account_id, Transaction.to_account_id):
+        dollars = kind not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)
+        found[tx_id].update(year=local_date(when, tz).year, dollars=dollars, boxes=[], acquired=[])
+    for disposal in _disposals(db):
+        row = found[disposal.transaction_id]
+        row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
+        row["acquired"].append(acquired_text(disposal, tz))
+    return found
+
+
+def _disposals(db: Session) -> list[LotDisposal]:
+    """Every lot disposal in the order made, with what its box is read from."""
+    return (db.query(LotDisposal)
+            .options(joinedload(LotDisposal.transaction),
+                     joinedload(LotDisposal.lot).joinedload(BitcoinLot.created_transaction))
+            .order_by(LotDisposal.transaction_id, LotDisposal.id)
+            .all())
+
+
+def moved(before: dict, after: dict) -> dict[int, dict[str, Any]]:
+    """
+    Per transaction, what moves from `before` to `after` (figures() each):
+    {"diff": {key: (old, new)}, "years": its tax years on either side}. A
+    row with figures on one side only is {"added": True} or {"deleted": True}.
+    """
+    changes = {}
+    for tx_id in before.keys() | after.keys():
+        old, new = before.get(tx_id), after.get(tx_id)
+        diff = _row_diff(tx_id, old, new)
+        if diff:
+            changes[tx_id] = {"diff": diff, "years": sorted({row["year"] for row in (old, new) if row})}
+    return changes
+
+
+def _row_diff(tx_id: int, old: dict | None, new: dict | None) -> dict[str, Any]:
+    if old is None or new is None:
+        if not counts(new or old):
+            return {}
+        return {"added": True} if old is None else {"deleted": True}
+    if not (counts(old) or counts(new)):
+        return {}
+    diff = review.differences({tx_id: old}, {tx_id: new}).get(tx_id, {})
+    diff.update({key: (old[key], new[key]) for key in COLUMNS if old[key] != new[key]})
+    if old["year"] != new["year"]:
+        diff["year"] = (old["year"], new["year"])
+    return diff
+
+
+def counts(row: dict) -> bool:
+    """Whether a row has figures of a tax year: a gain, a basis, proceeds,
+    lot disposals or lots made. A dollar row has none, whatever value it
+    carries (a dollar deposit's $0 basis from before 0.9.2)."""
+    return not row["dollars"] and any(row.get(key) not in (None, []) for key in COUNTED)
+
+
+def reaching(changes: dict, this_year: int) -> dict:
+    """Those changes that touch a tax year before `this_year`."""
+    return {tx_id: c for tx_id, c in changes.items() if c["years"][0] < this_year}
+
+
+def years(changes: dict) -> list[int]:
+    """The tax years the changes touch, oldest first."""
+    return sorted({year for c in changes.values() for year in c["years"]})
+
+
+def items(changes: dict, rows: dict, db: Session, tz, book: AccountBook, issue: str = CHANGES_WITH_THIS_SAVE,
+          gone: dict[int, dict] | None = None) -> list[dict[str, Any]]:
+    """
+    Ledger Review's item for each change, in date order, with what moves in
+    words and its tax years. `rows` are the figures the words take an added
+    or deleted row's from; `gone` the items of rows `db` no longer has (a
+    delete's, built before it). An added row's id is left out: the dry run's
+    copy and the confirmed save may number it differently.
+    """
+    listed = []
+    for tx_id, change in changes.items():
+        tx = db.get(Transaction, tx_id)
+        if tx is None and tx_id not in (gone or {}):
+            continue
+        item = review.row_item(tx, tz, book, issue, "") if tx is not None else dict(gone[tx_id], issue=issue)
+        item["change"] = change_text(change["diff"], rows.get(tx_id))
+        item["years"] = change["years"]
+        if change["diff"].get("added"):
+            item["id"] = None
+        listed.append(item)
+    return sorted(listed, key=lambda item: (item["date"], item["id"] or 0))
+
+
+def change_text(diff: dict, row: dict | None = None) -> str:
+    """What moves, in words: Ledger Review's for the figures, then the box,
+    column (b) and the tax year; an added or deleted row's figures (`row`)."""
+    if diff.get("added") or diff.get("deleted"):
+        named = [f"{review.FIGURE_NAMES[k]} {review.money(row[k])}" for k in NAMED if (row or {}).get(k) is not None]
+        return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
+    money = {k: v for k, v in diff.items() if k not in (*COLUMNS, "year")}
+    parts = [review.change_text(money).rstrip(".")] if money else []
+    if "boxes" in diff:
+        parts.append("Form 8949 box " + _moved_text(*diff["boxes"]))
+    if "acquired" in diff:
+        parts.append("Form 8949 column (b), date acquired " + _moved_text(*diff["acquired"]))
+    if "year" in diff:
+        parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
+    text = "; ".join(parts) + "."
+    return text[:1].upper() + text[1:] if not money else text
+
+
+def _moved_text(old: list[str], new: list[str]) -> str:
+    """ "G -> H", each side's values once in their order, or all of them when
+    only their order moves."""
+    once_old, once_new = list(dict.fromkeys(old)), list(dict.fromkeys(new))
+    if once_old == once_new:
+        once_old, once_new = old, new
+    return f"{', '.join(once_old) or 'none'} -> {', '.join(once_new) or 'none'}"
