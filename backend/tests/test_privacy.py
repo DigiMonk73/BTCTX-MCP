@@ -392,6 +392,32 @@ def test_settings_names_every_site_public_prices_may_contact():
     assert "when BitcoinTX is open" in public and "IP address" in public
 
 
+# What can reach a network, or load what can: none of it in the one file
+# that may name Coinbase (#161, B5b)
+NETWORK_MODULES = ("backend.services.outbound", "httpx", "urllib", "urllib3", "requests", "socket", "http.client",
+                   "http", "aiohttp", "ssl", "importlib")
+
+
+def test_the_file_that_may_name_coinbase_can_make_no_request():
+    """#161: BitcoinTX never asks Coinbase anything, not even by an address
+    built from parts. The importer's mappings may name it (the exchange
+    whose own file the owner uploads), so their module imports nothing that
+    reaches a network and loads nothing by name; every outside request
+    comes from outbound.py alone (test_network_settings's
+    test_no_other_module_makes_its_own_http_client)."""
+    path = Path(__file__).resolve().parents[1] / "services" / "exchange_mappings.py"
+    tree = ast.parse(path.read_text())
+    imported = [alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names]
+    imported += [node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
+    imported += [f"{node.module}.{alias.name}" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                 for alias in node.names]
+    reaching = [name for name in imported
+                if any(name == module or name.startswith(module + ".") for module in NETWORK_MODULES)]
+    assert reaching == [], reaching
+    calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert not calls & {"__import__", "eval", "exec", "compile", "open"}
+
+
 def test_deleted_rows_are_erased_from_the_database_file(tmp_path):
     """Privacy audit 2026-09-29 (3e), owner decision: a deleted row's bytes
     stayed in the SQLite file (and in every copy of it) until compacted."""

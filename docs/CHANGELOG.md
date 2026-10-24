@@ -65,7 +65,10 @@ All notable changes to BitcoinTX are documented in this file.
   the exchange writes its dollars (a total that includes the fee, or a
   net received after it); a fee is bitcoin only when the file says so;
   amounts are kept to the satoshi and the cent. River's file reads exactly
-  as before: its rows, figures and duplicate checks are unchanged.
+  as before: its rows, figures and duplicate checks are unchanged. The
+  importer's mappings may name Coinbase, the exchange whose own file you
+  upload, and BitcoinTX still never asks Coinbase anything (#161): the
+  file that names it can make no request, and a test keeps it so.
 - **The transaction form names accounts by the account book** (B6a, #351).
   Editing a transaction keeps the accounts it was saved with: a Buy or a
   Sell stays on its exchange, a Transfer keeps its destination. Where more
