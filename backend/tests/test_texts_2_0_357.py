@@ -1,7 +1,8 @@
 """
 2.0's texts (#357; 2.0 spec 5.14): one wording of the IRS rule everywhere,
-no word left of 1.x's one wallet and one exchange in what ships, and the
-release tests' and the way back's words kept to what the app does.
+no word left of 1.x's one wallet and one exchange in what ships, never
+"minimalist" (#673), and the release tests' and the way back's words kept
+to what the app does.
 """
 
 import json
@@ -33,24 +34,51 @@ ONE_WALLET = re.compile("|".join([
     r"one-wallet-one-exchange", r"\bexchange by exchange\b",
 ]), re.I)
 
+# The owner, 2026-10-24: "I no longer consider it minimalist and don't want
+# to use that language". The word in each of the listing's languages:
+# minimalist, minimalista, minimalistischer, minimalistyczne, minimaliste
+MINIMALIST = re.compile(r"minimalis", re.I)
+
+TESTS = ("backend/tests/", "mcp_server/tests/", "frontend/e2e/", "frontend/src/test/")
+
 
 def flat(text: str) -> str:
     """Words only: a line break, a quote's "> ", joined strings, bold."""
     return BETWEEN_WORDS.sub(" ", text).strip()
 
 
+def tracked() -> list[str]:
+    return subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.splitlines()
+
+
+def is_a_test(path: str) -> bool:
+    """Tests may quote old words to check they're gone."""
+    return path.startswith(TESTS) or bool(re.search(r"\.test\.tsx?$", path))
+
+
 def shipped_texts() -> dict[str, str]:
     """Every tracked text that ships or tells users how BitcoinTX works, as
     words. Left out: history (the CHANGELOG, which says what changed from
     what, the package's released notes, migrations, the plan in docs/temp)
-    and tests, which may quote old words to check they're gone."""
-    tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    and tests."""
     history = ("docs/CHANGELOG.md", "docs/temp/", "backend/migrations/", "startos/startos/versions/")
-    tests = ("backend/tests/", "mcp_server/tests/", "frontend/e2e/", "frontend/src/test/")
     return {path: flat((ROOT / path).read_text())
-            for path in tracked.splitlines()
-            if path.endswith(TEXT) and not path.startswith(history + tests)
-            and not re.search(r"\.test\.tsx?$", path)}
+            for path in tracked()
+            if path.endswith(TEXT) and not path.startswith(history) and not is_a_test(path)}
+
+
+def every_text() -> dict[str, str]:
+    """Every tracked file that is text, whatever its kind (PyPI's summary is
+    in a .toml), as words; tests left out. An image or a PDF isn't text."""
+    texts = {}
+    for path in tracked():
+        if is_a_test(path):
+            continue
+        try:
+            texts[path] = flat((ROOT / path).read_text(encoding="utf-8"))
+        except UnicodeDecodeError:
+            continue
+    return texts
 
 
 def test_the_irs_rule_is_stated_in_its_one_wording():
@@ -78,6 +106,18 @@ def test_nothing_left_of_one_wallet_and_one_exchange():
     found = [f"{path}: {hit.group(0)}" for path, text in shipped_texts().items()
              for sentence in re.split(r"(?<=[.!?]) ", text) if "1.x" not in sentence
              for hit in ONE_WALLET.finditer(sentence)]
+    assert not found, found
+
+
+@needs_a_checkout
+def test_never_minimalist():
+    """In every language, everywhere but the CHANGELOG and docs/temp, which
+    keep history as written. "Minimal" isn't searched for: AI_SETUP rightly
+    speaks of Claude Desktop's minimal PATH."""
+    history = ("docs/CHANGELOG.md", "docs/temp/")
+    found = [f"{path}: …{text[max(0, hit.start() - 40):hit.end() + 20]}…"
+             for path, text in every_text().items() if not path.startswith(history)
+             for hit in MINIMALIST.finditer(text)]
     assert not found, found
 
 

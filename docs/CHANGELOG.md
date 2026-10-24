@@ -5,6 +5,17 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **"Minimalist" no longer describes BitcoinTX** (D1 of the docs overhaul,
+  #673; the owner, 2026-10-24: "I no longer consider it minimalist and don't
+  want to use that language"). The word is out of the README's first line,
+  the AI connector's README (PyPI's page, from the next pre-release's
+  connector on), which also no longer gives a bank lots of its own (each
+  wallet and exchange has its own lots), and the StartOS store listing's
+  long description, in all five languages. Only the word goes, except that
+  the connector's line now says what BitcoinTX is, "a self-hosted Bitcoin
+  portfolio and tax tracker"; a test keeps the word out of everything that
+  ships, in every language (this CHANGELOG keeps its history as written).
+  GitHub's About for this repository follows when 2.0 replaces 1.x.
 - **The dashboard's balances are back in Portfolio Overview, with a caret
   per kind** (#674, the owner's first finding from testing alpha.1). In
   place of alpha.1's three cards (Bank, Exchange and Wallet, #356), the
@@ -12,7 +23,8 @@ All notable changes to BitcoinTX are documented in this file.
   Exchange (USD), Exchange (BTC) and Wallet (BTC), each the total of all
   its accounts, then Total BTC, Avg. Cost per BTC and Unrealized
   Gains/Losses. A kind with more than one account, or a hidden one still
-  holding something, has a caret after its label: the whole line opens
+  holding something, has a caret after its label (Settings' chevron,
+  the same for both, from one shared style): the whole line opens
   and closes the list of its accounts under it, each with its amount
   ("Hidden" noted), adding up to the line; Exchange (USD) lists each
   exchange's dollars and Exchange (BTC) each one's bitcoin. Lines start
