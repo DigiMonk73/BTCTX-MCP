@@ -3,7 +3,7 @@
 // Assistant prompt, and About BitcoinTX.
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, openSection, python, USER, PASSWORD,
-  REPO, BLOCKED_KEY_FOLDER,
+  REPO, BLOCKED_KEY_FOLDER, sendConfirmed,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
@@ -175,7 +175,9 @@ test("delete all: the same count over other tax years is a change too (#390's re
     amount: "100", fee_amount: "0", fee_currency: "USD",
   });
   const oldest = (await listTx(page.request)).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))[0];
-  expect((await page.request.delete(`/api/transactions/${oldest.id}`)).status()).toBe(204);
+  // A row of 2023: its delete is confirmed past the warning (2.0 spec 5.8)
+  expect((await sendConfirmed((params) => page.request.delete(`/api/transactions/${oldest.id}`, { params })))
+    .status()).toBe(204);
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
   await dialog.getByRole("button", { name: "Delete 6 transactions" }).click();
   const note = dialog.getByRole("alert");

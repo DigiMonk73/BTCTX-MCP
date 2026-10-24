@@ -21,6 +21,29 @@ All notable changes to BitcoinTX are documented in this file.
   which exchange the file is from, and which wallet its sends and
   receives go with, when there's more than one of either. Saving into an
   added account still waits for a later step.
+- **A save that changes an earlier tax year asks first** (B6b, #352).
+  Adding, editing or deleting a transaction in a way that would change
+  the figures of a tax year before this one (a gain, a Form 8949 box, a
+  date your return or the report prints, an income or a rebate, a gift's,
+  donation's or lost coins' value or kind) now shows which years and what
+  changes, and
+  saves only after "Save anyway (a copy is made first)": BitcoinTX first
+  keeps a copy of the database in its data folder's `backups`
+  (`…-pre-change-past-year-….db`, the newest 5 and the first of each day
+  for a week). The text never assumes the year was filed: "which you may
+  already have filed". An add to an earlier year offers "Don't ask again
+  for adds to 2025 while this page is open", for catching up on a year;
+  edits and deletes always ask, and a reload asks again. A save dated in
+  this tax year, or one that moves only dollars, saves at once, as
+  before. With a login, changes Recalculate Ledger alone would make (rules
+  fixed since a transaction was saved) never ask; they're listed apart
+  when the save asks anyway. The AI connector gets the same answer (409,
+  with the years, the changes and a fingerprint to confirm with), and
+  with its key those rule fixes in an earlier year ask too; each confirmed
+  AI change comes after a fresh AI copy. On a ledger too large to check
+  quickly (10 seconds), the warning names every year from the
+  transaction's date on instead of exactly what changes. No figure of any
+  ledger moves: a save confirmed is saved as before.
 - **The forms and the report per exchange** (B4, #349). Form 8949's boxes
   ask the account book: a Sell is on a Form 1099-DA when its exchange's
   "This exchange sends me a Form 1099-DA" is on (with it off, its Sells

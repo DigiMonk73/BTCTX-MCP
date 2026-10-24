@@ -64,7 +64,7 @@ test("one saved before #447 opens as From = amount + fee and saves the same figu
   await expect(page.getByLabel("Amount (From)")).toHaveValue("1010");
   await expect(page.getByLabel("Amount (To)")).toHaveValue("1000");
   await expect(page.getByLabel("Fee (USD)")).toHaveValue("10");
-  await saveForm(page, "Update Transaction");
+  await saveForm(page, "Update Transaction", { warning: false }); // dollars only: it never asks
 
   const after = (await listTx(page.request)).find((t) => t.id === old.id)!;
   expect([Number(after.amount), Number(after.fee_amount), after.fee_currency]).toEqual([1000, 10, "USD"]);

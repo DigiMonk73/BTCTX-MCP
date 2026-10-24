@@ -68,7 +68,15 @@ DELETE_COPIES_KEPT = 5
 # The copy of a 1.x database made before 2.0's upgrade (2.0 spec 5.3, Q21):
 # the way back to 1.x, never pruned.
 PRE_2_0_KIND = "pre-2.0"
-COPY_KINDS = ("before", DELETE_KIND, "ai", "review", PRE_2_0_KIND)
+# Copies before a confirmed past-year save with a login (2.0 spec 5.8), kept
+# apart: the newest 5, and for a week the first of each UTC day, so a run of
+# confirmed saves keeps the ledger from before the first of them. Not a
+# "before-…" kind: 1.x lists every btctx-before-*.db but the kinds it knows
+# as its own pre-upgrade copies, and after going back to it (5.16) these
+# would push those out.
+PRE_CHANGE_KIND = "pre-change"
+PRE_CHANGE_COPIES_KEPT = 5
+COPY_KINDS = ("before", DELETE_KIND, "ai", "review", PRE_2_0_KIND, PRE_CHANGE_KIND)
 # A copy being written: a name no listing of copies matches.
 PARTIAL = ".partial-"
 # Tables without which a database can't be a BitcoinTX ledger at all.
@@ -172,9 +180,10 @@ def backup_sqlite(db_path: Path, label: str, kind: str = "before", keep: int | N
     and pre-restore; "before-delete": before every transaction is deleted;
     "ai": asked for with the AI key, or made before its changes; "review":
     before Ledger Review's hourly check is applied; "pre-2.0": a 1.x
-    database before 2.0's upgrade) keeps its own newest `keep` (and "ai"
-    more: prune_backups; None: every one), so one kind never pushes out the
-    other.
+    database before 2.0's upgrade; "pre-change": before a confirmed
+    past-year save) keeps its own newest `keep` (and "ai" and "pre-change"
+    more: prune_backups; None: every one, or pruned once the change is
+    saved), so one kind never pushes out the other.
 
     It is written under a name no listing matches and renamed once
     complete: a copy that fails (a full disk) leaves nothing that looks
@@ -267,7 +276,7 @@ def prune_backups(db_path: Path, keep: int | None = BACKUPS_KEPT, kind: str = "b
                   spare: Path | None = None) -> list[Path]:
     """
     Keep the newest `keep` copies of one kind in <dir>/backups/ (the AI
-    copies more: _ai_copies_held; None: every one) and delete the others,
+    and pre-change copies more: _copies_held; None: every one) and delete the others,
     never `spare`: the copy just made, which a clock set back would date
     before older ones. Only files this module wrote (<stem>-<kind>-*.db) are
     touched. Returns the deleted paths.
@@ -276,7 +285,7 @@ def prune_backups(db_path: Path, keep: int | None = BACKUPS_KEPT, kind: str = "b
         return []  # copies[None:] below would be every copy
     dest_dir = db_path.parent / BACKUP_DIRNAME
     copies = backup_copies(db_path, kind)
-    held = _ai_copies_held(db_path, copies) if kind == "ai" else set()
+    held = _copies_held(db_path, copies, kind)
     removed = []
     for old in copies[keep:]:
         if old in held or old == spare:
@@ -291,6 +300,17 @@ def prune_backups(db_path: Path, keep: int | None = BACKUPS_KEPT, kind: str = "b
     return removed
 
 
+def _copies_held(db_path: Path, copies: list[Path], kind: str) -> set[Path]:
+    """The copies of a kind (newest first) kept beyond its newest few: the
+    AI's (_ai_copies_held) and the pre-change ones (the first of each of
+    the last AI_DAYS_HELD UTC days); none of any other kind."""
+    if kind == "ai":
+        return _ai_copies_held(db_path, copies)
+    if kind == PRE_CHANGE_KIND:
+        return _first_of_each_day(_this_week(copies))
+    return set()
+
+
 def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
     """
     The AI copies (newest first) kept beyond the newest AI_COPIES_KEPT, from
@@ -299,14 +319,24 @@ def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
     from before that day's changes, with what the owner entered the days
     before).
     """
+    recent = _this_week(copies)
+    before_changes = [p for p in recent if p.name.startswith(f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-")]
+    return set(recent[-1:]) | _first_of_each_day(before_changes)
+
+
+def _this_week(copies: list[Path]) -> list[Path]:
+    """The copies (newest first) made on the last AI_DAYS_HELD UTC days."""
     today = datetime.datetime.now(datetime.timezone.utc).date()
     since = today - datetime.timedelta(days=AI_DAYS_HELD - 1)
-    recent = [p for p in copies if _utc_day(p) >= since]
-    first_each_day: dict[datetime.date, Path] = {}
-    for p in reversed(recent):
-        if p.name.startswith(f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-"):
-            first_each_day.setdefault(_utc_day(p), p)
-    return set(recent[-1:]) | set(first_each_day.values())
+    return [p for p in copies if _utc_day(p) >= since]
+
+
+def _first_of_each_day(copies: list[Path]) -> set[Path]:
+    """Of copies listed newest first, each UTC day's first."""
+    first: dict[datetime.date, Path] = {}
+    for p in reversed(copies):
+        first.setdefault(_utc_day(p), p)
+    return set(first.values())
 
 
 def _utc_day(copy: Path) -> datetime.date:

@@ -227,6 +227,11 @@ def _may_wait(db: Session, line: pf.YearLine) -> bool:
 
 
 T = TypeVar("T")
+# What a save in with_prices_found notes in its Session.info while it runs
+# (a replay on a scratch copy of its locked ledger takes them too:
+# past_years)
+SAVE_KEYS = (price_history.ASK_FIRST, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED,
+             UNPRICED_HOURS, RUN_AGAIN)
 
 
 def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
@@ -270,8 +275,7 @@ def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
                 _look_with_the_lock_free(db, need)
                 db.info[RUN_AGAIN] = True
     finally:
-        for key in (price_history.ASK_FIRST, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED,
-                    UNPRICED_HOURS, RUN_AGAIN):
+        for key in SAVE_KEYS:
             db.info.pop(key, None)
 
 
