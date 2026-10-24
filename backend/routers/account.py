@@ -35,13 +35,7 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 @router.put("/{account_id}", response_model=AccountRead)
 def update_account(account_id: int, change: AccountUpdate, db: Session = Depends(get_db)):
     """Hide or show an account (an exchange's: both); 400 for a fee account, 404."""
-    if change.hidden is not None:
-        account_service.set_hidden(db, account_id, change.hidden)
-    if change.sends_1099da is not None:  # TEMP: a stand-in for B6c's switch (#353)
-        from backend.models.account import Account
-        from backend.models.exchange import Exchange
-        db.get(Exchange, db.get(Account, account_id).exchange_id).sends_1099da = change.sends_1099da
-        db.commit()
+    account_service.set_hidden(db, account_id, change.hidden)
     return account_service.one(db, account_id)
 
 
