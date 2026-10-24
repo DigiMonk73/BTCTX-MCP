@@ -124,7 +124,7 @@ updates:
         update-types: [minor, patch]
     ignore:
       # Bumped by hand (startos/UPDATING.md, "Bumping the SDK");
-      # .github/workflows/startos-sdk-check.yml opens an issue for new SDKs
+      # .github/workflows/start9-watch.yml opens an issue for new SDKs
       - dependency-name: "@start9labs/start-sdk"
       - dependency-name: mempool-startos
       - dependency-name: tor-startos
