@@ -214,12 +214,20 @@ def test_a_test_run_takes_the_one_app_built_and_refuses_either_installed_folder(
 # (also on CI's Linux), and the refusal's dialog written down instead of
 # shown. Any other dialog, a look at a port or a socket fails the run: it
 # starts nothing before it refuses, and imports nothing of the backend.
+# Played as macOS, urllib.request asks macOS's own _scproxy module for the
+# system's proxies when it's imported; Linux has none, so a stand-in that
+# knows no proxy takes its place on every machine, the Mac's too, and the
+# run is the same everywhere.
 ENTRY = """
 import os, sys
 sys.path[:0] = [{root!r}, {desktop!r}]
 import backend.version
 backend.version.app_version = lambda: "2.0.0-alpha.1"
 sys.modules["webview"] = type(sys)("webview")
+scproxy = type(sys)("_scproxy")
+scproxy._get_proxies = lambda: {{}}
+scproxy._get_proxy_settings = lambda: {{"exclude_simple": False, "exceptions": ()}}
+sys.modules["_scproxy"] = scproxy
 sys.platform = "darwin"
 import desktop_ports
 def never(*args, **kwargs):
