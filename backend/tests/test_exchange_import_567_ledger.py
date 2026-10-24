@@ -7,9 +7,8 @@ imported by default), a recorded row in another account of the same kind
 and currency on the same side never matches. The file goes only into the
 exchange and wallet chosen; the new routes are the owner's alone.
 
-Until B7a opens the gate, a save takes only 1 to 4, so the second exchange's
-file imports with the gate opened as B7a will (gate_open). All rows are
-synthetic.
+The second exchange is one the owner added (B7a's gate takes any of
+theirs). All rows are synthetic.
 """
 
 import io
@@ -80,7 +79,7 @@ def default_request(answer: dict) -> list[dict]:
     return out
 
 
-def test_a_second_exchanges_file_into_a_ledger_with_rows(gate_open, client):
+def test_a_second_exchanges_file_into_a_ledger_with_rows(client):
     record(client, type="Deposit", timestamp="2025-01-01T00:00:00Z", from_account_id=99, to_account_id=KRAKEN_BTC,
            amount="0.01", fee_currency="BTC", cost_basis_usd="1000.00", source="MyBTC")
     record(client, type="Buy", timestamp="2025-01-06T15:30:00Z", from_account_id=KRAKEN_USD, to_account_id=KRAKEN_BTC,
@@ -117,7 +116,7 @@ def test_a_second_exchanges_file_into_a_ledger_with_rows(gate_open, client):
     assert len(client.get("/api/transactions").json()) == count
 
 
-def test_the_same_request_sent_twice_saves_its_rows_once(gate_open, client):
+def test_the_same_request_sent_twice_saves_its_rows_once(client):
     """The execute's double-submit guard, as River's (#253, #454)."""
     rows = default_request(preview(client, exchange_account_id=KRAKEN_BTC, wallet_account_id=COLD))
     assert client.post("/api/import/exchange/execute", json={"rows": rows}).json()["imported_count"] == len(rows)
@@ -146,7 +145,7 @@ def test_a_hidden_account_is_never_chosen_for_the_owner(client):
                         ("Cold Storage", "Kraken BTC")}
 
 
-def test_a_row_sent_into_a_fee_account_is_refused(gate_open, client):
+def test_a_row_sent_into_a_fee_account_is_refused(client):
     rows = default_request(preview(client, exchange_account_id=KRAKEN_BTC, wallet_account_id=COLD))
     rows[0]["to_account"] = "BTC Fees"
     r = client.post("/api/import/exchange/execute", json={"rows": rows})
