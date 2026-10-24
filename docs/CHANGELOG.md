@@ -8,8 +8,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **A save that changes an earlier tax year asks first** (B6b, #352).
   Adding, editing or deleting a transaction in a way that would change
   the figures of a tax year before this one (a gain, a Form 8949 box, a
-  date acquired, an income or a rebate, a gift's, donation's or lost
-  coins' value or kind) now shows which years and what changes, and
+  date acquired or sold, an income or a rebate, a gift's, donation's or
+  lost coins' value or kind) now shows which years and what changes, and
   saves only after "Save anyway (a copy is made first)": BitcoinTX first
   keeps a copy of the database in its data folder's `backups`
   (`…-pre-change-past-year-….db`, the newest 5 and the first of each day

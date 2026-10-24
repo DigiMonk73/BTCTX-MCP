@@ -96,8 +96,9 @@ def test_a_row_moved_into_another_tax_year_lists_both(client):
     deposit(client, "2023-01-10T12:00:00Z")
     sale = sell(client, "2025-12-31T12:00:00Z")  # long-term either way, the same gain
     moved = changes_of(client, lambda: edit(client, sale, timestamp="2026-01-02T12:00:00Z"))
-    assert moved[sale] == {"diff": {"year": (2025, 2026)}, "years": [2025, 2026]}
-    assert year_changes.change_text(moved[sale]["diff"]) == "Tax year 2025 -> 2026."
+    assert moved[sale] == {"diff": {"date": ("12/31/2025", "01/02/2026"), "year": (2025, 2026)},
+                           "years": [2025, 2026]}
+    assert year_changes.change_text(moved[sale]["diff"]) == "Date 12/31/2025 -> 01/02/2026; tax year 2025 -> 2026."
 
 
 def test_dollars_moved_to_another_year_change_nothing(client):

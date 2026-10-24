@@ -232,7 +232,7 @@ from the Transaction row alone.
 edit or delete on `/api/transactions` that would change the figures of a
 tax year before this one (Ledger Review's snapshot, each disposal's Form
 8949 box and column (b), what the report counts as income or a rebate and
-as a gift, donation or lost coins, each row's tax year:
+as a gift, donation or lost coins, each row's date and tax year:
 `services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
 `exact`, `confirm`) and saves nothing. Sent again with

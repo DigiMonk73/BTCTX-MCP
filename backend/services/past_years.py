@@ -1,9 +1,9 @@
 """
 The past-year warning on adds, edits and deletes (2.0 spec 5.8; the owner's
 Q4, widened on 2026-10-15): a write that would change the figures of a tax
-year before this one (its gains, Form 8949 boxes, dates acquired, income and
-rebates, gifts, donations and lost coins) is saved only once confirmed,
-after a copy of the database.
+year before this one (its gains, Form 8949 boxes, the dates a return
+prints, income and rebates, gifts, donations and lost coins) is saved only
+once confirmed, after a copy of the database.
 
 Unconfirmed, the write is worked out on a scratch copy with the lock free
 (the dry run): when nothing earlier moves it saves as it always has, else a

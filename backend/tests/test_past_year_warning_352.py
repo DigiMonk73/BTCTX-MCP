@@ -559,3 +559,22 @@ def test_a_dollar_withdrawals_leftover_purpose_and_value_count_for_nothing(ledge
     r = client.put("/api/transactions/980", json={"amount": "100"})
     assert r.status_code == 200, r.text
     assert (r.json()["purpose"], r.json()["fmv_usd"]) == (None, None)  # dropped by the save
+
+
+# The dates a filed return prints (the build's lead, 2026-10-24, under the
+# owner's decisions 25 and 26): Form 8949's columns (b) and (c), the report's
+# gift and income dates. A row with figures whose date moves asks, even
+# within its year, with every figure and term the same
+
+def test_a_sale_moved_a_day_within_its_year_asks(ledger):
+    client, rows = ledger
+    r = client.put(f"/api/transactions/{rows['sale 2025']}", json={"timestamp": "2025-03-02T12:00:00Z"})
+    assert r.status_code == 409, r.text
+    assert r.json()["years"] == [2025]
+    assert [i["change"] for i in r.json()["changes"]] == ["Date 03/01/2025 -> 03/02/2025."]
+
+
+def test_a_time_moved_within_its_day_doesnt_ask(ledger):
+    client, rows = ledger
+    r = client.put(f"/api/transactions/{rows['sale 2025']}", json={"timestamp": "2025-03-01T15:30:00Z"})
+    assert r.status_code == 200, r.text
