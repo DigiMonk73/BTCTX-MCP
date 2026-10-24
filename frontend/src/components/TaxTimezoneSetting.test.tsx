@@ -54,9 +54,12 @@ async function mount(put: (config?: AxiosRequestConfig) => unknown) {
   return { sent, user, dialog, toasts: () => toasts.map((t) => t.message) };
 }
 
+/** The confirm a request was sent with, if any. */
+const confirmOf = (config?: AxiosRequestConfig): unknown => (config?.params as { confirm?: string } | undefined)?.confirm;
+
 /** Refused with the warning until it comes back with its confirm. */
 const warnsUntilConfirmed = (config?: AxiosRequestConfig) => {
-  if (config?.params?.confirm !== WARNING.confirm) throw refused(WARNING);
+  if (confirmOf(config) !== WARNING.confirm) throw refused(WARNING);
   return { timezone: "Asia/Tokyo", source: "setting" };
 };
 
@@ -67,7 +70,7 @@ describe("Settings' tax timezone that changes an earlier tax year", () => {
     expect(within(view.dialog).getByText(/Tax year 2026 -> 2025\./)).toBeTruthy();
     await view.user.click(within(view.dialog).getByRole("button", { name: "Save anyway (a copy is made first)" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(view.sent.mock.calls.map(([url, body, config]) => [url, body, config?.params?.confirm])).toEqual([
+    expect(view.sent.mock.calls.map(([url, body, config]) => [url, body, confirmOf(config)])).toEqual([
       ["/settings/tax-timezone", { timezone: "Asia/Tokyo", chosen: true }, undefined],
       ["/settings/tax-timezone", { timezone: "Asia/Tokyo", chosen: true }, WARNING.confirm],
     ]);

@@ -435,6 +435,16 @@ def test_its_confirm_saves_the_switch_for_both_of_the_exchanges_accounts_after_a
     assert len(copies(client, PRE_CHANGE_KIND)) == 1
 
 
+def test_turning_it_on_again_asks_too_and_puts_the_box_back(ledger):
+    client, rows = ledger
+    off = switch(client, EXCHANGE_BTC, False).json()
+    assert switch(client, EXCHANGE_BTC, False, {"confirm": off["confirm"]}).status_code == 200
+    on = switch(client, EXCHANGE_BTC, True)
+    assert on.status_code == 409, on.text
+    assert [(i["id"], i["change"]) for i in on.json()["changes"]] == [(rows["sale 2025"], "Form 8949 box L -> K.")]
+    assert switch(client, EXCHANGE_BTC, True, {"confirm": on.json()["confirm"]}).json()["sends_1099da"] is True
+
+
 def test_an_exchange_with_nothing_before_this_year_switches_at_once(ledger, monkeypatch):
     client, _ = ledger
     made = client.post("/api/accounts/", json={"kind": "exchange", "name": "Kraken"})

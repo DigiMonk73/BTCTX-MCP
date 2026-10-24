@@ -46,9 +46,12 @@ function refused(data: unknown): AxiosError {
   return new AxiosError("Request failed with status code 409", "ERR_BAD_REQUEST", undefined, undefined, response);
 }
 
+/** The confirm a request was sent with, if any. */
+const confirmOf = (config?: AxiosRequestConfig): unknown => (config?.params as { confirm?: string } | undefined)?.confirm;
+
 /** The import's answer: the warning until it comes back with its confirm. */
 const warnsUntilConfirmed = (config?: AxiosRequestConfig) => {
-  if (config?.params?.confirm !== WARNING.confirm) throw refused(WARNING);
+  if (confirmOf(config) !== WARNING.confirm) throw refused(WARNING);
   return { success: true, imported_count: 1, skipped_existing: 0, message: "Imported 1 transaction(s)." };
 };
 
@@ -84,7 +87,7 @@ describe("River's import of rows that change an earlier tax year", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const [first, again] = view.imports();
     expect(again[1]).toEqual(first[1]); // the same rows
-    expect([first[2]?.params?.confirm, again[2]?.params?.confirm]).toEqual([undefined, WARNING.confirm]);
+    expect([confirmOf(first[2]), confirmOf(again[2])]).toEqual([undefined, WARNING.confirm]);
     expect(view.toasts()).toEqual(["Imported 1 transaction(s)."]);
     expect(screen.queryByRole("button", { name: "Import 1 Transaction(s)" })).toBeNull(); // done: the card resets
   });
