@@ -34,9 +34,12 @@ All notable changes to BitcoinTX are documented in this file.
   one-wallet limitation gone) and its README (2.0's copies in
   `backups`); Recalculate Ledger is under Settings › Account in the
   action's text. `docs/MAINTENANCE.md` gains "Going back to 1.x" for
-  Docker and the Mac app; every way back was tried with 1.2.10 (StartOS
-  by BitcoinTX's own backup, Docker, the Mac app), and 1.2.10 refuses a
-  2.0 backup in plain words. The README's pictures show a second wallet
+  Docker and the Mac app. The ways back by BitcoinTX's own backup on
+  StartOS, on Docker and in the Mac app were tried with 1.2.10 (StartOS's
+  by its own backup is recorded on #357 once tried), and 1.2.10 refuses a
+  2.0 backup in plain words. The Complete Tax Report's notes say that
+  coins you identified, or an exchange's own order of coins, can give
+  other figures. The README's pictures show a second wallet
   (`testdata/showcase_ledger.json`). `docs/AGENT-TESTS.md` gains 2.0's
   release tests. No figure changes.
 - **The dashboard by kind, Transactions by name, and renames** (B8, #356).

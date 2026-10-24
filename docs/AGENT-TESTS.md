@@ -474,9 +474,10 @@ Start from the `clean` snapshot.
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
   §1.1012-1(j)). BitcoinTX uses first in, first out in each wallet and
-  exchange account (identified coins give other figures) and records no
-  Rev. Proc. 2024-28 allocation." (1.x's
-  one-wallet bullet is gone), and the disclaimer. Section 2 of each report
+  exchange account and records no Rev. Proc. 2024-28 allocation." (1.x's
+  one-wallet bullet is gone), and the disclaimer; in 7, "Notes", "Coins you
+  identified on your own books, or an exchange's own order of coins, can
+  give other figures." Section 2 of each report
   ends with "Sales by exchange", as in the expected-figures table (2025's
   report too). RPT-6 checks the values once prices are on.
 
@@ -545,7 +546,7 @@ exchanges and banks** reads its name, its kind and its balance.
 - **ACC-1** Settings. Expect the nine sections in the order of
   "Settings, one section at a time" above, all closed but **Ledger Review**,
   which REV-4 left open (Settings remembers the section last open in this
-  browser); close it. Expect them in the order of
+  browser); close it. Expect
   "Settings, one section at a time" above, the summary under **Wallets,
   exchanges and banks** reading "1 wallet · 1 exchange · 1 bank". Open it.
   Expect three groups, Wallets, Exchanges and Banks, each with its button
@@ -1467,7 +1468,8 @@ Start from the `clean` snapshot.
 backup, so what was entered in 2.0 is lost on the way back. These are the
 ways back the release notes (StartOS) and `docs/MAINTENANCE.md` (Docker,
 the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
-StartOS backup's own way back, WAY-3, is recorded on #357 once tried).
+StartOS backup's own way back, WAY-1's backup and WAY-3's restore, is
+recorded on #357 once tried).
 WAY-1 to WAY-5 run in order on one VM, from the `clean` snapshot, and need
 the second disk and the VM's StartOS password; WAY-6 needs Docker on your
 machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
