@@ -14,16 +14,25 @@ All notable changes to BitcoinTX are documented in this file.
   remembered in that browser (the Mac app, which keeps nothing between
   starts, opens them closed). With one account of each kind there's no
   toggle. The sidebar's calculator no longer ends level with the cards:
-  their height now varies. The Portfolio Overview keeps Total BTC, the average cost and
-  the unrealized gains. The Transactions list names each row's accounts
-  as you named them (a Buy's or a Sell's exchange by its name), shows an
-  amount in its account's currency, calls any bitcoin account sent to
-  itself a "Consolidation" (an exchange's too, which was "Between
-  exchanges"), and gets an account filter grouped by kind. Ledger Review
-  (and `cli review`) names each item's accounts. Any account but the fee accounts can be
-  renamed through the account API (an exchange renames both of its
-  accounts), and your first bank, wallet and exchange can take back their
-  old names. No figure changes.
+  their height now varies. The Portfolio Overview keeps Total BTC, the
+  average cost and the unrealized gains. The Transactions list names each
+  row's accounts as you named them (a Buy's or a Sell's exchange by its
+  name), shows an amount in its account's currency, calls any bitcoin
+  account sent to itself a "Consolidation" (an exchange's too, which was
+  "Between exchanges"), and gets an account filter grouped by kind. Ledger
+  Review (and `cli review`) names each item's accounts. Any account but
+  the fee accounts can be renamed through the account API (an exchange
+  renames both of its accounts), and your first bank, wallet and exchange
+  can take back their old names. No figure changes.
+- **The past-year warning's groundwork** (B6p, #568; tests and scripts
+  only, nothing the app does changes). One clock for "this tax year", in
+  the tax timezone (`tax_time.current_tax_year`), which the warning before
+  a save that changes an earlier tax year will read: the tests pin it to
+  2009, so the suite never changes on its own on 1 January, while every
+  other date check keeps the computer's clock. What loads transactions
+  into a running server (`scripts/seed_ledger.py`, the transactions
+  `scripts/smoke_test.py` creates, the click-through tests' `createTx`)
+  confirms the warning when it asks, with the fingerprint it gives.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and
