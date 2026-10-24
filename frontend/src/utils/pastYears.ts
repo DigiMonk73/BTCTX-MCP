@@ -8,6 +8,10 @@ import axios from "axios";
 /** What the owner is asked about: the warning differs only in its words. */
 export type PastYearKind = "add" | "edit" | "delete";
 
+/** Why a write is asked about again: the ledger changed after the owner's
+ * confirm, or after the page's own (an add to a year kept quiet). */
+export type WarnedAgain = "confirmed" | "quiet";
+
 /** A row the save changes, as Ledger Review lists one (backend/services/year_changes.py). */
 export interface PastYearChange {
   /** null for the row an add makes */

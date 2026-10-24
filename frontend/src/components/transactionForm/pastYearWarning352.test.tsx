@@ -161,6 +161,9 @@ describe("an add that changes an earlier tax year", () => {
 
     expect(form.writes().map(confirmOf)).toEqual([undefined, warning([2025], "a").confirm]);
     expect(within(dialog()).getAllByRole("listitem")).toHaveLength(1);
+    // Said why it asks after all: the box's choice was the owner's
+    expect(within(dialog()).getByRole("alert").textContent).toMatch(
+      /The ledger changed as this page confirmed it for you\. Nothing was saved/);
     await click(form, SAVE_ANYWAY);
     expect(form.writes().map(confirmOf).at(-1)).toBe(warning([2025], "b").confirm);
     expect(form.toasts()).toEqual([{ type: "success", message: "Transaction created successfully!" }]);
@@ -180,6 +183,33 @@ describe("an add that changes an earlier tax year", () => {
     await click(form, SAVE_ANYWAY);
     expect(form.writes().map(confirmOf)).toEqual([undefined, warning([2025], "a").confirm, warning([2024, 2025], "b").confirm]);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("a ticked box counts once its save is made: the ledger changed, then Cancel, and the next add asks", async () => {
+    const answers = [refused(warning([2025], "a")), refused(warning([2025], "b")), refused(warning([2025], "c"))];
+    const form = await renderForm({ book: ONE_OF_EACH, respond: (r) => (isWrite(r) ? answers.shift() : undefined) });
+    await fillDeposit(form, "2025-08-01T12:00:00");
+    await form.save();
+    await form.user.click(within(dialog()).getByRole("checkbox", { name: quietBox("2025") }));
+    await click(form, SAVE_ANYWAY); // the ledger changed: asked anew, the box unticked
+    await click(form, "Cancel");
+    await fillDeposit(form, "2025-09-01T12:00:00");
+    await form.save();
+    expect(form.writes().map(confirmOf)).toEqual([undefined, warning([2025], "a").confirm, undefined]);
+    expect(dialog()).toBeTruthy();
+  });
+
+  it("a ticked box whose save failed keeps no year quiet", async () => {
+    const answers = [refused(warning([2025])), { status: 503, data: { detail: "Not saved: BitcoinTX was busy." } },
+      refused(warning([2025], "b"))];
+    const form = await renderForm({ book: ONE_OF_EACH, respond: (r) => (isWrite(r) ? answers.shift() : undefined) });
+    await fillDeposit(form, "2025-08-01T12:00:00");
+    await form.save();
+    await form.user.click(within(dialog()).getByRole("checkbox", { name: quietBox("2025") }));
+    await click(form, SAVE_ANYWAY);
+    await form.save(); // the same add again
+    expect(form.writes()).toHaveLength(3);
+    expect(dialog()).toBeTruthy();
   });
 
   it("a failure of the confirmed save closes the question and shows the server's reason", async () => {

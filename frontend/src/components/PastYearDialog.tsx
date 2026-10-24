@@ -4,15 +4,18 @@
 // makes a copy of the ledger first.
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { keepFocusIn } from "../utils/dialogFocus";
-import { byTaxYears, yearsInWords, type PastYearChange, type PastYearKind, type PastYearWarning } from "../utils/pastYears";
+import {
+  byTaxYears, yearsInWords, type PastYearChange, type PastYearKind, type PastYearWarning, type WarnedAgain,
+} from "../utils/pastYears";
 import { reviewAmount, typeWithSourceOrPurpose } from "../utils/transactionList";
 
 interface PastYearDialogProps {
   kind: PastYearKind;
   warning: PastYearWarning;
-  /** The ledger changed after the owner confirmed: the server refused, and
-   * `warning` is what the save changes now. */
-  changed?: boolean;
+  /** The ledger changed after the owner confirmed ("confirmed"), or after
+   * the page confirmed an add to a year kept quiet ("quiet"): the server
+   * refused, and `warning` is what the save changes now. */
+  changed?: WarnedAgain | null;
   /** The confirmed request is running */
   busy: boolean;
   /** What opened it, focused again when it closes. */
@@ -57,7 +60,7 @@ const PendingChanges: React.FC<{ warning: PastYearWarning }> = ({ warning }) => 
 );
 
 const PastYearDialog: React.FC<PastYearDialogProps> = ({
-  kind, warning, changed = false, busy, opener, onConfirm, onCancel,
+  kind, warning, changed = null, busy, opener, onConfirm, onCancel,
 }) => {
   const [quiet, setQuiet] = useState(false);
   const dialog = useRef<HTMLDivElement>(null);
@@ -68,6 +71,11 @@ const PastYearDialog: React.FC<PastYearDialogProps> = ({
     setQuiet(false);
     cancelButton.current?.focus();
   }, [warning.confirm]);
+  // While its request runs nothing in it can take focus: it holds it itself,
+  // so Tab never reaches the form behind it
+  useEffect(() => {
+    if (busy) dialog.current?.focus();
+  }, [busy]);
   // Focus goes back to what opened the dialog when it closes
   useEffect(() => {
     const from = opener.current;
@@ -91,15 +99,16 @@ const PastYearDialog: React.FC<PastYearDialogProps> = ({
   const hasPending = warning.pending.length > 0 || warning.recalc_error !== null;
   return (
     <div className="dialog-backdrop">
-      <div ref={dialog} className="dialog card" role="dialog" aria-modal="true"
+      <div ref={dialog} tabIndex={-1} className="dialog card" role="dialog" aria-modal="true"
         aria-labelledby="past-year-title" aria-describedby="past-year-detail">
         <h3 id="past-year-title" className="card-title">Change an earlier tax year?</h3>
         <p id="past-year-detail">{warning.detail}</p>
         {changed && (
           // Keyed by the warning, so a second change is announced again
           <div key={warning.confirm} className="note note-error" role="alert">
-            The ledger changed while this was open. Nothing was {kind === "delete" ? "deleted" : "saved"}: check
-            what this changes now.
+            {changed === "quiet" ? "The ledger changed as this page confirmed it for you."
+              : "The ledger changed while this was open."} Nothing was {kind === "delete" ? "deleted" : "saved"}:
+            check what this changes now.
           </div>
         )}
         {!warning.exact && warning.why_not_exact && <p className="dialog-note">{warning.why_not_exact}</p>}

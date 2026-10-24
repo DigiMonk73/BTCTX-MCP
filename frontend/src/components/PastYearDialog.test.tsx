@@ -28,11 +28,13 @@ const WARNING: PastYearWarning = {
   confirm: "f".repeat(64),
 };
 
-function renderDialog(kind: PastYearKind, extra: { busy?: boolean; warning?: PastYearWarning } = {}) {
+function renderDialog(kind: PastYearKind,
+  extra: { busy?: boolean; warning?: PastYearWarning; changed?: "confirmed" | "quiet" } = {}) {
   const opener = createRef<HTMLElement>();
   const onConfirm = vi.fn();
   const onCancel = vi.fn();
-  const props = { kind, warning: extra.warning ?? WARNING, busy: extra.busy ?? false, opener, onConfirm, onCancel };
+  const props = { kind, warning: extra.warning ?? WARNING, busy: extra.busy ?? false, changed: extra.changed ?? null,
+    opener, onConfirm, onCancel };
   const view = render(<PastYearDialog {...props} />);
   return { ...view, props, onConfirm, onCancel, user: userEvent.setup() };
 }
@@ -133,6 +135,24 @@ describe("the keyboard and the busy state", () => {
     expect(onCancel).not.toHaveBeenCalled();
   });
 
+  it("while its request runs, it holds the focus itself: Tab can't leave it", async () => {
+    const { props, rerender, user } = renderDialog("add");
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    rerender(<PastYearDialog {...props} busy />);
+    const dialog = screen.getByRole("dialog");
+    expect(document.activeElement).toBe(dialog);
+    await user.tab();
+    expect(document.activeElement).toBe(dialog);
+    outside.remove();
+  });
+
+  it("the page's own confirm of a quiet year refused: said why it asks", () => {
+    renderDialog("add", { changed: "quiet" });
+    expect(screen.getByRole("alert").textContent).toBe(
+      "The ledger changed as this page confirmed it for you. Nothing was saved: check what this changes now.");
+  });
+
   it("a delete's request says it deletes", () => {
     renderDialog("delete", { busy: true });
     expect(screen.getByRole("status").textContent).toBe("Making a copy, then deleting…");
@@ -143,7 +163,7 @@ describe("the keyboard and the busy state", () => {
     await user.click(screen.getByRole("checkbox"));
     screen.getByRole("button", { name: "Save anyway (a copy is made first)" }).focus();
     const newer = { ...WARNING, years: [2025], confirm: "e".repeat(64) };
-    rerender(<PastYearDialog {...props} warning={newer} changed />);
+    rerender(<PastYearDialog {...props} warning={newer} changed="confirmed" />);
     expect(screen.getByRole("alert").textContent).toBe(
       "The ledger changed while this was open. Nothing was saved: check what this changes now.");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));

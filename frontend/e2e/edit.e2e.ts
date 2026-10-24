@@ -115,7 +115,7 @@ test("saving an edit without changes changes nothing", async ({ authedPage: page
   await seedFunds(page.request);
   const created = await createTx(page.request, CASES[4].tx);
   await openEdit(page, "Sell");
-  await saveForm(page, "Update Transaction");
+  await saveForm(page, "Update Transaction", { warning: false }); // moving nothing, it doesn't ask
   const after = (await listTx(page.request)).find((t) => t.id === created.id)!;
   expect(normalize(after)).toEqual(normalize(created));
 });
@@ -136,7 +136,7 @@ test("a few sats start as plain digits, never 5e-8, and save unchanged (#101)", 
   await expect(page.getByRole("heading", { name: "Edit Transaction" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Discard changes?" })).toHaveCount(0);
   await openEdit(page, "Withdrawal");
-  await saveForm(page, "Update Transaction");
+  await saveForm(page, "Update Transaction", { warning: false });
   const after = (await listTx(page.request)).find((t) => t.id === created.id)!;
   expect(normalize(after)).toEqual(normalize(created));
 });

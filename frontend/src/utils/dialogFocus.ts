@@ -8,7 +8,10 @@ const FOCUSABLE =
 export function keepFocusIn(container: HTMLElement | null, event: KeyboardEvent): void {
   if (!container || event.key !== "Tab") return;
   const items = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-  if (items.length === 0) return;
+  if (items.length === 0) {
+    event.preventDefault(); // nothing to take it (a dialog busy): focus stays where the dialog put it
+    return;
+  }
   const first = items[0];
   const last = items[items.length - 1];
   const inside = container.contains(document.activeElement);

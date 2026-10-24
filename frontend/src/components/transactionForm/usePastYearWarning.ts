@@ -10,6 +10,7 @@ import {
   pastYearWarning,
   type PastYearKind,
   type PastYearWarning,
+  type WarnedAgain,
 } from "../../utils/pastYears";
 
 /** A request the form sends, with the confirm once there is one. */
@@ -19,8 +20,8 @@ export type ConfirmableRequest<T> = (confirm?: string) => Promise<T>;
 export interface PastYearQuestion {
   kind: PastYearKind;
   warning: PastYearWarning;
-  /** The ledger changed after the owner confirmed: the server refused, and `warning` is what it changes now. */
-  changed: boolean;
+  /** Why it's asked again, if it is: the server refused a confirm, and `warning` is what it changes now. */
+  changed: WarnedAgain | null;
   busy: boolean;
   opener: RefObject<HTMLElement | null>;
   onConfirm: (quiet: boolean) => void;
@@ -44,7 +45,7 @@ export function usePastYearWarning() {
   const opener = useRef<HTMLElement | null>(null);
 
   const ask = useCallback(
-    (kind: PastYearKind, warning: PastYearWarning, changed: boolean) =>
+    (kind: PastYearKind, warning: PastYearWarning, changed: WarnedAgain | null) =>
       new Promise<Answer>((resolve) => {
         answer.current = resolve;
         setBusy(false);
@@ -55,20 +56,23 @@ export function usePastYearWarning() {
 
   /** Asked until the owner cancels, or a confirmed request succeeds or fails otherwise. */
   const askUntilDone = useCallback(
-    async <T>(kind: PastYearKind, first: PastYearWarning, send: ConfirmableRequest<T>): Promise<T | null> => {
+    async <T>(kind: PastYearKind, first: PastYearWarning, send: ConfirmableRequest<T>,
+      againFirst: WarnedAgain | null): Promise<T | null> => {
       let warning = first;
-      let changed = false;
+      let changed = againFirst;
       try {
         for (;;) {
           const choice = await ask(kind, warning, changed);
           if (choice === null) return null;
-          if (choice.quiet) keepAddsQuiet(warning.years);
           setBusy(true);
           try {
-            return await send(warning.confirm);
+            const result = await send(warning.confirm);
+            // Only once the add is saved: a refused or failed confirm keeps no year quiet
+            if (choice.quiet) keepAddsQuiet(warning.years);
+            return result;
           } catch (error) {
             warning = warningIn(error);
-            changed = true;
+            changed = "confirmed";
           }
         }
       } finally {
@@ -93,14 +97,12 @@ export function usePastYearWarning() {
       } catch (error) {
         warning = warningIn(error);
       }
-      if (kind === "add" && addsQuietFor(warning.years)) {
-        try {
-          return await send(warning.confirm);
-        } catch (error) {
-          warning = warningIn(error);
-        }
+      if (kind !== "add" || !addsQuietFor(warning.years)) return askUntilDone(kind, warning, send, null);
+      try {
+        return await send(warning.confirm);
+      } catch (error) {
+        return askUntilDone(kind, warningIn(error), send, "quiet");
       }
-      return askUntilDone(kind, warning, send);
     },
     [askUntilDone],
   );
