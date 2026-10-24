@@ -6,7 +6,7 @@ currency comes from the kind. Renames come later (B8).
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class AccountCreate(BaseModel):
@@ -23,6 +23,12 @@ class AccountUpdate(BaseModel):
 
     hidden: bool | None = None
     sends_1099da: bool | None = None  # TEMP: a stand-in for B6c's switch (#353), reverted before B6c merges in
+
+    @model_validator(mode="after")
+    def _one_change(self):  # TEMP, with the stand-in above
+        if self.hidden is None and self.sends_1099da is None:
+            raise ValueError("Nothing to change.")
+        return self
 
 
 class AccountRead(BaseModel):
