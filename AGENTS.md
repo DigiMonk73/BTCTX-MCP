@@ -20,7 +20,7 @@ takes it once a day (see Branches).
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | Python 3.13; data on `/data` (`DATABASE_FILE=/data/btctx.db`); runs as its own user `btctx` (uid 10001), never root (`docker-entrypoint.sh`, #202); image `ghcr.io/digimonk73/btctx-mcp` |
 | Landing page | DigiMonk73/btctx-site | <https://digimonk73.github.io/btctx-site/>, `index.html` with screenshots in `img/`, on GitHub Pages; the manifest's `marketingUrl` and the connector's Homepage. Its download links follow the latest release by themselves; its text and screenshots don't (Releasing, step 5) |
-| StartOS package | `startos/` | start-sdk 3.0.6 (StartOS 0.4.0.2 or later), self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
+| StartOS package | `startos/` | start-sdk 3.1.0 (StartOS 0.4.0.2 or later), self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## What's at stake
 
@@ -129,6 +129,20 @@ carry its `Co-Authored-By` line.
   never move or delete a pin. Its branches are named `2.0-…` (git
   refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
   the steps and where they stand: #251.
+  `make catch-up-2.0` (`scripts/catch-up-2.0.sh`) does that `develop`
+  merge when it is clean (no 1.x migration, no change to the reference
+  test ledger or its figures, no conflict): GitHub makes the merge commit
+  on a branch of its own, `2.0-merge-develop-auto-…`, and its pull request
+  merges by itself once its own CI passes, with no review of its own (the
+  owner's decision 24, #251). Nothing is opened while a 2.0 step has
+  auto-merge on, and a step's pin is never taken while a catch-up has it
+  on, so each pin is `2.0`'s tip when its step lands. Anything else stops
+  for the build's lead. It also lists a new 1.x release (B1's
+  `reference_1x.db` made again from it) and `startos/` changes. The lead
+  runs it before every step and nightly at 22:30 (America/Chicago, a
+  scheduled task on the Mac mini), so 1.x's fixes reach `2.0` without
+  waiting. Never `gh pr update-branch` on a catch-up: its head is the
+  merge commit its CI tested.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
@@ -1023,6 +1037,8 @@ and the README's "Reporting problems"; keep them.
   - outside reports with no answer, here, on Start9's fork or on the
     mirror;
   - how many security advisories are waiting (never their details);
+  - open `start9` issues: what Start9 released or changed that the
+    StartOS package hasn't followed yet;
   - the latest Grok pass, as Claude recorded it on #41: how many of its
     findings Claude confirmed and how many it didn't, and the next
     monthly area (`docs/GROK-REVIEW.md`).
@@ -1280,7 +1296,10 @@ passed" that isn't a failure), and any "staging into develop" (`gh pr
 list --base staging`, `gh run list --branch staging --limit 10`, `gh pr
 list --base develop`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work, and run the
-daily cycle ("Branches", `develop`).
+daily cycle ("Branches", `develop`). Then what Start9 changed: the open
+`start9` issues, and, until `main` carries the daily `start9-watch.yml`
+(its schedule runs only from `main`), `scripts/start9-watch.sh` itself
+(startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
 down from GitHub and says whether anything exists only on this computer: work not

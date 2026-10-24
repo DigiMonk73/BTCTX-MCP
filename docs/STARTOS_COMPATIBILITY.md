@@ -10,7 +10,7 @@
 |------|-------|----------|
 | App | `backend/`, `frontend/`, `Dockerfile` | image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (amd64 + arm64) |
 | macOS app | `desktop/` | `BitcoinTX-macOS.dmg` / `.zip` |
-| StartOS package | `startos/` (start-sdk 3.0.6, StartOS 0.4.0.2 or later) | `btctx.s9pk`, which runs the image above |
+| StartOS package | `startos/` (start-sdk 3.1.0, StartOS 0.4.0.2 or later) | `btctx.s9pk`, which runs the image above |
 
 All three carry the version in `VERSION` (checked by
 `backend/tests/test_versions_agree.py`). `startos/` is self-contained and is
