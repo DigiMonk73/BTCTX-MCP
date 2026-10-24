@@ -18,10 +18,19 @@ All notable changes to BitcoinTX are documented in this file.
   1099-DA it sends. Ledger Review reminds of each Sell from 2026 for which
   the exchange's own order (it counts coins moved in from their arrival)
   and BitcoinTX's take different coins bought there: the exchange's form
-  may show another basis. Account names
-  are printed as text, never markup. No figure of any ledger changes: a
-  1.x ledger's boxes are as before, and its report adds only the account
-  names and one row, "Exchange", in "Sales by exchange".
+  may show another basis. Account names are printed as text, never
+  markup. No figure of any ledger changes: a 1.x ledger's boxes are as
+  before, and its report adds only the account names and one row,
+  "Exchange", in "Sales by exchange".
+- **The past-year warning's groundwork** (B6p, #568; tests and scripts
+  only, nothing the app does changes). One clock for "this tax year", in
+  the tax timezone (`tax_time.current_tax_year`), which the warning before
+  a save that changes an earlier tax year will read: the tests pin it to
+  2009, so the suite never changes on its own on 1 January, while every
+  other date check keeps the computer's clock. What loads transactions
+  into a running server (`scripts/seed_ledger.py`, the transactions
+  `scripts/smoke_test.py` creates, the click-through tests' `createTx`)
+  confirms the warning when it asks, with the fingerprint it gives.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and
