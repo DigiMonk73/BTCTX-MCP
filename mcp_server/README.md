@@ -7,8 +7,9 @@ describe it ("moved 0.05 BTC from River to my Coldcard yesterday, fee was 2k
 sats"). The assistant turns it into transactions, shows you a dry-run preview
 with dedup and the resulting gain/loss, and saves them once you confirm.
 
-BitcoinTX itself is a minimalist tracker for your wallets, exchanges and
-banks, each with its own lots: see [Wallets, exchanges and
+BitcoinTX itself is a self-hosted Bitcoin portfolio and tax tracker for your
+wallets, exchanges and banks, each wallet and exchange with its own lots:
+see [Wallets, exchanges and
 banks](https://github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks).
 
 The server runs **on your computer** and talks to your BitcoinTX instance
