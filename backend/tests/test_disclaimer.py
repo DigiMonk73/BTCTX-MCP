@@ -44,10 +44,10 @@ def ts_constant(name: str) -> str:
 
 def test_the_disclaimer_is_worded_the_same_everywhere():
     assert ts_constant("DISCLAIMER") == DISCLAIMER
-    # The one-wallet notice is the README's Important box, word for word
+    # About's notice on wallets and exchanges is the README's Important box, word for word
     readme = (ROOT / "README.md").read_text()
     box = re.search(r"> \[!IMPORTANT\]\n((?:>.*\n)+)", readme).group(1)
-    assert ts_constant("ONE_WALLET_NOTICE") == flat(re.sub(r"^> ?", "", box, flags=re.M))
+    assert ts_constant("ACCOUNTS_NOTICE") == flat(re.sub(r"^> ?", "", box, flags=re.M))
     for doc in ("README.md", "mcp_server/README.md"):
         assert DISCLAIMER in flat((ROOT / doc).read_text()), doc
 

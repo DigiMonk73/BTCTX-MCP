@@ -11,7 +11,7 @@ import { offered, renderForm, shown } from "../../test/renderForm";
 import { ACCOUNTS_FAILED } from "../../utils/useAccounts";
 
 const WITHIN_WALLET = "Wallet: consolidate / move within the same wallet";
-const WITHIN_EXCHANGE = "Exchange: move between exchanges BitcoinTX counts as one";
+const WITHIN_EXCHANGE = "Exchange: consolidate within the same exchange";
 
 describe("with one of each: 1.x's form, its accounts by name", () => {
   it("a Deposit or Withdrawal's account, its currency the account's", async () => {
@@ -53,7 +53,7 @@ describe("with one of each: 1.x's form, its accounts by name", () => {
   it("a Sell: its exchange, read-only", async () => {
     const form = await renderForm({ book: ONE_OF_EACH });
     await form.pickType("Sell");
-    const account = screen.getByLabelText("Account", { exact: true }) as HTMLInputElement;
+    const account = screen.getByLabelText("Exchange", { exact: true }) as HTMLInputElement;
     expect([account.tagName, account.value, account.readOnly]).toEqual(["INPUT", "Exchange", true]);
   });
 });
@@ -137,8 +137,8 @@ describe("with more accounts", () => {
   it("sells on a chosen exchange", async () => {
     const form = await renderForm({ book: MANY });
     await form.pickType("Sell");
-    expect(offered("Account")).toEqual(["River", "Kraken"]);
-    expect(shown("Account")).toBe("Select Exchange");
+    expect(offered("Exchange")).toEqual(["River", "Kraken"]);
+    expect(shown("Exchange")).toBe("Select Exchange");
   });
 
   it("saves the ids chosen", async () => {

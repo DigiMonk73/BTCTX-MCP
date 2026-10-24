@@ -137,21 +137,37 @@ async def test_ai_setup_guide_names_the_startos_certificate_file():
     assert f"`{ca_file}`" in (repo / "mcp_server/AI_SETUP.md").read_text()
 
 
-async def test_ledger_guide_says_a_second_wallet_is_pooled():
-    """A user adding a second wallet or exchange through the AI hears that
-    BitcoinTX pools it (#92), pointing to the README section that explains it."""
+async def test_ledger_guide_says_each_wallet_is_its_own_account():
+    """2.0 (#357; 5.12, 5.14): the AI names accounts as get_portfolio lists
+    them, and a wallet or exchange the user hasn't added is added by the
+    user in Settings, never pooled into another account nor recorded as
+    External, pointing to the README section that explains it."""
     from btctx_mcp.guide import LEDGER_GUIDE
 
     readme = (Path(__file__).parents[2] / "README.md").read_text()
-    assert "## One wallet, one exchange" in readme
+    assert "## Wallets, exchanges and banks" in readme
     flat = " ".join(LEDGER_GUIDE.split())
-    assert "second wallet or a second exchange" in flat
-    assert "pools it" in flat and '"One wallet, one exchange"' in flat
-    assert "github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange" in flat
-    # The user's own second wallet as External would make a move between
-    # their own wallets a taxable withdrawal
-    assert "Exchange BTC / Exchange USD, never External" in flat
-    assert "untracked exchanges" not in flat
+    assert "get_portfolio" in flat and "accounts" in flat
+    assert "a second wallet or exchange" in flat
+    assert "Settings -> Wallets, exchanges and banks" in flat
+    assert "github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks" in flat
+    # The user's own wallet as External would make a move between their
+    # own wallets a taxable withdrawal; pooling it would mix their lots
+    assert "never External" in flat
+    for gone in ("pools it", "One wallet, one exchange", "one-wallet-one-exchange", "exchange by exchange"):
+        assert gone not in flat, gone
+
+
+async def test_ledger_guide_explains_a_past_year_confirm():
+    """B6c's saved: false (#353): the AI shows the years and changes, and
+    confirms only after the user's yes, never on its own."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "saved: false" in flat
+    for word in ("confirm", "confirm_move", "past_years"):
+        assert word in flat, word
+    assert "Never send a confirm the user didn't say yes to" in flat
 
 
 async def test_ledger_guide_says_its_figures_are_not_tax_advice():
