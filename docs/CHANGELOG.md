@@ -22,6 +22,32 @@ All notable changes to BitcoinTX are documented in this file.
   markup. No figure of any ledger changes: a 1.x ledger's boxes are as
   before, and its report adds only the account names and one row,
   "Exchange", in "Sales by exchange".
+- **Imports, the CSV export and the AI connector by your accounts** (B5a,
+  #350). A CSV file names an account as Settings does, by its name now, in
+  any case; Bank, Wallet, Exchange USD and Exchange BTC always mean your
+  first bank, wallet and exchange, so a 1.x file imports as before. Any
+  other name is refused, the error listing the names a file may use; a
+  hidden account still imports, with a warning ("Wallet is hidden in
+  Settings."). The import's preview and the CSV export write each
+  account's name now. A fee whose currency is left blank is in the
+  currency of the account it's paid from (a deposit's: the account it goes
+  into), as a saved transaction always took it, so a dollar deposit's fee
+  with a blank currency, refused before, imports in dollars. A River file
+  goes into the exchange and the wallet you choose (by default the first
+  of each that isn't hidden), its recurring buys paid from your first bank
+  that isn't hidden. The River and AI imports' duplicate checks never take
+  a transaction in another wallet, another exchange or another bank for a
+  row's copy, with two exceptions for River, whose file names neither the
+  wallet nor the bank: a transaction typed with another wallet is marked
+  Review and imported unless you untick it, and a buy recorded as paid
+  from another bank is still found. The AI connector takes any of your
+  accounts by name, refuses one you haven't added before it sends
+  anything (and a renamed account's old name, saying its new one), lists
+  your accounts in get_portfolio, and tells BitcoinTX it is a 2.0
+  connector; the AI key may read the account list, never add, hide or
+  delete one, and its add passes a hidden account's warning on. Saving
+  into an added account still waits for a later step. No figure of a
+  ledger moves.
 - **The transaction form names accounts by the account book** (B6a, #351).
   Editing a transaction keeps the accounts it was saved with: a Buy or a
   Sell stays on its exchange, a Transfer keeps its destination. Where more

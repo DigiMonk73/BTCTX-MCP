@@ -195,7 +195,8 @@ def test_every_route_the_mcp_tools_call_is_allowed():
     source = (REPO / "mcp_server" / "btctx_mcp" / "server.py").read_text()
     calls = re.findall(r'_call\(\s*"([A-Z]+)",\s*f?"(/api/[^"]+)"', source)
     assert len(calls) >= 12
-    for method, path in calls:
+    from btctx_mcp.client import ACCOUNTS_PATH  # the user's accounts, read by the client itself (5.12)
+    for method, path in [*calls, ("GET", ACCOUNTS_PATH)]:
         path = re.sub(r"\{[^}]+\}", "7", path)
         assert ai_key.key_may_use(method, _route_of(method, path)), (method, path)
 

@@ -12,6 +12,8 @@ import ast
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 import backend.constants
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -20,17 +22,6 @@ NAMES = {"BTC_ACCOUNTS", "ACCOUNT_ID_TO_NAME", "ACCOUNT_NAME_TO_ID",
 
 # (file, name): how many times, and the card that changes them
 STILL_BY_NUMBER = {
-    # B5: files name accounts by the book (5.11: the CSV preview and export, the AI import, River)
-    ("routers/backup.py", "ACCOUNT_ID_TO_NAME"): 2,
-    ("routers/river_import.py", "ACCOUNT_NAME_TO_ID"): 1,
-    ("services/csv_import.py", "ACCOUNT_ID_TO_NAME"): 2,
-    ("services/csv_import.py", "ACCOUNT_NAME_TO_ID"): 3,
-    ("services/entry_import.py", "ACCOUNT_ID_TO_NAME"): 4,
-    ("services/river_import.py", "ACCOUNT_ID_TO_NAME"): 2,
-    ("services/river_import.py", "ACCOUNT_BANK"): 1,
-    ("services/river_import.py", "ACCOUNT_WALLET"): 2,
-    ("services/river_import.py", "ACCOUNT_EXCHANGE_USD"): 2,
-    ("services/river_import.py", "ACCOUNT_EXCHANGE_BTC"): 5,
     # B7a: the gate (5.10: USER_ACCOUNTS, 1 to 4 and 99, until the book's yours())
     ("services/transaction.py", "ACCOUNT_BANK"): 1,
     ("services/transaction.py", "ACCOUNT_WALLET"): 1,
@@ -57,5 +48,8 @@ def test_no_account_checked_by_number():
     assert dict(_uses()) == STILL_BY_NUMBER
 
 
-def test_btc_accounts_is_gone():
-    assert not hasattr(backend.constants, "BTC_ACCOUNTS")
+@pytest.mark.parametrize("name", ["BTC_ACCOUNTS", "ACCOUNT_ID_TO_NAME", "ACCOUNT_NAME_TO_ID"])
+def test_1xs_account_lists_are_gone(name):
+    """5.4: BTC_ACCOUNTS went with B3, the name maps with B5a (#350), once
+    nothing used them: the book answers both ways."""
+    assert not hasattr(backend.constants, name)

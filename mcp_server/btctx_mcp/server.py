@@ -33,6 +33,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
+from btctx_mcp.accounts import AccountNames
 from btctx_mcp.client import BtctxClient, BtctxError
 from btctx_mcp.guide import LEDGER_GUIDE
 
@@ -42,17 +43,13 @@ from btctx_mcp.guide import LEDGER_GUIDE
 # first shape, and an MCP client may rely on it.
 ToolResult = Dict[str, Any]  # noqa: UP006
 
-AccountName = Literal["Bank", "Wallet", "Exchange USD", "Exchange BTC", "External"]
+# Any account BitcoinTX lists, by name (2.0 spec 5.12): checked against its
+# list before any request (_account), never a fixed set
+AccountName = Annotated[str, Field(description="One of the user's accounts, by name (get_portfolio lists them), "
+                                               "or External.")]
 TxTypeName = Literal["Buy", "Sell", "Deposit", "Withdrawal", "Transfer"]
 DepositSource = Literal["MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate"]
 WithdrawalPurpose = Literal["Spent", "Gift", "Donation", "Lost"]
-
-# Fixed account ids seeded by the app (backend/constants.py)
-ACCOUNT_IDS: dict[str, int] = {
-    "Bank": 1, "Wallet": 2, "Exchange USD": 3, "Exchange BTC": 4,
-    "BTC Fees": 5, "USD Fees": 6, "External": 99,
-}
-ACCOUNT_NAMES: dict[int, str] = {v: k for k, v in ACCOUNT_IDS.items()}
 
 # The largest values BitcoinTX takes (backend/schemas/transaction.py, what
 # its database holds): 10 digits before the point for an amount or a fee,
@@ -189,10 +186,48 @@ async def _call(method: str, path: str, **kwargs: Any) -> Any:
         raise ToolError(str(exc)) from exc
 
 
-def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
+async def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
+    """The rows as BitcoinTX takes them, each account by its name now: an
+    unknown name is refused before the rows are sent."""
     if not transactions:
         raise ToolError("Provide at least one transaction.")
-    return [t.model_dump(mode="json", exclude_none=True) for t in transactions]
+    rows = [t.model_dump(mode="json", exclude_none=True) for t in transactions]
+    for row in rows:
+        for side in ("from_account", "to_account"):
+            row[side] = (await _account(row[side]))[1]
+    return rows
+
+
+# The user's accounts as BitcoinTX lists them (2.0 spec 5.12): read once per
+# run, again on a name they don't have, and again before an id is sent
+_accounts: dict[str, AccountNames | None] = {"names": None}
+
+
+async def _account_names(fresh: bool = False) -> AccountNames:
+    """The list read before (none yet: read now), or read afresh."""
+    if fresh or _accounts["names"] is None:
+        try:
+            listed = await get_client().accounts()
+        except BtctxError as exc:
+            raise ToolError(str(exc)) from exc
+        _accounts["names"] = AccountNames(listed)
+    return _accounts["names"]
+
+
+async def _account(name: str, fresh: bool = False) -> tuple[int, str]:
+    """(id, name now) of the account `name` names (External's too); a name
+    the list doesn't have is looked for once more in the list read afresh
+    (one added or renamed since), then refused: ToolError, nothing sent.
+    `fresh`: read afresh first, as before an id is sent, so a rename
+    meanwhile can't send a stale one."""
+    names = await _account_names(fresh)
+    found = names.find(name)
+    if found is None and not fresh:
+        names = await _account_names(fresh=True)
+        found = names.find(name)
+    if found is None:
+        raise ToolError(names.refusal(name))
+    return found
 
 
 def _parse_ts(value: str) -> datetime:
@@ -277,14 +312,14 @@ def _balance(account: dict[str, Any]) -> Any:
     return f"{account['balance']:.8f}" if account.get("currency") == "BTC" else account["balance"]
 
 
-def _compact(tx: dict[str, Any]) -> dict[str, Any]:
+def _compact(tx: dict[str, Any], names: AccountNames) -> dict[str, Any]:
     out = {
         "id": tx["id"],
         "date": tx["timestamp"],
         "type": tx["type"],
         "amount": tx.get("amount"),
-        "from": ACCOUNT_NAMES.get(tx.get("from_account_id"), tx.get("from_account_id")),
-        "to": ACCOUNT_NAMES.get(tx.get("to_account_id"), tx.get("to_account_id")),
+        "from": names.name(tx.get("from_account_id")),
+        "to": names.name(tx.get("to_account_id")),
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
                 "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
@@ -323,11 +358,14 @@ def get_ledger_guide() -> str:
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_portfolio() -> ToolResult:
-    """Current balance of every account, average cost basis per BTC, the live BTC price and
-    where it came from (or, when there's none, BitcoinTX's reason in btc_price_unavailable),
-    and the user's tax timezone (dates without a timezone are interpreted in it).
+    """Current balance of every account, the user's accounts (each by id, name, kind: bank,
+    wallet or exchange, currency, its exchange's name, and whether it's hidden in Settings),
+    average cost basis per BTC, the live BTC price and where it came from (or, when there's
+    none, BitcoinTX's reason in btc_price_unavailable), and the user's tax timezone (dates
+    without a timezone are interpreted in it).
     Useful to reconcile against what the user's cold wallet or exchange actually shows."""
     balances = await _call("GET", "/api/calculations/accounts/balances")
+    names = await _account_names(fresh=True)
     avg = await _call("GET", "/api/calculations/average-cost-basis")
     unavailable = None
     try:
@@ -341,6 +379,7 @@ async def get_portfolio() -> ToolResult:
             {"account": b["name"], "currency": b["currency"], "balance": _balance(b)}
             for b in balances
         ],
+        "accounts": names.yours,
         "average_cost_basis": avg,
         "btc_price_usd": price.get("USD") if isinstance(price, dict) else None,
         "btc_price_source": price.get("source") if isinstance(price, dict) else None,
@@ -365,8 +404,9 @@ async def list_transactions(
     zone = await _tax_zone() if first or last else timezone.utc
     start = _in_utc(first, zone, time.min) if first else None  # a date alone: the whole day
     end = _in_utc(last, zone, time.max) if last else None
+    acct_id = (await _account(account, fresh=True))[0] if account else None
     txs = await _call("GET", "/api/transactions")
-    acct_id = ACCOUNT_IDS[account] if account else None
+    names = await _account_names()
 
     matched = []
     for tx in txs:
@@ -385,7 +425,7 @@ async def list_transactions(
     return {
         "total_matching": len(matched),
         "returned": min(len(matched), limit),
-        "transactions": [_compact(tx) for tx in matched[:limit]],
+        "transactions": [_compact(tx, names) for tx in matched[:limit]],
     }
 
 
@@ -452,7 +492,7 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     before add_transactions. At most 500 rows a call, and fewer dated before the ledger's
     latest entry (each recalculates the whole ledger; the error says how many): split a long
     list by date, oldest first, and preview and add each part before the next."""
-    return await _call("POST", "/api/import/entries/preview", json={"rows": _rows(transactions)})
+    return await _call("POST", "/api/import/entries/preview", json={"rows": await _rows(transactions)})
 
 
 @mcp.tool(annotations=ToolAnnotations(
@@ -468,7 +508,7 @@ async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     that row in a call of its own: a named row beside an identical one without it is refused). Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
     The same row limits as preview_transactions."""
-    return await _call("POST", "/api/import/entries/execute", json={"rows": _rows(transactions)})
+    return await _call("POST", "/api/import/entries/execute", json={"rows": await _rows(transactions)})
 
 
 @mcp.tool(annotations=ToolAnnotations(
@@ -524,10 +564,13 @@ async def update_transaction(
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)
+    # The list read afresh (once) before an id is sent
+    from_id = None if from_account is None else (await _account(from_account, fresh=True))[0]
+    to_id = None if to_account is None else (await _account(to_account, fresh=from_account is None))[0]
     fields = (
         ("type", type),
-        ("from_account_id", None if from_account is None else ACCOUNT_IDS[from_account]),
-        ("to_account_id", None if to_account is None else ACCOUNT_IDS[to_account]),
+        ("from_account_id", from_id),
+        ("to_account_id", to_id),
         ("amount", _text(amount)),
         ("cost_basis_usd", _text(cost_basis_usd)),
         ("fee_amount", _text(fee_amount)),
@@ -547,8 +590,9 @@ async def update_transaction(
         raise ToolError("No changes given.")
 
     await _complete_for_server_rules(transaction_id, changes, proceeds_given=proceeds_usd is not None)
+    names = await _account_names()  # before the write: a failure after it would report a saved edit as failed
     updated = await _call("PUT", f"/api/transactions/{transaction_id}", json=changes)
-    return _compact(updated)
+    return _compact(updated, names)
 
 
 def _text(value: Decimal | None) -> str | None:
@@ -613,8 +657,9 @@ async def delete_transaction(transaction_id: int) -> ToolResult:
     """Permanently delete one transaction. The ledger is
     recalculated afterward. Confirm with the user first and tell them what you're deleting."""
     current = await _call("GET", f"/api/transactions/{transaction_id}")
+    names = await _account_names()  # before the write, as update_transaction's
     await _call("DELETE", f"/api/transactions/{transaction_id}")
-    return {"deleted": _compact(current)}
+    return {"deleted": _compact(current, names)}
 
 
 @mcp.tool(annotations=ToolAnnotations(

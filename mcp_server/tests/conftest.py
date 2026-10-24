@@ -1,5 +1,6 @@
 """
-Every connector test starts with a fresh version check, the connector at
+Every connector test starts with a fresh version check and the accounts not
+read yet, the connector at
 BitcoinTX's own version (the installed package's metadata may be older in a
 dev environment; test_version_notice.py sets other versions itself), and with
 public price sites chosen. "This tax year" is the backend tests' (2009).
@@ -29,6 +30,12 @@ def pinned_tax_year():
 def same_version_as_the_app(monkeypatch):
     monkeypatch.setattr(server, "connector_version", app_version)
     monkeypatch.setattr(server, "_version", {"checked": False, "notice": None})
+
+
+@pytest.fixture(autouse=True)
+def accounts_not_read_yet(monkeypatch):
+    """Each test's connector reads the user's accounts afresh, as a new run does."""
+    monkeypatch.setattr(server, "_accounts", {"names": None})
 
 
 @pytest.fixture(autouse=True)

@@ -31,28 +31,6 @@ RESERVED_NAMES = {
 # is refused rather than reaching the end of Python's years (#211)
 FIRST_TAX_YEAR, LAST_TAX_YEAR = 2009, 2100
 
-# Mapping for CSV export (account ID -> display name)
-ACCOUNT_ID_TO_NAME = {
-    ACCOUNT_BANK: "Bank",
-    ACCOUNT_WALLET: "Wallet",
-    ACCOUNT_EXCHANGE_USD: "Exchange USD",
-    ACCOUNT_EXCHANGE_BTC: "Exchange BTC",
-    ACCOUNT_BTC_FEES: "BTC Fees",
-    ACCOUNT_USD_FEES: "USD Fees",
-    ACCOUNT_EXTERNAL: "External",
-}
-
-# Mapping for CSV import (lowercase name -> account ID)
-ACCOUNT_NAME_TO_ID = {
-    "bank": ACCOUNT_BANK,
-    "wallet": ACCOUNT_WALLET,
-    "exchange usd": ACCOUNT_EXCHANGE_USD,
-    "exchange btc": ACCOUNT_EXCHANGE_BTC,
-    "btc fees": ACCOUNT_BTC_FEES,
-    "usd fees": ACCOUNT_USD_FEES,
-    "external": ACCOUNT_EXTERNAL,
-}
-
 # What a broker reported for a disposal on Form 1099-DA / 1099-B, set per
 # transaction to override the default rules in form_8949._broker_reporting
 # (a Spent withdrawal's network-fee disposals follow it too, #549):

@@ -147,7 +147,8 @@ async def preview_entries(
     ai = _with_ai_key(request)
     _check_size(payload, ai)
 
-    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), account_book(db))
+    book = account_book(db)
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), book)
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
     await autofill_fmv(prepared, db)
@@ -157,7 +158,7 @@ async def preview_entries(
     results = [p.result for p in prepared]
     for p in prepared:
         if p.tx_data is not None:
-            p.result.normalized = normalized_view(p.tx_data)
+            p.result.normalized = normalized_view(p.tx_data, book)
 
     def count(status: str) -> int:
         return sum(1 for r in results if r.status == status)
@@ -189,6 +190,7 @@ def _created_answers(created: list[tuple[PreparedRow, Transaction]], db: Session
             realized_gain_usd=tx.realized_gain_usd,
             holding_period=tx.holding_period,
             from_price=from_price(tx, db, years),
+            warnings=p.account_warnings,
         )
         for p, tx in sorted(created, key=lambda c: c[0].row)
     ]

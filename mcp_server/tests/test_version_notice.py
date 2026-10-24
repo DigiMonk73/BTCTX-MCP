@@ -83,6 +83,9 @@ async def test_bitcointx_down_at_first_is_checked_on_a_later_call(backend_db, mo
         async def request(self, method, path, **kwargs):
             return []
 
+        async def accounts(self):
+            return None  # as a BitcoinTX before 2.0 answers: its four accounts
+
     server.set_client(Client_())
     try:
         async with Client(server.mcp) as client:

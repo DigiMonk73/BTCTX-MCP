@@ -35,7 +35,7 @@ from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
-from backend.constants import ACCOUNT_ID_TO_NAME, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 
 logger = logging.getLogger(__name__)
 
@@ -438,8 +438,8 @@ def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
         "date": txn.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.timestamp else "",
         "type": csv_text(txn.type),
         "amount": _csv_number(txn.amount, 8) if txn.amount else "",
-        "from_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.from_account_id, "")),
-        "to_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.to_account_id, "")),
+        "from_account": csv_text(_account_name(txn.from_account_id, book)),
+        "to_account": csv_text(_account_name(txn.to_account_id, book)),
         "cost_basis_usd": _csv_number(txn.cost_basis_usd, 2) if txn_type in ("buy", "deposit") else "",
         "proceeds_usd": _csv_number(entered_proceeds, 2) if txn_type in ("sell", "withdrawal") else "",
         "fee_amount": _csv_number(txn.fee_amount, 8),
@@ -457,6 +457,14 @@ def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
     }
+
+
+def _account_name(account_id: int | None, book: AccountBook) -> str:
+    """An account's name now (5.11), which an import reads back; blank for
+    an id with no account (a row from before 0.9.2, 5.3), as before."""
+    if account_id != ACCOUNT_EXTERNAL and book.kind(account_id) is None:
+        return ""
+    return book.name(account_id)
 
 
 def _proceeds_typed(txn: Transaction) -> str:

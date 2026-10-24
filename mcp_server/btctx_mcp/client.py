@@ -26,6 +26,8 @@ from typing import Any
 
 import httpx
 
+from btctx_mcp import __version__
+
 
 class BtctxError(Exception):
     """An API error with a message suitable for showing to the model."""
@@ -40,6 +42,13 @@ KEY_REFUSED = (
     "BitcoinTX refused: the AI key can't do this. Ask the user to do it in "
     "BitcoinTX itself."
 )
+
+# The user's accounts (BitcoinTX 2.0 spec 5.12), which the AI key may read
+ACCOUNTS_PATH = "/api/accounts/"
+# Every request says it comes from a 2.0 connector, one that tells the
+# user's wallets and exchanges apart, with its version ("unknown" from a
+# source tree): a 1.x connector sends none (5.12)
+CONNECTOR_HEADER = "X-BitcoinTX-Connector"
 
 
 def normalize_base_url(url: str) -> str:
@@ -163,6 +172,7 @@ class BtctxClient:
             timeout=120.0,  # previews fetch historical prices
             transport=transport,
             follow_redirects=False,  # the key goes only to BitcoinTX's own address
+            headers={CONNECTOR_HEADER: __version__},
         )
         self._logged_in = False
 
@@ -250,15 +260,26 @@ class BtctxClient:
         self._logged_in = True
 
     async def request(self, method: str, path: str, **kwargs: Any) -> Any:
+        return self._answer(await self._response(method, path, **kwargs), path)
+
+    async def accounts(self) -> list[dict[str, Any]] | None:
+        """The user's accounts, as BitcoinTX lists them; None from a BitcoinTX
+        before 2.0, whose AI key may not read them (403) or that has no such
+        list (404): its accounts are 1.x's (5.12)."""
+        r = await self._response("GET", ACCOUNTS_PATH)
+        if r.status_code in (403, 404):
+            return None
+        return self._answer(r, ACCOUNTS_PATH)
+
+    async def _response(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         if self._refusal:
             raise BtctxError(self._refusal)
         if not self._logged_in:
             await self._connect()
         try:
-            r = await self._send(method, path, **kwargs)
+            return await self._send(method, path, **kwargs)
         except httpx.HTTPError as exc:
             raise BtctxError(f"Request to BitcoinTX at {self._http.base_url} failed: {exc}") from exc
-        return self._answer(r, path)
 
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         """The request; with the Mac app's key file, sent again once the file
