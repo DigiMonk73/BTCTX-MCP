@@ -89,8 +89,8 @@ def test_coinbase_transaction_history(client):
     ]
     assert answer["total_rows"] == 11 and answer["errors"] == []
     said = warned(answer)
-    for expected in ("Rows 10 and 11 trade bitcoin for another asset (“Convert”)", "Row 12 are ETH, not bitcoin",
-                     "Row 13 move dollars, not bitcoin (“Deposit”)", "Row 14 are “Pro Withdrawal”, which this mapping "
+    for expected in ("Rows 10 and 11 trade bitcoin for another asset (“Convert”)", "Row 12 is ETH, not bitcoin",
+                     "Row 13 moves dollars, not bitcoin (“Deposit”)", "Row 14 is “Pro Withdrawal”, which this mapping "
                      "leaves out"):
         assert expected in said, (expected, said)
 
@@ -120,7 +120,7 @@ def test_kraken_ledger(client):
     ]
     assert answer["total_rows"] == 20 and answer["errors"] == []
     said = warned(answer)
-    for expected in ("Rows 2 and 21 move dollars", "Row 9 are Kraken's pending copies",
+    for expected in ("Rows 2 and 21 move dollars", "Row 9 is Kraken's pending copy",
                      "Rows 12 and 13 move coins between Kraken's own balances",
                      "0.0000012345 BTC is rounded to 0.00000123 BTC", "Rows 15 and 16 are ETH, not bitcoin",
                      "Rows 17 and 18 trade bitcoin for ETH", "Rows 19 and 20 are a withdrawal Kraken sent back"):
@@ -142,9 +142,9 @@ def test_strike_statement(client):
     ]
     assert answer["total_rows"] == 11 and answer["errors"] == []
     said = warned(answer)
-    for expected in ("Row 2 move dollars, not bitcoin (“Deposit”)", "Rows 9 and 10 were reversed or cancelled",
-                     "Row 11 move dollars, not bitcoin (“Withdrawal”)",
-                     "Row 12 are “Bitcoin Back”, a kind of row this mapping doesn't read"):
+    for expected in ("Row 2 moves dollars, not bitcoin (“Deposit”)", "Rows 9 and 10 were reversed or cancelled",
+                     "Row 11 moves dollars, not bitcoin (“Withdrawal”)",
+                     "Row 12 is “Bitcoin Back”, a kind of row this mapping doesn't read"):
         assert expected in said, (expected, said)
 
 
@@ -152,7 +152,7 @@ def test_strike_activity_report(client):
     answer = preview(client, "strike", "strike_activity.csv")
     assert rows(answer) == [row(2, "Buy", EX_USD, EX_BTC, "0.00025", at(2025, 4, 1, 16, 20), cost="25.00", fee="0.25")]
     said = warned(answer)
-    assert "Row 3 are Pending, not completed" in said and "Row 4 are Reversed, not completed" in said
+    assert "Row 3 is Pending, not completed" in said and "Row 4 is Reversed, not completed" in said
 
 
 def test_swan_deposits_and_purchases(client):
@@ -165,8 +165,8 @@ def test_swan_deposits_and_purchases(client):
     ]
     assert answer["total_rows"] == 7 and answer["errors"] == []
     said = warned(answer)
-    for expected in ("Row 4 move dollars, not bitcoin (“deposit”)", "Row 7 are pending, not completed",
-                     "Row 8 are Swan moving coins between its custodians", "Row 10 move dollars"):
+    for expected in ("Row 4 moves dollars, not bitcoin (“deposit”)", "Row 7 is pending, not completed",
+                     "Row 8 is Swan moving coins between its custodians", "Row 10 moves dollars"):
         assert expected in said, (expected, said)
 
 
@@ -175,7 +175,7 @@ def test_swan_withdrawals(client):
     # Swan's custodian pays the network fee: what left is what arrived
     assert rows(answer) == [row(4, "Transfer", EX_BTC, WALLET, "0.0015", at(2025, 3, 20, 10, 30))]
     said = warned(answer)
-    assert "Row 5 were canceled" in said and "Row 6 haven't been sent" in said
+    assert "Row 5 was canceled" in said and "Row 6 hasn't been sent" in said
 
 
 def test_cash_app_bitcoin_transactions(client):
@@ -195,7 +195,7 @@ def test_cash_app_bitcoin_transactions(client):
     assert answer["total_rows"] == 7 and answer["errors"] == []
     said = warned(answer)
     assert "This send's fee is $2.00: BitcoinTX records a send's fee in BTC, so it isn't read" in said
-    assert "Row 8 are “Bitcoin Payment”, a kind of row this mapping doesn't read" in said
+    assert "Row 8 is “Bitcoin Payment”, a kind of row this mapping doesn't read" in said
 
 
 def test_cash_app_activity(client):
@@ -204,7 +204,7 @@ def test_cash_app_activity(client):
         row(2, "Buy", EX_USD, EX_BTC, "0.01", at(2025, 8, 1, 15), cost="1000.00", fee="10.00"),
     ]
     said = warned(answer)
-    assert "Row 3 are FAILED, not completed" in said and "Row 4 aren't bitcoin (their asset is blank)" in said
+    assert "Row 3 is FAILED, not completed" in said and "Row 4 isn't bitcoin (its asset is blank)" in said
 
 
 def test_a_boosts_value_is_kept_as_typed_and_a_payout_without_one_is_priced(client):

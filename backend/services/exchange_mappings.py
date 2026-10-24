@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from backend.database import take_write_lock
 from backend.models.app_setting import AppSetting, save_setting
 from backend.schemas.exchange_import import OwnMapping
-from backend.services.exchange_cells import ZONE_IN_DATES
+from backend.services.exchange_cells import ZONE_IN_DATES, Reason
 from backend.services.river_import import BUY, PAYOUT_SOURCES, RECEIVE, SELL, SEND
 
 # How a mapping's file is read: one row for each event, River's sent and
@@ -75,7 +75,7 @@ class LeaveOut:
     with `other_than`, when it holds anything else."""
     column: str
     text: str | None
-    reason: str
+    reason: Reason
     other_than: str | None = None
 
     def applies(self, cell: str) -> bool:
@@ -85,7 +85,8 @@ class LeaveOut:
 
 
 # A row priced in another currency: BitcoinTX's figures are in US dollars
-NOT_DOLLARS = "are priced in another currency, not US dollars (BitcoinTX's figures are in dollars)"
+NOT_DOLLARS = Reason("are priced in another currency, not US dollars (BitcoinTX's figures are in dollars)",
+                     "is priced in another currency, not US dollars (BitcoinTX's figures are in dollars)")
 
 
 @dataclass(frozen=True)
@@ -198,7 +199,8 @@ SWAN = Mapping(
     kinds={"purchase": BUY, "deposit": RECEIVE, "prepaid_fee": DOLLARS, "monthly_fee": DOLLARS},
     done=frozenset({"settled"}), optional=frozenset({"asset", "row_id"}),
     leave_out=(LeaveOut("Address Label", "custodial transfer",
-                        "are Swan moving coins between its custodians: they never left Swan"),),
+                        Reason("are Swan moving coins between its custodians: they never left Swan",
+                               "is Swan moving coins between its custodians: they never left Swan")),),
     funding="bank",
     checked=False,
     help="Swan → Profile → Documents → Export account data: Deposits and purchases (CSV).",
@@ -209,8 +211,9 @@ SWAN = Mapping(
 SWAN_WITHDRAWALS = Mapping(
     id="swan-withdrawals", name="Swan: withdrawals", kind=SEND,
     columns=Columns(date=("Executed At",), btc=("Bitcoin Amount",), row_id=("Transaction ID",)),
-    leave_out=(LeaveOut("Canceled At", "", "were canceled"),
-               LeaveOut("Executed At", None, "haven't been sent (no Executed At)")),
+    leave_out=(LeaveOut("Canceled At", "", Reason("were canceled", "was canceled")),
+               LeaveOut("Executed At", None, Reason("haven't been sent (no Executed At)",
+                                                    "hasn't been sent (no Executed At)"))),
     checked=False,
     help="Swan → Profile → Documents → Export account data: Withdrawals (CSV).",
 )

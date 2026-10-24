@@ -42,7 +42,11 @@ All notable changes to BitcoinTX are documented in this file.
   other figures. The README, `instructions.md` and the CSV guide name
   the importer for any exchange's file (Settings › Import from an
   exchange) beside BitcoinTX's own CSV, and the CSV template's My BTC row
-  reads "My own BTC from a wallet BitcoinTX doesn't track". The README's pictures show a second wallet
+  reads "My own BTC from a wallet BitcoinTX doesn't track". The
+  importer's warnings say a row left out alone in the singular ("Row 9 is
+  …", where they said "Row 9 are …"), and a file that isn't the chosen
+  exchange's says so without a row number, as River's does: "This does not
+  look like a file for “Kraken”. Missing columns: …". The README's pictures show a second wallet
   (`testdata/showcase_ledger.json`). `docs/AGENT-TESTS.md` gains 2.0's
   release tests. No figure changes.
 - **The dashboard by kind, Transactions by name, and renames** (B8, #356).

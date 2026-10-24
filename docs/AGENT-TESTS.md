@@ -1210,8 +1210,8 @@ Set `KEY` to the key from AI-3, and use
   figures of that year and later ones you may already have filed:
   BitcoinTX shows what changes, and asks, before it imports them." (none,
   and no dialog below, if the walk runs in 2025); and "Warnings (7):":
-  - "Row 9 are Kraken's pending copies of a deposit or withdrawal (no
-    txid), whose completed row is read: left out."
+  - "Row 9 is Kraken's pending copy of a deposit or withdrawal (no txid),
+    whose completed row is read: left out."
   - "Rows 2 and 21 move dollars, not bitcoin: left out."
   - "Rows 12 and 13 move coins between Kraken's own balances (spot,
     staking, earn): left out."
@@ -1264,9 +1264,10 @@ Set `KEY` to the key from AI-3, and use
   Reward of 0.00000123 BTC into Kraken BTC. IMP-4b's 2026 Sell now shows
   Gain +$4.87, not +$13.33: Kraken's oldest coins are now the 2025 buy's,
   and 0.0005 of them cost $50.13 (lots per exchange, first in, first out).
-  Dashboard: the Exchange card's `Kraken` −$338.34 and 0.00326623 BTC (the
-  file's dollar deposit, row 2, isn't read, so its buys leave Kraken USD
-  below zero), and the Wallet card's `Coldcard` 0.00200000 BTC. Preview the
+  Dashboard: the Exchange card's `Kraken` with no exchange's dollars below
+  zero, and 0.00326623 BTC, and the Wallet card's `Coldcard` 0.00200000
+  BTC. (KNOWN until #655 is fixed: the file's dollar deposit, row 2, isn't
+  read, so its buys leave Kraken at −$338.34.) Preview the
   file again with the same choices: "6 already in ledger", "0 new";
   **Cancel**.
 - **IMP-6** (from 2.0) Another exchange's file, its columns matched by
@@ -1294,7 +1295,7 @@ Set `KEY` to the key from AI-3, and use
   `done`; tick "A buy's dollars include its fee (the total paid)". Expect
   the "Still to match" line gone. With **Exchange** `Kraken` and **Wallet
   for sends and receives** `Coldcard`, **Preview**: "3 rows in file", "2
-  new", the warning "Row 5 are waiting, not completed: left out.", a Buy
+  new", the warning "Row 5 is waiting, not completed: left out.", a Buy
   of 0.01 BTC "→ Kraken BTC" and a Transfer of 0.002 BTC "Kraken BTC →
   Coldcard". **Mapping's name** `Example Exchange`, **Save this mapping**:
   the toast "Saved “Example Exchange”." and **Exchange file** showing it,
@@ -1311,13 +1312,15 @@ Set `KEY` to the key from AI-3, and use
 - **IMP-7** Preview a CSV that isn't the chosen exchange's, for example
   `date,type,amount` plus one row. With **Exchange file** `River`, expect
   "This does not look like a River bitcoin-activity CSV. Missing columns:
-  …"; with `Kraken`, "Row 1: This does not look like Kraken's file. Missing
-  columns: txid, refid, time, asset, fee". Nothing is saved.
+  …"; with `Kraken`, "This does not look like a file for “Kraken”. Missing
+  columns: txid, refid, time, asset, fee" (no row number: it's the file's
+  header). Nothing is saved.
 - **BAK-4** Restore BAK-2's backup again, which removes the rows IMP-4 to
   IMP-6 imported. Expect every golden figure, Coldcard and Kraken at $0.00
   and 0.00000000 BTC, and **Exchange file** without `Example Exchange`: a
   restore takes the backup's mappings with its data (it had none), as it
-  does the backup's rows.
+  does the backup's rows (whether a restore should keep mappings saved
+  since: #656).
 
 ### SEC: the live install from outside
 
@@ -1611,8 +1614,10 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   over. To return to <1.x>, uninstall the service — which deletes its data
   — and restore a backup made while it was running <1.x>." (`start-cli`
   shows it cut short), and 2.0 still running with its 15 rows.
-- **WAY-3** Back by the StartOS backup. Uninstall BitcoinTX (its data
-  goes), then restore WAY-1's StartOS backup (BAK-5's steps). Expect
+- **WAY-3** (Waits for the owner's step, #357: until it's recorded there,
+  B10a runs it before beta.1, #532.) Back by the StartOS backup. Uninstall
+  BitcoinTX (its data goes), then restore WAY-1's StartOS backup (BAK-5's
+  steps). Expect
   BitcoinTX at 1.2.10, `$API/health` with `"schema": "0012"`, WAY-1's
   login, the recorded figures and 14 rows: the 2.0 deposit is gone.
 - **WAY-4** 1.x refuses a 2.0 backup. In this 1.2.10's Settings, Restore
@@ -1997,4 +2002,8 @@ Open bugs a run may meet (the release's CHANGELOG lists them under Known
 issues). Report these as KNOWN. Delete a line when its fix is merged into
 `develop`, since release candidates are built from it.
 
-None known for 1.2.10.
+None known for 1.2.10. For 2.0:
+
+- #655: an exchange file's buys are paid from that exchange's dollars by
+  default, though Kraken's mapping leaves the file's dollar deposits out,
+  so its dollars go below zero (IMP-5).
