@@ -42,6 +42,8 @@ declare global {
     currency: Currency;
     exchange_id: number | null;
     exchange: string | null;
+    // The exchange's "This exchange sends me a Form 1099-DA" switch (5.9); null for any other account
+    sends_1099da: boolean | null;
     hidden: boolean;
     in_use: boolean;
   }
@@ -55,6 +57,10 @@ declare global {
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
+    kind: AccountKind | null; // the dashboard's cards go by kind (2.0 spec 5.13); null: no account the book lists
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null; // that exchange's name
+    hidden: boolean;
   }
 
   interface AverageCostBasis {

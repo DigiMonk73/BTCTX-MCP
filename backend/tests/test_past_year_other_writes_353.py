@@ -587,6 +587,27 @@ def test_an_account_change_names_something_to_change(ledger):
     assert client.put(f"/api/accounts/{WALLET}", json={"hidden": True}).status_code == 200
 
 
+def test_a_rename_alone_never_asks_even_with_an_earlier_years_sale(ledger, monkeypatch):
+    """A name moves no figure (B8, #356): saved at once, with no dry run and no copy."""
+    client, _ = ledger
+    no_dry_run(monkeypatch)
+    r = client.put(f"/api/accounts/{EXCHANGE_BTC}", json={"name": "Coinbase"})
+    assert r.status_code == 200, r.text
+    assert (r.json()["name"], r.json()["exchange"]) == ("Coinbase BTC", "Coinbase")
+    assert copies(client, PRE_CHANGE_KIND) == []
+
+
+def test_a_name_sent_with_the_switch_waits_for_its_confirm(ledger):
+    client, _ = ledger
+    change = {"name": "Coinbase", "sends_1099da": False}
+    asked = client.put(f"/api/accounts/{EXCHANGE_BTC}", json=change)
+    assert asked.status_code == 409, asked.text
+    assert client.get(f"/api/accounts/{EXCHANGE_BTC}").json()["name"] == "Exchange BTC"
+    r = client.put(f"/api/accounts/{EXCHANGE_BTC}", json=change, params={"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+    assert (r.json()["name"], r.json()["sends_1099da"]) == ("Coinbase BTC", False)
+
+
 def test_the_switch_is_never_the_ai_keys(ai):
     key, _, _ = ai
     assert switch(key, EXCHANGE_BTC, False).status_code == 403

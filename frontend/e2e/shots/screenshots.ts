@@ -3,7 +3,7 @@
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import {
-  test, expect, seedKnownLedger, createTx, openAddForm, claimAccount, loginViaUi,
+  test, expect, seedKnownLedger, createTx, openAddForm, openSection, claimAccount, loginViaUi,
 } from "../fixtures";
 
 const OUT = process.env.SHOTS_DIR ?? path.resolve("shots-out");
@@ -84,10 +84,11 @@ for (const size of SIZES) {
 
     await page.goto("/settings");
     await shot("settings");
+    await openSection(page, "Privacy & Network");
     await scrollTo(page, /Privacy/);
     await shot("settings-privacy");
 
-    const river = page.getByRole("region", { name: "Import from River" });
+    const river = await openSection(page, "Import from River");
     await river.getByLabel("River CSV file").setInputFiles({
       name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
     });

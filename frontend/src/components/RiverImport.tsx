@@ -9,16 +9,24 @@ import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
 import { importNote } from "../utils/pastYears";
 import {
-  importRequestRows, importableRows, refusedCellPlace, toEditableRow, type EditableRow,
+  chosenRiverAccounts, importRequestRows, importableRows, pickWanting, previewOutOfDate, refusedCellPlace,
+  riverAccountNames, riverChoices, toEditableRow, type EditableRow, type RiverPick,
 } from "../utils/riverImport";
 import PastYearDialog from "./PastYearDialog";
+import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 import RiverPreview from "./riverImport/RiverPreview";
 import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 import "../styles/riverImport.css";
 
-/** `onPreviewShown(true)` while a preview is open: its table needs the
- * window's width, wider than the Settings card (#259). */
-const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ onPreviewShown }) => {
+interface RiverImportProps {
+  /** `onPreviewShown(true)` while a preview is open: its table needs the
+   * window's width, wider than the Settings card (#259). */
+  onPreviewShown: (shown: boolean) => void;
+  /** Your accounts, for the file's exchange and wallet; undefined until read. */
+  book?: AccountBook;
+}
+
+const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const toast = useToast();
   const pastYears = usePastYearWarning();
   const [file, setFile] = useState<File | null>(null);
@@ -26,31 +34,72 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [showMatched, setShowMatched] = useState(false);
+  const [picked, setPicked] = useState<RiverPick>({});
+  // The pick the preview on screen was made with: its rows name those accounts
+  const [previewPick, setPreviewPick] = useState<RiverPick | null>(null);
+  // A pick whose preview is on its way: shown meanwhile, the old one back if it fails
+  const [pending, setPending] = useState<RiverPick | null>(null);
+  const [outOfDate, setOutOfDate] = useState(false);
   useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
+
+  // The file's exchange and wallet (5.11, 5.13)
+  const choices = book ? riverChoices(book) : undefined;
+  const chosen = chosenRiverAccounts(choices, picked);
+  const unchosen = pickWanting(choices, chosen);
+  // The pickers no longer say what the preview was made with (its account
+  // deleted, or a pick made with the file gone): its rows would go elsewhere.
+  // Never while the book can't be read: that says nothing about the accounts.
+  if (preview && choices && previewOutOfDate(previewPick, chosen)) {
+    setPreview(null);
+    setRows([]);
+    setPreviewPick(null);
+    setOutOfDate(true);
+  }
 
   const reset = () => {
     setFile(null);
     setPreview(null);
+    setPreviewPick(null);
+    setOutOfDate(false);
     setRows([]);
     setShowMatched(false);
     const input = document.getElementById("river-csv-input") as HTMLInputElement;
     if (input) input.value = "";
   };
 
-  const handlePreview = async () => {
+  const handlePreview = async (pick: RiverPick = chosen) => {
     if (!file) return;
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      // Before the book is read none is sent, and the server takes your first exchange and wallet
+      if (pick.exchange !== undefined) formData.append("exchange_account_id", String(pick.exchange));
+      if (pick.wallet !== undefined) formData.append("wallet_account_id", String(pick.wallet));
       const res = await api.post<RiverPreviewResponse>("/import/river/preview", formData);
+      const accounts = riverAccountNames(book, pick);
       setPreview(res.data);
-      setRows(res.data.proposals.map(toEditableRow));
+      setRows(res.data.proposals.map((p) => toEditableRow(p, accounts)));
       setShowMatched(false);
+      // The pick is the file's only once its preview is there: a failed one leaves both as they were
+      setPicked(pick);
+      setPreviewPick(pick);
+      setOutOfDate(false);
     } catch (err) {
       toast.error(detailOr(err, "Failed to preview River CSV."));
     } finally {
       setLoading(false);
+      setPending(null);
+    }
+  };
+
+  // A new pick makes a new preview: the rows' accounts and what's already in the ledger follow it
+  const choose = (pick: RiverPick) => {
+    if (preview && file) {
+      setPending(pick);
+      void handlePreview(pick);
+    } else {
+      setPicked(pick);
     }
   };
 
@@ -85,8 +134,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
   const pastYearsNote = preview && importNote(preview.past_years_dated);
 
   return (
-    <div className="settings-section river-import" role="region" aria-label="Import from River">
-      <h3 className="section-title">Import from River</h3>
+    <>
 
       <div className="settings-option">
         <div className="option-info">
@@ -107,14 +155,17 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
             className="csv-file-input"
           />
           <button
-            onClick={handlePreview}
-            disabled={loading || !file}
+            onClick={() => void handlePreview()}
+            disabled={loading || !file || unchosen}
             className="btn btn-secondary"
           >
             {loading && !preview ? "Processing..." : "Preview"}
           </button>
         </div>
       </div>
+
+      <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
+        onChange={choose} />
 
       {pastYearsNote && <p className="note" role="note">{pastYearsNote}</p>}
 
@@ -131,7 +182,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
         />
       )}
       {pastYears.question && <PastYearDialog {...pastYears.question} />}
-    </div>
+    </>
   );
 };
 

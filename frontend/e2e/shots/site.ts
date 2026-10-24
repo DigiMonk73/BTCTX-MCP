@@ -6,7 +6,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Page } from "@playwright/test";
-import { test, expect, createTx, REPO, type TxPayload } from "../fixtures";
+import { test, expect, createTx, openSection, REPO, type TxPayload } from "../fixtures";
 
 const OUT = process.env.SITE_SHOTS_DIR ?? path.join(REPO, "docs", "images");
 
@@ -53,7 +53,7 @@ test.describe("in the Mac app", () => {
 
   test("settings: Connect an AI Assistant", async ({ authedPage: page }) => {
     await page.goto("/settings");
-    const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
+    const ai = await openSection(page, "Connect an AI Assistant");
     await expect(ai.getByRole("button", { name: "Copy" })).toBeVisible();
     await ai.evaluate((el) => el.scrollIntoView({ block: "start" }));
     await page.mouse.move(0, 866);

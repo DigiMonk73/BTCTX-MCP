@@ -42,7 +42,7 @@ const PriceWhy: React.FC<{ price: LivePrice }> = ({ price }) => {
   if (price.invalid) return <p className="btc-price-why">{price.problem}</p>;
   return (
     <p className="btc-price-why">
-      {price.problem ?? "The price source didn't answer."} <Link to="/settings">Change the price source</Link>
+      {price.problem ?? "The price source didn't answer."} <Link to="/settings#privacy">Change the price source</Link>
     </p>
   );
 };

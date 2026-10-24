@@ -40,8 +40,7 @@ const AboutSetting: React.FC = () => {
   const version = useAppVersion();
 
   return (
-    <div className="settings-section about-section" role="region" aria-label="About BitcoinTX">
-      <h3 className="section-title">About BitcoinTX</h3>
+    <>
       <p className="note note-warning" role="note">
         <strong>Important: one wallet, one exchange.</strong> {ONE_WALLET_NOTICE}
       </p>
@@ -59,7 +58,7 @@ const AboutSetting: React.FC = () => {
         A security problem? <Outside href={ABOUT_LINKS.security}>Report it privately</Outside>, never
         in a public report.
       </p>
-    </div>
+    </>
   );
 };
 

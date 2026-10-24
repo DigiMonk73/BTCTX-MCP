@@ -5,9 +5,51 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The dashboard by kind, Transactions by name, and renames** (B8, #356).
+  The dashboard shows three cards, Bank, Exchange and Wallet, each with
+  its total (an exchange's dollars, then its bitcoin); a card with more
+  than one account gets "Show accounts (n)", which lists them (each
+  exchange as one line, its dollars and bitcoin side by side; a hidden
+  account holding nothing left out), and the cards left open are
+  remembered in that browser (the Mac app, which keeps nothing between
+  starts, opens them closed). With one account of each kind there's no
+  toggle. The sidebar's calculator no longer ends level with the cards:
+  their height now varies. The Portfolio Overview keeps Total BTC, the
+  average cost and the unrealized gains. The Transactions list names each
+  row's accounts as you named them (a Buy's or a Sell's exchange by its
+  name), shows an amount in its account's currency, calls any bitcoin
+  account sent to itself a "Consolidation" (an exchange's too, which was
+  "Between exchanges"), and gets an account filter grouped by kind. Ledger
+  Review (and `cli review`) names each item's accounts. Settings' Wallets,
+  exchanges and banks gets Rename on each account: an exchange renames
+  both of its accounts, your first bank, wallet and exchange can take back
+  their old names, and the fee accounts keep theirs; a CSV file saved
+  before a rename still names the account by its old name. No figure
+  changes.
+- **Settings in sections, and "Wallets, exchanges and banks"** (B7b,
+  #355). Settings opens as a list of its sections, each with a line on
+  what's inside (Ledger Review's says how many transactions it wants you
+  to check); one opens at a time, by its button or the keyboard, and the
+  one left open is open again next time in that browser; a link to a
+  section opens it (the dashboard's "Change the price source" opens
+  Privacy & Network). The new section after Account lists your wallets,
+  exchanges and banks by kind, each with its balance (an exchange's
+  dollars and bitcoin on one row), the hidden ones under "Show hidden";
+  each opens to Hide or Show, and to Delete while no transaction names
+  it; an exchange's also to "This exchange sends me a Form 1099-DA" (on
+  unless you turn it off), which asks first when it moves an earlier
+  year's Form 8949 boxes. "Add a wallet", "Add an exchange" and "Add a
+  bank" say what each is, and adding a second wallet or exchange while
+  another has transactions says how earlier years were figured. River's import asks
+  which exchange the file is from, and which wallet its sends and
+  receives go with, when there's more than one of either. Ledger Review
+  is checked again once the tax timezone is saved, the ledger
+  recalculated or an exchange's switch turned, so it no longer shows the
+  old timezone's times or figures until Check again (fixed in 2.0; #645
+  for 1.x).
 - **Saving into any of your accounts** (B7a, #354). A transaction can now
-  be saved into any bank, wallet or exchange added through the account
-  API (Settings lists them in a later step), as into the first ones:
+  be saved into any bank, wallet or exchange added in Settings or through
+  the account API, as into the first ones:
   through the transaction form, a CSV file, River and the AI connector; a
   hidden one too, though the form doesn't offer it. BTC Fees and USD Fees
   stay the ledger's own, never named by a transaction. An AI connector
