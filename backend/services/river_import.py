@@ -460,12 +460,15 @@ def adapt_rows(
     """
     (proposals, errors, warnings): each file's row as a proposed BitcoinTX
     transaction into `accounts`; a row lacking an amount is skipped with a
-    warning. A buy is paid from the exchange's dollars (B5b's decision 6),
-    but from the bank `from_bank` (Swan's, pulled by ACH), or when `outlays`
-    (River's: how often each buy outlay repeats in its file) makes it a
-    recurring no-fee buy. Either is the owner's to change in the preview.
+    warning. A buy is paid from the exchange's dollars only when the file's
+    earlier rows leave enough there (#655: a file's dollar deposits aren't
+    read, so its buys would take those dollars below zero), else from the
+    first bank not hidden; from the bank always with `from_bank` (Swan's,
+    pulled by ACH) or when `outlays` (River's: how often each buy outlay
+    repeats in its file) makes it a recurring no-fee buy. Either is the
+    owner's to change in the preview.
     """
-    adapter = _Adapter(accounts, outlays, from_bank)
+    adapter = _Adapter(accounts, outlays, from_bank, rows)
     proposals = [p for p in map(adapter.adapt, rows) if p is not None]
     return proposals, [], adapter.warnings
 
@@ -473,11 +476,13 @@ def adapt_rows(
 class _Adapter:
     """Turns a file's rows into proposals in the chosen accounts, collecting the warnings."""
 
-    def __init__(self, accounts: RiverAccounts, outlays: dict[Decimal, int] | None, from_bank: bool):
+    def __init__(self, accounts: RiverAccounts, outlays: dict[Decimal, int] | None, from_bank: bool,
+                 rows: list[FileRow]):
         self.accounts = accounts
         self.outlays = outlays
         self.from_bank = from_bank
         self.warnings: list[CSVParseError] = []
+        self.covered = self.covered_buys(rows)
 
     def adapt(self, row: FileRow) -> RiverProposal | None:
         if row.kind == BUY:
@@ -520,15 +525,38 @@ class _Adapter:
         )
 
     def funding(self, row: FileRow) -> int:
-        """Where a buy's dollars come from: the bank for an exchange that
-        pulls them from it, or a recurring no-fee outlay, an auto-buy pulled
-        from a bank via ACH (River's heuristic, by `outlays`); anything else
-        the exchange's cash balance."""
+        """Where a buy's dollars come from: the exchange's cash balance when
+        the file's earlier rows leave enough there for it (covered_buys),
+        else a bank (never a hidden one: with none, the exchange's dollars,
+        as before)."""
+        if id(row) in self.covered or self.accounts.bank is None:
+            return self.accounts.exchange_usd
+        return self.accounts.bank
+
+    def from_a_bank(self, row: FileRow) -> bool:
+        """A buy paid from a bank whatever the exchange holds: an exchange
+        that pulls its buys from the bank (Swan's), or a recurring no-fee
+        outlay, an auto-buy pulled by ACH (River's heuristic, by `outlays`)."""
         recurring = self.outlays is not None and not row.fee and (
             self.outlays.get((row.usd or Decimal("0")) + _usd_fee(row), 0) >= RECURRING_BUY_THRESHOLD)
-        if (recurring or self.from_bank) and self.accounts.bank is not None:
-            return self.accounts.bank
-        return self.accounts.exchange_usd
+        return recurring or self.from_bank
+
+    def covered_buys(self, rows: list[FileRow]) -> set[int]:
+        """The buys (by id) the exchange's own dollars pay for (#655): in
+        time order, a sale's proceeds less its fee go into them, and a buy
+        is paid from them when they cover its cost and fee. No file's dollar
+        deposits are read (they move no bitcoin), so its buys are otherwise
+        paid from the bank they came from, and the exchange's dollars, as
+        the file leaves them, never fall below zero."""
+        dollars, covered = Decimal(0), set()
+        for row in sorted(rows, key=lambda r: r.timestamp):
+            usable = row.btc and row.btc > 0 and row.usd and row.usd > 0
+            if row.kind == SELL and usable:
+                dollars += row.usd - _usd_fee(row)
+            elif row.kind == BUY and usable and not self.from_a_bank(row) and dollars >= row.usd + _usd_fee(row):
+                dollars -= row.usd + _usd_fee(row)
+                covered.add(id(row))
+        return covered
 
     def sell(self, row: FileRow) -> RiverProposal | None:
         if not row.btc or row.btc <= 0 or not row.usd or row.usd <= 0:

@@ -90,7 +90,7 @@ def test_a_mapping_previewed_unsaved_reads_the_file(client):
             p["fee_amount"] and Decimal(p["fee_amount"]), p["date"][:19]) for p in answer["proposals"]]
     assert got == [
         # 1,010.00 paid with the fee in it: 1,000.00 bought the coins; 09:00 in Chicago (CDT) is 14:00 UTC
-        (4, "Buy", "Exchange USD", "Exchange BTC", Decimal("0.01"), Decimal("1000.00"), None, Decimal("10.00"),
+        (4, "Buy", "Bank", "Exchange BTC", Decimal("0.01"), Decimal("1000.00"), None, Decimal("10.00"),
          "2025-04-01T14:00:00"),
         # 495.00 arrived after the 5.00 fee: proceeds of 500.00
         (5, "Sell", "Exchange BTC", "Exchange USD", Decimal("0.005"), None, Decimal("500.00"), Decimal("5.00"),

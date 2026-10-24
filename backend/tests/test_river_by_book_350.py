@@ -19,7 +19,8 @@ from backend.tests.conftest import default_login, stub_daily_prices
 
 HEADER = "Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Tag"
 # Four recurring no-fee $25 buys (paid from a bank), a buy with a fee (paid
-# from the exchange's dollars), a sale, a payout, a send and a receive
+# from a bank too: no sale before it left the exchange dollars, #655), a
+# sale, a payout, a send and a receive
 ROWS = [
     "2026-01-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy",
     "2026-01-12 12:00:00,25.00,USD,0.00031000,BTC,,,Buy",
@@ -34,7 +35,7 @@ ROWS = [
 # (type, from, to) of each row, in 1.x's accounts
 IN_1X = [
     ("Buy", "Bank", "Exchange BTC"), ("Buy", "Bank", "Exchange BTC"), ("Buy", "Bank", "Exchange BTC"),
-    ("Buy", "Bank", "Exchange BTC"), ("Buy", "Exchange USD", "Exchange BTC"), ("Sell", "Exchange BTC", "Exchange USD"),
+    ("Buy", "Bank", "Exchange BTC"), ("Buy", "Bank", "Exchange BTC"), ("Sell", "Exchange BTC", "Exchange USD"),
     ("Deposit", "External", "Exchange BTC"), ("Transfer", "Exchange BTC", "Wallet"),
     ("Transfer", "Wallet", "Exchange BTC"),
 ]
@@ -158,7 +159,7 @@ def test_a_river_file_round_trip_into_kraken_and_cold_storage(client):
     assert r.json()["imported_count"] == len(ROWS)
     saved = sorted(client.get("/api/transactions").json(), key=lambda t: t["timestamp"])
     assert {(t["type"], t["from_account_id"], t["to_account_id"]) for t in saved} == {
-        ("Buy", 1, 103), ("Buy", 102, 103), ("Sell", 103, 102), ("Deposit", 99, 103), ("Transfer", 103, 100),
+        ("Buy", 1, 103), ("Sell", 103, 102), ("Deposit", 99, 103), ("Transfer", 103, 100),
         ("Transfer", 100, 103)}
     send = next(t for t in saved if (t["type"], t["from_account_id"]) == ("Transfer", 103))
     assert (send["amount"], send["fee_amount"]) == ("0.00100500", "0.00000500")

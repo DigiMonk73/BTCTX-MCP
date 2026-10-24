@@ -182,6 +182,20 @@ All notable changes to BitcoinTX are documented in this file.
   importer's mappings may name Coinbase, the exchange whose own file you
   upload, and BitcoinTX still never asks Coinbase anything (#161): the
   file that names it can make no request, and a test keeps it so.
+- **A file's buys are paid from the bank unless its sales left the
+  exchange's dollars to pay them** (#655). No exchange's file is read for
+  its dollar deposits (they move no bitcoin), so paying every buy from the
+  exchange's own dollars took them below zero (after Kraken's sample,
+  −$338.34). Now a buy's "Paid from" is the exchange's dollars only when
+  the file's earlier rows (its sales, less their fees, and the buys they
+  already paid) leave enough there, and the first bank that isn't hidden
+  otherwise. **River's one-time buys now default to the bank when the file
+  shows no dollars to pay them**, where 1.x chose Exchange USD and could
+  leave it below zero; River's recurring buys stay the bank's, as before.
+  No figure changes (a buy's cost basis is the same whichever account
+  paid), a file imported before is still found whole (a buy's bank never
+  stops a match), and you can still switch each row's "Paid from" in the
+  preview.
 - **The transaction form names accounts by the account book** (B6a, #351).
   Editing a transaction keeps the accounts it was saved with: a Buy or a
   Sell stays on its exchange, a Transfer keeps its destination. Where more

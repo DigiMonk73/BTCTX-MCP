@@ -4,7 +4,9 @@ exchange's published format (testdata/exchange_files/), read into the rows
 worked out here by hand from each format's rules:
 
 - a Buy's cost basis is the dollars before the fee, its fee apart in
-  dollars (the engine adds it to the basis, Treas. Reg. §1.1012-1(h)(1));
+  dollars (the engine adds it to the basis, Treas. Reg. §1.1012-1(h)(1)),
+  paid from the exchange's dollars when the file's earlier sales left
+  enough there, else from the bank (#655);
 - a Sell's proceeds are the dollars before the fee, its fee apart in dollars
   (the engine subtracts it, §1.1001-7(b)(2));
 - a send is a Transfer of the coins that arrived, its network fee in
@@ -78,7 +80,7 @@ def test_coinbase_transaction_history(client):
     answer = preview(client, "coinbase", "coinbase_2024.csv")
     assert rows(answer) == [
         # Subtotal bought the coins; "Fees and/or Spread" apart (Total = 98.00 + 1.99)
-        row(4, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 15, 14, 23, 11), cost="98.00", fee="1.99"),
+        row(4, "Buy", BANK, EX_BTC, "0.001", at(2025, 1, 15, 14, 23, 11), cost="98.00", fee="1.99"),
         # Subtotal is the gross; 49.70 arrived after the 0.30 fee
         row(5, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 2, 1, 10), proceeds="50.00", fee="0.30"),
         row(6, "Transfer", EX_BTC, WALLET, "0.0003", at(2025, 2, 2, 10)),
@@ -98,7 +100,7 @@ def test_coinbase_transaction_history(client):
 def test_coinbase_transaction_history_before_2024(client):
     answer = preview(client, "coinbase", "coinbase_2022.csv")
     assert rows(answer) == [
-        row(7, "Buy", EX_USD, EX_BTC, "0.002", at(2022, 3, 1, 15), cost="86.00", fee="1.99"),
+        row(7, "Buy", BANK, EX_BTC, "0.002", at(2022, 3, 1, 15), cost="86.00", fee="1.99"),
         row(8, "Sell", EX_BTC, EX_USD, "0.001", at(2022, 4, 1, 15), proceeds="45.00", fee="0.67"),
     ]
 
@@ -106,11 +108,12 @@ def test_coinbase_transaction_history_before_2024(client):
 def test_kraken_ledger(client):
     answer = preview(client, "kraken", "kraken_ledgers.csv")
     assert rows(answer) == [
-        # A trade's two lines: 500 dollars and their 1.30 fee for 0.005 BTC
-        row(4, "Buy", EX_USD, EX_BTC, "0.005", at(2025, 1, 3, 10, 15, 30), cost="500.00", fee="1.30"),
+        # A trade's two lines: 500 dollars and their 1.30 fee for 0.005 BTC, from the bank: no
+        # sale before it left the exchange dollars (#655; the file's dollar deposit isn't read)
+        row(4, "Buy", BANK, EX_BTC, "0.005", at(2025, 1, 3, 10, 15, 30), cost="500.00", fee="1.30"),
         # 0.002 BTC sold for 210 dollars, its 0.55 fee taken from them
         row(5, "Sell", EX_BTC, EX_USD, "0.002", at(2025, 2, 10, 8), proceeds="210.00", fee="0.55"),
-        # Buy Crypto's spend and receive
+        # Buy Crypto's spend and receive: $101.49 from the sale's $209.45, so from the exchange's dollars
         row(8, "Buy", EX_USD, EX_BTC, "0.00098", at(2025, 2, 15, 12, 30), cost="100.00", fee="1.49"),
         # A withdrawal: the amount sent, its fee on top (the pending copy above it left out)
         row(10, "Transfer", EX_BTC, WALLET, "0.002", at(2025, 3, 1, 9, 5), fee="0.000015"),
@@ -131,14 +134,15 @@ def test_strike_statement(client):
     answer = preview(client, "strike", "strike_statement.csv")
     assert rows(answer) == [
         # 101 dollars debited, the 1.00 fee in them: 100.00 bought the coins
-        row(3, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 6, 15, 30), cost="100.00", fee="1.00"),
+        row(3, "Buy", BANK, EX_BTC, "0.001", at(2025, 1, 6, 15, 30), cost="100.00", fee="1.00"),
         # 49.50 arrived after the 0.50 fee: proceeds of 50.00
         row(4, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 2, 11, 9, 10, 11), proceeds="50.00", fee="0.50"),
         row(5, "Transfer", EX_BTC, WALLET, "0.0003", at(2025, 2, 12, 10), fee="0.000005"),
         row(6, "Transfer", WALLET, EX_BTC, "0.0002", at(2025, 2, 13, 10)),
         # A target order's two pieces, one id: 200 dollars (2.00 fee in them) at
-        # 08:00, the coins at 08:05, one buy dated by its coins
-        row(8, "Buy", EX_USD, EX_BTC, "0.00198", at(2025, 3, 1, 8, 5), cost="198.00", fee="2.00"),
+        # 08:00, the coins at 08:05, one buy dated by its coins; more than the
+        # sale's $49.50 left, so from the bank
+        row(8, "Buy", BANK, EX_BTC, "0.00198", at(2025, 3, 1, 8, 5), cost="198.00", fee="2.00"),
     ]
     assert answer["total_rows"] == 11 and answer["errors"] == []
     said = warned(answer)
@@ -150,7 +154,7 @@ def test_strike_statement(client):
 
 def test_strike_activity_report(client):
     answer = preview(client, "strike", "strike_activity.csv")
-    assert rows(answer) == [row(2, "Buy", EX_USD, EX_BTC, "0.00025", at(2025, 4, 1, 16, 20), cost="25.00", fee="0.25")]
+    assert rows(answer) == [row(2, "Buy", BANK, EX_BTC, "0.00025", at(2025, 4, 1, 16, 20), cost="25.00", fee="0.25")]
     said = warned(answer)
     assert "Row 3 are Pending, not completed" in said and "Row 4 are Reversed, not completed" in said
 
@@ -182,8 +186,8 @@ def test_cash_app_bitcoin_transactions(client):
     answer = preview(client, "cash-app", "cash_app_bitcoin.csv")
     assert rows(answer) == [
         # Each date in the account's US zone: 09:15 EST is 14:15 UTC
-        row(2, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 10, 14, 15), cost="98.15", fee="2.00"),
-        row(3, "Buy", EX_USD, EX_BTC, "0.0001", at(2025, 2, 1, 14, 15), cost="9.80", fee="0.20"),
+        row(2, "Buy", BANK, EX_BTC, "0.001", at(2025, 1, 10, 14, 15), cost="98.15", fee="2.00"),
+        row(3, "Buy", BANK, EX_BTC, "0.0001", at(2025, 2, 1, 14, 15), cost="9.80", fee="0.20"),
         # 12:00 PDT is 19:00 UTC; the Amount is the gross, the fee apart
         row(4, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 7, 4, 19), proceeds="50.00", fee="1.49"),
         # Its fee was in dollars: a send's fee is bitcoin, so it isn't read
@@ -201,7 +205,7 @@ def test_cash_app_bitcoin_transactions(client):
 def test_cash_app_activity(client):
     answer = preview(client, "cash-app", "cash_app_activity.csv")
     assert rows(answer) == [
-        row(2, "Buy", EX_USD, EX_BTC, "0.01", at(2025, 8, 1, 15), cost="1000.00", fee="10.00"),
+        row(2, "Buy", BANK, EX_BTC, "0.01", at(2025, 8, 1, 15), cost="1000.00", fee="10.00"),
     ]
     said = warned(answer)
     assert "Row 3 are FAILED, not completed" in said and "Row 4 aren't bitcoin (their asset is blank)" in said
