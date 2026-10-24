@@ -367,8 +367,12 @@ def test_reports():
 # =============================================================================
 
 def test_csv_roundtrip():
-    """Test CSV export and import roundtrip."""
+    """Test CSV export and import roundtrip. The ledger is seeded again when
+    found empty: under pytest-xdist the seeding test can run on another
+    worker, or another test in this one empty the shared ledger first."""
     section("CSV EXPORT/IMPORT ROUNDTRIP")
+    if not api_get("transactions")[1]:
+        test_seed_database()
 
     # Export current transactions
     subsection("CSV Export")

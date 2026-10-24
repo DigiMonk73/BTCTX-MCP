@@ -44,10 +44,40 @@ def test_the_shipped_guide_is_the_generators_output(tmp_path):
     assert text(made) == text(SHIPPED)
 
 
-def test_a_deposit_or_withdrawal_takes_any_of_the_four_accounts():
-    guide, four = text(SHIPPED), "Bank, Wallet, Exchange USD or Exchange BTC"
-    assert f"Deposit External {four} Into Wallet or Exchange BTC: cost_basis_usd required" in guide
-    assert f"Withdrawal {four} External From Wallet or Exchange BTC: purpose required" in guide
+def test_a_deposit_or_withdrawal_takes_any_of_your_accounts():
+    """By kind since 2.0 (5.5; #350): any bank, wallet or exchange account."""
+    guide = text(SHIPPED)
+    assert ("Deposit External Any of your accounts Into a bitcoin account (a wallet, or an exchange's BTC): "
+            "cost_basis_usd required") in guide
+    assert ("Withdrawal Any of your accounts External From a bitcoin account (a wallet, or an exchange's BTC): "
+            "purpose required") in guide
+
+
+def test_the_accounts_are_yours_by_their_names_in_settings():
+    """5.11: a file names your accounts as Settings does; 1.x's names always
+    mean the first bank, wallet and exchange; a hidden one imports with a
+    warning."""
+    guide = text(SHIPPED)
+    assert "Your accounts Your banks, wallets and exchanges, each by its name in Settings (in any case)" in guide
+    assert ("Bank, Wallet, Exchange USD and Exchange BTC always mean your first bank, wallet and exchange, "
+            "as in BitcoinTX 1.x's files, whatever they are called now") in guide
+    assert "Invalid account '...'\" Use one of your accounts by its name in Settings, or External" in guide
+    assert "is hidden in Settings\" (a warning) The row imports" in guide
+
+
+def test_the_rules_are_by_kind():
+    guide = text(SHIPPED)
+    assert ("Buy A bank, or an exchange's USD An exchange's BTC (the same exchange's, when paid from its USD)"
+            in guide)
+    assert "Sell An exchange's BTC The same exchange's USD" in guide
+    assert ("Transfer One of your accounts Another of your accounts, in the same currency; or the same bitcoin "
+            "account") in guide
+
+
+def test_a_blank_fee_currency_is_the_accounts():
+    """#350: as the save fills it in (#303), so a USD deposit's fee is USD."""
+    assert ("Blank = USD for a Buy or Sell, else the currency of the account it's paid from (a deposit's: the "
+            "account it goes into)") in text(SHIPPED)
 
 
 @pytest.mark.parametrize("title, row", generator().EXAMPLES)
@@ -65,5 +95,5 @@ def test_a_deposit_or_withdrawal_isnt_bitcoin_only_anywhere():
     assert "Deposit Money or BTC coming in from outside" in guide
     assert "Withdrawal Money or BTC leaving" in guide
     # A dollar withdrawal keeps no bitcoin purpose (#449)
-    assert ("From Bank or Exchange USD: any short text on one line, or blank; Spent, Gift, Donation or Lost "
-            "isn't kept there") in guide
+    assert ("From a bank or an exchange's USD: any short text on one line, or blank; Spent, Gift, Donation or "
+            "Lost isn't kept there") in guide
