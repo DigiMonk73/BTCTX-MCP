@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api";
 import { showTheList } from "../utils/reminderList";
 import { reviewAmount, typeWithSourceOrPurpose } from "../utils/transactionList";
@@ -69,18 +69,24 @@ const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview, round }) => {
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Asked again while an earlier review is still on its way (Settings' refresh,
+  // Check again): only the last one asked for is shown, whichever comes last
+  const asked = useRef(0);
   const load = useCallback(async () => {
+    const ask = ++asked.current;
     setLoading(true);
     setFailed(false);
     try {
       const res = await api.get<LedgerReviewResponse>("/review");
+      if (ask !== asked.current) return;
       setReview(res.data);
       onReview?.(res.data);
     } catch {
+      if (ask !== asked.current) return;
       setFailed(true);
       onReview?.(null);
     } finally {
-      setLoading(false);
+      if (ask === asked.current) setLoading(false);
     }
   }, [onReview]);
 

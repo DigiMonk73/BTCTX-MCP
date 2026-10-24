@@ -1,8 +1,9 @@
 // Settings in sections, and its "Wallets, exchanges and banks" (#355; 2.0 spec
 // 5.9, 7.4's B7b; P7's mockups, #572): one section open at a time, by its
 // button or the keyboard, the open one remembered by this browser; your accounts by
-// kind, Add with its help text and Q5's note, Hide, Show and Delete. Saving
-// into a new account waits for the gate (B7a), whose rows this spec gains then.
+// kind, Add with its help text and Q5's note, Hide, Show and Delete; each
+// exchange's 1099-DA switch; with the gate open (B7a), a Buy and a Sell on an
+// added exchange, and River saving into the exchange and wallet picked.
 import {
   test, expect, createTx, listTx, openAddForm, openSection, saveForm, seedFunds, seedKnownLedger, SAVE_ANYWAY,
 } from "./fixtures";
@@ -421,10 +422,12 @@ test("a second exchange added in Settings takes a Buy and a Sell, which keep it 
   await page.getByLabel("Amount BTC").fill("0.02");
   await page.getByLabel("Gross Proceeds (USD)").fill("1500");
   await saveForm(page);
-  const saved = async () => (await listTx(page.request)).filter((t) => t.type === "Buy" || t.type === "Sell")
-    .filter((t) => t.from_account_id === krakenUsd || t.from_account_id === krakenBtc)
-    .map((t) => [t.type, t.from_account_id, t.to_account_id, Number(t.amount)]);
-  expect(await saved()).toEqual([["Buy", krakenUsd, krakenBtc, 0.05], ["Sell", krakenBtc, krakenUsd, 0.02]]);
+  // Kraken's Buy and Sell by type (the list is newest first, and the two may be a second apart or not)
+  const saved = async () => Object.fromEntries((await listTx(page.request))
+    .filter((t) => (t.type === "Buy" || t.type === "Sell") && [krakenUsd, krakenBtc].includes(Number(t.from_account_id)))
+    .map((t) => [t.type, [t.from_account_id, t.to_account_id, Number(t.amount),
+      ...(t.type === "Buy" ? [Number(t.cost_basis_usd)] : [])]]));
+  expect(await saved()).toEqual({ Buy: [krakenUsd, krakenBtc, 0.05, 3000], Sell: [krakenBtc, krakenUsd, 0.02] });
 
   // Edited, each keeps Kraken: never your first exchange's accounts by default
   await editNewest(page, "Sell");
@@ -437,7 +440,8 @@ test("a second exchange added in Settings takes a Buy and a Sell, which keep it 
   await expect(page.getByLabel("Paid from")).toHaveValue(String(krakenUsd));
   await page.getByLabel("Amount USD").fill("3100");
   await saveForm(page, "Update Transaction");
-  expect(await saved()).toEqual([["Buy", krakenUsd, krakenBtc, 0.05], ["Sell", krakenBtc, krakenUsd, 0.03]]);
+  // Both edits saved, and both kept Kraken's accounts
+  expect(await saved()).toEqual({ Buy: [krakenUsd, krakenBtc, 0.05, 3100], Sell: [krakenBtc, krakenUsd, 0.03] });
 });
 
 test("River with two exchanges and two wallets saves into the ones picked", async ({ authedPage: page }) => {
@@ -462,7 +466,12 @@ test("River with two exchanges and two wallets saves into the ones picked", asyn
   await river.getByRole("button", { name: "Preview" }).click();
   await expect(river.getByText("2 rows in file")).toBeVisible();
   await river.getByRole("button", { name: "Import 2 Transaction(s)" }).click();
-  await expect(page.getByText("Imported 2 transaction(s).")).toBeVisible();
+  // From 2027 its 2026 rows are in an earlier tax year: the import asks first (B6c), and the test says yes
+  const saveAnyway = page.getByRole("button", { name: SAVE_ANYWAY });
+  const imported = page.getByText("Imported 2 transaction(s).");
+  await expect.poll(async () => (await saveAnyway.isVisible()) || (await imported.isVisible())).toBe(true);
+  if (await saveAnyway.isVisible()) await saveAnyway.click();
+  await expect(imported).toBeVisible();
   expect(dialogs).toEqual(["Import 2 transaction(s) from River into your ledger?"]);
 
   // The buy paid from Kraken's dollars, into Kraken's bitcoin; the send from Kraken to Coldcard

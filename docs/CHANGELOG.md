@@ -25,10 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   is checked again once the tax timezone is saved, the ledger
   recalculated or an exchange's switch turned, so it no longer shows the
   old timezone's times or figures until Check again (fixed in 2.0; #645
-  for 1.x). Saving into an added account still waits for a later step.
+  for 1.x).
 - **Saving into any of your accounts** (B7a, #354). A transaction can now
-  be saved into any bank, wallet or exchange added through the account
-  API (Settings lists them in a later step), as into the first ones:
+  be saved into any bank, wallet or exchange added in Settings or through
+  the account API, as into the first ones:
   through the transaction form, a CSV file, River and the AI connector; a
   hidden one too, though the form doesn't offer it. BTC Fees and USD Fees
   stay the ledger's own, never named by a transaction. An AI connector
