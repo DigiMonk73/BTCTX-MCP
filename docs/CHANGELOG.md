@@ -66,6 +66,8 @@ All notable changes to BitcoinTX are documented in this file.
   quickly (10 seconds), the warning names every year from the
   transaction's date on instead of exactly what changes. No figure of any
   ledger moves: a save confirmed is saved as before.
+  Before it checks, it looks up only the prices the save will use, so the
+  form's unchanged edit of a past-year transaction asks for none (#646).
 - **The forms and the report per exchange** (B4, #349). Form 8949's boxes
   ask the account book: a Sell is on a Form 1099-DA when its exchange's
   "This exchange sends me a Form 1099-DA" is on (with it off, its Sells
@@ -201,17 +203,6 @@ All notable changes to BitcoinTX are documented in this file.
   (`backend/tests/fixtures/reference_1x.db`) must keep its figures when
   upgraded and recalculated, and the before-and-after check
   (`scripts/equivalence_check.py`) compares ledgers frozen at 1.x's.
-
-### Fixed
-- **The past-year warning asks for no price the save won't use** (#646).
-  Before an edit of a transaction dated in an earlier tax year was checked,
-  BitcoinTX looked up the price of every value the transaction holds from
-  a price (a network fee's, a spend's proceeds, an income's or a gift's
-  value), though the save prices one again only when the edit changes what
-  it depends on: the form's unchanged edit asked for one too. With a price
-  source on, that could send a request, or wait for a year's price file to
-  download. Now only the values the save prices again are looked up. No
-  figure changes.
 
 ## [Unreleased]
 

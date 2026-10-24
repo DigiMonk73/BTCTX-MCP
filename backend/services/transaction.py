@@ -1070,21 +1070,33 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
 def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     """
     The row an edit makes, as find_prices_first reads a new one: its stored
-    inputs with the edit's fields. A value it holds from a price is left
-    blank only when the save prices it again, by the save's own conditions
-    (a fee's inputs, a Spent's or gift's amount or hour, an income's account,
-    amount, hour or type), so no price is found that the save won't use
-    (#646): the form's unchanged echo of a past-year row asked for one.
+    inputs with the edit's fields, as the save's first steps leave them (a
+    type change's fields dropped, a dollar deposit's basis, a gift's $0
+    proceeds: apply_update). A value it holds from a price is left blank
+    only when the save prices it again, by the save's own conditions (a
+    fee's inputs, a Spent's or gift's amount or hour, an income's account,
+    amount, hour or type), so the prices found are the ones the save asks
+    for (#646): the form's unchanged echo of a past-year row asked for one
+    it never used. A fee kept keeps its mark, so a Spent priced again takes
+    its moment (_spent_proceeds_moment). A row priced at the day is still
+    looked up at the day where the save may price at the hour (#647).
     """
+    book, edit = account_book(db), dict(tx_data)
+    _drop_dollar_deposit_basis(tx, edit, book)
+    _drop_fields_of_old_type(tx, edit)
+    _drop_proceeds_it_never_had(tx, edit, book)
+    _send_gross_of_an_old_withdrawal_sold(tx, edit)
+    fee_again = _fee_priced_again(tx, edit)
     row = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment,
-           "fee_usd": None if _fee_priced_again(tx, tx_data) else tx.fee_usd}
-    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db):
+           "fee_usd": None if fee_again else tx.fee_usd,
+           "fee_usd_from_price": not fee_again and tx.fee_usd is not None and not tx.fee_usd_manual}
+    if tx.cost_basis_from_price and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
-    if tx.proceeds_from_price and _proceeds_priced_by_edit(tx, tx_data):
+    if tx.proceeds_from_price and _proceeds_priced_by_edit(tx, edit):
         row["proceeds_usd"] = row["gross_proceeds_usd"] = None
-    if tx.fmv_from_price and _gift_priced_by_edit(tx, tx_data, account_book(db)):
+    if _gift_priced_by_edit(tx, edit, book):  # a sale's $0 made a gift too (_moments_priced reads only a gift's)
         row["fmv_usd"] = None
-    return {**row, **tx_data}
+    return {**row, **edit}
 
 
 def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
