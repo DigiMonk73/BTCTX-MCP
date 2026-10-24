@@ -28,11 +28,13 @@ All notable changes to BitcoinTX are documented in this file.
 - **Trying 2.0 before it's released** (the README's "Versions"; 2.0 plan
   7.4, B10a, #532; #251's decisions 12 and 28): 2.0's first pre-release,
   v2.0.0-alpha.1, is out on GitHub for anyone who chooses to test it. The
-  section says where to find the pre-releases, what each platform does with
-  a tester's records (a separate Mac app, BitcoinTX Preview; an update in
-  place on StartOS, after a StartOS backup; a new volume on Docker), that
-  nothing entered in one goes back to 1.x, how to go back, and how to report
-  what you find. 1.x stays the version to use for your records.
+  section says where to find the pre-releases, that an alpha is only for
+  trying 2.0, never for your real records, what each platform does with a
+  tester's records (a separate Mac app, BitcoinTX Preview; an update in
+  place on StartOS, after a StartOS backup, with no 1.x update offered
+  until 2.0 is out; a new volume on Docker), that nothing entered in one
+  goes back to 1.x, how to go back, and how to report what you find. 1.x
+  stays the version to use for your records.
 
 ### Development
 - **The way to publish 2.0's alphas and betas** (2.0 plan 7.4, B10a,
