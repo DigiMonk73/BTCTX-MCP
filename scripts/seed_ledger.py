@@ -154,7 +154,7 @@ def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] |
     if r.json():
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     if rows is None:
-        rows, accounts = ledger_rows(), ledger_accounts()
+        rows, accounts = ledger_rows(), ledger_accounts() if accounts is None else accounts
     for account in accounts or []:
         make_account(c, account)
     for n, row in enumerate(rows, start=1):
@@ -169,7 +169,8 @@ def make_account(c: httpx.Client, account: dict) -> None:
     """One of ledger_accounts() through the account API, with the ids it
     lists: one a Delete All left (same name and kind) is used again, and
     an id that comes out otherwise stops the seed, since every row names
-    accounts by id. Then its exchange's 1099-DA switch, when it's off."""
+    accounts by id. Then an exchange's 1099-DA switch, set as the ledger
+    has it, so one left changed by hand is put back."""
     r = c.get("/api/accounts/")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the accounts: {r.status_code} {r.text[:300]}")
@@ -185,10 +186,10 @@ def make_account(c: httpx.Client, account: dict) -> None:
         raise SeedError(f"{account['name']} is account {', '.join(str(a['id']) for a in found)} here, a "
                         f"{found[0]['kind']}, not the ledger's {account['kind']} {', '.join(map(str, account['ids']))}: "
                         "seed only a fresh test install")
-    if account.get("sends_1099da") is False:
-        r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": False})
+    if account["kind"] == "exchange":
+        r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": account["sends_1099da"]})
         if r.status_code != 200:
-            raise SeedError(f"turning off {account['name']}'s 1099-DA failed: {r.status_code} {r.text[:300]}")
+            raise SeedError(f"setting {account['name']}'s 1099-DA switch failed: {r.status_code} {r.text[:300]}")
 
 
 def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:

@@ -1647,7 +1647,7 @@
    "fee_amount": "0",
    "fee_currency": "BTC",
    "since": "2.0",
-   "why": "The split of a pooled wallet (C3): Wallet's coins that were really on the Coldcard go to it, with no fee (a fee would be a Form 8949 row and move 2026's totals). The ledger's last row, after every row that takes coins from Wallet or the Coldcard, so it moves only their year-end lots and balances (test_reference_split_354.py)."
+   "why": "The split of a pooled wallet (C3): Wallet's coins that were really on the Coldcard go to it, with no fee (a fee would be a Form 8949 row and move 2026's totals). The ledger's last row, after every row that takes coins from Wallet or the Coldcard, so it moves only their year-end lots and balances (backend/tests/test_reference_ledger_354.py)."
   }
  ]
 }

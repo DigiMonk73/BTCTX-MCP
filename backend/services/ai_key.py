@@ -40,6 +40,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from backend.services.account import account_book
 from backend.services.desktop import desktop_info, is_desktop
 
 logger = logging.getLogger(__name__)
@@ -112,8 +113,6 @@ def from_an_old_connector(method: str, route: str | None, connector: str | None,
     from a source tree, a beta's)."""
     if connector is not None or (method, route) not in WRITES:
         return False
-    from backend.services.account import account_book
-
     book = account_book(db)
     wallets = [i for i in book.yours() if book.kind(i) == "wallet"]
     exchanges = {book.exchange_of(i) for i in book.yours() if book.kind(i) == "exchange"}

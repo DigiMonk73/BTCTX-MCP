@@ -13,6 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.models.account import Account
 from backend.services.csv_import import CSV_COLUMNS
 from backend.tests.account_pairs import (
     BTC_FEES, COLD, CREDIT_UNION, EXTERNAL, KRAKEN_BTC, KRAKEN_USD, USD_FEES, add_them)
@@ -106,6 +107,20 @@ def test_a_csv_names_the_new_accounts(client):
     held = balances(client)
     assert (held[CREDIT_UNION], held[KRAKEN_BTC], held[COLD]) == (Decimal("9990"), Decimal("0.05"),
                                                                    Decimal("0.0499"))
+
+
+def test_an_internal_leftover_account_is_refused(fresh_app, client):
+    """An account an upgrade kept only for its old rows (2.0 spec 5.3: a fee
+    account but 5 and 6) is no one's to save into, by id or by its name."""
+    with fresh_app() as db:
+        db.add(Account(id=7, user_id=1, name="BTC Fees (account 7)", kind="fee", currency="BTC"))
+        db.commit()
+    r = client.post("/api/transactions", json={**ROWS[0], "to_account_id": 7, "fee_currency": "BTC"})
+    assert (r.status_code, r.json()["detail"]) == (422, "Unknown account id 7.")
+    answer = client.post("/api/import/preview", files=csv(
+        "2026-01-05T12:00:00Z,Deposit,1,External,BTC Fees (account 7),,,0,,,")).json()
+    assert [e["message"] for e in answer["errors"]] == [
+        f"Invalid account 'BTC Fees (account 7)'. Must be one of your accounts ({YOURS}) or External."]
 
 
 @pytest.mark.parametrize("name", ["BTC Fees", "usd fees", "Nowhere"])

@@ -201,6 +201,16 @@ def test_seeding_again_after_delete_all_uses_the_accounts_left(owner):
     assert [(a["id"], a["name"]) for a in c.get("/api/accounts/").json()] == [(a["id"], a["name"]) for a in before]
 
 
+def test_seeding_again_puts_a_switch_changed_by_hand_back(owner):
+    c, Session = owner
+    seed_ledger.seed(c)
+    assert c.put("/api/accounts/103", json={"sends_1099da": False}).status_code == 200  # Kraken's, by hand
+    delete_all(c)
+    seed_ledger.seed(c)
+    with Session() as db:
+        assert dict(db.query(Exchange.name, Exchange.sends_1099da))["Kraken"] is True
+
+
 def test_an_account_that_would_get_another_id_stops_the_seed(owner):
     c, Session = owner
     assert c.post("/api/accounts/", json={"kind": "wallet", "name": "Spare"}).status_code == 201  # takes 100

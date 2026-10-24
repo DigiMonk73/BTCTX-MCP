@@ -85,9 +85,11 @@ def test_with_a_second_wallet_or_exchange_its_writes_are_refused(ledger, kind, n
         assert str(db.get(Transaction, ledger.first).amount) == "0.50000000"  # the edit wasn't saved
 
 
-def test_a_hidden_second_wallet_still_counts(ledger):
-    [cold] = ledger.add("wallet", "Cold Storage")
-    assert ledger.owner.put(f"/api/accounts/{cold['id']}", json={"hidden": True}).status_code == 200
+@pytest.mark.parametrize("kind, name", [("wallet", "Cold Storage"), ("exchange", "Kraken")])
+def test_a_hidden_second_wallet_or_exchange_still_counts(ledger, kind, name):
+    """Hiding it doesn't let an old connector lump into the first (5.12)."""
+    added = ledger.add(kind, name)
+    assert ledger.owner.put(f"/api/accounts/{added[0]['id']}", json={"hidden": True}).status_code == 200
     assert {r.status_code for r in ledger.writes()} == {409}
 
 
