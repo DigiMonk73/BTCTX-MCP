@@ -54,6 +54,8 @@ PASSWORD_ENV = "BTCTX_PASSWORD"
 NOTES = ("why", "since")
 # The account API's kinds, by the ledger's (an exchange is added once, as its two accounts)
 ADDED_AS = ("bank", "wallet", "exchange")
+# 1.x's exchange, which every install has (scripts/independent_figures.py's exchange 1)
+FIRST_EXCHANGE = {"kind": "exchange", "name": "Exchange", "ids": [3, 4], "sends_1099da": True, "exchange_id": 1}
 
 
 class SeedError(Exception):
@@ -74,7 +76,10 @@ def ledger_accounts() -> list[dict]:
     """The accounts the ledger adds to the fixed ones (its `accounts` list,
     2.0 spec 5.15), as the account API adds them: a bank or a wallet by its
     name, an exchange by its own (its accounts "<name> USD" and "<name> BTC"),
-    each with the ids it must get and, for an exchange, its 1099-DA switch."""
+    each with the ids it must get and, for an exchange, its 1099-DA switch.
+    A ledger with such a list also sets 1.x's first exchange's switch (on,
+    unless the list says otherwise), so a reseed puts back one changed by
+    hand; one without (1.x's) adds nothing."""
     with open(LEDGER) as f:
         listed = json.load(f).get("accounts", [])
     added, exchanges = [], {}
@@ -86,14 +91,22 @@ def ledger_accounts() -> list[dict]:
             continue
         pair = exchanges.setdefault(account["exchange_id"], {})
         pair[account["currency"]] = account
-    for exchange_id, pair in exchanges.items():
-        usd, btc = pair.get("USD"), pair.get("BTC")
-        name = usd["name"].removesuffix(" USD") if usd else None
-        if not (usd and btc and btc["name"] == f"{name} BTC"):
-            raise SeedError(f"exchange {exchange_id} needs a '<name> USD' and a '<name> BTC' account")
-        added.append({"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]],
-                      "sends_1099da": usd.get("sends_1099da", True)})
+    added += [_exchange(exchange_id, pair) for exchange_id, pair in exchanges.items()]
+    if listed and FIRST_EXCHANGE["exchange_id"] not in exchanges:
+        added.append({key: value for key, value in FIRST_EXCHANGE.items() if key != "exchange_id"})
     return sorted(added, key=lambda a: a["ids"][0])
+
+
+def _exchange(exchange_id: int, pair: dict[str, dict]) -> dict:
+    """An exchange of the accounts list, from its two accounts, which must
+    be named after it and agree on its switch."""
+    usd, btc = pair.get("USD"), pair.get("BTC")
+    name = usd["name"].removesuffix(" USD") if usd else None
+    if not (usd and btc and btc["name"] == f"{name} BTC"):
+        raise SeedError(f"exchange {exchange_id} needs a '<name> USD' and a '<name> BTC' account")
+    if usd.get("sends_1099da", True) != btc.get("sends_1099da", True):
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on its 1099-DA switch")
+    return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True)}
 
 
 # The server

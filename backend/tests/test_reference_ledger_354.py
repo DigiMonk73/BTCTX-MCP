@@ -202,13 +202,23 @@ def test_seeding_again_after_delete_all_uses_the_accounts_left(owner):
 
 
 def test_seeding_again_puts_a_switch_changed_by_hand_back(owner):
+    """Kraken's and 1.x's own exchange's: both on in the ledger."""
     c, Session = owner
     seed_ledger.seed(c)
-    assert c.put("/api/accounts/103", json={"sends_1099da": False}).status_code == 200  # Kraken's, by hand
+    for account in (103, 4):  # Kraken BTC, Exchange BTC
+        assert c.put(f"/api/accounts/{account}", json={"sends_1099da": False}).status_code == 200
     delete_all(c)
     seed_ledger.seed(c)
     with Session() as db:
-        assert dict(db.query(Exchange.name, Exchange.sends_1099da))["Kraken"] is True
+        assert dict(db.query(Exchange.name, Exchange.sends_1099da)) == {
+            "Exchange": True, "Kraken": True, "Overseas": False}
+
+
+def test_accounts_given_with_the_ledgers_rows_are_the_ones_made(owner):
+    """None given: none made, so the first row into a new account is refused."""
+    c, _ = owner
+    with pytest.raises(seed_ledger.SeedError, match="Unknown account id 106"):
+        seed_ledger.seed(c, accounts=[])
 
 
 def test_an_account_that_would_get_another_id_stops_the_seed(owner):
@@ -235,6 +245,17 @@ def test_given_rows_alone_never_call_the_account_api(owner):
     rows = [sent_row for raw, sent_row in zip(raw_rows(), seed_ledger.ledger_rows()) if "since" not in raw]
     assert seed_ledger.seed(c, rows) == len(rows)
     assert paths and not [p for p in paths if "/api/accounts" in p]
+
+
+def test_an_exchange_whose_accounts_disagree_on_its_switch_stops_the_seed(tmp_path, monkeypatch):
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps({"accounts": [
+        {"id": 102, "name": "Kraken USD", "kind": "exchange", "currency": "USD", "exchange_id": 2, "sends_1099da": True},
+        {"id": 103, "name": "Kraken BTC", "kind": "exchange", "currency": "BTC", "exchange_id": 2,
+         "sends_1099da": False}], "transactions": []}))
+    monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
+    with pytest.raises(seed_ledger.SeedError, match="disagree on its 1099-DA switch"):
+        seed_ledger.ledger_accounts()
 
 
 def test_a_ledger_without_an_accounts_list_adds_none(tmp_path, monkeypatch):

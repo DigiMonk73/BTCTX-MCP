@@ -33,6 +33,7 @@ import backend.migrate
 from backend.database import get_db, seed_defaults
 from backend.main import app
 from backend.migrate import alembic_config, upgrade_database
+from backend.models.account import Account
 from backend.models.exchange import Exchange
 from backend.models.user import User
 from backend import session_auth
@@ -722,12 +723,14 @@ def reference_db(tmp_path_factory):
 
 
 def _add_the_ledgers_accounts(db) -> None:
-    """Its accounts list, with the ids it gives them, and Overseas' 1099-DA switch off."""
+    """Its accounts list, with the ids it gives them (1.x's exchange is
+    there already), and each exchange's 1099-DA switch as it has it."""
     for account in seed_ledger.ledger_accounts():
-        made = account_service.add_account(db, account["kind"], account["name"])
+        there = [db.get(Account, i) for i in account["ids"]]
+        made = there if all(there) else account_service.add_account(db, account["kind"], account["name"])
         assert [a.id for a in made] == account["ids"], account
-        if account.get("sends_1099da") is False:
-            db.get(Exchange, made[0].exchange_id).sends_1099da = False
+        if account["kind"] == "exchange":
+            db.get(Exchange, made[0].exchange_id).sends_1099da = account["sends_1099da"]
             db.commit()
 
 
