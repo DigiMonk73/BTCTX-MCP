@@ -28,9 +28,9 @@ WALLET, EXCHANGE_BTC, COLD, KRAKEN_BTC = 2, 4, 100, 103
 
 
 @pytest.fixture
-def client(gate_open, fresh_app, monkeypatch) -> TestClient:
+def client(fresh_app, monkeypatch) -> TestClient:
     """A ledger with a second wallet and a second exchange (account_pairs'
-    ids), and the gate open to record transactions into them."""
+    ids), to record transactions into."""
     stub_daily_prices(monkeypatch, lambda day: 100000.0)
     stub_prices_at(monkeypatch, lambda when: 100000)
     client = TestClient(app)

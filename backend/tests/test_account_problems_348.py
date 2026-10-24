@@ -15,7 +15,7 @@ from backend.tests.conftest import default_login
 
 
 @pytest.fixture
-def client(gate_open, fresh_app) -> TestClient:
+def client(fresh_app) -> TestClient:
     c = TestClient(app)
     assert c.post("/api/login", json=default_login()).status_code == 200
     add_them(c)

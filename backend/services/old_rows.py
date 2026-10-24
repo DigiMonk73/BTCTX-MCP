@@ -7,7 +7,7 @@ so Ledger Review lists them (account_from_before_0_9_2) until the owner has
 looked at each.
 
 The list is the ledger's own, written once (`accounts_old_rows` in
-app_settings, the ids as JSON): once the gate opens (B7a) new rows can be
+app_settings, the ids as JSON): since the gate opened (B7a) new rows can be
 saved into those accounts, and they aren't from before 0.9.2. Saving a row on
 it, even unchanged, or deleting it takes it off, and deleting every
 transaction empties it: a transaction's id can be given again once the

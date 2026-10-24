@@ -1,6 +1,6 @@
 {
  "dashboard": {
-  "average_cost_basis": "55246.34",
+  "average_cost_basis": "59681.40",
   "balances": [
    {
     "account_id": 1,
@@ -10,7 +10,7 @@
    },
    {
     "account_id": 2,
-    "balance": "2.99969000",
+    "balance": "1.99969000",
     "currency": "BTC",
     "name": "Wallet"
    },
@@ -28,26 +28,74 @@
    },
    {
     "account_id": 5,
-    "balance": "0.00102000",
+    "balance": "0.00111000",
     "currency": "BTC",
     "name": "BTC Fees"
    },
    {
     "account_id": 6,
-    "balance": "701.21000000",
+    "balance": "739.71000000",
     "currency": "USD",
     "name": "USD Fees"
+   },
+   {
+    "account_id": 100,
+    "balance": "1.11695000",
+    "currency": "BTC",
+    "name": "Coldcard"
+   },
+   {
+    "account_id": 101,
+    "balance": "0.02999000",
+    "currency": "BTC",
+    "name": "Jade"
+   },
+   {
+    "account_id": 102,
+    "balance": "18524.50000000",
+    "currency": "USD",
+    "name": "Kraken USD"
+   },
+   {
+    "account_id": 103,
+    "balance": "0.01498000",
+    "currency": "BTC",
+    "name": "Kraken BTC"
+   },
+   {
+    "account_id": 104,
+    "balance": "3397.00000000",
+    "currency": "USD",
+    "name": "Overseas USD"
+   },
+   {
+    "account_id": 105,
+    "balance": "0.00999000",
+    "currency": "BTC",
+    "name": "Overseas BTC"
+   },
+   {
+    "account_id": 106,
+    "balance": "2990.00000000",
+    "currency": "USD",
+    "name": "Credit union"
+   },
+   {
+    "account_id": 107,
+    "balance": "4000.00000000",
+    "currency": "USD",
+    "name": "Savings"
    }
   ],
   "gains_and_losses": {
    "fees": {
-    "BTC": 0.00102,
-    "USD": 701.21
+    "BTC": 0.00111,
+    "USD": 739.71
    },
    "gifts_btc": 0.138,
    "gifts_received": 4525.0,
-   "income_btc": 0.46,
-   "income_earned": 32675.0,
+   "income_btc": 0.462,
+   "income_earned": 32955.0,
    "interest_btc": 0.056,
    "interest_earned": 1897.0,
    "long_term_gains": 103920.25,
@@ -57,14 +105,14 @@
    "rebates_received": 5636.3,
    "rewards_btc": 0.232,
    "rewards_earned": 13080.0,
-   "sells_proceeds": 268753.79,
-   "short_term_gains": 35453.71,
-   "short_term_losses": 263.0,
-   "short_term_net": 35190.71,
-   "total_income": 47652.0,
+   "sells_proceeds": 281783.29,
+   "short_term_gains": 35974.95,
+   "short_term_losses": 268.0,
+   "short_term_net": 35706.95,
+   "total_income": 47932.0,
    "total_losses": 0.0,
-   "total_net_capital_gains": 139110.96,
-   "withdrawals_spent": 27004.98
+   "total_net_capital_gains": 139627.2,
+   "withdrawals_spent": 29903.53
   }
  },
  "years": {
@@ -174,6 +222,7 @@
     },
     "capital_gains_transactions": [
      {
+      "account": "Wallet",
       "amount": 5e-05,
       "asset": "BTC",
       "box": "C",
@@ -187,6 +236,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.2,
       "asset": "BTC",
       "box": "C",
@@ -200,6 +250,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "C",
@@ -213,6 +264,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "C",
@@ -226,6 +278,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 0.005,
       "asset": "BTC",
       "box": "C",
@@ -239,6 +292,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 8e-05,
       "asset": "BTC",
       "box": "C",
@@ -252,6 +306,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Wallet",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "C",
@@ -579,6 +634,19 @@
       "value_usd": 7.5
      }
     ],
+    "sales_by_exchange": [
+     {
+      "boxes": [
+       "C"
+      ],
+      "cost": 4200.0,
+      "exchange": "Exchange",
+      "gain_loss": 1770.0,
+      "proceeds": 5970.0,
+      "rows": 1,
+      "sends_1099da": true
+     }
+    ],
     "start_of_year_balances": [],
     "tax_timezone": "UTC",
     "tax_year": 2023
@@ -789,6 +857,7 @@
     },
     "capital_gains_transactions": [
      {
+      "account": "Wallet",
       "amount": 4e-05,
       "asset": "BTC",
       "box": "F",
@@ -802,6 +871,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.24996,
       "asset": "BTC",
       "box": "D",
@@ -815,6 +885,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.05004,
       "asset": "BTC",
       "box": "A",
@@ -828,6 +899,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.01,
       "asset": "BTC",
       "box": "B",
@@ -841,6 +913,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.01,
       "asset": "BTC",
       "box": "C",
@@ -854,6 +927,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 5e-05,
       "asset": "BTC",
       "box": "F",
@@ -867,6 +941,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.02986,
       "asset": "BTC",
       "box": "F",
@@ -880,6 +955,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.02014,
       "asset": "BTC",
       "box": "F",
@@ -893,6 +969,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.15,
       "asset": "BTC",
       "box": "E",
@@ -906,6 +983,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 3e-05,
       "asset": "BTC",
       "box": "F",
@@ -919,6 +997,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 3e-05,
       "asset": "BTC",
       "box": "F",
@@ -932,6 +1011,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.1,
       "asset": "BTC",
       "box": "F",
@@ -945,6 +1025,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "F",
@@ -958,6 +1039,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 1.5e-05,
       "asset": "BTC",
       "box": "F",
@@ -971,6 +1053,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.0001,
       "asset": "BTC",
       "box": "F",
@@ -1535,68 +1618,99 @@
       "value_usd": 14.0
      }
     ],
+    "sales_by_exchange": [
+     {
+      "boxes": [
+       "A",
+       "B",
+       "C",
+       "D",
+       "E",
+       "F"
+      ],
+      "cost": 12417.58,
+      "exchange": "Exchange",
+      "gain_loss": 20445.42,
+      "proceeds": 32863.0,
+      "rows": 6,
+      "sends_1099da": true
+     }
+    ],
     "start_of_year_balances": [
      {
+      "account": "Wallet",
       "avg_cost_basis": 21000.0,
       "quantity": 0.66296,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 23000.0,
       "quantity": 0.09995,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 23050.0,
       "quantity": 0.75,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 28000.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 27000.0,
       "quantity": 0.05,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26800.0,
       "quantity": 0.002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 29000.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 26130.0,
       "quantity": 0.4,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37000.0,
       "quantity": 0.15,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37500.0,
       "quantity": 0.0002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 21000.0,
       "quantity": 0.09987,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 23000.0,
       "quantity": 0.40005,
       "value": null
@@ -1986,6 +2100,7 @@
     },
     "capital_gains_transactions": [
      {
+      "account": "Exchange BTC",
       "amount": 0.2,
       "asset": "BTC",
       "box": "H",
@@ -1999,6 +2114,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.1,
       "asset": "BTC",
       "box": "G",
@@ -2012,6 +2128,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.05,
       "asset": "BTC",
       "box": "I",
@@ -2025,6 +2142,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 4e-05,
       "asset": "BTC",
       "box": "L",
@@ -2038,6 +2156,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.19996,
       "asset": "BTC",
       "box": "K",
@@ -2051,6 +2170,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.05004,
       "asset": "BTC",
       "box": "K",
@@ -2064,6 +2184,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.09996,
       "asset": "BTC",
       "box": "J",
@@ -2077,6 +2198,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.05004,
       "asset": "BTC",
       "box": "G",
@@ -2090,6 +2212,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 8e-05,
       "asset": "BTC",
       "box": "I",
@@ -2103,6 +2226,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.08,
       "asset": "BTC",
       "box": "I",
@@ -2116,6 +2240,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.1,
       "asset": "BTC",
       "box": "K",
@@ -2129,6 +2254,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 5e-05,
       "asset": "BTC",
       "box": "L",
@@ -2142,6 +2268,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Wallet",
       "amount": 2.5e-05,
       "asset": "BTC",
       "box": "L",
@@ -2155,6 +2282,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.06988,
       "asset": "BTC",
       "box": "K",
@@ -2168,6 +2296,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.01012,
       "asset": "BTC",
       "box": "H",
@@ -2181,6 +2310,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "L",
@@ -2194,6 +2324,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.06,
       "asset": "BTC",
       "box": "K",
@@ -2207,6 +2338,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "L",
@@ -2220,6 +2352,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "L",
@@ -2233,6 +2366,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Wallet",
       "amount": 2.5e-05,
       "asset": "BTC",
       "box": "L",
@@ -2246,6 +2380,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.049975,
       "asset": "BTC",
       "box": "K",
@@ -2259,6 +2394,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.050025,
       "asset": "BTC",
       "box": "K",
@@ -2272,6 +2408,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 3e-05,
       "asset": "BTC",
       "box": "L",
@@ -2285,6 +2422,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.03,
       "asset": "BTC",
       "box": "L",
@@ -2298,6 +2436,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 1.5e-05,
       "asset": "BTC",
       "box": "L",
@@ -2311,6 +2450,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.05,
       "asset": "BTC",
       "box": "K",
@@ -2324,6 +2464,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 5e-06,
       "asset": "BTC",
       "box": "L",
@@ -2337,6 +2478,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 7.5e-05,
       "asset": "BTC",
       "box": "L",
@@ -2350,6 +2492,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Wallet",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "L",
@@ -2363,6 +2506,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.04,
       "asset": "BTC",
       "box": "K",
@@ -3213,133 +3357,176 @@
       "value_usd": 5600.0
      }
     ],
+    "sales_by_exchange": [
+     {
+      "boxes": [
+       "G",
+       "H",
+       "I",
+       "J",
+       "K"
+      ],
+      "cost": 53489.35,
+      "exchange": "Exchange",
+      "gain_loss": 74484.77,
+      "proceeds": 127974.12,
+      "rows": 15,
+      "sends_1099da": true
+     }
+    ],
     "start_of_year_balances": [
      {
+      "account": "Wallet",
       "avg_cost_basis": 20999.977055273845,
       "quantity": 0.217915,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 28000.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 27000.0,
       "quantity": 0.05,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26800.0,
       "quantity": 0.002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 29000.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37000.0,
       "quantity": 0.15,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37500.0,
       "quantity": 0.0002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 21000.0,
       "quantity": 0.09987,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 23000.0,
       "quantity": 0.40005,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 42585.0,
       "quantity": 0.5,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 63000.0,
       "quantity": 0.2,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 65000.0,
       "quantity": 0.003,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 65130.0,
       "quantity": 0.3,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 65000.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 60120.0,
       "quantity": 0.25,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 62700.0,
       "quantity": 0.003,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 45000.0,
       "quantity": 0.02,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 60000.0,
       "quantity": 0.12,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 60120.0,
       "quantity": 0.2,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 93333.33333333333,
       "quantity": 0.00015,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 100200.0,
       "quantity": 0.35,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 100000.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 21000.0,
       "quantity": 0.02985,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 23049.99482633739,
       "quantity": 0.57986,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26130.0,
       "quantity": 0.4,
       "value": null
@@ -3406,6 +3593,26 @@
      "proceeds": "21867.15"
     },
     {
+     "box": "G",
+     "cost": "7010.00",
+     "date_acquired": "02/03/2026",
+     "date_sold": "02/16/2026",
+     "description": "0.05000000 BTC",
+     "gain_loss": "279.00",
+     "holding_period": "SHORT",
+     "proceeds": "7289.00"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "01/20/2026",
+     "date_sold": "03/02/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.00",
+     "holding_period": "SHORT",
+     "proceeds": "1.40"
+    },
+    {
      "box": "I",
      "cost": "4.40",
      "date_acquired": "05/01/2025",
@@ -3416,6 +3623,36 @@
      "proceeds": "5.60"
     },
     {
+     "box": "H",
+     "cost": "4200.00",
+     "date_acquired": "01/20/2026",
+     "date_sold": "03/23/2026",
+     "description": "0.03000000 BTC",
+     "gain_loss": "143.50",
+     "holding_period": "SHORT",
+     "proceeds": "4343.50"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "03/05/2026",
+     "date_sold": "04/06/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.02",
+     "holding_period": "SHORT",
+     "proceeds": "1.42"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "03/05/2026",
+     "date_sold": "04/20/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.02",
+     "holding_period": "SHORT",
+     "proceeds": "1.42"
+    },
+    {
      "box": "G",
      "cost": "14042.00",
      "date_acquired": "03/20/2026",
@@ -3424,6 +3661,16 @@
      "gain_loss": "-262.70",
      "holding_period": "SHORT",
      "proceeds": "13779.30"
+    },
+    {
+     "box": "I",
+     "cost": "1402.00",
+     "date_acquired": "03/05/2026",
+     "date_sold": "05/11/2026",
+     "description": "0.01000000 BTC",
+     "gain_loss": "-5.00",
+     "holding_period": "SHORT",
+     "proceeds": "1397.00"
     },
     {
      "box": "I",
@@ -3444,6 +3691,66 @@
      "gain_loss": "28.76",
      "holding_period": "SHORT",
      "proceeds": "2837.16"
+    },
+    {
+     "box": "I",
+     "cost": "2.80",
+     "date_acquired": "01/20/2026",
+     "date_sold": "06/03/2026",
+     "description": "0.00002000 BTC",
+     "gain_loss": "0.00",
+     "holding_period": "SHORT",
+     "proceeds": "2.80"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "01/20/2026",
+     "date_sold": "06/10/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.00",
+     "holding_period": "SHORT",
+     "proceeds": "1.40"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "03/05/2026",
+     "date_sold": "06/24/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.05",
+     "holding_period": "SHORT",
+     "proceeds": "1.45"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "01/20/2026",
+     "date_sold": "07/07/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.05",
+     "holding_period": "SHORT",
+     "proceeds": "1.45"
+    },
+    {
+     "box": "I",
+     "cost": "1.40",
+     "date_acquired": "01/20/2026",
+     "date_sold": "07/21/2026",
+     "description": "0.00001000 BTC",
+     "gain_loss": "0.05",
+     "holding_period": "SHORT",
+     "proceeds": "1.45"
+    },
+    {
+     "box": "I",
+     "cost": "2800.00",
+     "date_acquired": "01/20/2026",
+     "date_sold": "07/21/2026",
+     "description": "0.02000000 BTC",
+     "gain_loss": "98.55",
+     "holding_period": "SHORT",
+     "proceeds": "2898.55"
     },
     {
      "box": "G",
@@ -3610,9 +3917,9 @@
     "asset_summary": [
      {
       "asset": "BTC",
-      "loss": 263.0,
-      "net": 34448.58,
-      "profit": 34711.58
+      "loss": 268.0,
+      "net": 34964.82,
+      "profit": 35232.82
      }
     ],
     "capital_gains_summary": {
@@ -3623,22 +3930,23 @@
       "proceeds": 66808.87,
       "profits": 27376.69
      },
-     "number_of_disposals": 21,
+     "number_of_disposals": 33,
      "short_term": {
-      "basis": 38910.01,
-      "gain": 7071.89,
-      "losses": 263.0,
-      "proceeds": 45981.9,
-      "profits": 7334.89
+      "basis": 54334.61,
+      "gain": 7588.13,
+      "losses": 268.0,
+      "proceeds": 61922.74,
+      "profits": 7856.13
      },
      "total": {
-      "basis": 78342.19,
-      "gain": 34448.58,
-      "proceeds": 112790.77
+      "basis": 93766.79,
+      "gain": 34964.82,
+      "proceeds": 128731.61
      }
     },
     "capital_gains_transactions": [
      {
+      "account": "Exchange BTC",
       "amount": 0.0348,
       "asset": "BTC",
       "box": "K",
@@ -3652,6 +3960,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.1652,
       "asset": "BTC",
       "box": "K",
@@ -3665,6 +3974,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.1848,
       "asset": "BTC",
       "box": "J",
@@ -3678,6 +3988,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.15,
       "asset": "BTC",
       "box": "H",
@@ -3691,6 +4002,35 @@
       "type": "Sell"
      },
      {
+      "account": "Kraken BTC",
+      "amount": 0.05,
+      "asset": "BTC",
+      "box": "G",
+      "cost": 7010.0,
+      "date_acquired": "2026-02-03T13:00:00+00:00",
+      "date_sold": "2026-02-16T13:00:00+00:00",
+      "gain_loss": 279.0,
+      "holding_period": "SHORT",
+      "kind": "Sale",
+      "proceeds": 7289.0,
+      "type": "Sell"
+     },
+     {
+      "account": "Coldcard",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-03-02T13:00:00+00:00",
+      "gain_loss": 0.0,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.4,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Exchange BTC",
       "amount": 4e-05,
       "asset": "BTC",
       "box": "I",
@@ -3704,6 +4044,49 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Kraken BTC",
+      "amount": 0.03,
+      "asset": "BTC",
+      "box": "H",
+      "cost": 4200.0,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-03-23T13:00:00+00:00",
+      "gain_loss": 143.5,
+      "holding_period": "SHORT",
+      "kind": "Sale",
+      "proceeds": 4343.5,
+      "type": "Sell"
+     },
+     {
+      "account": "Kraken BTC",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-04-06T13:00:00+00:00",
+      "gain_loss": 0.02,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.42,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Overseas BTC",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-04-20T13:00:00+00:00",
+      "gain_loss": 0.02,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.42,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Exchange BTC",
       "amount": 0.1,
       "asset": "BTC",
       "box": "G",
@@ -3717,6 +4100,21 @@
       "type": "Sell"
      },
      {
+      "account": "Overseas BTC",
+      "amount": 0.01,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1402.0,
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-05-11T13:00:00+00:00",
+      "gain_loss": -5.0,
+      "holding_period": "SHORT",
+      "kind": "Sale",
+      "proceeds": 1397.0,
+      "type": "Sell"
+     },
+     {
+      "account": "Exchange BTC",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "I",
@@ -3730,6 +4128,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.02,
       "asset": "BTC",
       "box": "I",
@@ -3743,6 +4142,49 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Coldcard",
+      "amount": 2e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 2.8,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-06-03T13:00:00+00:00",
+      "gain_loss": 0.0,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 2.8,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Coldcard",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-06-10T13:00:00+00:00",
+      "gain_loss": 0.0,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.4,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Kraken BTC",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-06-24T13:00:00+00:00",
+      "gain_loss": 0.05,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.45,
+      "type": "Transfer fee"
+     },
+     {
+      "account": "Wallet",
       "amount": 3e-05,
       "asset": "BTC",
       "box": "L",
@@ -3756,6 +4198,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 0.00397,
       "asset": "BTC",
       "box": "L",
@@ -3769,6 +4212,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 0.007705,
       "asset": "BTC",
       "box": "L",
@@ -3782,6 +4226,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 0.02985,
       "asset": "BTC",
       "box": "L",
@@ -3795,6 +4240,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 0.008475,
       "asset": "BTC",
       "box": "L",
@@ -3808,6 +4254,49 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Coldcard",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-07T13:00:00+00:00",
+      "gain_loss": 0.05,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.45,
+      "type": "Withdrawal"
+     },
+     {
+      "account": "Jade",
+      "amount": 1e-05,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 1.4,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-21T13:00:00+00:00",
+      "gain_loss": 0.05,
+      "holding_period": "SHORT",
+      "kind": "Network fee",
+      "proceeds": 1.45,
+      "type": "Withdrawal"
+     },
+     {
+      "account": "Jade",
+      "amount": 0.02,
+      "asset": "BTC",
+      "box": "I",
+      "cost": 2800.0,
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-21T13:00:00+00:00",
+      "gain_loss": 98.55,
+      "holding_period": "SHORT",
+      "kind": "Spend",
+      "proceeds": 2898.55,
+      "type": "Withdrawal"
+     },
+     {
+      "account": "Exchange BTC",
       "amount": 0.05,
       "asset": "BTC",
       "box": "G",
@@ -3821,6 +4310,7 @@
       "type": "Sell"
      },
      {
+      "account": "Exchange BTC",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "I",
@@ -3834,6 +4324,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Wallet",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "L",
@@ -3847,6 +4338,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.01,
       "asset": "BTC",
       "box": "K",
@@ -3860,6 +4352,7 @@
       "type": "Sell"
      },
      {
+      "account": "Wallet",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "L",
@@ -3873,6 +4366,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Wallet",
       "amount": 2e-05,
       "asset": "BTC",
       "box": "L",
@@ -3886,6 +4380,7 @@
       "type": "Transfer fee"
      },
      {
+      "account": "Exchange BTC",
       "amount": 1e-05,
       "asset": "BTC",
       "box": "K",
@@ -3899,6 +4394,7 @@
       "type": "Withdrawal"
      },
      {
+      "account": "Exchange BTC",
       "amount": 0.005,
       "asset": "BTC",
       "box": "K",
@@ -3954,6 +4450,26 @@
       "realized_gain_usd": 6837.15
      },
      {
+      "amount_disposed": 0.05,
+      "asset": "BTC",
+      "date_acquired": "2026-02-03T13:00:00+00:00",
+      "date_sold": "2026-02-16T13:00:00+00:00",
+      "disposal_basis_usd": 7010.0,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 7289.0,
+      "realized_gain_usd": 279.0
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-03-02T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.4,
+      "realized_gain_usd": 0.0
+     },
+     {
       "amount_disposed": 4e-05,
       "asset": "BTC",
       "date_acquired": "2025-05-01T09:00:00+00:00",
@@ -3964,6 +4480,36 @@
       "realized_gain_usd": 1.2
      },
      {
+      "amount_disposed": 0.03,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-03-23T13:00:00+00:00",
+      "disposal_basis_usd": 4200.0,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 4343.5,
+      "realized_gain_usd": 143.5
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-04-06T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.42,
+      "realized_gain_usd": 0.02
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-04-20T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.42,
+      "realized_gain_usd": 0.02
+     },
+     {
       "amount_disposed": 0.1,
       "asset": "BTC",
       "date_acquired": "2026-03-20T12:00:00+00:00",
@@ -3972,6 +4518,16 @@
       "holding_period": "SHORT",
       "proceeds_usd_for_that_portion": 13779.3,
       "realized_gain_usd": -262.7
+     },
+     {
+      "amount_disposed": 0.01,
+      "asset": "BTC",
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-05-11T13:00:00+00:00",
+      "disposal_basis_usd": 1402.0,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1397.0,
+      "realized_gain_usd": -5.0
      },
      {
       "amount_disposed": 2e-05,
@@ -3992,6 +4548,36 @@
       "holding_period": "SHORT",
       "proceeds_usd_for_that_portion": 2837.16,
       "realized_gain_usd": 28.76
+     },
+     {
+      "amount_disposed": 2e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-06-03T13:00:00+00:00",
+      "disposal_basis_usd": 2.8,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 2.8,
+      "realized_gain_usd": 0.0
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-06-10T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.4,
+      "realized_gain_usd": 0.0
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-03-05T13:00:00+00:00",
+      "date_sold": "2026-06-24T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.45,
+      "realized_gain_usd": 0.05
      },
      {
       "amount_disposed": 3e-05,
@@ -4042,6 +4628,36 @@
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 1228.14,
       "realized_gain_usd": 1033.21
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-07T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.45,
+      "realized_gain_usd": 0.05
+     },
+     {
+      "amount_disposed": 1e-05,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-21T13:00:00+00:00",
+      "disposal_basis_usd": 1.4,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 1.45,
+      "realized_gain_usd": 0.05
+     },
+     {
+      "amount_disposed": 0.02,
+      "asset": "BTC",
+      "date_acquired": "2026-01-20T13:00:00+00:00",
+      "date_sold": "2026-07-21T13:00:00+00:00",
+      "disposal_basis_usd": 2800.0,
+      "holding_period": "SHORT",
+      "proceeds_usd_for_that_portion": 2898.55,
+      "realized_gain_usd": 98.55
      },
      {
       "amount_disposed": 0.05,
@@ -4136,15 +4752,6 @@
     ],
     "end_of_year_balances": [
      {
-      "account": "Wallet",
-      "acquired": "2023-02-15T14:00:00+00:00",
-      "asset": "BTC (Bitcoin)",
-      "cost": 8269.53,
-      "description": "No BTC price for when 2026 ended: not priced",
-      "quantity": 0.359545,
-      "value": null
-     },
-     {
       "account": "Exchange BTC",
       "acquired": "2023-02-15T14:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -4154,7 +4761,16 @@
       "value": null
      },
      {
-      "account": "Wallet",
+      "account": "Coldcard",
+      "acquired": "2023-02-15T14:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 8269.53,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.359545,
+      "value": null
+     },
+     {
+      "account": "Coldcard",
       "acquired": "2023-03-01T11:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 13365.77,
@@ -4166,9 +4782,18 @@
       "account": "Wallet",
       "acquired": "2023-04-10T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
-      "cost": 2800.0,
+      "cost": 1103.34,
       "description": "No BTC price for when 2026 ended: not priced",
-      "quantity": 0.1,
+      "quantity": 0.039405,
+      "value": null
+     },
+     {
+      "account": "Coldcard",
+      "acquired": "2023-04-10T08:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 1696.66,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.060595,
       "value": null
      },
      {
@@ -4424,12 +5049,57 @@
       "value": null
      },
      {
+      "account": "Coldcard",
+      "acquired": "2026-01-20T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 15393.0,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.10995,
+      "value": null
+     },
+     {
+      "account": "Jade",
+      "acquired": "2026-01-20T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 4198.6,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.02999,
+      "value": null
+     },
+     {
       "account": "Exchange BTC",
       "acquired": "2026-02-01T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
       "cost": 1050.0,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.01,
+      "value": null
+     },
+     {
+      "account": "Kraken BTC",
+      "acquired": "2026-03-05T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 2100.2,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.01498,
+      "value": null
+     },
+     {
+      "account": "Overseas BTC",
+      "acquired": "2026-03-05T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 1400.6,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.00999,
+      "value": null
+     },
+     {
+      "account": "Coldcard",
+      "acquired": "2026-03-05T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 701.0,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.005,
       "value": null
      },
      {
@@ -4457,6 +5127,15 @@
       "cost": 300.0,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.005,
+      "value": null
+     },
+     {
+      "account": "Coldcard",
+      "acquired": "2026-05-20T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 280.0,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.002,
       "value": null
      },
      {
@@ -4506,36 +5185,36 @@
      },
      {
       "asset": "Total",
-      "cost": 172071.92,
+      "cost": 196145.32,
       "description": "",
-      "quantity": 3.11463,
+      "quantity": 3.28654,
       "value": null
      }
     ],
     "form_8949_boxes": [
      {
       "box": "G",
-      "cost": 21063.0,
-      "gain_loss": 205.05,
+      "cost": 28073.0,
+      "gain_loss": 484.05,
       "line": "1b",
-      "proceeds": 21268.05,
-      "rows": 2
+      "proceeds": 28557.05,
+      "rows": 3
      },
      {
       "box": "H",
-      "cost": 15030.0,
-      "gain_loss": 6837.15,
+      "cost": 19230.0,
+      "gain_loss": 6980.65,
       "line": "2",
-      "proceeds": 21867.15,
-      "rows": 1
+      "proceeds": 26210.65,
+      "rows": 2
      },
      {
       "box": "I",
-      "cost": 2817.01,
-      "gain_loss": 29.69,
+      "cost": 7031.61,
+      "gain_loss": 123.43,
       "line": "3",
-      "proceeds": 2846.7,
-      "rows": 4
+      "proceeds": 7155.04,
+      "rows": 14
      },
      {
       "box": "J",
@@ -4563,6 +5242,21 @@
      }
     ],
     "gifts_donations_lost": [
+     {
+      "amount": 0.01,
+      "asset": "BTC",
+      "date": "2026-07-07T13:00:00+00:00",
+      "fmv_usd": 1450.0,
+      "lots_by_term": [
+       {
+        "btc": 0.01,
+        "cost_basis": 1400.0,
+        "term": "SHORT"
+       }
+      ],
+      "proceeds_usd": 0.0,
+      "type": "Gift"
+     },
      {
       "amount": 0.01,
       "asset": "BTC",
@@ -4610,12 +5304,20 @@
      }
     ],
     "income_summary": {
-     "Income": 1425.0,
+     "Income": 1705.0,
      "Interest": 142.0,
      "Reward": 290.0,
-     "Total": 1857.0
+     "Total": 2137.0
     },
     "income_transactions": [
+     {
+      "amount": 0.002,
+      "asset": "BTC",
+      "date": "2026-05-20T13:00:00+00:00",
+      "description": "Income",
+      "type": "Income",
+      "value_usd": 280.0
+     },
      {
       "amount": 0.01,
       "asset": "BTC",
@@ -4650,188 +5352,264 @@
       "value_usd": 14.8
      }
     ],
+    "sales_by_exchange": [
+     {
+      "boxes": [
+       "G",
+       "H",
+       "J",
+       "K"
+      ],
+      "cost": 74305.18,
+      "exchange": "Exchange",
+      "gain_loss": 27641.49,
+      "proceeds": 101946.67,
+      "rows": 7,
+      "sends_1099da": true
+     },
+     {
+      "boxes": [
+       "G",
+       "H"
+      ],
+      "cost": 11210.0,
+      "exchange": "Kraken",
+      "gain_loss": 422.5,
+      "proceeds": 11632.5,
+      "rows": 2,
+      "sends_1099da": true
+     },
+     {
+      "boxes": [
+       "I"
+      ],
+      "cost": 1402.0,
+      "exchange": "Overseas",
+      "gain_loss": -5.0,
+      "proceeds": 1397.0,
+      "rows": 1,
+      "sends_1099da": false
+     }
+    ],
     "start_of_year_balances": [
      {
+      "account": "Wallet",
       "avg_cost_basis": 28000.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 27000.0,
       "quantity": 0.05,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26800.0,
       "quantity": 0.002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 29000.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37000.0,
       "quantity": 0.15,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 37500.0,
       "quantity": 0.0002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 20999.35107073329,
       "quantity": 0.007705,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 23000.0,
       "quantity": 0.40005,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 63000.0,
       "quantity": 0.2,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 65000.0,
       "quantity": 0.003,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 62700.0,
       "quantity": 0.003,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 45000.0,
       "quantity": 0.02,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 60000.0,
       "quantity": 0.12,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 60120.11494252874,
       "quantity": 0.0348,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 93333.33333333333,
       "quantity": 0.00015,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 100200.0,
       "quantity": 0.35,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 100000.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 21000.0,
       "quantity": 0.02985,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 23049.99482633739,
       "quantity": 0.57986,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 26130.0,
       "quantity": 0.4,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 100200.0,
       "quantity": 0.15,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 105000.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 105000.0,
       "quantity": 0.002,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 84400.0,
       "quantity": 0.002,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 110000.0,
       "quantity": 0.05,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 110240.0,
       "quantity": 0.12,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 65130.03007303451,
       "quantity": 0.06983,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 65000.0,
       "quantity": 0.03012,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 115000.0,
       "quantity": 0.03,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 120240.0,
       "quantity": 0.1,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 45000.0,
       "quantity": 0.01,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 140000.0,
       "quantity": 0.04,
       "value": null
      },
      {
+      "account": "Exchange BTC",
       "avg_cost_basis": 140280.0,
       "quantity": 0.08,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 60120.1213346815,
       "quantity": 0.024725,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 60119.96805111821,
       "quantity": 0.1252,
       "value": null
      },
      {
+      "account": "Wallet",
       "avg_cost_basis": 30000.0,
       "quantity": 0.004,
       "value": null
@@ -4848,19 +5626,19 @@
       "proceeds": "7257.40"
      },
      "1b": {
-      "cost": "21063.00",
-      "gain_loss": "205.05",
-      "proceeds": "21268.05"
+      "cost": "28073.00",
+      "gain_loss": "484.05",
+      "proceeds": "28557.05"
      },
      "2": {
-      "cost": "15030.00",
-      "gain_loss": "6837.15",
-      "proceeds": "21867.15"
+      "cost": "19230.00",
+      "gain_loss": "6980.65",
+      "proceeds": "26210.65"
      },
      "3": {
-      "cost": "2817.01",
-      "gain_loss": "29.69",
-      "proceeds": "2846.70"
+      "cost": "7031.61",
+      "gain_loss": "123.43",
+      "proceeds": "7155.04"
      },
      "8b": {
       "cost": "18516.96",
@@ -4879,9 +5657,9 @@
      "proceeds": "66808.87"
     },
     "short_term": {
-     "cost": "38910.01",
-     "gain_loss": "7071.89",
-     "proceeds": "45981.90"
+     "cost": "54334.61",
+     "gain_loss": "7588.13",
+     "proceeds": "61922.74"
     }
    }
   }

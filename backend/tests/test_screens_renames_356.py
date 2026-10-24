@@ -36,7 +36,7 @@ FEES_STAY = "The fee accounts keep their names and can't be hidden."
 
 
 @pytest.fixture
-def client(gate_open, fresh_app, monkeypatch) -> TestClient:
+def client(fresh_app, monkeypatch) -> TestClient:
     """Logged in on a database of its own with a second wallet, bank and
     exchange (ids 100 to 103, as account_pairs has them)."""
     stub_prices_at(monkeypatch, lambda _when: Decimal("50000"))

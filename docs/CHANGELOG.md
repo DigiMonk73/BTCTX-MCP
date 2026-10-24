@@ -24,6 +24,23 @@ All notable changes to BitcoinTX are documented in this file.
   the fee accounts can be renamed through the account API (an exchange
   renames both of its accounts), and your first bank, wallet and exchange
   can take back their old names. No figure changes.
+- **Saving into any of your accounts** (B7a, #354). A transaction can now
+  be saved into any bank, wallet or exchange added through the account
+  API (Settings lists them in a later step), as into the first ones:
+  through the transaction form, a CSV file, River and the AI connector; a
+  hidden one too, though the form doesn't offer it. BTC Fees and USD Fees
+  stay the ledger's own, never named by a transaction. An AI connector
+  older than 2.0 can't tell a second wallet or exchange from the first
+  (it would put a second wallet's coins in Wallet), so on a ledger with
+  more than one wallet or more than one exchange, a hidden one counted,
+  its imports, edits, deletions and Recalculate Ledger are refused: "This
+  AI connector is older than BitcoinTX 2.0 and can't tell your wallets or
+  exchanges apart. Update it (btctx-mcp 2.0 or later), then try again."
+  It still reads the ledger, and with one wallet and one exchange works
+  as before. The reference test ledger gains two of each kind of account
+  and rows that use them, all in 2026, the last a split of a pooled
+  wallet: its 2026 figures and the dashboard's grow by exactly those rows,
+  and no earlier year's move. No figure of an existing ledger moves.
 - **The other writes that can change an earlier tax year ask first too**
   (B6c, #353). Saving the tax timezone in Settings (it moves holding
   periods and which tax year a sale is in: a sale that only moves year is

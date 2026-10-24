@@ -26,12 +26,8 @@ from backend.services import hourly_prices, old_rows, price_history, recalculate
 from backend.services.account import AccountBook, account_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
-    ACCOUNT_WALLET,
-    ACCOUNT_BANK,
     ACCOUNT_BTC_FEES,
     ACCOUNT_USD_FEES,
-    ACCOUNT_EXCHANGE_USD,
-    ACCOUNT_EXCHANGE_BTC,
     ACCOUNT_EXTERNAL,
     BROKER_REPORTING_TYPES,
     GIFT_LIKE_PURPOSES,
@@ -2210,7 +2206,6 @@ def _enforce_broker_reporting(tx_type, value) -> None:
 
 
 # Input validation (create, and the merged row on update)
-USER_ACCOUNTS = {ACCOUNT_BANK, ACCOUNT_WALLET, ACCOUNT_EXCHANGE_USD, ACCOUNT_EXCHANGE_BTC, ACCOUNT_EXTERNAL}
 TX_TYPES = ("Deposit", "Withdrawal", "Transfer", "Buy", "Sell")
 WITHDRAWAL_PURPOSES = ("Spent", "Gift", "Donation", "Lost")
 DEPOSIT_SOURCES = ("MyBTC", "Gift", "Inherited", "Income", "Interest", "Reward", "Rebate", "N/A")
@@ -2387,11 +2382,14 @@ def _check_timestamp(data: dict) -> None:
 
 
 def _checked_accounts(data: dict, db: Session) -> tuple[Account | None, Account | None]:
-    """(from account, to account); an id that isn't one of the user's
-    accounts or External is refused."""
+    """(from account, to account); an id that isn't one of your accounts
+    (the book's: banks, wallets and exchanges, hidden ones too) or External
+    is refused (2.0 spec 5.10): never a fee account, the ledger's own (#266),
+    nor an id with no account."""
+    book = account_book(db)
     for key in ("from_account_id", "to_account_id"):
         acct_id = data.get(key)
-        if acct_id is not None and acct_id not in USER_ACCOUNTS:
+        if acct_id is not None and acct_id != ACCOUNT_EXTERNAL and not book.is_yours(acct_id):
             _bad(f"Unknown account id {acct_id}.")
     from_acct = db.get(Account, data["from_account_id"]) if data.get("from_account_id") else None
     to_acct = db.get(Account, data["to_account_id"]) if data.get("to_account_id") else None

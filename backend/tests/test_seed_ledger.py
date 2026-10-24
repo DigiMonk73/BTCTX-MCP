@@ -3,8 +3,10 @@ scripts/seed_ledger.py loads the full test ledger (2023-2026) into a running
 BitcoinTX over its API. Here against the in-process app on a fresh database:
 it loads with the price source Off and asks for no price; every year has
 every kind of transaction and every report something in each part (every
-Form 8949 box of 2024, 2025 and 2026); and it refuses a ledger that isn't
-empty and the Mac app's address.
+Form 8949 box of 2024, 2025 and 2026); every account route the app offers
+is in it, between 2.0's multiple wallets, exchanges or accounts too (its
+accounts list, made through the account API first); and it refuses a ledger
+that isn't empty and the Mac app's address.
 """
 
 import csv
@@ -49,6 +51,11 @@ BOXES_2026 = {
     "05/04/2026": {"G"}, "06/01/2026": {"I"}, "07/01/2026": {"L"}, "08/03/2026": {"G"},
     "08/28/2026": {"I"}, "09/01/2026": {"L"}, "09/02/2026": {"K"}, "09/05/2026": {"L"}, "09/10/2026": {"L"},
     "09/13/2026": {"K"},
+    # 2.0's rows (#354): Kraken's sales of coins bought there (G) and moved in from the Coldcard (H),
+    # Overseas' (no 1099-DA: I), and the network fees of the moves, the gift and the spend between them (I)
+    "02/16/2026": {"G"}, "03/23/2026": {"H"}, "05/11/2026": {"I"},
+    **{day: {"I"} for day in ("03/02/2026", "04/06/2026", "04/20/2026", "06/03/2026", "06/10/2026", "06/24/2026",
+                              "07/07/2026", "07/21/2026")},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own
@@ -59,25 +66,53 @@ KINDS = {
     *(f"Withdrawal {p}" for p in (*WITHDRAWAL_PURPOSES, "cash")),
     "Transfer to the exchange", "Transfer from the exchange", "Transfer cash", "Buy", "Sell",
 }
-# Every account route the app offers (type, from, to): Bank 1, Wallet 2,
-# Exchange USD 3, Exchange BTC 4, External 99
+# Every account route the app offers (2.0 spec 5.5), by kind (type, from, to)
+YOURS = ("bank", "wallet", "exchange USD", "exchange BTC")
 ROUTES = {
-    ("Buy", 1, 4), ("Buy", 3, 4), ("Sell", 4, 3),
-    *(("Deposit", 99, a) for a in (1, 2, 3, 4)), *(("Withdrawal", a, 99) for a in (1, 2, 3, 4)),
-    ("Transfer", 1, 3), ("Transfer", 3, 1), ("Transfer", 2, 4), ("Transfer", 4, 2),
-    ("Transfer", 2, 2), ("Transfer", 4, 4),  # consolidations (#159)
+    *(("Deposit", "External", kind) for kind in YOURS), *(("Withdrawal", kind, "External") for kind in YOURS),
+    ("Transfer", "bank", "another bank"), ("Transfer", "bank", "exchange USD"), ("Transfer", "exchange USD", "bank"),
+    ("Transfer", "exchange USD", "another exchange's USD"),
+    ("Transfer", "wallet", "another wallet"), ("Transfer", "wallet", "exchange BTC"),
+    ("Transfer", "exchange BTC", "wallet"), ("Transfer", "exchange BTC", "another exchange's BTC"),
+    ("Transfer", "wallet", "itself"), ("Transfer", "exchange BTC", "itself"),  # consolidations (#159)
+    ("Buy", "bank", "exchange BTC"), ("Buy", "exchange USD", "its exchange's BTC"),
+    ("Sell", "exchange BTC", "its exchange's USD"),
 }
-# The report's keys 2.0 adds (card B4, #349): each capital-gains row's and
-# each start-of-year lot's account, and "Sales by exchange". The saved
-# figures may lack only these until the gate's step (B7a) accepts new ones.
-NEW_KEYS = {
-    "years.*.report.capital_gains_transactions[].account",
-    "years.*.report.start_of_year_balances[].account",
-    "years.*.report.sales_by_exchange",
-}
+# 1.x's accounts, which every ledger has, by id: (kind, currency, exchange)
+FIXED = {1: ("bank", "USD", None), 2: ("wallet", "BTC", None), 3: ("exchange", "USD", 1),
+         4: ("exchange", "BTC", 1), 99: ("External", None, None)}
+# The report's keys a step adds, which the saved figures may lack until
+# `make reference-figures` accepts them (B4's were accepted with B7a's rows)
+NEW_KEYS: set[str] = set()
 
 
-def _kind(t: Transaction) -> str:
+def ledger_accounts() -> dict[int, tuple]:
+    """The ledger's accounts by id, 1.x's and its accounts list's: (kind, currency, exchange)."""
+    listed = json.loads(seed_ledger.LEDGER.read_text()).get("accounts", [])
+    return {**FIXED, **{a["id"]: (a["kind"], a["currency"], a.get("exchange_id")) for a in listed}}
+
+
+def _side(account: tuple) -> str:
+    kind, currency, _ = account
+    return f"exchange {currency}" if kind == "exchange" else kind
+
+
+def _route(tx_type: str, from_id: int, to_id: int, accounts: dict[int, tuple]) -> tuple[str, str, str]:
+    """(type, from, to) by kind: to the same account, to another of the same
+    kind, to an exchange's own other account or another exchange's."""
+    source, destination = accounts[from_id], accounts[to_id]
+    if from_id == to_id:
+        to = "itself"
+    elif source[0] == destination[0] == "exchange":
+        to = f"{'its' if source[2] == destination[2] else 'another'} exchange's {destination[1]}"
+    elif source[0] == destination[0]:
+        to = f"another {_side(destination)}"
+    else:
+        to = _side(destination)
+    return tx_type, _side(source), to
+
+
+def _kind(t: Transaction, accounts: dict[int, tuple]) -> str:
     if t.type == "Deposit":
         return f"Deposit {t.source}"
     if t.type == "Withdrawal":
@@ -85,8 +120,11 @@ def _kind(t: Transaction) -> str:
     if t.type == "Transfer" and t.from_account_id == t.to_account_id:
         return "Consolidation"
     if t.type == "Transfer":
-        return {1: "Transfer cash", 2: "Transfer to the exchange", 4: "Transfer from the exchange"}.get(
-            t.from_account_id, f"Transfer from account {t.from_account_id}")
+        _, source, to = _route(t.type, t.from_account_id, t.to_account_id, accounts)
+        if accounts[t.from_account_id][1] == "USD":
+            return "Transfer cash"
+        return {("wallet", "exchange BTC"): "Transfer to the exchange",
+                ("exchange BTC", "wallet"): "Transfer from the exchange"}.get((source, to), f"Transfer {source} to {to}")
     return t.type
 
 
@@ -117,10 +155,11 @@ def test_the_whole_ledger_loads_with_prices_off_and_asks_for_none(seeded):
 
 def test_every_year_has_every_kind_of_transaction(seeded):
     _, Session, _ = seeded
+    accounts = ledger_accounts()
     with Session() as db:
         kinds = {year: set() for year in YEARS}
         for t in db.query(Transaction):
-            kinds[t.timestamp.year].add(_kind(t))
+            kinds[t.timestamp.year].add(_kind(t, accounts))
     assert {year: KINDS - found for year, found in kinds.items()} == {year: set() for year in YEARS}
 
 
@@ -140,11 +179,17 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
         assert forms["short_term"] and forms["long_term"], year
     for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates"):
         assert report[part], (year, part)
-    # One exchange, as in 1.x, adding up its Sells' rows (#349)
-    sales = [r for r in report["capital_gains_transactions"] if r["kind"] == "Sale"]
-    assert [(s["exchange"], s["rows"]) for s in report["sales_by_exchange"]] == [("Exchange", len(sales))]
-    for total in ("proceeds", "cost", "gain_loss"):
-        assert round(report["sales_by_exchange"][0][total], 2) == round(sum(r[total] for r in sales), 2), total
+    # Each exchange adding up its Sells' rows (#349): 1.x's one, and from 2026 Kraken and Overseas (#354)
+    sales = defaultdict(list)
+    for r in report["capital_gains_transactions"]:
+        if r["kind"] == "Sale":
+            sales[r["account"].removesuffix(" BTC")].append(r)
+    exchanges = ["Exchange", "Kraken", "Overseas"] if year == 2026 else ["Exchange"]
+    assert [(s["exchange"], s["rows"]) for s in report["sales_by_exchange"]] == [
+        (name, len(sales[name])) for name in exchanges]
+    for exchange in report["sales_by_exchange"]:
+        for total in ("proceeds", "cost", "gain_loss"):
+            assert round(exchange[total], 2) == round(sum(r[total] for r in sales[exchange["exchange"]]), 2), total
     assert {"Income", "Interest", "Reward"} <= {k for k, v in report["income_summary"].items() if v}
     assert {g["type"] for g in report["gifts_donations_lost"]} == {"Gift", "Donation", "Lost"}
 
@@ -153,9 +198,9 @@ def test_the_ledger_has_everything_the_app_offers():
     """Every transaction type and account route, every broker-reporting
     choice, fees in USD and BTC, and a date originally acquired on a My BTC
     and a Gift deposit: so a full-ledger check exercises all of them."""
-    rows = seed_ledger.ledger_rows()
+    rows, accounts = seed_ledger.ledger_rows(), ledger_accounts()
     assert {r["type"] for r in rows} == set(TX_TYPES)
-    assert ROUTES <= {(r["type"], r["from_account_id"], r["to_account_id"]) for r in rows}
+    assert {_route(r["type"], r["from_account_id"], r["to_account_id"], accounts) for r in rows} == ROUTES
     assert set(get_args(BrokerReporting)) <= {r.get("broker_reporting") for r in rows}
     paid = {(r["type"], r["fee_currency"]) for r in rows if Decimal(r["fee_amount"]) > 0}
     assert {("Buy", "USD"), ("Sell", "USD"), ("Transfer", "BTC"), ("Withdrawal", "BTC")} <= paid
