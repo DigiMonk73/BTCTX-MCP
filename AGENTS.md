@@ -147,8 +147,10 @@ carry its `Co-Authored-By` line.
   a 2.0 pre-release on GitHub (B10a), then deleted. A pre-release
   never moves Docker's `:latest` or `:main`, never reaches the mirror
   or Start9, and is never "Latest" on GitHub. Its tag can't be moved
-  or deleted ("Protect release tags"): a beta whose run failed after
-  tagging is published as the next beta, `beta.N+1`, never tagged again.
+  or deleted ("Protect release tags"), and its image and connector may be
+  out before the tag: a failed run's jobs are re-run on the same commit,
+  or the next try is the next beta, `beta.N+1`; the branch is never
+  pushed again from another commit.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,

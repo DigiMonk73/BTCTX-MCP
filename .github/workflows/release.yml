@@ -35,8 +35,11 @@ name: Release
 # "Latest", so releases/latest and the landing page stay on 1.x; it never
 # reaches the mirror or Start9 (no start9-pull.sh --check, no mirror job).
 # A beta's tag, like every v* tag, can't be moved or deleted ("Protect
-# release tags"): one whose run failed after tagging is published as the
-# next beta, never tagged again.
+# release tags"). The image and PyPI jobs run beside the Mac and StartOS
+# builds, so a failed run may have published some of a version's files
+# before any tag: its failed jobs are re-run on the same commit, or the
+# next try is the next beta. The branch is never pushed again from another
+# commit (the image would stay the first commit's, never overwritten).
 on:
   push:
     branches: ['release/v*', 'prerelease/v*']
@@ -285,6 +288,10 @@ jobs:
           PACKAGE: ${{ needs.s9pk.outputs.package }}
         run: |
           [ -n "$PACKAGE" ] || { echo "no package version from the s9pk job"; exit 1; }
+          # A beta made a normal release would be "Latest" (gh's default):
+          # anything but a plain true or false, from the check job, stops here
+          case "$PRERELEASE" in true | false) ;; *) echo "prerelease is '$PRERELEASE', not true or false"; exit 1 ;; esac
+          [[ "$TAG" == *-beta.* ]] && [ "$PRERELEASE" != true ] && { echo "$TAG is a beta, not marked a pre-release"; exit 1; }
           REPO_URL="https://github.com/$GITHUB_REPOSITORY"
           if [ "$PRERELEASE" = true ]; then
             # A beta's notes open with what it is, how each platform keeps a
@@ -296,7 +303,7 @@ jobs:
           - **StartOS:** it updates your BitcoinTX in place. **Make a StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x, uninstall BitcoinTX (which deletes its data) and restore that backup.
           - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/docs/MAINTENANCE.md#going-back-to-1x).
 
-          What you enter in a beta can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 beta report]($REPO_URL/issues/new?template=beta_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next beta: until 2.0 is out, StartOS won't offer a server on a beta 1.x's updates.
+          What you enter in a beta can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 beta report]($REPO_URL/issues/new?template=beta_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next beta: until 2.0 is out, a StartOS server running a beta is offered no 1.x update.
 
           EOF
             scripts/release-notes.sh "$TAG" >> beta.md

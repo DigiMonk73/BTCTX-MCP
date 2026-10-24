@@ -354,9 +354,9 @@ def test_a_beta_is_a_github_prerelease_never_latest():
         assert words in beta, words
 
 
-def release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> tuple[str, str]:
+def run_release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> subprocess.CompletedProcess:
     """release.yml's "Create the release" step, run with a gh that writes
-    down what it was asked: (the notes, the gh command)."""
+    down what it was asked (in tmp_path/asked)."""
     release = job(RELEASE_YML, "release")
     block = release[release.index("- name: Create the release"):]
     script = textwrap.dedent(block[block.index("run: |\n") + len("run: |\n"):])
@@ -369,11 +369,16 @@ def release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> tuple[
     bin_dir.mkdir()
     (bin_dir / "gh").write_text('#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done > "$ASKED"\n')
     (bin_dir / "gh").chmod(0o755)
-    made = subprocess.run(["bash", "-e", "-c", script], cwd=root, capture_output=True, text=True, check=False, env={
+    return subprocess.run(["bash", "-e", "-c", script], cwd=root, capture_output=True, text=True, check=False, env={
         **os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "ASKED": str(tmp_path / "asked"),
         "GITHUB_REPOSITORY": "DigiMonk73/BTCTX-MCP", "GITHUB_SHA": SHA, "TAG": tag, **env})
+
+
+def release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> tuple[str, str]:
+    """(the notes, the gh command) of the step run as run_release_step does."""
+    made = run_release_step(tmp_path, tag, changelog, **env)
     assert made.returncode == 0, made.stderr
-    return (root / "notes.md").read_text(), (tmp_path / "asked").read_text()
+    return (tmp_path / "root/notes.md").read_text(), (tmp_path / "asked").read_text()
 
 
 def test_a_release_is_created_as_before(tmp_path):
@@ -407,6 +412,20 @@ def test_a_beta_is_created_as_a_prerelease_with_its_own_notes(tmp_path):
                  "`ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.1` (amd64 and arm64), on a new volume",
                  "/blob/v2.0.0-beta.1/docs/MAINTENANCE.md#going-back-to-1x", "**Checking a download:**"):
         assert line in notes, line
+
+
+@pytest.mark.parametrize("tag, prerelease, says", [
+    ("v2.0.0-beta.1", "", "prerelease is '', not true or false"),
+    ("v1.2.11", "yes", "prerelease is 'yes', not true or false"),
+    ("v2.0.0-beta.1", "false", "v2.0.0-beta.1 is a beta, not marked a pre-release"),
+])
+def test_a_release_whose_kind_is_unclear_is_never_created(tmp_path, tag, prerelease, says):
+    """Made a normal release, a beta would be "Latest" (gh's default), and
+    releases/latest and the landing page would offer it: fail closed."""
+    made = run_release_step(tmp_path, tag, f"## [{tag}]\n\n### Added\n- x\n", VERSION=tag, CONNECTOR="2.0.0b1",
+                            PRERELEASE=prerelease, MAC_DMG="a.dmg", MAC_ZIP="a.zip", PACKAGE="2.0.0-beta.1:0")
+    assert made.returncode == 1 and says in made.stdout + made.stderr
+    assert not (tmp_path / "asked").exists()
 
 
 def test_the_release_notes_name_the_betas_own_downloads():

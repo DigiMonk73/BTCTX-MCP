@@ -9,8 +9,8 @@ name: Publish image
 # The version comes from the VERSION file, so a release is: bump VERSION on main.
 # release.yml also calls this, so a release never depends on main having
 # published the version first. A 2.0 pre-release (VERSION X.Y.Z-beta.N) gets
-# only its version tag, never :latest or :main, and only from release.yml's
-# run for prerelease/vX.Y.Z-beta.N (2.0 plan 7.4, B10a). The rules:
+# only its version tag, never :latest or :main, and only from its own branch,
+# prerelease/vX.Y.Z-beta.N (2.0 plan 7.4, B10a). The rules:
 # scripts/image-tags.sh.
 on:
   push:

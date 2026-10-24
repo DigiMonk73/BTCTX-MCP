@@ -175,7 +175,9 @@ one by accident:
 2. A pull request into `2.0` raises the version to `2.0.0-beta.N`
    everywhere, with the beta's release notes; the build's lead merges it
    (the owner gave the lead the 2.0 build's merges, #251's decision 25).
-3. The release tests of what changed run on the StartOS test machine.
+3. The release tests run on the StartOS test machine: before the first
+   beta, all of 2.0's, with a fresh read of every doc; before a later one,
+   those of what changed and the update from the beta before.
 4. With the owner's "release", a `prerelease/v2.0.0-beta.N` branch from
    `2.0` starts it on GitHub, the same workflow as a release, except
    that:
@@ -191,11 +193,15 @@ one by accident:
      (`BitcoinTX-Beta-macOS.dmg`), with its own empty ledger;
    - nothing goes to the mirror or to Start9.
 5. Delete the `prerelease/` branch afterwards. A beta's tag can't be
-   moved: if its run fails after tagging, the next try is the next beta.
+   moved, and its Docker image and AI connector may be out before the tag:
+   if its run fails, its failed steps are run again on the same commit, or
+   the next try is the next beta, never the same branch from a newer
+   commit.
 
 Testers report what they find with the "2.0 beta report" form (label
-`beta`). GitHub shows a form only once `main` has it, so `main` is
-fast-forwarded (it's tooling) before the first beta. The owner decides when the beta has run long enough; then 2.0's
+`beta`). GitHub shows a form only once `main` has it: at the next
+fast-forward of `main` that is only docs, tests or tooling, else at the
+next 1.x release. The owner decides when the beta has run long enough; then 2.0's
 release follows section 2.
 
 ## 3. Sending a release to Start9
