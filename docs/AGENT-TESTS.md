@@ -126,7 +126,12 @@ have filed…"; tick **Don't ask again for adds to 2023 while this page is
 open** and click **Save anyway**, and that year's next adds save without
 asking. Edits and deletes always ask; a reload asks again. Each confirmed
 save leaves a copy, `btctx-pre-change-past-year-….db`, in the data folder's
-`backups`.
+`backups`. The other writes that can change an earlier year ask the same
+way (#353): Settings > Tax Timezone's **Save**, River's import (one
+question for the file), and, with the AI key, `add_transactions`,
+`update_transaction`, `delete_transaction` and `recalculate_ledger`, whose
+answer is then `saved: false` with the years, the changes and a `confirm`
+to call the tool again with (`update_transaction`'s is `confirm_move`).
 
 | # | Date & Time | Transaction Type | Fields | Toast after saving |
 |---|---|---|---|---|
@@ -410,8 +415,13 @@ Start from the `clean` snapshot.
 ### TZ: tax timezone
 
 - **TZ-1** Settings > Tax Timezone: select `Asia/Tokyo`, then **Save**.
+  Expect the past-year dialog first (#353): "Change an earlier tax year?",
+  its words naming the tax years from 2023 on, and #6 among the changes
+  with "tax year 2023 -> 2024". **Cancel**: Current still reads
+  America/New_York and no figure moves. **Save** again and **Save anyway (a copy is made first)**.
   Expect the toast "Tax timezone set to Asia/Tokyo. Gains were
-  recalculated." In Tokyo, #6 falls on Jan 1, 2024 and every other date
+  recalculated." and one more `btctx-pre-change-past-year-….db` in
+  `backups`. In Tokyo, #6 falls on Jan 1, 2024 and every other date
   moves one day later. Expect:
   - IRS Reports 2024, Schedule D line 3: 15400.00 / 7430.00 / 7970.00.
     Box C has two rows: `0.01000000 BTC · 02/02/2023 · 01/01/2024 · 400.00 ·
@@ -422,14 +432,15 @@ Start from the `clean` snapshot.
   - 2025 lines unchanged, dates one day later (for example 01/11/2025 →
     04/02/2025).
   - Dashboard Total Net Capital Gains still +$19,433.10.
-- **TZ-2** Set it back to `America/New_York`. Expect: every golden figure
-  is back.
+- **TZ-2** Set it back to `America/New_York` (the dialog asks again: **Save
+  anyway**). Expect: every golden figure is back.
 - **TZ-2b** A date stays the date entered (#185). Add a Deposit into
   Exchange BTC, Source **MyBTC**, `0.01` BTC on `2025-04-01`, cost basis
   `500`, **Date originally acquired** `2023-03-14`. Set the tax timezone
-  to `Pacific/Kiritimati`, then edit the deposit: the field still shows
-  03/14/2023; save it unchanged. Set the tax timezone back to
-  `America/New_York` and edit it again: still 03/14/2023. Delete it.
+  to `Pacific/Kiritimati` (**Save anyway** in the dialog), then edit the
+  deposit: the field still shows 03/14/2023; save it unchanged. Set the
+  tax timezone back to `America/New_York` (**Save anyway**) and edit it
+  again: still 03/14/2023. Delete it.
   Expect: every golden figure as before.
 
 ### REV: Ledger Review and Recalculate
@@ -494,12 +505,12 @@ Start from the `clean` snapshot.
   doubles (± a cent). Type `50` in FMV and save: Edit shows "Typed: you
   typed this value; it's kept as it is." Delete the gift.
 - **PRC-2c** (#260, right after PRC-2b) Settings > Tax Timezone: `Asia/Tokyo`,
-  **Save**. Expect: the Dashboard's price line ("From public price sites
+  **Save**, and **Save anyway** in the past-year dialog. Expect: the Dashboard's price line ("From public price sites
   (…) · h:mm am/pm") and Settings' "Last price h:mm am/pm" show New York
   time (the browser's timezone), not Tokyo's; the Transactions list's
   times don't move. Ledger Review > **Check again** reads "Dates in
   Asia/Tokyo.": its dates stay in the tax timezone. Set it back to
-  `America/New_York` (every golden figure back, as in TZ-2).
+  `America/New_York` (**Save anyway**; every golden figure back, as in TZ-2).
 - **RPT-6** Complete Tax Report 2023 and 2024. Expect the values in the
   expected-figures table.
 - **WID-1** The sidebar widgets. Sats Converter **Auto** shows the
@@ -694,8 +705,8 @@ Set `KEY` to the key from AI-3, and use
 - **AI-10** `preview_transactions` with
   `transactions=[{"date":"2025-07-01","type":"Buy","amount":"0.01","from_account":"Bank","to_account":"Exchange BTC","cost_basis_usd":"1000","fee_amount":"0","fee_currency":"USD"}]`.
   Expect: status `ready`, the date normalized to `2025-07-01T16:00:00Z`
-  (a date alone means noon in the tax timezone), and the ledger still has
-  14 rows. Preview a copy of #2 (`"date":"2023-02-01T12:00:00-05:00"`, Buy,
+  (a date alone means noon in the tax timezone), `past_years` naming 2025
+  with a `confirm` (#353), and the ledger still has 14 rows. Preview a copy of #2 (`"date":"2023-02-01T12:00:00-05:00"`, Buy,
   `1.0`, Bank → Exchange BTC, basis `23000`). Expect: status `duplicate`,
   `matched_transaction_id` = #2's id. Preview it again with
   `"not_a_duplicate_of"` set to that id: status `ready`. Preview it
@@ -709,11 +720,17 @@ Set `KEY` to the key from AI-3, and use
   `2025-07-01T14:00:00Z` with `moment` `hour` (or the day's 00:00 with
   `day`), the price's `source` and `usd_per_btc`, which times 0.001 is the
   filled value (#208). Then `add_transactions` with the first
-  row. Expect: it appears in the UI list. Run `update_transaction` with
-  `transaction_id=<its id>` and `cost_basis_usd=1100`. Expect: the UI shows
-  $1,100.00. `delete_transaction` removes it. Expect: 14 rows and every
-  golden figure unchanged.
-- **AI-11** `recalculate_ledger`: success, figures unchanged.
+  row. Expect `saved: false`, `years` naming 2025 and a `confirm` (the
+  ledger still has 14 rows); call it again with that `confirm`. Expect: it
+  appears in the UI list. Run `update_transaction` with
+  `transaction_id=<its id>` and `cost_basis_usd=1100`: `saved: false`
+  again; send it again with `confirm_move` set to its `confirm`. Expect:
+  the UI shows $1,100.00. `delete_transaction` removes it, once sent again
+  with its `confirm`. Expect: 14 rows, every golden figure unchanged, and an
+  AI copy (`btctx-ai-before-changing-….db` in `backups`) made before each
+  confirmed call.
+- **AI-11** `recalculate_ledger`: success with nothing to confirm (REV-2
+  recalculated this ledger, so nothing is pending), figures unchanged.
   `backup_ledger`: success, naming a file in the app's backups folder.
   `get_btc_price` with `date=2024-05-01`: a price above $0.
 - **AI-12** Settings **New key** and confirm. Expect: MCP calls with the
@@ -802,7 +819,10 @@ Set `KEY` to the key from AI-3, and use
   Settings > Import from River > River CSV file, then **Preview**. Expect:
   "3 new", "3 rows in file", and each Buy row showing the **Bank** /
   **Exchange USD** toggle. Click **Import 3 Transaction(s)** and confirm
-  "Import 3 transaction(s) from River into your ledger?". Expect "Imported 3
+  "Import 3 transaction(s) from River into your ledger?" (run in a later
+  year, when 2026 is an earlier tax year, the preview first says "Rows
+  dated in tax year 2026 can change that year's figures…" and the import
+  asks in the past-year dialog: **Save anyway**, #353). Expect "Imported 3
   transaction(s)." The Sell shows Gain +$5.00 (net proceeds $55.00 = River's
   $55.00 received, which is after River's $0.55 fee; basis 0.0005 × $100,000
   from lot C). Preview the same file again. Expect: "3 already in ledger" and
