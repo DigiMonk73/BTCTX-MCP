@@ -30,8 +30,8 @@ def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> d
 def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
     """Every account's balance: [{"account_id", "name", "currency", "balance",
     "kind", "exchange_id", "exchange", "hidden"}], the account's kind, its
-    exchange and hidden from the account book: the dashboard's cards go by
-    kind (2.0 spec 5.13)."""
+    exchange and hidden from the account book: the dashboard's balances go
+    by kind (2.0 spec 5.13)."""
     book = account_book(db)
     results = get_all_account_balances(db)
     for item in results:

@@ -30,8 +30,9 @@ function unrealizedGains(price: LivePrice, averageCostBasis: number | null, tota
   );
 }
 
-/** Each kind's balance, a caret listing its accounts where it has more than
- * one (#674), then the BTC held in all of them, what it cost on average and
+/** Each kind's balance, with a caret listing its accounts where there's
+ * something to list (#674: more than one, or a hidden one still holding
+ * something), then the BTC held in all of them, what it cost on average and
  * what it would gain. */
 const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ balances, averageCostBasis, price }) => {
   const [open, toggle] = useOpenLines();

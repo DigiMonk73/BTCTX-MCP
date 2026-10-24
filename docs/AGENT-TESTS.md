@@ -613,9 +613,10 @@ exchanges and banks** reads its name, its kind and its balance.
   confirm "Delete Credit union? It has no transactions."; OK. Expect the
   row gone and the summary "2 wallets · 2 exchanges · 1 bank".
 - **ACC-6** Dashboard. Expect Portfolio Overview's Wallet (BTC) 0.39970000
-  BTC with a caret after its label: pressed (anywhere on the line), the
-  caret points down and the line lists `Wallet` 0.39970000 BTC and
-  `Coldcard` 0.00000000 BTC under it. Exchange (USD) $37,990.00 with a
+  BTC with a caret after its label, Settings' chevron: pressed (anywhere
+  on the line), the caret turns over as a Settings section's does, and the
+  line lists `Wallet` 0.39970000 BTC and `Coldcard` 0.00000000 BTC under
+  it. Exchange (USD) $37,990.00 with a
   caret, listing `Exchange` $37,990.00 and `Kraken` $0.00; Exchange (BTC)
   0.15000000 BTC with a caret, listing `Exchange` 0.15000000 BTC and
   `Kraken` 0.00000000 BTC. Bank (USD) $45,000.00, with no caret. Reload:
@@ -674,9 +675,10 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
   -> 3100.00; gain 1600.00 -> 1500.00; taxable gain incl. network fees
   1600.00 -> 1500.00.`; **Save anyway**. Expect the Sell at Gain
   +$1,500.00, and **Filter transactions** `Kraken` still showing both (the
-  edits kept Kraken's accounts). Dashboard: Bank $38,800.00; the Exchange
-  card $42,590.00 and 0.20000000 BTC, listing `Exchange` $37,990.00
-  0.15000000 BTC and `Kraken` $4,600.00 0.05000000 BTC; Total BTC
+  edits kept Kraken's accounts). Dashboard: Bank (USD) $38,800.00;
+  Exchange (USD) $42,590.00, listing `Exchange` $37,990.00 and `Kraken`
+  $4,600.00; Exchange (BTC) 0.20000000 BTC, listing `Exchange` 0.15000000
+  BTC and `Kraken` 0.05000000 BTC; Total BTC
   0.59970000 BTC; Avg. Cost per BTC $46,411.71; Short-Term Gains
   +$10,865.40, Net Short-Term +$9,865.40, Total Net Capital Gains
   +$20,933.10. Settings: Kraken's row $4,600.00 · 0.05000000 BTC, with no

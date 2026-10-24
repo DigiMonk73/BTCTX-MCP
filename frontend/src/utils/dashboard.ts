@@ -11,7 +11,7 @@ export interface AccountTotals {
   totalBtc: number;
 }
 
-export const NO_TOTALS: AccountTotals = { bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 };
+const NO_TOTALS: AccountTotals = { bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 };
 
 /** Today's BTC price as the dashboard fetched it. `off` when the owner has
  * no price source or turned prices off; `problem` is the server's reason

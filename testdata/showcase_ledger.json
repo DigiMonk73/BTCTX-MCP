@@ -6,7 +6,7 @@
    "name": "Coldcard",
    "kind": "wallet",
    "currency": "BTC",
-   "why": "A second wallet (2.0): the dashboard's Wallet card lists two."
+   "why": "A second wallet (2.0): the dashboard's Wallet (BTC) lists two."
   }
  ],
  "transactions": [

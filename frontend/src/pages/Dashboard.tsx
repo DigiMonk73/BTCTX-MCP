@@ -114,7 +114,7 @@ const Dashboard: React.FC = () => {
     return (
       <div className="dashboard" aria-busy="true">
         <div className="dashboard-grid">
-          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} className="dashboard-card-loading" />)}
+          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} />)}
         </div>
       </div>
     );

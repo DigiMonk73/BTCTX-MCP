@@ -88,7 +88,7 @@ describe("Portfolio Overview with two wallets and two exchanges", () => {
     const list = screen.getByRole("list", { name: "Wallet (BTC) accounts" });
     expect(list.id).toBe(wallet.getAttribute("aria-controls"));
     expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
-      "Wallet0.50000000 BTC", "Coldcard0.25000000 BTC", "Paper WalletHidden0.01000000 BTC",
+      "Wallet0.50000000 BTC", "Coldcard0.25000000 BTC", "Paper Wallet Hidden0.01000000 BTC",
     ]);
     await user.click(screen.getByText("0.76000000 BTC")); // the whole line, its figure too
     expect(expanded(wallet)).toBe(false);

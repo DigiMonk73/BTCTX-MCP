@@ -51,10 +51,11 @@
   margin: var(--space-3) 0;
 }
 /* Portfolio Overview's kinds (#674): a kind with accounts to list is a
-   button the width of its line, laid out as any line, a caret after its
-   label. Its box reaches 4px into the gaps around it, so lines next to each
-   other share no tap area and nothing moves: a target at least 24px tall
-   (WCAG 2.5.8) where 44px would space the card's lines apart. */
+   button the width of its line, laid out as any line, with Settings' chevron
+   (components.css) after its label. Its box reaches 4px into the gaps around
+   it, so lines next to each other share no tap area and nothing moves: a
+   target at least 24px tall (WCAG 2.5.8) where 44px would space the card's
+   lines apart. */
 .balance-line-toggle {
   display: flex;
   justify-content: space-between;
@@ -71,12 +72,11 @@
   text-align: left;
   cursor: pointer;
 }
-.balance-line-caret { margin-left: var(--space-1); vertical-align: -2px; color: var(--color-text-muted); }
-.dashboard .card .balance-line-toggle:hover strong,
-.dashboard .card .balance-line-toggle:hover .balance-line-caret { color: var(--color-text); }
-.balance-line-toggle[aria-expanded="true"] .balance-line-caret { transform: rotate(90deg); }
+/* Settings' chevron, centred on the label and no taller than the line */
+.balance-line-toggle .chevron { margin: -4px 0 -4px var(--space-1); vertical-align: middle; }
 /* Its accounts under it, indented and quieter than its total; an amount goes
-   under its name when both don't fit on one line */
+   under its name when both don't fit on one line. Without bullets Safari's
+   VoiceOver no longer calls it a list: the list says role="list" itself */
 .balance-line-accounts {
   list-style: none;
   margin: calc(-1 * var(--space-1)) 0 var(--space-3);
@@ -92,7 +92,7 @@
   padding: 2px 0;
 }
 .balance-line-name { min-width: 0; overflow-wrap: break-word; }
-.balance-line-note { margin-left: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.balance-line-note { margin-left: var(--space-1); font-size: var(--text-xs); color: var(--color-text-muted); }
 .balance-line-amount { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .card-subtitle {
   font-size: var(--text-sm);

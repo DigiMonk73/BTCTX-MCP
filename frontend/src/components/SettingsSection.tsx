@@ -1,6 +1,6 @@
 import React from "react";
-import { ChevronDown } from "lucide-react";
 import type { SettingsSectionId } from "../utils/settingsSections";
+import Chevron from "./Chevron";
 
 interface SettingsSectionProps {
   id: SettingsSectionId;
@@ -30,7 +30,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
       <h3 className="settings-section-heading">
         <button
           type="button"
-          className="settings-section-toggle"
+          className="settings-section-toggle chevron-toggle"
           aria-expanded={open}
           aria-controls={body}
           aria-labelledby={`${body}-title`}
@@ -41,7 +41,7 @@ const SettingsSection: React.FC<SettingsSectionProps> = ({
             <span id={`${body}-title`} className="settings-section-title">{title}</span>
             <span id={`${body}-summary`} className="settings-section-summary">{summary}</span>
           </span>
-          <ChevronDown className="settings-section-chevron" size={20} aria-hidden="true" />
+          <Chevron />
         </button>
       </h3>
       <div
