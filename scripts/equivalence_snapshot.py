@@ -59,6 +59,9 @@ VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
 # The rows from before 0.9.2 (5.13, from 2.0): a ledger a 1.x start never
 # wrote it in.
 UNCOMPARED_SETTINGS = ("accounts_old_rows",)
+# "This tax year" as backend/tests/conftest.py pins it (its PINNED_TAX_YEAR,
+# which the side compared with may lack)
+TESTS_TAX_YEAR = 2009
 
 # The complete tax report prints the moment it was made: "Date: <time>"
 # up to 1.2.4, a "GENERATED" line "<time> UTC" from 1.2.5.
@@ -135,6 +138,19 @@ def _shut_out_the_world(work: Path) -> None:
     first_run.DATA_DIR = str(work / "data")
     outbound._current = outbound.NetworkSettings(price_source="public")
     mcp_server.connector_version = app_version
+    pin_tax_year()
+
+
+def pin_tax_year() -> None:
+    """"This tax year" is 2009, before every ledger's, as the backend tests
+    pin it (2.0 plan 5.15): 2.0's past-year warning (5.8) never asks, so an
+    in-process write saves as it did before the warning. A side without
+    the clock (services/tax_time.current_tax_year: 1.x, or 2.0 before it)
+    gets none."""
+    from backend.services import tax_time
+
+    if hasattr(tax_time, "current_tax_year"):
+        tax_time.current_tax_year = lambda tz: TESTS_TAX_YEAR
 
 
 def _no_hourly_prices() -> None:
