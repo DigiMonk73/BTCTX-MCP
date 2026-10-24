@@ -53,6 +53,15 @@ describe.each([
     }
   });
 
+  it("merged into an AI app's config beside 1.x's, leaves the 1.x entry as it was (the owner's requirement)", () => {
+    const onex = JSON.parse(claudeDesktopConfig({ ...mac, version: "1.2.10" })).mcpServers;
+    const preview = JSON.parse(claudeDesktopConfig(mac)).mcpServers;
+    const merged = { ...onex, ...preview };
+    expect(Object.keys(merged).sort()).toEqual([SERVER_NAME, PREVIEW_SERVER_NAME].sort());
+    expect(merged[SERVER_NAME]).toEqual(onex[SERVER_NAME]);
+    expect(merged[SERVER_NAME].args).toEqual(["btctx-mcp==1.2.10"]);
+  });
+
   it("on a Mac, names BitcoinTX Preview, the app the connector finds", () => {
     const prompt = buildAiPrompt(mac);
     expect(prompt).toContain("BitcoinTX is the Mac app BitcoinTX Preview on this computer.");
