@@ -135,7 +135,10 @@ test("add form: errors on an empty save", async ({ authedPage: page }) => {
 test("edit forms", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await page.getByRole("link", { name: "Transactions" }).click();
+  // Counted once the list is in: counted at once, it was 0 and recorded nothing
+  await expect(page.getByRole("listitem").first()).toBeVisible();
   const count = await page.getByRole("listitem").count();
+  expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
     await page.goto("/transactions");
     await page.getByRole("listitem").nth(i).getByRole("button", { name: "Edit" }).click();
