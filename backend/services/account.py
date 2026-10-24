@@ -113,11 +113,6 @@ class AccountBook:
         account = self._accounts.get(account_id)
         return account.exchange_id if account else None
 
-    def exchange_name(self, account_id: int | None) -> str | None:
-        """An exchange account's exchange's name; None for any other account."""
-        exchange = self._exchanges.get(self.exchange_of(account_id))
-        return exchange[0] if exchange else None
-
     def hidden(self, account_id: int | None) -> bool:
         account = self._accounts.get(account_id)
         return account is not None and account.hidden
