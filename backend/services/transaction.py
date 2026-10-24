@@ -852,7 +852,7 @@ def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
     """A BTC fee's USD value: a typed one is kept; otherwise it is priced
     again when the fee or the hour changes (fee_usd sent as null clears a
     typed one)."""
-    if "fee_usd" not in tx_data and (tx.fee_usd_manual or not _fee_inputs_changed(tx, tx_data)):
+    if "fee_usd" not in tx_data and not _fee_priced_again(tx, tx_data):
         return
     fee = {k: tx_data.get(k, getattr(tx, k)) for k in ("type", "fee_amount", "fee_currency", "timestamp")}
     fee["fee_usd"] = tx_data["fee_usd"] if "fee_usd" in tx_data else (
@@ -861,6 +861,15 @@ def _revalue_btc_fee(tx: Transaction, tx_data: dict, db: Session) -> None:
     tx.fee_usd, tx.fee_usd_manual = fee["fee_usd"], fee["fee_usd_manual"]
     if "price_moment" in fee:
         _note_moment(tx_data, fee["price_moment"])
+
+
+def _fee_priced_again(tx: Transaction, tx_data: dict) -> bool:
+    """Whether an edit values a BTC fee from the price again: its value sent
+    blank, or, for one not typed, the fee, its currency, the type or the
+    hour changed (_fee_inputs_changed)."""
+    if "fee_usd" in tx_data:
+        return tx_data["fee_usd"] is None
+    return not tx.fee_usd_manual and _fee_inputs_changed(tx, tx_data)
 
 
 def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None:
@@ -876,7 +885,7 @@ def _revalue_spent_proceeds(tx: Transaction, tx_data: dict, db: Session) -> None
     if not _is_spent(edited) or _typed_proceeds(tx, tx_data):
         tx_data["proceeds_from_price"] = False
         return
-    if not (_cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)):
+    if not _proceeds_priced_by_edit(tx, tx_data):
         return
     priced = _price_at(edited["timestamp"], db)
     tx_data["gross_proceeds_usd"] = tx_data["proceeds_usd"] = (priced.usd * Decimal(edited["amount"])).quantize(Decimal("0.01"))
@@ -954,6 +963,13 @@ def _cleared_proceeds(tx_data: dict) -> bool:
     return ("gross_proceeds_usd" in tx_data or "proceeds_usd" in tx_data) and (sent is None or Decimal(sent) <= 0)
 
 
+def _proceeds_priced_by_edit(tx: Transaction, tx_data: dict) -> bool:
+    """Whether an edit prices a Spent's proceeds from the price again (one
+    from the price, not typed): sent blank or $0, or its amount or hour
+    changed."""
+    return _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
+
+
 def _spent_inputs_changed(tx: Transaction, tx_data: dict) -> bool:
     if "amount" in tx_data and Decimal(tx_data["amount"] or 0) != Decimal(tx.amount or 0):
         return True
@@ -987,7 +1003,7 @@ def _value_priced_by_edit(tx: Transaction, tx_data: dict, edited: dict, book: Ac
     if _is_spent(edited) and tx.proceeds_from_price and tx.gross_proceeds_usd is not None:
         if _typed_proceeds(tx, tx_data):
             return None
-        return _cleared_proceeds(tx_data) or _spent_inputs_changed(tx, tx_data)
+        return _proceeds_priced_by_edit(tx, tx_data)
     if _is_gift_like(edited, book):
         if _gift_priced_by_edit(tx, tx_data, book):
             return True
@@ -1051,22 +1067,56 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
         db.info[hourly_prices.WARMING] = False
 
 
-def edited_inputs(tx: Transaction, tx_data: dict) -> dict:
+def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     """
     The row an edit makes, as find_prices_first reads a new one: its stored
-    inputs with the edit's fields, each value it holds from a price left
-    blank unless the edit sends it, since the edit may price it again (its
-    hour or amount moved). At worst a price it won't need is found too.
+    inputs with the edit's fields, as the save's first steps leave them
+    (_edit_as_saved), each value it holds from a price left blank where the
+    save prices it again (_blank_what_the_save_prices), so the prices found
+    are the ones the save asks for (#646): the form's unchanged echo of a
+    past-year row asked for one it never used. A row priced at the day is
+    still looked up at the day where the save may price at the hour (#647).
     """
-    row = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment,
-           "fee_usd": tx.fee_usd if tx.fee_usd_manual else None}
-    if tx.cost_basis_from_price:
+    book = account_book(db)
+    stored = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment}
+    edit = _edit_as_saved(tx, tx_data, stored, db, book)
+    fee_again = _fee_priced_again(tx, edit)
+    # A fee kept keeps its mark, so a Spent priced again takes its moment (_spent_proceeds_moment)
+    row = {**stored, "fee_usd": None if fee_again else tx.fee_usd,
+           "fee_usd_from_price": "fee_usd" not in edit and not fee_again and tx.fee_usd is not None
+           and not tx.fee_usd_manual, **edit}
+    _blank_what_the_save_prices(row, tx, edit, db, book)
+    return row
+
+
+def _edit_as_saved(tx: Transaction, tx_data: dict, stored: dict, db: Session, book: AccountBook) -> dict:
+    """A copy of the edit as apply_update's first steps leave it: a type
+    change's fields dropped, a dollar deposit's basis, a gift's $0 proceeds,
+    an old withdrawal's gross sent, and a fee's currency filled as _check_edit
+    fills it before the fee is priced. They change only the copy."""
+    edit = dict(tx_data)
+    _drop_dollar_deposit_basis(tx, edit, book)
+    _drop_fields_of_old_type(tx, edit)
+    _drop_proceeds_it_never_had(tx, edit, book)
+    _send_gross_of_an_old_withdrawal_sold(tx, edit)
+    merged = {**stored, **edit}
+    if _fill_fee_currency(merged, db):
+        edit["fee_currency"] = merged["fee_currency"]
+    return edit
+
+
+def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
+    """Leave blank each value the save prices again: one from a price whose
+    inputs the edit changes, the value sent with it included when it's the
+    one shown sent back (a value sent back unchanged isn't a typed one), and
+    a gift's the save fills (_gift_priced_by_edit: a blank one, or a sale's
+    $0 it becomes a gift with)."""
+    if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
-    if tx.proceeds_from_price:
+    if tx.proceeds_from_price and not _typed_proceeds(tx, edit) and _proceeds_priced_by_edit(tx, edit):
         row["proceeds_usd"] = row["gross_proceeds_usd"] = None
-    if tx.fmv_from_price:
+    if _gift_priced_by_edit(tx, edit, book):  # a sale's $0 made a gift too (_moments_priced reads only a gift's)
         row["fmv_usd"] = None
-    return {**row, **tx_data}
 
 
 def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:

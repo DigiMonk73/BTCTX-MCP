@@ -123,7 +123,7 @@ From 2.0, Settings shows its sections closed, each a button with its title
 and a one-line summary: **Account** (log out, username and password, Tax
 Timezone, Recalculate Ledger), **Wallets, exchanges and banks**, **Ledger
 Review**, **Privacy & Network**, **Connect an AI Assistant**, **Data
-Management**, **Import from River**, **Backup & Restore** and **About
+Management**, **Import from an exchange**, **Backup & Restore** and **About
 BitcoinTX**. Opening one closes the one open before, and this browser
 remembers the open one. "Settings, open **X**" below means: Settings in
 the sidebar, then the button **X** (if it isn't open already). A 1.x
@@ -1146,7 +1146,8 @@ Set `KEY` to the key from AI-3, and use
   2026-02-10 16:00:00,0.00050000,BTC,55.00,USD,0.55,USD,Sell
   ```
 
-  Settings, open **Import from River**. Expect, from 2.0 (two exchanges
+  Settings, open **Import from an exchange** (River's file, **Exchange
+  file** `River`, is its first choice). Expect, from 2.0 (two exchanges
   and two wallets), **Exchange** with `Exchange` chosen and `Kraken`
   offered, "The exchange this file is from: its buys, sells and balances
   go there.", and **Wallet for sends and receives** with `Wallet` chosen
@@ -1179,7 +1180,7 @@ Set `KEY` to the key from AI-3, and use
   2026-03-15 10:00:00,0.00100000,BTC,,,,,
   ```
 
-  In **Import from River** choose **Exchange** `Kraken` and **Wallet for
+  In **Import from an exchange** choose **Exchange** `Kraken` and **Wallet for
   sends and receives** `Coldcard`, then the file, then **Preview**.
   Expect "3 new", "3 rows in file", and the rows: the Buy with the **Bank**
   / **Kraken USD** toggle (Kraken USD pressed) and "→ Kraken BTC"; the

@@ -215,7 +215,7 @@ class Write(PastYearWrite):
         if self.kind == ADD:
             return [dict(self.data)]
         if self.kind == EDIT:
-            return [tx_service.edited_inputs(db.get(Transaction, self.tx_id), self.data)]
+            return [tx_service.edited_inputs(db.get(Transaction, self.tx_id), self.data, db)]
         return []
 
     def gone_item(self, db: Session, tz) -> dict[int, dict]:
