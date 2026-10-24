@@ -1,6 +1,6 @@
 // River CSV import (preview statuses, edits, execute, re-import) and the
 // generic CSV import (template, instructions, empty-database import).
-import { test, expect, createTx, listTx, acceptDialogs, seedFunds, openSection } from "./fixtures";
+import { test, expect, createTx, listTx, acceptDialogs, seedFunds, openSection, SAVE_ANYWAY } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -23,6 +23,20 @@ function river(page: Page) {
 
 function riverRow(page: Page, n: number) {
   return river(page).getByRole("row").filter({ has: page.getByLabel(`Include row ${n}`) });
+}
+
+/**
+ * Click River's Import of `count` rows. Once these rows' year is a past tax
+ * year (from 1 January after they were written), the import asks first
+ * (2.0 spec 5.8, #353): its dialog is confirmed, so the test doesn't change
+ * on its own each year.
+ */
+async function importRiver(page: Page, count: number) {
+  await river(page).getByRole("button", { name: `Import ${count} Transaction(s)` }).click();
+  const saveAnyway = page.getByRole("button", { name: SAVE_ANYWAY });
+  const imported = page.getByText(new RegExp(`Imported ${count} transaction`, "i"));
+  await expect.poll(async () => (await saveAnyway.isVisible()) || (await imported.isVisible())).toBe(true);
+  if (await saveAnyway.isVisible()) await saveAnyway.click();
 }
 
 async function previewRiver(page: Page) {
@@ -81,7 +95,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
   await r.getByLabel("Include row 3").uncheck();
 
   const dialogs = acceptDialogs(page);
-  await r.getByRole("button", { name: "Import 3 Transaction(s)" }).click();
+  await importRiver(page, 3);
   await expect(page.getByText(/Imported 3/i)).toBeVisible();
   expect(dialogs).toEqual(["Import 3 transaction(s) from River into your ledger?"]);
 
@@ -113,7 +127,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
   await expect(r.getByLabel("Include row 2")).toBeChecked();
   await expect(r.getByLabel("Include row 4")).toHaveCount(0);
   for (const n of [3, 5]) await r.getByLabel(`Include row ${n}`).uncheck();
-  await r.getByRole("button", { name: "Import 1 Transaction(s)" }).click();
+  await importRiver(page, 1);
   await expect(page.getByText(/Imported 1/i)).toBeVisible();
   const after = await listTx(page.request);
   expect(after).toHaveLength(before + 4);

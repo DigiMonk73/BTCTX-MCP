@@ -4,8 +4,9 @@ The account book (2.0 spec 5.4) and the account API's work (5.9).
 One place answers every question about an account, from the accounts and
 exchanges tables: `account_book(db)`, read once per request, import,
 recalculation or report. Accounts are added by kind (an exchange as its
-two, "<name> USD" and "<name> BTC"), hidden and shown, and deleted only
-while nothing names them. Ids and names follow 5.1. The six fixed accounts
+two, "<name> USD" and "<name> BTC"), hidden and shown, an exchange's
+1099-DA switch set (through the past-year warning: routers/account.py), and
+deleted only while nothing names them. Ids and names follow 5.1. The six fixed accounts
 (database.FIXED_ACCOUNTS, put right at every start by seed_defaults) and
 External (99, no account) are always there: 1-4 are never deleted, 5 and 6
 neither hidden nor deleted, and an internal leftover (5.3) is never shown.
@@ -63,6 +64,7 @@ FEES_STAY = "The fee accounts keep their names and can't be hidden."
 FEES_NOT_DELETED = "The fee accounts can't be deleted."
 FIRST_NOT_DELETED = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use."
 IN_USE = "This account has transactions, so it can't be deleted. Hide it instead: its history stays."
+NO_1099DA = "Only an exchange's accounts have the 1099-DA setting."
 
 
 @dataclass(frozen=True)
@@ -216,19 +218,48 @@ def add_account(db: Session, kind: str, name: str) -> list[Account]:
     return made
 
 
-def set_hidden(db: Session, account_id: int, hidden: bool) -> None:
-    """Hide or show an account (an exchange's: both of its accounts)."""
+def change_account(db: Session, account_id: int, hidden: bool | None = None,
+                   sends_1099da: bool | None = None) -> None:
+    """Hide or show an account (an exchange's: both of its accounts), and
+    set its exchange's 1099-DA switch, as one save under the write lock."""
     _lock(db)
     try:
-        account = _existing(db, account_id)
-        if account.kind == "fee":
-            raise HTTPException(status_code=400, detail=FEES_STAY)
-        for each in _with_its_pair(db, account):
-            each.hidden = hidden
+        apply_change(db, account_id, hidden=hidden, sends_1099da=sends_1099da)
         db.commit()
     except BaseException:
         db.rollback()
         raise
+
+
+def apply_change(db: Session, account_id: int, hidden: bool | None = None, sends_1099da: bool | None = None) -> None:
+    """The change, uncommitted: the save's own path, which the past-year
+    warning's dry run and its confirmed save take too (2.0 spec 5.8). The
+    book read before it is dropped, so the boxes worked out next read the
+    switch as it is now."""
+    account = _existing(db, account_id)
+    if hidden is not None:
+        if account.kind == "fee":
+            raise HTTPException(status_code=400, detail=FEES_STAY)
+        for each in _with_its_pair(db, account):
+            each.hidden = hidden
+    if sends_1099da is not None:
+        _its_exchange(db, account).sends_1099da = sends_1099da
+    db.flush()
+    db.info.pop(BOOK, None)
+
+
+def sends_1099da(db: Session, account_id: int) -> bool | None:
+    """An exchange account's exchange's 1099-DA switch; None for any other
+    account, or none (the change refuses it)."""
+    account = db.get(Account, account_id)
+    exchange = db.get(Exchange, account.exchange_id) if account is not None and account.exchange_id else None
+    return None if exchange is None else bool(exchange.sends_1099da)
+
+
+def exchange_accounts(db: Session, account_id: int) -> list[int]:
+    """The ids of an exchange account's exchange's accounts (both)."""
+    account = db.get(Account, account_id)
+    return [] if account is None else [a.id for a in _with_its_pair(db, account)]
 
 
 def delete_account(db: Session, account_id: int) -> None:
@@ -258,11 +289,17 @@ def listed(db: Session, accounts: list[Account] | None = None) -> list[dict]:
     fee accounts 5 and 6 (never an internal leftover), each by id. Reads only."""
     if accounts is None:
         accounts = [a for a in db.query(Account) if _shown(a)]
-    exchanges = dict(db.query(Exchange.id, Exchange.name))
+    exchanges = {e.id: e for e in db.query(Exchange)}
     used = _named(db, [a.id for a in accounts])
-    return [{"id": a.id, "name": a.name, "kind": a.kind, "currency": a.currency, "exchange_id": a.exchange_id,
-             "exchange": exchanges.get(a.exchange_id), "hidden": bool(a.hidden), "in_use": a.id in used}
+    return [_listed(a, exchanges.get(a.exchange_id), a.id in used)
             for a in sorted(accounts, key=lambda a: (LIST_ORDER.get(a.kind, len(LIST_ORDER)), a.id))]
+
+
+def _listed(account: Account, exchange: Exchange | None, in_use: bool) -> dict:
+    return {"id": account.id, "name": account.name, "kind": account.kind, "currency": account.currency,
+            "exchange_id": account.exchange_id, "exchange": exchange.name if exchange else None,
+            "sends_1099da": bool(exchange.sends_1099da) if exchange else None, "hidden": bool(account.hidden),
+            "in_use": in_use}
 
 
 def one(db: Session, account_id: int) -> dict:
@@ -356,6 +393,14 @@ def _with_its_pair(db: Session, account: Account) -> list[Account]:
     if account.exchange_id is None:
         return [account]
     return db.query(Account).filter(Account.exchange_id == account.exchange_id).order_by(Account.id).all()
+
+
+def _its_exchange(db: Session, account: Account) -> Exchange:
+    """An exchange account's exchange; 400 for any other account."""
+    exchange = db.get(Exchange, account.exchange_id) if account.exchange_id is not None else None
+    if exchange is None:
+        raise HTTPException(status_code=400, detail=NO_1099DA)
+    return exchange
 
 
 def _named(db: Session, ids: list[int]) -> set[int]:

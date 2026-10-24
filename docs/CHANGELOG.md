@@ -21,6 +21,27 @@ All notable changes to BitcoinTX are documented in this file.
   which exchange the file is from, and which wallet its sends and
   receives go with, when there's more than one of either. Saving into an
   added account still waits for a later step.
+- **The other writes that can change an earlier tax year ask first too**
+  (B6c, #353). Saving the tax timezone in Settings (it moves holding
+  periods and which tax year a sale is in: a sale that only moves year is
+  listed under both), importing a River file, the AI's add of a batch of
+  transactions, and turning an exchange's "This exchange sends me a Form
+  1099-DA" off or on (it moves Form 8949 boxes) now show which years and
+  what changes, and save only after "Save anyway (a copy is made first)",
+  as an add, an edit or a delete does: one question for each file or
+  batch. River's preview names the earlier years its new rows are dated
+  in; the AI's preview gives what its add will ask. With the AI key,
+  Recalculate Ledger asks when it would change an earlier year (rules
+  fixed since rows were saved); with a login it never does, and the
+  login's fill of the timezone still saves only on an empty ledger. The
+  AI connector (`btctx-mcp`) answers such a write with `saved: false`, the
+  years and the changes, and a confirm to send again once the user says
+  yes (`update_transaction`'s `confirm_move`, `confirm` on
+  `add_transactions`, `delete_transaction` and `recalculate_ledger`); its
+  writes that can ask, and `review_ledger`, now wait up to 20 minutes,
+  not 2, for a large ledger on a slow server (#637). The account list
+  shows each exchange's 1099-DA switch (`sends_1099da`). No figure of any
+  ledger moves: a write confirmed is saved as before.
 - **A save that changes an earlier tax year asks first** (B6b, #352).
   Adding, editing or deleting a transaction in a way that would change
   the figures of a tax year before this one (a gain, a Form 8949 box, a

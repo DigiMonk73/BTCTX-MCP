@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../test/books";
 import {
-  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, previewOutOfDate, riverAccountNames, riverChoices, toEditableRow,
+  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, pickWanting, previewOutOfDate, riverAccountNames, riverChoices,
+  toEditableRow,
   typeChange,
 } from "./riverImport";
 
@@ -106,5 +107,14 @@ describe("a preview made with one pick", () => {
     // Sent without ids, the server took your first ones: what the book then picks says nothing about it
     expect(previewOutOfDate({}, { exchange: 4, wallet: 2 })).toBe(false);
     expect(previewOutOfDate(null, { exchange: 4, wallet: 2 })).toBe(false);
+  });
+});
+
+describe("a pick", () => {
+  it("is wanting while the screen asks and one of the two isn't chosen (every one hidden)", () => {
+    expect(pickWanting(riverChoices(MANY), { exchange: 4, wallet: 2 })).toBe(false);
+    expect(pickWanting(riverChoices(MANY), { exchange: 4 })).toBe(true);
+    // Before the book is read nothing is sent, and the server takes your first ones
+    expect(pickWanting(undefined, {})).toBe(false);
   });
 });

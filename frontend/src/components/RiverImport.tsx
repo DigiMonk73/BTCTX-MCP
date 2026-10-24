@@ -7,12 +7,15 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
+import { importNote } from "../utils/pastYears";
 import {
-  chosenRiverAccounts, importRequestRows, importableRows, previewOutOfDate, refusedCellPlace, riverAccountNames,
-  riverChoices, toEditableRow, type EditableRow, type RiverPick,
+  chosenRiverAccounts, importRequestRows, importableRows, pickWanting, previewOutOfDate, refusedCellPlace,
+  riverAccountNames, riverChoices, toEditableRow, type EditableRow, type RiverPick,
 } from "../utils/riverImport";
+import PastYearDialog from "./PastYearDialog";
 import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 import RiverPreview from "./riverImport/RiverPreview";
+import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 import "../styles/riverImport.css";
 
 interface RiverImportProps {
@@ -25,6 +28,7 @@ interface RiverImportProps {
 
 const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const toast = useToast();
+  const pastYears = usePastYearWarning();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
@@ -41,7 +45,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   // The file's exchange and wallet (5.11, 5.13)
   const choices = book ? riverChoices(book) : undefined;
   const chosen = chosenRiverAccounts(choices, picked);
-  const unchosen = choices !== undefined && (chosen.exchange === undefined || chosen.wallet === undefined);
+  const unchosen = pickWanting(choices, chosen);
   // The pickers no longer say what the preview was made with (its account
   // deleted, or a pick made with the file gone): its rows would go elsewhere.
   // Never while the book can't be read: that says nothing about the accounts.
@@ -114,7 +118,10 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
     const sent = importRequestRows(rows);
     setLoading(true);
     try {
-      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: sent });
+      // Rows that change an earlier tax year are imported only once the owner confirms it (2.0 spec 5.8)
+      const res = await pastYears.attempt("import", (confirm) =>
+        api.post<RiverImportResponse>("/import/river/execute", { rows: sent }, confirm ? { params: { confirm } } : undefined));
+      if (res === null) return; // cancelled: nothing imported, the preview stays as it was
       toast.success(res.data.message);
       reset();
     } catch (err) {
@@ -123,6 +130,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       setLoading(false);
     }
   };
+
+  const pastYearsNote = preview && importNote(preview.past_years_dated);
 
   return (
     <>
@@ -155,14 +164,10 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
         </div>
       </div>
 
-      {choices && (
-        <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} onChange={choose} />
-      )}
-      {outOfDate && (
-        <p className="note note-warning" role="status">
-          The preview was made with another exchange or wallet: preview the file again.
-        </p>
-      )}
+      <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
+        onChange={choose} />
+
+      {pastYearsNote && <p className="note" role="note">{pastYearsNote}</p>}
 
       {preview && (
         <RiverPreview
@@ -176,6 +181,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
           onCancel={reset}
         />
       )}
+      {pastYears.question && <PastYearDialog {...pastYears.question} />}
     </>
   );
 };

@@ -175,6 +175,7 @@ hidden_imports = [
     "backend.services.recalculated_by",
     "backend.services.year_changes",
     "backend.services.past_years",
+    "backend.services.past_year_writes",
     "socksio",
     "httpcore._async.socks_proxy",
     "backend.secret_key",

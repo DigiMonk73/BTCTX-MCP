@@ -128,6 +128,12 @@ export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: R
   };
 }
 
+/** Whether the file can't be previewed yet: the book read, and an exchange
+ * or a wallet not chosen (every one of its kind hidden, so none is preselected). */
+export function pickWanting(choices: RiverChoices | undefined, pick: RiverPick): boolean {
+  return choices !== undefined && (pick.exchange === undefined || pick.wallet === undefined);
+}
+
 /** Whether the preview on screen was made with another exchange or wallet
  * than the one picked now (its account deleted since): its rows would then
  * go elsewhere than the pickers say. One made before the book was read sent

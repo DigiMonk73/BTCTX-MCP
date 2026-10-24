@@ -41,6 +41,7 @@ from backend.schemas.entry_import import (
 )
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
+from backend.services.past_year_writes import Rows
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -737,19 +738,52 @@ def write_rows(
 
 
 def _write_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
-    created: list[tuple[PreparedRow, Transaction]] = []
     try:
-        for p in ordered:
-            try:
-                tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
-            except HTTPException as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
-                )
-            created.append((p, tx))
+        created = _create_in_order(ordered, db)
         db.commit()
     except Exception:
         db.rollback()
         raise
     return created
+
+
+def _create_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
+    """Each row created in turn, uncommitted; 400 naming the first refused."""
+    created: list[tuple[PreparedRow, Transaction]] = []
+    for p in ordered:
+        try:
+            tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+        except HTTPException as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
+            )
+        created.append((p, tx))
+    return created
+
+
+# Through the past-year warning (2.0 spec 5.8)
+def past_year_write(
+    prepared: list[PreparedRow], save_them: Callable[[Session], Any],
+) -> Rows:
+    """
+    The rows as one write through the past-year warning: one confirm for
+    the batch. Each pass and the confirmed save check them for duplicates
+    and write them as write_rows does (the double-submit guard, exact_only),
+    on copies of the rows as they are now, so the fingerprint takes them as
+    given; the confirmed save does so under the write lock it holds (#504).
+    `save_them` is the add as it always saved. Each pass returns the rows
+    created with their transactions, and the rows as checked.
+    """
+    taken = [replace(p, result=p.result.model_copy(deep=True)) for p in prepared]
+
+    def write_them(db: Session) -> tuple[list[tuple[PreparedRow, Transaction]], list[PreparedRow]]:
+        checked = [replace(p, result=p.result.model_copy(deep=True)) for p in taken]
+        mark_duplicates(checked, db, exact_only=True)
+        return _create_in_order(_chronological(checked), db), checked
+
+    def kept(db: Session) -> list[dict]:
+        return [p.tx_data for p in writable_now(taken, db)]
+
+    rows = tuple(p.tx_data for p in taken if p.tx_data is not None)
+    return Rows(rows, kept, write_them, save_them, named=[p.not_a_duplicate_of for p in taken])
