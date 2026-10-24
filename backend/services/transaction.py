@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
-from backend.services import hourly_prices, old_rows, price_history
+from backend.services import hourly_prices, old_rows, price_history, recalculated_by
 from backend.services.account import AccountBook, account_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -2031,6 +2031,8 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
     known = known_accounts(db)
     for rec_tx in all_txs:
         _replay(rec_tx, db, known, past_missing)
+    if until is None and not past_missing:  # the whole ledger, every row through its own checks
+        recalculated_by.note(db)
 
     db.flush()
 
