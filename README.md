@@ -108,10 +108,41 @@ and the few small improvements already planned for it
 New features go into BitcoinTX 2.0, now in the works, which adds multiple
 wallets, exchanges and bank accounts, each wallet and exchange with its own
 cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
-Because 2.0 changes how the ledger is stored, it will be tested as a beta
-first, on GitHub pre-releases for as long as it needs, then on StartOS in
-Start9's Community Beta once it's ready, before it replaces 1.x. We don't
-promise dates; until then, the latest 1.x is the version to use.
+Because 2.0 changes how the ledger is stored, it's tested first on GitHub
+pre-releases, alphas and then betas, for as long as it needs, then on StartOS
+in Start9's Community Beta once it's ready, before it replaces 1.x. We don't
+promise dates; until then, the latest 1.x is the version to use for your
+records.
+
+### Trying 2.0 before it's released
+
+Anyone who chooses may try 2.0's pre-releases: the first is
+[v2.0.0-alpha.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1),
+and the later ones are on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
+marked **Pre-release**. They're for testing and may have bugs: try them with
+a test ledger or a copy of your records, never as your only records. Nobody
+gets one as an update: the Mac app's download, Docker's `:latest` and
+Start9's store stay on 1.x.
+
+- **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta),
+  installed beside BitcoinTX with its own ledger, folder and port: your
+  BitcoinTX and its ledger are never opened. To try your records in it,
+  download a backup in BitcoinTX (Settings, Backup & Restore) and restore it
+  in BitcoinTX Preview.
+- **StartOS:** sideloaded, it updates your BitcoinTX in place. **Make a
+  StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x,
+  uninstall BitcoinTX (which deletes its data) and restore that backup.
+- **Docker:** each pre-release has its own image tag (`:v2.0.0-alpha.1`,
+  never `:latest`). Start it on a new volume and restore a backup into it.
+  Started on your 1.x volume, it upgrades that ledger, and going back takes
+  the steps in its [Going back to 1.x](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.1/docs/MAINTENANCE.md#going-back-to-1x).
+- **An AI:** each pre-release's Settings gives the setup for its own
+  connector (`btctx-mcp==2.0.0a1` for alpha.1), named `bitcointx-preview`.
+
+What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0
+database or backup. Report what you find in [a new issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose),
+its title starting with the pre-release's name (for example "2.0.0-alpha.1:"),
+shown on a test ledger, never your real data.
 
 ## Install
 
