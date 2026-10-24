@@ -18,11 +18,15 @@ PROJECT_ROOT = SPEC_DIR.parent
 # pre-release (VERSION 2.0.0-alpha.N or 2.0.0-beta.N), installed beside it
 # (2.0 plan 7.4, B10a; #251's decision 28). desktop_paths reads VERSION as the app will
 sys.path[:0] = [str(PROJECT_ROOT), str(SPEC_DIR)]
-from desktop_paths import bundle_id, own_name  # noqa: E402
+from desktop_paths import bundle_id, icon_name, own_name  # noqa: E402
 
 APP_NAME, APP_ID = own_name(), bundle_id()
+# The Preview's icon has a "PREVIEW" band, and its executable is named after
+# it too: crash reports, Console and ps name the executable (#670)
+ICON = SPEC_DIR / "resources" / icon_name()
 
 # Verify paths exist
+assert ICON.exists(), f"{ICON} not found"
 assert (PROJECT_ROOT / "backend").exists(), "backend/ not found"
 assert (PROJECT_ROOT / "frontend" / "dist").exists(), "frontend/dist/ not found - run npm build first"
 
@@ -250,7 +254,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="BitcoinTX",
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -271,7 +275,7 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="BitcoinTX",
+    name=APP_NAME,
 )
 
 # Apple takes only numbers for a bundle's version: a pre-release's bundle says
@@ -279,7 +283,7 @@ coll = COLLECT(
 app = BUNDLE(
     coll,
     name=f"{APP_NAME}.app",
-    icon=str(SPEC_DIR / "resources" / "icon.icns") if (SPEC_DIR / "resources" / "icon.icns").exists() else None,
+    icon=str(ICON),
     bundle_identifier=APP_ID,
     info_plist={
         "CFBundleName": APP_NAME,

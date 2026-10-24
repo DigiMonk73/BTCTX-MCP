@@ -196,7 +196,10 @@ owner's decision 28, #251). Nobody gets one by accident:
      `2.0.0bN`), which only someone asking for that version gets;
    - the Mac app is a separate app, "BitcoinTX Preview"
      (`BitcoinTX-Preview-macOS.dmg`), the same for every alpha and beta,
-     with its own ledger, which carries from one to the next;
+     with its own ledger, which carries from one to the next, and a red
+     "PREVIEW" band on its icon;
+   - every page of a pre-release, on a Mac, StartOS or Docker, has a
+     banner naming it;
    - nothing goes to the mirror or to Start9.
 5. Delete the `prerelease/` branch afterwards. A pre-release's tag can't
    be moved, and its Docker image and AI connector may be out before the

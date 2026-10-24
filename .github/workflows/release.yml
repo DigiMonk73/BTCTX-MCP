@@ -306,7 +306,7 @@ jobs:
             cat > pre.md <<EOF
           **This is $what: a pre-release, for testing.** It's for people who choose to try 2.0 before it's released, and it may have bugs. Nobody gets it as an update: BitcoinTX's releases, Docker's \`:latest\`, the Mac app's download, the landing page and Start9's store stay on 1.x.
 
-          - **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta of 2.0), installed beside BitcoinTX, with its own ledger, folder and port: your BitcoinTX and its ledger are never opened. It starts empty, and its ledger carries from one pre-release to the next. To try your records, download a backup in BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX Preview's Settings.
+          - **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta of 2.0), installed beside BitcoinTX, with its own ledger, folder and port: your BitcoinTX and its ledger are never opened. Its icon is BitcoinTX's with a red PREVIEW band, and a banner above every page names the pre-release. It starts empty, and its ledger carries from one pre-release to the next. To try your records, download a backup in BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX Preview's Settings.
           - **StartOS:** it updates your BitcoinTX in place. **Make a StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x, uninstall BitcoinTX (which deletes its data) and restore that backup.
           - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/docs/MAINTENANCE.md#going-back-to-1x).
 
@@ -321,7 +321,7 @@ jobs:
           ## Downloads
 
           - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first; then in StartOS, open **Sideload** and upload it: it updates your BitcoinTX in place.
-          - **macOS:** \`$MAC_DMG\` (or the \`.zip\`), the separate app BitcoinTX Preview. It is not signed by Apple: the first time, right-click (Control-click) BitcoinTX Preview in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
+          - **macOS:** \`$MAC_DMG\` (or the \`.zip\`), the separate app BitcoinTX Preview, whose icon has a red PREVIEW band. It is not signed by Apple: the first time, right-click (Control-click) BitcoinTX Preview in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64), on a new volume. Never \`:latest\`, which stays on 1.x.
           - **AI connector:** \`uvx btctx-mcp==$CONNECTOR\` (a pre-release on PyPI); BitcoinTX Preview's Settings → Connect an AI Assistant has it ready to paste.
           EOF

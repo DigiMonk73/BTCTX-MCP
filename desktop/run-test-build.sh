@@ -127,7 +127,17 @@ if [ -z "$APP" ]; then
   [ "${#APPS[@]}" = 1 ] || fail "desktop/dist holds more than one app: give --app"
   APP="${APPS[0]}"
 fi
-BIN="$APP/Contents/MacOS/BitcoinTX"
+# The executable its bundle names: BitcoinTX, or BitcoinTX Preview's own (#670);
+# BitcoinTX when the bundle doesn't say
+EXE=""
+if [ -x /usr/libexec/PlistBuddy ] && [ -f "$APP/Contents/Info.plist" ]; then
+  EXE="$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Contents/Info.plist" 2>/dev/null)" || EXE=""
+fi
+case "$EXE" in
+  "") EXE=BitcoinTX ;;
+  */*|.|..) fail "refusing $APP: its bundle names the executable $EXE" ;;
+esac
+BIN="$APP/Contents/MacOS/$EXE"
 [ -x "$BIN" ] || fail "no app at $APP (build one with desktop/build-mac.sh, or give --app)"
 if [ "$fresh" = 1 ]; then
   # Never through a proxy set for the whole machine (#474): its answer isn't BitcoinTX's

@@ -15,3 +15,25 @@ export function prereleaseParts(version?: string): { release: string; stage: "a"
 export function macApp(version?: string): string {
   return prereleaseParts(version) ? "BitcoinTX Preview" : "BitcoinTX";
 }
+
+/**
+ * The banner on every page of a pre-release (#670), or null for any other
+ * version. On a Mac it is BitcoinTX Preview, an app of its own beside
+ * BitcoinTX; on a server (StartOS, Docker) the pre-release is BitcoinTX
+ * itself, updated in place or on a volume of its own, so it says nothing of
+ * "apart". Until the server has said which (`desktop` unknown), neither.
+ */
+export function prereleaseBanner(version?: string, desktop?: boolean): { title: string; note: string } | null {
+  if (!prereleaseParts(version)) return null;
+  if (desktop) return { title: `${macApp(version)} · ${version}`, note: "a test version, apart from your BitcoinTX" };
+  return { title: `BitcoinTX · ${version}`, note: desktop === false ? "a test version, not a release" : "a test version" };
+}
+
+/** BitcoinTX Preview's line on its first page, where the tester chooses a
+ * username and password (#670): its empty ledger isn't their BitcoinTX reset.
+ * Null for BitcoinTX itself. */
+export function previewFirstPageLine(version?: string): string | null {
+  return prereleaseParts(version)
+    ? `${macApp(version)} is a separate test app: it starts empty, and BitcoinTX and its ledger are still there, as they were.`
+    : null;
+}

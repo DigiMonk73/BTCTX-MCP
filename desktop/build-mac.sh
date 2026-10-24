@@ -123,11 +123,13 @@ echo "  Frontend built to frontend/dist/"
 echo ""
 echo "[4/6] Verifying resources..."
 
-if [ ! -f "$SCRIPT_DIR/resources/icon.icns" ]; then
-    echo "  WARNING: icon.icns not found at $SCRIPT_DIR/resources/icon.icns"
-    echo "  The app will be built without a custom icon."
-    echo "  To add an icon, convert logo.svg to icon.icns and place it in desktop/resources/"
-fi
+# BitcoinTX's icon, and BitcoinTX Preview's with its band (#670): the spec takes one
+for icon in icon.icns icon-preview.icns; do
+    if [ ! -f "$SCRIPT_DIR/resources/$icon" ]; then
+        echo "  ERROR: $icon not found at $SCRIPT_DIR/resources/ (docs/MACOS_DESKTOP_APP.md, \"App icon\")"
+        exit 1
+    fi
+done
 
 if [ ! -d "$PROJECT_ROOT/backend/assets/irs_templates" ]; then
     echo "  ERROR: IRS templates not found at backend/assets/irs_templates/"

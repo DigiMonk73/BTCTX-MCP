@@ -152,10 +152,18 @@ connector never reaches it, nor the pre-release connector
 file. It refuses a data folder that is BitcoinTX's, however written
 (another case, a link), and says so. It starts empty: to try your records,
 download a backup in BitcoinTX and restore it in BitcoinTX Preview's
-Settings, which copies the data and leaves BitcoinTX's file as it is. Its
-names, folders and port come from `desktop/desktop_paths.py` and
-`desktop_ports.py` (`is_preview()`, from `VERSION`), which `BitcoinTX.spec`
-reads too. To test a pre-release build on a Mac where BitcoinTX is
+Settings, which copies the data and leaves BitcoinTX's file as it is. So
+that it can't be taken for BitcoinTX (#670), its icon is BitcoinTX's with
+a red "PREVIEW" band (`desktop/resources/icon-preview.icns`, "App icon"
+below), its executable is `BitcoinTX Preview` too (the name crash reports,
+Console and `ps` show; the Dock, Activity Monitor and Force Quit show the
+app's), a banner above every page names the pre-release ("BitcoinTX
+Preview · 2.0.0-alpha.N: a test version, apart from your BitcoinTX"; on
+StartOS and Docker, where the pre-release is BitcoinTX itself, "a test
+version, not a release"), and its first page says that it starts empty and
+BitcoinTX and its ledger are still there. Its names, icon, folders and port
+come from `desktop/desktop_paths.py` and `desktop_ports.py` (`is_preview()`,
+from `VERSION`), which `BitcoinTX.spec` reads too. To test a pre-release build on a Mac where BitcoinTX is
 installed, run it only through `desktop/run-test-build.sh`, as any build
 ("Testing a build").
 
@@ -178,8 +186,9 @@ The script:
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
    pywebview), each package checked against its hash
 3. Builds the frontend (`npm ci && npm run build` in `frontend/`)
-4. Checks `desktop/resources/icon.icns` (warns if missing) and
-   `backend/assets/irs_templates/` (fails if missing)
+4. Checks the icons in `desktop/resources/` (BitcoinTX's `icon.icns`,
+   BitcoinTX Preview's `icon-preview.icns`) and
+   `backend/assets/irs_templates/` (fails if one is missing)
 5. Runs `pyinstaller --clean --noconfirm BitcoinTX.spec`
 6. Creates `desktop/dist/BitcoinTX.dmg` (`BitcoinTX-Preview.dmg` for a pre-release) if `create-dmg` is installed
    (`brew install create-dmg`)
@@ -365,3 +374,15 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns icon.iconset -o desktop/resources/icon.icns
 ```
+
+BitcoinTX Preview's `desktop/resources/icon-preview.icns` (#670) is checked
+in too: the same icon with a red "PREVIEW" band across its lower part (a
+plain stripe at 16 and 32 pixels, where the word would blur). After a new
+`icon.icns`, make it again on a Mac and commit both:
+
+```bash
+.venv/bin/python scripts/preview_icon.py
+```
+
+`backend/tests/test_preview_look_670.py` checks it is `icon.icns` with the
+band, at every size.

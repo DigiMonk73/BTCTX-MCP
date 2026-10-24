@@ -1823,7 +1823,14 @@ not a step to skip.
   folder (UNPACKED) and start it with `REPO/desktop/run-test-build.sh
   --app "UNPACKED/BitcoinTX Preview.app" --fresh --background`. Expect its
   window, and `curl http://127.0.0.1:8766/api/health` with
-  `2.0.0-beta.N`. Choose its login as MAC-3 does. Settings, open **Backup
+  `2.0.0-beta.N`. Expect it to look like a test version (#670): in Finder
+  and the Dock its icon has a red PREVIEW band (BitcoinTX's doesn't); a
+  banner above the page, "BitcoinTX Preview · 2.0.0-beta.N: a test
+  version, apart from your BitcoinTX"; on the login page, "BitcoinTX
+  Preview is a separate test app: it starts empty, and BitcoinTX and its
+  ledger are still there, as they were."; and `ps -o comm= -p PID` (the
+  PID the script printed) ending in `MacOS/BitcoinTX Preview`. Choose its
+  login as MAC-3 does. Settings, open **Backup
   & Restore**: Restore from Backup with UPG-1's `golden-1x.btx` and
   `backup-pass-123`. Expect "✅ Database successfully restored. Log in
   again with your current username and password.", then the login page;
