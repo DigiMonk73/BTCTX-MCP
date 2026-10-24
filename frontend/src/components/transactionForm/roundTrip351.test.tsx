@@ -122,6 +122,17 @@ describe("a row naming a missing account", () => {
     expect(form.sent()).toBeUndefined();
   });
 
+  it("keeps the row's other account while the missing one is chosen again", async () => {
+    const transfer = await renderForm({ book: MANY, transaction: btcTransfer(MISSING_ID, 100) });
+    await transfer.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Coldcard");
+    transfer.unmount();
+    const bought = await renderForm({ book: ONE_OF_EACH, transaction: buy(1, MISSING_ID) });
+    await bought.choose("Exchange", "Exchange");
+    await bought.save();
+    expect(bought.sent()).toMatchObject({ from_account_id: 1, to_account_id: 4 });
+  });
+
   it("saved into the account chosen instead", async () => {
     const form = await renderForm({ book: MANY, transaction: btcTransfer(2, MISSING_ID) });
     await form.choose("To Account", "Coldcard");

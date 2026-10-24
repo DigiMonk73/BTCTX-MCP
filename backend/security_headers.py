@@ -37,7 +37,7 @@ the upgrade to 2.0 sends none, and would save a Buy or Sell into the first
 exchange (2.0 spec 5.13). Any page of the server's major version is taken.
 Requests with neither browser header (the AI connector, the CLI, scripts,
 the tests' clients) and those without the session cookie (the routes before
-login) aren't checked. A page CORS_ALLOW_ORIGINS allows sends it too.
+login) aren't checked. A page CORS_ALLOW_ORIGINS allows must send it too.
 
 LocalAddressOnlyMiddleware: the Mac app answers only requests addressed to
 127.0.0.1, localhost or [::1] (421 otherwise), the names its window and the

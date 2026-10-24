@@ -111,7 +111,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (submittingRef.current) return;
     // Without the book no account was chosen: nothing true to save
     if (!book) {
-      toast.error(ACCOUNTS_FAILED);
+      if (failed) toast.error(ACCOUNTS_FAILED);
       return;
     }
     submittingRef.current = true;
@@ -200,7 +200,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             )}
           </div>
 
-          {failed && currentType && <p className="field-error">{ACCOUNTS_FAILED}</p>}
+          {failed && (currentType || transactionId) && <p className="field-error">{ACCOUNTS_FAILED}</p>}
           {book && <TypeFields type={currentType} book={book} />}
         </div>
 

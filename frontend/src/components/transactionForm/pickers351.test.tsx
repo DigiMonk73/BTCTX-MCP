@@ -13,7 +13,7 @@ import { ACCOUNTS_FAILED } from "../../utils/useAccounts";
 const WITHIN_WALLET = "Wallet: consolidate / move within the same wallet";
 const WITHIN_EXCHANGE = "Exchange: move between exchanges BitcoinTX counts as one";
 
-describe("with one of each, the form 1.x showed", () => {
+describe("with one of each: 1.x's form, its accounts by name", () => {
   it("a Deposit or Withdrawal's account, its currency the account's", async () => {
     const form = await renderForm({ book: ONE_OF_EACH });
     await form.pickType("Deposit");
@@ -136,11 +136,31 @@ describe("with more accounts", () => {
   });
 });
 
+it("fills To when it's the only one that fits, and the error it had goes", async () => {
+  const form = await renderForm({ book: ONE_OF_EACH });
+  await form.pickType("Transfer");
+  await form.save();
+  expect(screen.getByText("To Account is required")).toBeTruthy();
+  await form.choose("From Account", "Bank");
+  expect(shown("To Account")).toBe("Exchange USD");
+  expect(screen.queryByText("To Account is required")).toBeNull();
+});
+
 it("says so when the accounts won't load, and saves nothing", async () => {
   const form = await renderForm({ book: ONE_OF_EACH, accountsFail: true });
   await form.pickType("Deposit");
   expect(screen.getByText(ACCOUNTS_FAILED)).toBeTruthy();
   expect(screen.queryByLabelText("Account", { exact: true })).toBeNull();
+  await form.save();
+  expect(form.sent()).toBeUndefined();
+});
+
+it("says so on an edit too, when the accounts won't load", async () => {
+  const form = await renderForm({
+    book: ONE_OF_EACH, accountsFail: true,
+    transaction: { id: 7, type: "Buy", from_account_id: 1, to_account_id: 4, amount: "0.1", cost_basis_usd: "6000" },
+  });
+  expect(screen.getByText(ACCOUNTS_FAILED)).toBeTruthy();
   await form.save();
   expect(form.sent()).toBeUndefined();
 });

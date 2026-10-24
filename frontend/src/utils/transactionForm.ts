@@ -50,7 +50,7 @@ function commonFormData(tx: ITransaction): TransactionFormData {
   return {
     type: tx.type,
     timestamp: toDatetimeLocal(new Date(tx.timestamp)),
-    // Kept for every type (5.13); none is held as undefined
+    // Kept for every type (5.13); a null id is held as undefined
     fromAccountId: tx.from_account_id ?? undefined,
     toAccountId: tx.to_account_id ?? undefined,
     fee: tx.fee_amount ?? 0,

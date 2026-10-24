@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useLayoutEffect } from "react";
 import { useFormContext, type FieldPath } from "react-hook-form";
 import { accountName, byKind, chosenId, yours } from "../../utils/accounts";
 
@@ -34,23 +34,34 @@ interface AccountPickerProps {
 const AccountPicker: React.FC<AccountPickerProps> = ({
   id, label, field, book, choices, placeholder, requiredMessage, optionLabel, deps, quietWhenFixed, children,
 }) => {
-  const { register, watch, setValue, formState: { errors, defaultValues } } = useFormContext<TransactionFormData>();
+  const { register, watch, setValue, clearErrors, formState: { errors, defaultValues } } =
+    useFormContext<TransactionFormData>();
   // Through chosenId: a blank select's "" is no account
   const chosen = chosenId(watch(field));
   const options = choices(chosenId(defaultValues?.[field]));
   const nameOf = optionLabel ?? ((account: number) => accountName(book, account));
   // One of the owner's accounts; a saved id the book lacks is kept, and refused
   const known = chosen !== undefined && yours(book).includes(chosen);
-  // After every render, each idempotent: an account the other fields no longer
-  // allow goes, and the only one that fits comes. A saved id the book lacks
-  // matches no option: the blank one is shown, without writing the form, so
-  // the id stays and the check below refuses it.
-  useEffect(() => {
-    if (known && chosen !== undefined && !options.includes(chosen)) setValue(field, undefined);
-    else if (chosen === undefined && options.length === 1) setValue(field, options[0]);
-    else if (chosen !== undefined && !options.includes(chosen)) {
+  // After every render, before the page is painted (so no select flashes
+  // first), each idempotent: an account the other fields no longer allow
+  // goes, and the only one that fits comes, its error with it. With nothing
+  // allowed yet (the field it depends on blank or missing), the row's own
+  // stays for when it is. Otherwise the select shows what the form holds:
+  // blank for a saved id the book lacks, without writing the form, so the
+  // id stays and the check below refuses it.
+  useLayoutEffect(() => {
+    if (known && chosen !== undefined && options.length > 0 && !options.includes(chosen)) {
+      setValue(field, undefined);
+    } else if (chosen === undefined && options.length === 1) {
+      setValue(field, options[0]);
+      clearErrors(field);
+    } else {
       const element = document.getElementById(id);
-      if (element instanceof HTMLSelectElement && element.selectedIndex !== 0) element.value = "";
+      const showing = chosen !== undefined && options.includes(chosen) ? String(chosen) : "";
+      // A value no option has selects none at all (value reads ""): the blank one is chosen instead
+      if (element instanceof HTMLSelectElement && (element.value !== showing || element.selectedIndex < 0)) {
+        element.value = showing;
+      }
     }
   });
   const rules = {

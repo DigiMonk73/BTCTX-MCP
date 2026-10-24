@@ -69,11 +69,12 @@ function sources(dir: string): string[] {
 describe("no request goes around api.ts", () => {
   const src = fileURLToPath(new URL(".", import.meta.url));
   // A request the page makes without its version: the server refuses its change
-  const AROUND = /\bfetch\(|\baxios\.(get|post|put|patch|delete|request|create)\b|XMLHttpRequest|sendBeacon/;
+  const AROUND = /\bfetch\(|\baxios(\.(get|post|put|patch|delete|request|create)\b|\()|XMLHttpRequest|sendBeacon/;
 
   it("finds the page's source, and what goes around", () => {
     expect(sources(src).length).toBeGreaterThan(100);
-    expect(['fetch("/api/x")', "axios.post(url, body)", "new XMLHttpRequest()"].every((l) => AROUND.test(l))).toBe(true);
+    expect(['fetch("/api/x")', "axios.post(url, body)", 'axios({ method: "post" })', "new XMLHttpRequest()"]
+      .every((l) => AROUND.test(l))).toBe(true);
     expect(["api.post(url, body)", "await api.get(`/x`)", "prefetch(x)"].some((l) => AROUND.test(l))).toBe(false);
   });
 

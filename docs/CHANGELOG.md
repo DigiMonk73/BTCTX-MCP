@@ -13,11 +13,15 @@ All notable changes to BitcoinTX are documented in this file.
   a consolidation); where exactly one fits, it's filled in. Hidden accounts
   aren't offered, but for the transaction that uses one, and one naming an
   account that no longer exists shows "account N (missing)" until another
-  is chosen. With one of each the form looks as before, except that an
-  exchange's two accounts are listed as Exchange USD and Exchange BTC, each
-  with its currency, rather than Exchange and a choice of currency. A page
-  left open while BitcoinTX is updated to 2.0 can't save: "BitcoinTX was
-  updated: reload the page." No figure changes.
+  is chosen. With one bank, wallet and exchange the form looks as before,
+  except: the accounts are listed by their names (Bank, Wallet, Exchange
+  USD, Exchange BTC) rather than Bank Account, Bitcoin Wallet and Exchange
+  with a choice of currency, the currency being the account's; a Transfer
+  from the Bank goes to Exchange USD, so named; a Buy's From Account is
+  called Paid from; and changing a new transaction's type clears the
+  account chosen for the type before. A page left open while BitcoinTX is
+  updated to 2.0 can't save: "BitcoinTX was updated: reload the page." No
+  figure changes.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and
