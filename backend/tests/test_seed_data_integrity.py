@@ -195,17 +195,39 @@ def test_ledger_entries_exist(db_session):
 # Test 8: Account Ledger Balances
 # ----------------------------
 def test_account_balances_non_null(db_session):
-    accounts = db_session.query(Account).all()
-    balances = _balances(db_session)
+    problems = _zero_balances(db_session)
+    assert not problems, f"Zero balances detected: {problems}"
+
+
+def test_an_unused_account_holds_nothing_rightly(db_session):
+    """2.0: an account the owner added that no transaction names yet holds
+    nothing, and that's no problem. Flushed, never committed: the shared
+    session database keeps only 1.x's accounts."""
+    owner = db_session.get(Account, 2).user_id
+    db_session.add(Account(user_id=owner, name="Unused Wallet", currency="BTC", kind="wallet"))
+    db_session.flush()
+    try:
+        assert not _zero_balances(db_session)
+    finally:
+        db_session.rollback()
+
+
+def _zero_balances(db):
+    """The accounts a transaction or a ledger line names that hold nothing,
+    but the fee accounts. One that none names holds nothing rightly (2.0:
+    an account added and not used yet)."""
+    balances = _balances(db)
+    named = set(balances)  # the accounts with a ledger line
+    for tx in db.query(Transaction).all():
+        named |= {tx.from_account_id, tx.to_account_id}
 
     problems = []
-    for acct in accounts:
-        if acct.name in ("BTC Fees", "USD Fees"):
+    for acct in db.query(Account).all():
+        if acct.kind == "fee" or acct.id not in named:
             continue
         if abs(balances[acct.id]) == 0:
             problems.append((acct.id, acct.name, acct.currency))
-
-    assert not problems, f"Zero balances detected: {problems}"
+    return problems
 
 # ----------------------------
 # Test 10: LotDisposal vs BTC Amount Consistency
