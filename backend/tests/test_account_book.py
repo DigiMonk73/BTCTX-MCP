@@ -11,8 +11,8 @@ The account book and the account API (2.0 spec 5.1, 5.4, 5.9; B2b, #347).
   two alike (casefolded, joiners ignored), none reserved; an apostrophe is
   fine (the owner's decision 23, #251).
 - The API: the list writes nothing; adding by kind (an exchange as its two
-  accounts); hiding and showing; deleting only an unused account. No
-  renames yet (B8).
+  accounts); hiding and showing; deleting only an unused account. Renames:
+  test_screens_renames_356.py (B8).
 """
 
 import shutil
@@ -320,7 +320,7 @@ def test_hiding_and_showing(api):
 
 @pytest.mark.parametrize("account_id, body, status, detail", [
     (5, {"hidden": True}, 400, "The fee accounts keep their names and can't be hidden."),
-    (2, {"name": "Cold"}, 422, None),  # renames come with B8
+    (2, {"kind": "bank"}, 422, None),  # a kind never changes
     (2, {"currency": "USD"}, 422, None),
     (2, {}, 422, None),
     (9999, {"hidden": True}, 404, None),

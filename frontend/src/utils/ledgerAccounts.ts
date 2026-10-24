@@ -166,13 +166,17 @@ export const POOLED_NOTE: Record<"wallet" | "exchange", string> = {
   exchange: pooled("exchange", "exchange accounts", "exchange account"),
 };
 
+/** A name as the server will keep it (5.1: each run of spaces one space, at the ends none). */
+function keptName(name: string): string {
+  return name.normalize("NFC").replace(/\p{Zs}+/gu, " ").replace(/^ | $/g, "");
+}
+
 /** The help text under the name when adding (5.1, 5.9): an exchange's with the
- * name as the server will keep it (5.1: each run of spaces one space, at the
- * ends none); none for a bank. */
+ * name as the server will keep it; none for a bank. */
 export function addHelp(kind: YourKind, name: string): string | null {
   if (kind === "wallet") return WALLET_HELP;
   if (kind === "bank") return null;
-  const shown = name.normalize("NFC").replace(/\p{Zs}+/gu, " ").replace(/^ | $/g, "");
+  const shown = keptName(name);
   return shown ? exchangeHelp(shown) : EXCHANGE_HELP;
 }
 
@@ -182,4 +186,34 @@ export function addHelp(kind: YourKind, name: string): string | null {
 export function pooledNote(book: AccountBook, kind: YourKind): string | null {
   if (kind === "bank") return null;
   return book.some((account) => account.kind === kind && account.in_use) ? POOLED_NOTE[kind] : null;
+}
+
+// Settings' Rename (#356, 2.0 spec 5.9 and 5.11's note on names in files)
+const RENAME_FILES_NOTE =
+  "A CSV file names each account as it was named when the file was saved, and an import matches those names " +
+  "to your accounts as they're named then: a file saved before this rename names this account by its old name.";
+
+// The names that always mean the first bank, wallet and exchange in a file,
+// whatever those accounts are called now (5.1; backend constants.RESERVED_NAMES)
+const RESERVED_NAMES: Record<number, string> = { 1: "Bank", 2: "Wallet", 3: "Exchange USD", 4: "Exchange BTC" };
+
+/** How files name a renamed account (5.11), and for the first bank, wallet
+ * and exchange that their old names still mean them in a file. */
+export function renameFilesNote(row: AccountRow): string {
+  const reserved = row.accounts.map((a) => RESERVED_NAMES[a.id]).filter(Boolean).map((name) => `'${name}'`);
+  if (reserved.length === 0) return RENAME_FILES_NOTE;
+  const still = reserved.length === 1 ? "still means this account" : "still mean this exchange's accounts";
+  return `${RENAME_FILES_NOTE} In a file, ${reserved.join(" and ")} ${still}.`;
+}
+
+/** Whether Rename has something to send: a name the server would keep that
+ * isn't the row's (an exchange's row: the exchange's); its case counts. */
+export function renameReady(row: AccountRow, typed: string): boolean {
+  const kept = keptName(typed);
+  return kept !== "" && kept !== row.name;
+}
+
+/** Under an exchange's new name, what its two accounts become, as Add says it; none for a bank or a wallet. */
+export function renameHelp(row: AccountRow, typed: string): string | null {
+  return row.kind === "exchange" ? addHelp("exchange", typed) : null;
 }

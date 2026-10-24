@@ -28,16 +28,11 @@ function unrealizedGains(price: LivePrice, averageCostBasis: number | null, tota
   );
 }
 
+/** The BTC held in all your accounts, what it cost on average and what it
+ * would gain; each kind's balances are on the cards above (AccountCards). */
 const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ totals, averageCostBasis, price }) => (
   <div className="card portfolio-overview">
     <h3 className="card-title">Portfolio Overview</h3>
-
-    <FigureRow label="Bank (USD)">{formatUsd(totals.bank)}</FigureRow>
-    <FigureRow label="Exchange (USD)">{formatUsd(totals.exchangeUsd)}</FigureRow>
-    <FigureRow label="Exchange (BTC)">{formatBtc(totals.exchangeBtc)}</FigureRow>
-    <FigureRow label="Wallet (BTC)">{formatBtc(totals.wallet)}</FigureRow>
-
-    <hr />
 
     <FigureRow label="Total BTC">{formatBtc(totals.totalBtc)}</FigureRow>
     <FigureRow label="Avg. Cost per BTC">

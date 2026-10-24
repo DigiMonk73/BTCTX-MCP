@@ -1,7 +1,7 @@
 """
 The account API's request and response shapes (2.0 spec 5.9). An account's
 kind and currency never change: none is taken after it's added, and the
-currency comes from the kind. Renames come later (B8).
+currency comes from the kind.
 """
 
 from typing import Literal
@@ -18,18 +18,20 @@ class AccountCreate(BaseModel):
 
 
 class AccountUpdate(BaseModel):
-    """Hide an account from the pickers or show it again, and turn its
+    """Rename an account (an exchange's: its exchange and both of its
+    accounts), hide it from the pickers or show it again, and turn its
     exchange's "This exchange sends me a Form 1099-DA" off or on (an
     exchange's account only); at least one."""
     model_config = ConfigDict(extra="forbid")
 
+    name: str | None = None
     hidden: bool | None = None
     sends_1099da: bool | None = None
 
     @model_validator(mode="after")
     def _something_to_change(self) -> "AccountUpdate":
-        if self.hidden is None and self.sends_1099da is None:
-            raise ValueError("Send hidden, sends_1099da, or both.")
+        if self.name is None and self.hidden is None and self.sends_1099da is None:
+            raise ValueError("Send name, hidden or sends_1099da (one or more).")
         return self
 
 

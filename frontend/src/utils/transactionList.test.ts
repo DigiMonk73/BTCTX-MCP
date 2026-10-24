@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  gainLabel, groupByDay, pageOf, reviewAmount, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
+  gainLabel, groupByDay, pageOf, reviewAmount, reviewSummary, sortTransactions, sourceOrPurpose, typeWithSourceOrPurpose,
 } from "./transactionList";
 
 const tx = (id: number, timestamp: string) => ({ id, timestamp }) as ITransaction;
@@ -109,5 +109,23 @@ describe("reviewAmount (#367's review)", () => {
     expect(reviewAmount({ amount: "500.00", unit: "USD" })).toBe("$500.00");
     expect(reviewAmount({ amount: "0.10000000", unit: "BTC" })).toBe("0.10000000 BTC");
     expect(reviewAmount({ amount: "0.10000000" })).toBe("0.10000000 BTC");
+  });
+});
+
+describe("reviewSummary: a Ledger Review item's line names its accounts (2.0 spec 5.13, #356)", () => {
+  const item = { id: 12, date: "2024-01-03 12:00", type: "Transfer", purpose: null, source: null,
+    amount: "200.00", unit: "USD" as const };
+
+  it("its accounts from then to, between its type and its amount", () => {
+    expect(reviewSummary({ ...item, accounts: ["Bank", "Credit Union"] }))
+      .toBe("#12 \u00b7 2024-01-03 12:00 \u00b7 Transfer \u00b7 Bank \u2192 Credit Union \u00b7 $200.00");
+    expect(reviewSummary({ ...item, type: "Deposit", source: "MyBTC", amount: "0.25000000", unit: "BTC",
+      accounts: ["Coldcard"] }))
+      .toBe("#12 \u00b7 2024-01-03 12:00 \u00b7 Deposit (MyBTC) \u00b7 Coldcard \u00b7 0.25000000 BTC");
+  });
+
+  it("none named (External only, or a server before 2.0): the line as before", () => {
+    expect(reviewSummary({ ...item, accounts: [] })).toBe("#12 \u00b7 2024-01-03 12:00 \u00b7 Transfer \u00b7 $200.00");
+    expect(reviewSummary(item)).toBe("#12 \u00b7 2024-01-03 12:00 \u00b7 Transfer \u00b7 $200.00");
   });
 });
