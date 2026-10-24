@@ -1,4 +1,5 @@
-/* Dashboard: a two-column grid of cards; one column below 900px. */
+/* Dashboard: Bank, Exchange and Wallet in a row (P7's mockups, #356), then a
+   two-column grid of cards; each one column below 900px. */
 
 .dashboard-grid {
   display: grid;
@@ -7,8 +8,78 @@
   max-width: 1240px;
 }
 
+.account-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  max-width: 1240px;
+  margin-bottom: var(--space-4);
+  align-items: start; /* a card that opens grows alone */
+}
+
 @media (max-width: 900px) {
-  .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+  .dashboard-grid,
+  .account-cards { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* A kind's card: its name, its total (an exchange's dollars, then its
+   bitcoin), the toggle and the list it opens */
+.dashboard .account-card { gap: var(--space-2); }
+.dashboard .account-card .card-title {
+  margin: 0;
+  font-size: var(--text-13);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.account-card-total {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-semibold);
+  letter-spacing: var(--tracking-tight);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: break-word;
+}
+.account-card-second {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.account-card-toggle { align-self: flex-start; margin-top: var(--space-2); }
+.account-card-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+}
+/* The figures go under the name when both don't fit on one line */
+.account-card-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+.account-card-list li:last-child { border-bottom: 0; padding-bottom: 0; }
+/* A long name wraps between its words, a single long word only where it must */
+.account-card-name { display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; max-width: 100%; font-weight: var(--font-medium); overflow-wrap: break-word; }
+.account-card-note { font-size: var(--text-xs); font-weight: 400; color: var(--color-text-muted); }
+.account-card-figures {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: auto;
+  gap: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.account-card-figures span + span { font-size: var(--text-xs); color: var(--color-text-muted); }
+/* Three cards in a row beside the sidebar are narrow: a bitcoin total stays on one line */
+@media (min-width: 901px) and (max-width: 1279px) {
+  .account-card-total { font-size: var(--text-xl); }
+  .account-card-list li { font-size: var(--text-13); }
 }
 
 .dashboard .card { display: flex; flex-direction: column; min-width: 0; }
@@ -104,4 +175,6 @@
 @media (max-width: 480px) {
   .dashboard .card { padding: var(--space-4); }
   .btc-price-value { font-size: var(--text-2xl); }
+  /* A tap target a thumb can hit */
+  .account-card-toggle { align-self: stretch; height: 44px; }
 }

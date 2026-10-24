@@ -61,11 +61,14 @@ describe("the rows", () => {
 });
 
 describe("a row's balance", () => {
+  // The balances route names each account's kind, exchange and hidden too (#356)
+  const mine = { exchange_id: null, exchange: null, hidden: false };
+  const exchange = { kind: "exchange" as const, exchange_id: 1, exchange: "Exchange", hidden: false };
   const balances: AccountBalance[] = [
-    { account_id: 1, name: "Bank", currency: "USD", balance: "80000.00" },
-    { account_id: 2, name: "Wallet", currency: "BTC", balance: "0.4999" },
-    { account_id: 3, name: "Exchange USD", currency: "USD", balance: 1040 },
-    { account_id: 4, name: "Exchange BTC", currency: "BTC", balance: "0.25" },
+    { account_id: 1, name: "Bank", currency: "USD", balance: "80000.00", kind: "bank", ...mine },
+    { account_id: 2, name: "Wallet", currency: "BTC", balance: "0.4999", kind: "wallet", ...mine },
+    { account_id: 3, name: "Exchange USD", currency: "USD", balance: 1040, ...exchange },
+    { account_id: 4, name: "Exchange BTC", currency: "BTC", balance: "0.25", ...exchange },
   ];
 
   it("is in the account's currency; an exchange's dollars, then its bitcoin", () => {

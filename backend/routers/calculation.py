@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from decimal import Decimal
 
+from backend.services.account import account_book
 from backend.services.calculation import (
     get_account_balance,
     get_all_account_balances,
@@ -27,10 +28,16 @@ def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> d
 
 @router.get("/accounts/balances")
 def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
-    """Every account's balance: [{"account_id", "name", "currency", "balance"}]."""
+    """Every account's balance: [{"account_id", "name", "currency", "balance",
+    "kind", "exchange_id", "exchange", "hidden"}], the account's kind, its
+    exchange and hidden from the account book: the dashboard's cards go by
+    kind (2.0 spec 5.13)."""
+    book = account_book(db)
     results = get_all_account_balances(db)
     for item in results:
-        item["balance"] = float(item["balance"])
+        account_id = item["account_id"]
+        item.update(balance=float(item["balance"]), kind=book.kind(account_id), exchange_id=book.exchange_of(account_id),
+                    exchange=book.exchange_name(account_id), hidden=book.hidden(account_id))
     return results
 
 

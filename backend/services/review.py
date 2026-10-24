@@ -2,7 +2,8 @@
 The Ledger review: a read-only list of saved transactions worth a second
 look after the v0.9.2 fixes. Nothing here changes a row; each item says
 what looks odd and what would change if the owner acts on it, and gives
-its amount with its unit (`unit`: BTC, or USD for a move of dollars).
+its amount with its unit (`unit`: BTC, or USD for a move of dollars) and
+its accounts by name (`accounts`: from then to, External never named).
 
 Shown by GET /api/review, `python -m backend.cli review`, the MCP tool
 `review_ledger` and the Ledger review panel in Settings.
@@ -323,10 +324,18 @@ def row_item(t: Transaction, tz, book: AccountBook, issue: str, change: str) -> 
         "source": t.source,
         "amount": money(t.amount) if _in_dollars(t, book) else btc_text(t.amount),
         "unit": "USD" if _in_dollars(t, book) else "BTC",
+        "accounts": _accounts(t, book),
         "realized_gain_usd": money(t.realized_gain_usd),
         "issue": issue,
         "change": change,
     }
+
+
+def _accounts(t: Transaction, book: AccountBook) -> list[str]:
+    """Its accounts' names, from then to (2.0 spec 5.13): an account sent to
+    itself once, a missing one as the book names it, External never."""
+    sides = [a for a in (t.from_account_id, t.to_account_id) if a is not None and a != ACCOUNT_EXTERNAL]
+    return [book.name(a) for a in dict.fromkeys(sides)]
 
 
 def _in_dollars(t: Transaction, book: AccountBook) -> bool:
@@ -900,7 +909,7 @@ def format_text(review: dict[str, Any]) -> str:
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:
-            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_amount(item)}  {item['issue']}")
+            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_names(item)}{_amount(item)}  {item['issue']}")
         lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
         if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
@@ -913,6 +922,12 @@ def _kind(item: dict[str, Any]) -> str:
     transfer has no source or purpose, and some rows saved none."""
     detail = item["source"] if item["type"] == "Deposit" else item["purpose"] if item["type"] == "Withdrawal" else None
     return f"{item['type']} ({detail})" if detail else item["type"]
+
+
+def _names(item: dict[str, Any]) -> str:
+    """"Bank → Credit Union  ": its accounts, from then to, before its amount; "" with none named."""
+    names = " → ".join(item.get("accounts") or [])
+    return f"{names}  " if names else ""
 
 
 def _amount(item: dict[str, Any]) -> str:

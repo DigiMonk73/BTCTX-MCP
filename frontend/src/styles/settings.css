@@ -191,6 +191,9 @@
   border-radius: var(--radius-control);
 }
 .ledger-add-form .input { max-width: 360px; }
+/* A row's Rename: its name and the button side by side, the help under them */
+.ledger-rename-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ledger-rename-row .input { flex: 1 1 200px; max-width: 360px; }
 .ledger-add-form .note { margin: 0; line-height: 1.5; }
 
 /* Ledger review */
@@ -214,7 +217,10 @@
   .ledger-add-actions .btn { flex: 1 1 0; height: 44px; }
   .ledger-group-head .btn,
   .ledger-show-hidden,
-  .ledger-add-form .input { height: 44px; }
+  .ledger-add-form .input,
+  .ledger-rename-row .input,
+  .ledger-rename-row .btn { height: 44px; }
+  .ledger-rename-row .btn { flex: 1 1 100%; }
   .ai-copy-block { flex-direction: column; align-items: stretch; }
 }
 

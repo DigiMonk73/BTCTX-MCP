@@ -74,3 +74,14 @@ export function typeWithSourceOrPurpose(item: Described): string {
   const extra = sourceOrPurpose(item);
   return extra ? `${item.type} (${extra})` : item.type;
 }
+
+/** A Ledger Review item's line: "#12 · 2024-01-03 12:00 · Deposit (MyBTC) ·
+ * Coldcard · 0.25000000 BTC", its accounts from then to (2.0 spec 5.13). */
+export function reviewSummary(item: Described & {
+  id: number; date: string; amount: string; unit?: string; accounts?: string[];
+}): string {
+  const accounts = (item.accounts ?? []).join(" \u2192 ");
+  return [`#${item.id}`, item.date, typeWithSourceOrPurpose(item), accounts, reviewAmount(item)]
+    .filter(Boolean)
+    .join(" \u00b7 ");
+}

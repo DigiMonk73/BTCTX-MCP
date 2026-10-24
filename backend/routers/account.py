@@ -1,8 +1,8 @@
 """
 Your accounts (2.0 spec 5.9): the list, one account, adding a bank, a
-wallet or an exchange, hiding and showing, an exchange's 1099-DA switch
-(through the past-year warning, 5.8), and deleting an unused one. Login
-only.
+wallet or an exchange, renaming, hiding and showing, an exchange's 1099-DA
+switch (through the past-year warning, 5.8), and deleting an unused one.
+Login only.
 """
 
 from fastapi import APIRouter, Depends, Response
@@ -40,16 +40,17 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 def update_account(account_id: int, change: AccountUpdate, confirm: str | None = None,
                    db: Session = Depends(get_db)):
     """
-    Hide or show an account (an exchange's: both), and turn an exchange's
-    1099-DA switch off or on (from either of its accounts); 400 for a fee
-    account hidden, or the switch on an account that isn't an exchange's;
-    404. A switch that moves the Form 8949 box of a sale in an earlier tax
-    year answers 409 with the years, what changes and a fingerprint, and
-    saves nothing until sent again with ?confirm=<fingerprint>; a copy of
-    the database comes first.
+    Rename, hide or show an account (an exchange's: its exchange and both),
+    and turn an exchange's 1099-DA switch off or on (from either of its
+    accounts); 400 for a name it refuses, a fee account renamed or hidden,
+    or the switch on an account that isn't an exchange's; 404. A switch that
+    moves the Form 8949 box of a sale in an earlier tax year answers 409 with
+    the years, what changes and a fingerprint, and saves nothing until sent
+    again with ?confirm=<fingerprint>; a copy of the database comes first. A
+    name or hidden alone moves no figure, so it never asks.
     """
     account_service.one(db, account_id)  # 404 first
-    write = AccountChange(account_id, hidden=change.hidden, sends_1099da=change.sends_1099da)
+    write = AccountChange(account_id, hidden=change.hidden, sends_1099da=change.sends_1099da, name=change.name)
     done = past_years.save(write, db, confirm, by_ai=False)
     if isinstance(done, JSONResponse):
         return done  # the warning

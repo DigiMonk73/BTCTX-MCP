@@ -1,10 +1,10 @@
 """
 The six fixed accounts (database.FIXED_ACCOUNTS) through the account API
-(2.0 spec 5.9): none takes a new name (renames come with B8) or currency;
-your first bank, wallet and exchange (1-4) can be hidden, never deleted;
-the fee accounts (5, 6) neither; and no account added takes a fixed name
-(#289). The ledger finds the fee accounts by id, and every start puts 5's
-and 6's names back.
+(2.0 spec 5.9): none takes a new currency; your first bank, wallet and
+exchange (1-4) can be renamed (B8) and hidden, never deleted; the fee
+accounts (5, 6) neither renamed, hidden nor deleted; and no account added
+takes a fixed name (#289). The ledger finds the fee accounts by id, and
+every start puts 5's and 6's names back.
 """
 
 import pytest
@@ -18,11 +18,16 @@ FIRST = "Your first bank, wallet and exchange can't be deleted. Hide one you don
 
 
 @pytest.mark.parametrize("fixed", FIXED_ACCOUNTS, ids=lambda a: a["name"])
-def test_a_fixed_account_keeps_its_name_currency_and_place(auth_client, fixed):
+def test_a_fixed_account_keeps_its_currency_and_place(auth_client, fixed):
+    """1 to 4 may be renamed (test_screens_renames_356.py, on a database of
+    its own: this one is shared), the fee accounts never."""
     url = f"/api/accounts/{fixed['id']}"
     before = auth_client.get(url).json()
     other = "BTC" if fixed["currency"] == "USD" else "USD"
-    assert auth_client.put(url, json={"name": "Renamed"}).status_code == 422
+    if fixed["kind"] == "fee":
+        renamed = auth_client.put(url, json={"name": "Renamed"})
+        assert (renamed.status_code, renamed.json()["detail"]) == (
+            400, "The fee accounts keep their names and can't be hidden.")
     assert auth_client.put(url, json={"currency": other}).status_code == 422
     deleted = auth_client.delete(url)
     assert deleted.status_code == 400

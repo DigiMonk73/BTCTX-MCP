@@ -134,8 +134,9 @@ class TaxTimezone(PastYearWrite):
 @dataclass(frozen=True)
 class AccountChange(PastYearWrite):
     """
-    PUT /api/accounts/{id}: hiding or showing an account, and an exchange's
-    "This exchange sends me a Form 1099-DA" (5.9). It replays nothing: a
+    PUT /api/accounts/{id}: renaming, hiding or showing an account, and an
+    exchange's "This exchange sends me a Form 1099-DA" (5.9). A name or
+    hidden moves no figure, so they never ask. It replays nothing: a
     box is worked out when a report is built (form_8949.disposal_box), never
     stored, so the dry run compares the boxes of the exchange's Sells under
     each setting, and asks only when the switch changes and the exchange
@@ -144,13 +145,16 @@ class AccountChange(PastYearWrite):
     account_id: int
     hidden: bool | None = None
     sends_1099da: bool | None = None
+    name: str | None = None
     kind = "account"
 
     def apply(self, db: Session) -> None:
-        account_service.apply_change(db, self.account_id, hidden=self.hidden, sends_1099da=self.sends_1099da)
+        account_service.apply_change(db, self.account_id, hidden=self.hidden, sends_1099da=self.sends_1099da,
+                                     name=self.name)
 
     def save(self, db: Session) -> None:
-        account_service.change_account(db, self.account_id, hidden=self.hidden, sends_1099da=self.sends_1099da)
+        account_service.change_account(db, self.account_id, hidden=self.hidden, sends_1099da=self.sends_1099da,
+                                       name=self.name)
 
     def earliest_year(self, db: Session, tz) -> int | None:
         now = account_service.sends_1099da(db, self.account_id)  # None: not an exchange's account
@@ -166,7 +170,7 @@ class AccountChange(PastYearWrite):
         return False
 
     def parts(self) -> list:
-        return [self.kind, self.account_id, self.hidden, self.sends_1099da]
+        return [self.kind, self.account_id, self.hidden, self.sends_1099da, self.name]
 
 
 @dataclass(frozen=True)
