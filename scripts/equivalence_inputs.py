@@ -8,10 +8,11 @@ testdata/reference_ledger.json (through scripts/seed_ledger.py).
 
 BANK, WALLET, EXCH_USD, EXCH_BTC, EXTERNAL = 1, 2, 3, 4, 99
 
-# The ledgers' tax timezones: the golden ledger's (and the bad inputs'), then
-# the reference ledger's (UTC) and the random ledgers' in turn. A report holds
-# today's date in its ledger's zone, so equivalence_check.py reuses a snapshot
-# only while today's date is the same in every one of them (#630).
+# Every tax timezone a snapshot's ledger has: the golden ledger's (and the bad
+# inputs'), and the random ledgers' in turn, UTC among them for the reference
+# ledger. A report holds today's date in its ledger's zone, so
+# equivalence_check.py reuses a snapshot only while today's date is the same in
+# every one of them (#630).
 GOLDEN_ZONE = "America/New_York"
 RANDOM_ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
 ZONES = (GOLDEN_ZONE, *RANDOM_ZONES)

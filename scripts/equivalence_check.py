@@ -68,7 +68,7 @@ def _arguments():
 def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
     """The release's snapshot, taken in a temporary worktree of `ref`."""
     commit = _git("rev-parse", f"{ref}^{{commit}}").strip()
-    out = STORE / f"{commit[:12]}-{_snapshot_code_digest()}-{_days_held()}"
+    out = STORE / f"{commit[:12]}-{_snapshot_code_digest()}-{_dates_today()}"
     if fresh or not (out / "done").exists() or (bench and not (out / "bench.json").exists()):
         parent = Path(tempfile.mkdtemp(prefix="btctx-baseline-"))
         worktree = parent / "checkout"
@@ -81,7 +81,7 @@ def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
     return out
 
 
-def _days_held() -> str:
+def _dates_today() -> str:
     """
     Today's date in each of the ledgers' tax timezones, which a snapshot taken
     now holds: a report prints the date in its ledger's zone, and a ledger's

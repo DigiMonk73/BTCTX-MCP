@@ -30,8 +30,9 @@ All notable changes to BitcoinTX are documented in this file.
   ledgers' tax timezones (UTC, New York, Chicago, Tokyo: the date the
   current year's Complete Tax Report says it was made on). Kept by the
   computer's own date, a snapshot was reused across a midnight in another
-  zone (in Chicago, UTC's at 19:00 and Tokyo's at 10:00), and that date
-  showed as a difference no change made (#630).
+  zone (in Chicago, in summer: Tokyo's at 10:00, UTC's at 19:00, New
+  York's at 23:00), and that date showed as a difference no change made
+  (#630).
 - `make catch-up-2.0` (`scripts/catch-up-2.0.sh`): `develop` into the 2.0
   build. A clean merge is made as a commit of its own and merges once its
   own CI passes (the owner's decision 24, #251); a 1.x migration, a change

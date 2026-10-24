@@ -2,9 +2,9 @@
 scripts/equivalence_check.py reuses a release's snapshot only while the
 snapshot would hold the same dates. A report prints today's date in its
 ledger's tax timezone, so the snapshot is kept by today's date in each of
-those zones. Kept by the computer's own date, a baseline taken in Chicago
-before 19:00 was reused after it, when the UTC and Tokyo ledgers' reports
-already said the next day (#630).
+those zones. Kept by the computer's own date, a baseline was reused across
+a midnight in another of them: in Chicago (summer time), Tokyo's at 10:00,
+UTC's at 19:00 and New York's at 23:00 (#630).
 """
 
 import importlib.util
@@ -53,7 +53,7 @@ def _folder(monkeypatch, tmp_path, instant):
         out.mkdir(parents=True)
         (out / "done").touch()
 
-    _Clock.instant = instant
+    monkeypatch.setattr(_Clock, "instant", instant)
     monkeypatch.setattr(check, "datetime", _Clock)
     monkeypatch.setattr(check, "STORE", tmp_path)
     monkeypatch.setattr(check, "_git", lambda *args: "0123456789abcdef\n")
@@ -64,8 +64,10 @@ def _folder(monkeypatch, tmp_path, instant):
 def test_a_baseline_is_retaken_after_a_midnight_in_any_ledgers_zone(monkeypatch, tmp_path):
     # Chicago (CDT, from 2020-03-08) 18:00 → 19:30: the UTC ledgers' date moves
     assert _folder(monkeypatch, tmp_path, _utc(10, 23)) != _folder(monkeypatch, tmp_path, _utc(11, 0, 30))
-    # 20:00 → 00:30, the same UTC day: New York's and Chicago's dates move
-    assert _folder(monkeypatch, tmp_path, _utc(11, 1)) != _folder(monkeypatch, tmp_path, _utc(11, 5, 30))
+    # 22:30 → 23:30, the same UTC day: New York's date alone moves
+    assert _folder(monkeypatch, tmp_path, _utc(11, 3, 30)) != _folder(monkeypatch, tmp_path, _utc(11, 4, 30))
+    # 23:30 → 00:30: Chicago's date moves
+    assert _folder(monkeypatch, tmp_path, _utc(11, 4, 30)) != _folder(monkeypatch, tmp_path, _utc(11, 5, 30))
     # 09:00 → 11:00: Tokyo's date moves
     assert _folder(monkeypatch, tmp_path, _utc(11, 14)) != _folder(monkeypatch, tmp_path, _utc(11, 16))
 
