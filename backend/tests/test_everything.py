@@ -370,6 +370,11 @@ def test_csv_roundtrip():
     """Test CSV export and import roundtrip."""
     section("CSV EXPORT/IMPORT ROUNDTRIP")
 
+    # Its own seeded ledger: under pytest -n this file's tests can run on
+    # different workers, so test_seed_database may have run elsewhere (#635)
+    test_database_reset()
+    test_seed_database()
+
     # Export current transactions
     subsection("CSV Export")
     r = CLIENT.get("/api/backup/csv")
