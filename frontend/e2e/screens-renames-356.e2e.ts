@@ -1,9 +1,9 @@
-// B8's screens (#356; 2.0 spec 5.9, 5.13, P7's mockups on #572): the
-// dashboard's cards and their "Show accounts (n)", a renamed Wallet on its
-// card and in the list, the Transactions page's account filter, and
-// Settings' Rename. Elements by role and name, as the mockups name them.
-import { test, expect, openSection, parseFigure, seedKnownLedger } from "./fixtures";
-import type { APIRequestContext, Page } from "@playwright/test";
+// B8's screens (#356; 2.0 spec 5.9, 5.13): Portfolio Overview's caret on a
+// kind with more than one account (#674, in place of P7's cards), a renamed
+// Wallet on its line and in the list, the Transactions page's account
+// filter, and Settings' Rename. Elements by role and name.
+import { test, expect, createTx, figure, openSection, parseFigure, seedKnownLedger } from "./fixtures";
+import type { APIRequestContext, Locator, Page } from "@playwright/test";
 
 async function addAccount(request: APIRequestContext, kind: string, name: string) {
   const r = await request.post("/api/accounts/", { data: { kind, name } });
@@ -15,46 +15,66 @@ async function rename(request: APIRequestContext, id: number, name: string) {
   expect(r.ok(), await r.text()).toBeTruthy();
 }
 
-const card = (page: Page, kind: string) => page.getByRole("region", { name: kind, exact: true });
+const overview = (page: Page) => page.locator(".portfolio-overview");
+/** A kind's line as a button, named by its label and its total. */
+const caret = (page: Page, label: string) =>
+  overview(page).getByRole("button", { name: new RegExp(`^${label.replace(/[()]/g, "\\$&")}`) });
+const accounts = (page: Page, label: string) => overview(page).getByRole("list", { name: `${label} accounts` });
 
-test("a card with more than one account opens to list them, and stays open", async ({ authedPage: page }) => {
+async function listed(list: Locator): Promise<number[]> {
+  return (await list.locator(".balance-line-amount").allInnerTexts()).map(parseFigure);
+}
+
+test("a kind with more than one account has a caret that lists them, and stays open", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await addAccount(page.request, "wallet", "Coldcard");
   await page.reload();
 
-  const wallet = card(page, "Wallet");
-  const toggle = wallet.getByRole("button", { name: "Show accounts (2)" });
+  const toggle = caret(page, "Wallet (BTC)");
   await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(wallet.getByRole("list", { name: "Wallet accounts" })).toBeHidden();
-  // The other kinds have one account each: no toggle
-  await expect(card(page, "Bank").getByRole("button")).toHaveCount(0);
+  await expect(accounts(page, "Wallet (BTC)")).toBeHidden();
+  // The other kinds have one account each: no caret, 1.x's lines
+  await expect(overview(page).getByRole("button")).toHaveCount(1);
+  expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
 
   await toggle.click();
-  const list = wallet.getByRole("list", { name: "Wallet accounts" });
+  const list = accounts(page, "Wallet (BTC)");
   await expect(list).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-controls", (await list.getAttribute("id"))!);
   await expect(list.getByRole("listitem")).toHaveText([/^Wallet\s*0\.50990000 BTC$/, /^Coldcard\s*0\.00000000 BTC$/]);
-  await expect(wallet.getByRole("button", { name: "Hide accounts" })).toHaveAttribute("aria-expanded", "true");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
   await page.reload(); // remembered in this browser
-  await expect(card(page, "Wallet").getByRole("list", { name: "Wallet accounts" })).toBeVisible();
+  await expect(accounts(page, "Wallet (BTC)")).toBeVisible();
+  await caret(page, "Wallet (BTC)").press("Enter"); // and closed from the keyboard
+  await expect(accounts(page, "Wallet (BTC)")).toBeHidden();
 });
 
-test("each exchange is one row, its dollars and bitcoin side by side", async ({ authedPage: page }) => {
+test("each exchange's dollars under Exchange (USD), its bitcoin under Exchange (BTC), adding up to the line", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await addAccount(page.request, "exchange", "Kraken");
+  // Dollars into Kraken USD (id 100: the first account added), so each exchange line lists two figures above zero
+  await createTx(page.request, { type: "Transfer", timestamp: "2024-04-01T15:00:00Z", from_account_id: 1,
+    to_account_id: 100, amount: "250.50", fee_amount: "0", fee_currency: "USD" });
   await page.reload();
-  const exchange = card(page, "Exchange");
-  await exchange.getByRole("button", { name: "Show accounts (2)" }).click();
-  await expect(exchange.getByRole("list", { name: "Exchange accounts" }).getByRole("listitem")).toHaveText([
-    /^Exchange\s*\$15,980\.00\s*0\.15000000 BTC$/, /^Kraken\s*\$0\.00\s*0\.00000000 BTC$/]);
+
+  await caret(page, "Exchange (USD)").click();
+  await caret(page, "Exchange (BTC)").click();
+  await expect(accounts(page, "Exchange (USD)").getByRole("listitem")).toHaveText([
+    /^Exchange\s*\$15,980\.00$/, /^Kraken\s*\$250\.50$/]);
+  await expect(accounts(page, "Exchange (BTC)").getByRole("listitem")).toHaveText([
+    /^Exchange\s*0\.15000000 BTC$/, /^Kraken\s*0\.00000000 BTC$/]);
+  const sum = (figures: number[], unit: number) => figures.reduce((total, f) => total + Math.round(f * unit), 0);
+  expect(sum(await listed(accounts(page, "Exchange (USD)")), 100)).toBe(Math.round((await figure(page, "Exchange (USD)")) * 100));
+  expect(sum(await listed(accounts(page, "Exchange (BTC)")), 1e8)).toBe(Math.round((await figure(page, "Exchange (BTC)")) * 1e8));
+  expect(await figure(page, "Bank (USD)")).toBe(80000 - 250.5);
 });
 
-test("a renamed Wallet stays on the Wallet card and is named by its new name", async ({ authedPage: page }) => {
+test("a renamed Wallet stays on Wallet (BTC) and is named by its new name", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await rename(page.request, 2, "Phone Wallet");
   await page.reload();
-  const total = card(page, "Wallet").locator(".account-card-total");
-  expect(parseFigure(await total.innerText())).toBe(0.5099);
+  expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
 
   await page.getByRole("link", { name: "Transactions" }).click();
   const transfer = page.getByRole("listitem").filter({ hasText: "Transfer" });
@@ -81,14 +101,19 @@ test("the account filter keeps one account's rows, or a kind's", async ({ authed
   await expect(page.getByText(/ of 6 transactions$/)).toHaveCount(0);
 });
 
-test("on a phone the cards stack and the toggle is a 44 px target", async ({ authedPage: page }) => {
+test("on a phone the card keeps its lines' spacing and the whole line is the caret's target", async ({ authedPage: page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await addAccount(page.request, "bank", "Credit Union");
   await page.reload();
-  const toggle = card(page, "Bank").getByRole("button", { name: "Show accounts (2)" });
-  expect((await toggle.boundingBox())?.height).toBeGreaterThanOrEqual(44);
-  const [bank, exchange] = [await card(page, "Bank").boundingBox(), await card(page, "Exchange").boundingBox()];
-  expect(exchange!.y).toBeGreaterThan(bank!.y + bank!.height - 1);
+  const toggle = caret(page, "Bank (USD)");
+  const [box, line] = [await toggle.boundingBox(), await toggle.locator("xpath=..").boundingBox()];
+  expect(box!.height).toBeGreaterThanOrEqual(24); // WCAG 2.5.8
+  expect(box!.width).toBeCloseTo(line!.width, 0);
+  // The lines as far apart as with no caret: Bank to Exchange (USD) as Exchange (USD) to Exchange (BTC)
+  const tops = await overview(page).locator("p").evaluateAll((ps) => ps.slice(0, 3).map((p) => p.getBoundingClientRect().top));
+  expect(tops[1] - tops[0]).toBeCloseTo(tops[2] - tops[1], 0);
+  const [card, price] = [await overview(page).boundingBox(), await page.getByRole("heading", { name: "Current Bitcoin Price" }).boundingBox()];
+  expect(price!.y).toBeGreaterThan(card!.y + card!.height - 1);
 });
 
 async function accountsSection(page: Page) {

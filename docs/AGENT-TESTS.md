@@ -189,8 +189,7 @@ it's long-term. #14's fee is its own disposal.
 
 | Where | Expected |
 |---|---|
-| Dashboard, the cards Bank, Exchange and Wallet | Bank $45,000.00 · Exchange $37,990.00 and 0.15000000 BTC · Wallet 0.39970000 BTC (with one account of each, no card has **Show accounts**; with more, the totals stay these) |
-| Dashboard > Portfolio Overview | Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 |
+| Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 (with one account of each kind, no line has a caret; with more, the totals stay these) |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
 | Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
@@ -403,7 +402,7 @@ Start from the `clean` snapshot.
   1000.00; cost of the lots it made 1000.00.` (the gift of 2024-06-01
   takes older coins, so nothing else moves). Click **Delete anyway (a copy
   is made first)**. Expect the toast "Transaction deleted successfully!"
-  and the Wallet card 0.37970000 BTC. Re-enter #9, which makes it a
+  and Wallet (BTC) 0.37970000 BTC. Re-enter #9, which makes it a
   backdated entry: the dialog says "This changes the figures of tax year
   2024, …" with `… — Added: basis 1000.00; cost of the lots it made
   1000.00.` (none if GLD-1's "Don't ask again for adds to 2024" still
@@ -421,7 +420,7 @@ Start from the `clean` snapshot.
   wallet is one set of keys: add each one you use in Settings → Wallets,
   exchanges and banks." under it. Switch to Account `Exchange BTC`
   (Currency shows `BTC`; the hint goes), Source **Rebate**, `0.0001` BTC on
-  `2025-04-01`, cost basis `6`, and save. Expect: the Exchange card's
+  `2025-04-01`, cost basis `6`, and save. Expect: Exchange (BTC)
   0.15010000 BTC, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged
   ($1,000.00): a rebate isn't income. Complete Tax
@@ -563,7 +562,7 @@ exchanges and banks** reads its name, its kind and its balance.
   has transactions, so it can't be deleted. Hide it instead: its history
   stays."; no 1099-DA box (a wallet). Rename it `Phone wallet`. Expect the
   row `Phone wallet`, #6 on Transactions as "Withdrawal · Phone wallet",
-  and the dashboard's Wallet card still 0.39970000 BTC. Rename it back to
+  and the dashboard's Wallet (BTC) still 0.39970000 BTC. Rename it back to
   `Wallet`. Then rename Bank to `Wallet`: refused with "'Wallet' always
   means your first wallet in files (CSV, River, BitcoinTX 1.x): choose
   another name.", and Bank keeps its name.
@@ -613,13 +612,14 @@ exchanges and banks** reads its name, its kind and its balance.
   list, and no **Show hidden** left. Open it, **Delete**: the browser's
   confirm "Delete Credit union? It has no transactions."; OK. Expect the
   row gone and the summary "2 wallets · 2 exchanges · 1 bank".
-- **ACC-6** Dashboard. Expect the Wallet card 0.39970000 BTC with **Show
-  accounts (2)**: pressed, it lists `Wallet` 0.39970000 BTC and `Coldcard`
-  0.00000000 BTC and reads **Hide accounts**. The Exchange card $37,990.00
-  and 0.15000000 BTC with **Show accounts (2)**: `Exchange` $37,990.00
-  0.15000000 BTC and `Kraken` $0.00 0.00000000 BTC. The Bank card
-  $45,000.00, with no button. Reload: the open cards stay open. Every
-  golden figure.
+- **ACC-6** Dashboard. Expect Portfolio Overview's Wallet (BTC) 0.39970000
+  BTC with a caret after its label: pressed (anywhere on the line), the
+  caret points down and the line lists `Wallet` 0.39970000 BTC and
+  `Coldcard` 0.00000000 BTC under it. Exchange (USD) $37,990.00 with a
+  caret, listing `Exchange` $37,990.00 and `Kraken` $0.00; Exchange (BTC)
+  0.15000000 BTC with a caret, listing `Exchange` 0.15000000 BTC and
+  `Kraken` 0.00000000 BTC. Bank (USD) $45,000.00, with no caret. Reload:
+  the open lines stay open. Every golden figure.
 - **ACC-7** **Add transaction**, Transfer, From Account `Exchange BTC`.
   Expect To Account blank, offering under "Wallets" `Wallet` and
   `Coldcard`, and under "Exchanges" `Kraken BTC` and `Exchange: consolidate
@@ -1190,9 +1190,9 @@ Set `KEY` to the key from AI-3, and use
   "Imported 3 transaction(s)." and the Sell at Gain +$13.33: River's
   $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
   lot ($148.50 plus its $1.50 fee), where IMP-4's same sale at the
-  Exchange took lot C (+$5.00). Dashboard: the Wallet card's list
-  `Coldcard` 0.00100000 BTC; the Exchange card's `Kraken` $55.00
-  0.00030000 BTC; **Filter transactions** `Coldcard` shows only the
+  Exchange took lot C (+$5.00). Dashboard: Wallet (BTC) lists `Coldcard`
+  0.00100000 BTC; Exchange (USD) `Kraken` $55.00 and Exchange (BTC)
+  `Kraken` 0.00030000 BTC; **Filter transactions** `Coldcard` shows only the
   Transfer. Preview the file again with the same choices: "3 already in
   ledger", "0 new"; **Cancel**.
 - **IMP-5** (from 2.0) A second exchange's file through the importer for
@@ -1269,8 +1269,9 @@ Set `KEY` to the key from AI-3, and use
   Reward of 0.00000123 BTC into Kraken BTC. IMP-4b's 2026 Sell now shows Gain
   +$4.87, not +$13.33: Kraken's oldest coins are now the 2025 buy's, and
   0.0005 of them cost $50.13 (lots per exchange, first in, first out).
-  Dashboard: the Exchange card's `Kraken` with no exchange's dollars below
-  zero, and 0.00326623 BTC, and the Wallet card's `Coldcard` 0.00200000 BTC.
+  Dashboard: Exchange (USD) lists `Kraken` at no dollars below zero,
+  Exchange (BTC) `Kraken` 0.00326623 BTC and Wallet (BTC) `Coldcard`
+  0.00200000 BTC.
   Preview the file again with the same choices: "6 already in ledger", "0 new"; **Cancel**.
 - **IMP-6** (from 2.0) Another exchange's file, its columns matched by
   hand. Save this file as `example.csv` (B5b's click-through test's):
@@ -1513,7 +1514,7 @@ Start from the `clean` snapshot.
     into `Bank`, saves with no dialog. Delete it.
   - Settings, open **Wallets, exchanges and banks**: "1 wallet · 1
     exchange · 1 bank", the rows `Wallet`, `Exchange` and `Bank`, each in
-    use. The dashboard's cards have no **Show accounts**. **About
+    use. The dashboard's Portfolio Overview has no caret. **About
     BitcoinTX** has AUTH-4b's notice. The Complete Tax Reports end section
     2 with "Sales by exchange", as in the expected-figures table; every
     other figure as UPG-1 recorded.

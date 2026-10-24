@@ -10,22 +10,15 @@
 //   Long-term: sell 2 (held > 1 year) 9,000 − 2,000 = 7,000
 //   Income: 0.01 BTC at $50,000 = 500
 import {
-  test, expect, figure, parseFigure, seedKnownLedger, choosePriceSource, CURRENT_PRICE, sendConfirmed,
+  test, expect, figure, seedKnownLedger, choosePriceSource, CURRENT_PRICE, sendConfirmed,
 } from "./fixtures";
-import type { Page } from "@playwright/test";
-
-/** A kind's card, Bank, Exchange or Wallet (P7's cards, #356): its total, and an exchange's bitcoin under its dollars. */
-async function cardTotals(page: Page, kind: "Bank" | "Exchange" | "Wallet"): Promise<number[]> {
-  const card = page.getByRole("region", { name: kind, exact: true });
-  await expect(card).toBeVisible();
-  return (await card.locator(".account-card-total, .account-card-second").allInnerTexts()).map(parseFigure);
-}
 
 test("empty ledger shows zeros", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
-  expect(await cardTotals(page, "Bank")).toEqual([0]);
-  expect(await cardTotals(page, "Exchange")).toEqual([0, 0]);
-  expect(await cardTotals(page, "Wallet")).toEqual([0]);
+  expect(await figure(page, "Bank (USD)")).toBe(0);
+  expect(await figure(page, "Exchange (USD)")).toBe(0);
+  expect(await figure(page, "Exchange (BTC)")).toBe(0);
+  expect(await figure(page, "Wallet (BTC)")).toBe(0);
   expect(await figure(page, "Total BTC")).toBe(0);
   expect(await figure(page, "Total Net Capital Gains")).toBe(0);
 });
@@ -34,11 +27,12 @@ test("balances, basis, gains and income after a known ledger", async ({ authedPa
   await seedKnownLedger(page.request);
   await page.reload();
 
-  expect(await cardTotals(page, "Bank")).toEqual([80000]);
-  expect(await cardTotals(page, "Exchange")).toEqual([15980, 0.15]);
-  expect(await cardTotals(page, "Wallet")).toEqual([0.5099]);
-  // One account of each kind: the cards look as 1.x's balances did, with no toggle
-  await expect(page.getByRole("button", { name: /^Show accounts/ })).toHaveCount(0);
+  expect(await figure(page, "Bank (USD)")).toBe(80000);
+  expect(await figure(page, "Exchange (USD)")).toBe(15980);
+  expect(await figure(page, "Exchange (BTC)")).toBe(0.15);
+  expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
+  // One account of each kind: Portfolio Overview is 1.x's card, with no caret (#674)
+  await expect(page.locator(".portfolio-overview").getByRole("button")).toHaveCount(0);
   expect(await figure(page, "Total BTC")).toBe(0.6599);
   expect(await figure(page, "Avg. Cost per BTC")).toBeCloseTo(13498 / 0.6599, 1);
   expect(await figure(page, "Unrealized Gains/Losses")).toBeCloseTo(26096, 0);

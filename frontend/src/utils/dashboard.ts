@@ -89,97 +89,96 @@ function readable(balances: AccountBalance[]): { account: AccountBalance; balanc
     .filter(({ balance }) => !Number.isNaN(balance));
 }
 
+/** A kind's line on Portfolio Overview, as 1.x has them (#674): its key is its total's in AccountTotals. */
+export type BalanceLineKey = Exclude<keyof AccountTotals, "totalBtc">;
+
+/** The line an account's balance adds to: a bank's and a wallet's by kind, an exchange's by currency. */
+function lineOf(account: AccountBalance): BalanceLineKey {
+  if (account.kind === "bank") return "bank";
+  if (account.kind === "wallet") return "wallet";
+  return account.currency === "USD" ? "exchangeUsd" : "exchangeBtc";
+}
+
 /** The totals of the account balances, by kind (2.0 spec 5.13), hidden
  * accounts included: they still hold what they hold. */
 export function accountTotals(balances: AccountBalance[]): AccountTotals {
   const totals = { ...NO_TOTALS };
-  for (const { account, balance } of readable(balances)) {
-    if (account.kind === "bank") totals.bank += balance;
-    else if (account.kind === "wallet") totals.wallet += balance;
-    else if (account.currency === "USD") totals.exchangeUsd += balance;
-    else totals.exchangeBtc += balance;
-  }
+  for (const { account, balance } of readable(balances)) totals[lineOf(account)] += balance;
   totals.totalBtc = totals.wallet + totals.exchangeBtc;
   return totals;
 }
 
-export type CardKind = "bank" | "exchange" | "wallet";
-
-/** One line of a card's list: a bank or a wallet, or an exchange with its
- * dollars and its bitcoin side by side. */
-export interface CardRow {
+/** One account listed under its kind's line: a bank, a wallet, or one exchange's dollars or bitcoin. */
+export interface LineAccount {
   key: string;
   name: string;
-  usd: number;
-  btc: number;
+  amount: number;
   hidden: boolean;
 }
 
-/** One of the dashboard's three cards: a kind's totals and its accounts. */
-export interface KindCard {
-  kind: CardKind;
-  title: "Bank" | "Exchange" | "Wallet";
-  usd: number;
-  btc: number;
-  rows: CardRow[];
+/** A kind's line: its total and the accounts that make it up. */
+export interface BalanceLine {
+  key: BalanceLineKey;
+  label: string;
+  currency: "USD" | "BTC";
+  total: number;
+  accounts: LineAccount[];
 }
 
-const CARDS: [CardKind, KindCard["title"]][] = [["bank", "Bank"], ["exchange", "Exchange"], ["wallet", "Wallet"]];
+const LINES: [BalanceLineKey, string, BalanceLine["currency"]][] = [
+  ["bank", "Bank (USD)", "USD"], ["exchangeUsd", "Exchange (USD)", "USD"],
+  ["exchangeBtc", "Exchange (BTC)", "BTC"], ["wallet", "Wallet (BTC)", "BTC"],
+];
 
-/** The cards' titles, in their order: a loading dashboard shows them too. */
-export const CARD_TITLES = CARDS.map(([, title]) => title);
-
-/** The rows of one kind: an exchange's two accounts as one row, in the
- * balances' order (by id); a hidden one holding nothing left out (5.13). */
-function cardRows(kind: CardKind, balances: { account: AccountBalance; balance: number }[]): CardRow[] {
-  const rows = new Map<string, CardRow>();
-  for (const { account, balance } of balances) {
-    if (account.kind !== kind) continue;
-    const isExchange = kind === "exchange" && account.exchange_id !== null;
-    const key = isExchange ? `exchange-${account.exchange_id}` : `account-${account.account_id}`;
-    const row = rows.get(key)
-      ?? { key, name: isExchange ? account.exchange ?? account.name : account.name, usd: 0, btc: 0, hidden: true };
-    if (account.currency === "USD") row.usd += balance;
-    else row.btc += balance;
-    row.hidden = row.hidden && account.hidden;
-    rows.set(key, row);
-  }
-  return [...rows.values()].filter((row) => !row.hidden || row.usd !== 0 || row.btc !== 0);
+/** An account as listed under its line: an exchange's by the exchange's name, its line naming the currency. */
+function lineAccount({ account, balance }: { account: AccountBalance; balance: number }): LineAccount {
+  const name = account.kind === "exchange" ? account.exchange ?? account.name : account.name;
+  return { key: `account-${account.account_id}`, name, amount: balance, hidden: account.hidden };
 }
 
-/** Bank, Exchange and Wallet, as P7's mockups have them (#356): each with its
- * totals and its accounts, the fee accounts on none. */
-export function kindCards(balances: AccountBalance[]): KindCard[] {
+/** Bank (USD), Exchange (USD), Exchange (BTC) and Wallet (BTC), each with its
+ * total and its accounts by id, the fee accounts on none; a hidden account
+ * holding nothing in its line's currency is left out of it (5.13). */
+export function balanceLines(balances: AccountBalance[]): BalanceLine[] {
   const shown = [...readable(balances)].sort((a, b) => a.account.account_id - b.account.account_id);
   const totals = accountTotals(balances);
-  const sums: Record<CardKind, [number, number]> = {
-    bank: [totals.bank, 0], exchange: [totals.exchangeUsd, totals.exchangeBtc], wallet: [0, totals.wallet],
-  };
-  return CARDS.map(([kind, title]) => ({ kind, title, usd: sums[kind][0], btc: sums[kind][1], rows: cardRows(kind, shown) }));
+  return LINES.map(([key, label, currency]) => ({
+    key, label, currency, total: totals[key],
+    accounts: shown.filter(({ account }) => lineOf(account) === key).map(lineAccount)
+      .filter((row) => !row.hidden || row.amount !== 0),
+  }));
 }
 
-/** The card's toggle: only when it has more than one account to show. */
-export function toggleLabel(card: KindCard, open: boolean): string | null {
-  if (card.rows.length < 2) return null;
-  return open ? "Hide accounts" : `Show accounts (${card.rows.length})`;
+/** A line's caret: only when it has something to list, more than one
+ * account or a hidden one still holding something (#674). With one account
+ * of each kind there's none, and the card is 1.x's. */
+export function listsAccounts(line: BalanceLine): boolean {
+  return line.accounts.length > 1 || line.accounts.some((account) => account.hidden);
 }
 
-/** Where the browser keeps which cards are open (P7: remembered per browser). */
-export const OPEN_CARDS_KEY = "btctx.dashboard.openCards";
+/** Where this device keeps which lines are open: alpha.1's key for its cards
+ * (#356), so a choice made there carries over (readOpenLines). */
+export const OPEN_LINES_KEY = "btctx.dashboard.openCards";
 
-/** The open cards as stored: only the three kinds; none for nothing or anything else. */
-export function readOpenCards(stored: string | null): CardKind[] {
+// alpha.1's Exchange card showed the exchanges' dollars and bitcoin: both their lines
+const ALPHA_1_EXCHANGE: BalanceLineKey[] = ["exchangeUsd", "exchangeBtc"];
+
+/** The open lines as stored, in the card's order: only the four lines
+ * (alpha.1's cards read as theirs); none for nothing or anything else. */
+export function readOpenLines(stored: string | null): BalanceLineKey[] {
   try {
     const parsed: unknown = JSON.parse(stored ?? "[]");
-    return Array.isArray(parsed) ? CARDS.map(([kind]) => kind).filter((kind) => parsed.includes(kind)) : [];
+    if (!Array.isArray(parsed)) return [];
+    const open = parsed.flatMap((value) => (value === "exchange" ? ALPHA_1_EXCHANGE : [value]));
+    return LINES.map(([key]) => key).filter((key) => open.includes(key));
   } catch {
     return [];
   }
 }
 
-/** The open cards once `kind` is opened or closed. */
-export function openCardsAfter(open: CardKind[], kind: CardKind): CardKind[] {
-  return open.includes(kind) ? open.filter((k) => k !== kind) : [...open, kind];
+/** The open lines once `key` is opened or closed. */
+export function openLinesAfter(open: BalanceLineKey[], key: BalanceLineKey): BalanceLineKey[] {
+  return open.includes(key) ? open.filter((k) => k !== key) : [...open, key];
 }
 
 /** The colour of a net figure: green for a gain, red for a loss, none at 0. */
