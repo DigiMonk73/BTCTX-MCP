@@ -34,9 +34,10 @@ def permissions(block: str, indent: str) -> set[str]:
 
 
 def released_files() -> list[str]:
-    """The files `gh release create` uploads, its continuation lines included."""
+    """The files `gh release create` uploads, its continuation lines included
+    (the Mac app's by the names its build gave them: $MAC_DMG, $MAC_ZIP)."""
     command = re.search(r"gh release create (?:.*\\\n)*.*", job("release")).group(0)
-    return re.findall(r"dist/(\S+)", command)
+    return re.findall(r'dist/([^\s"]+)', command)
 
 
 def test_the_release_uploads_sha256sums_of_every_other_file():
@@ -44,7 +45,7 @@ def test_the_release_uploads_sha256sums_of_every_other_file():
     assert summed, "the release job writes SHA256SUMS with sha256sum"
     released = released_files()
     assert "SHA256SUMS" in released
-    assert sorted(summed.group(1).split()) == sorted(f for f in released if f != "SHA256SUMS")
+    assert sorted(summed.group(1).replace('"', "").split()) == sorted(f for f in released if f != "SHA256SUMS")
 
 
 def test_the_files_are_attested_before_the_release_is_created():
@@ -108,11 +109,13 @@ def test_notes_too_long_for_github_are_refused(tmp_path):
 
 def test_the_notes_are_checked_before_anything_is_published():
     check = job("check")
-    assert 'scripts/release-notes.sh "$TAG" > /dev/null' in check
-    assert check.index("scripts/release-notes.sh") < check.index('echo "tag=$TAG"')
+    assert 'scripts/release-notes.sh "$tag" > /dev/null' in check
+    assert check.index("scripts/release-notes.sh") < check.index('cat version.env >> "$GITHUB_OUTPUT"')
     for publishing in ("image", "pypi", "macos", "s9pk", "release"):
         assert re.search(r"needs: (check|\[check\b)", job(publishing)), publishing
+    # a release's notes, and a beta's after its opening words (2.0 plan 7.4, B10a)
     assert 'scripts/release-notes.sh "$TAG" > notes.md' in job("release")
+    assert 'scripts/release-notes.sh "$TAG" >> beta.md' in job("release")
     mirror = (REPO / "scripts/mirror-startos-release.sh").read_text()
     assert '"$ROOT/scripts/release-notes.sh" "$SOURCE_TAG" > "$NOTES"' in mirror
     assert "awk" not in mirror

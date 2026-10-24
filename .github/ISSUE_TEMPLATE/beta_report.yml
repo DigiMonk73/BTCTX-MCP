@@ -1,0 +1,89 @@
+name: 2.0 beta report
+description: Something in a BitcoinTX 2.0 pre-release (v2.0.0-beta.N) doesn't work, or shows a wrong figure.
+labels: ["beta", "unconfirmed"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing BitcoinTX 2.0. **Issues are public: never post personal data.** That means no real ledger figures, Bitcoin addresses or transaction ids, keys, passwords, server addresses, or screenshots of your real ledger. Show the problem on a test ledger: a few made-up transactions in an empty ledger (the Mac beta starts with one), never your real records.
+
+        **A security problem?** Don't file it here: report it privately ([SECURITY.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/SECURITY.md)).
+  - type: input
+    id: beta
+    attributes:
+      label: Which beta
+      description: "The pre-release you ran, from its GitHub page, or Settings → About BitcoinTX. On StartOS, the Services list shows the package version too."
+      placeholder: "2.0.0-beta.1 (StartOS package 2.0.0-beta.1:0)"
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Where you run it
+      options:
+        - StartOS
+        - macOS app (BitcoinTX Beta)
+        - Docker
+        - AI connector (btctx-mcp 2.0 beta)
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did and what BitcoinTX did. Copy any error message exactly.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: For a figure, what you expected it to be and why (with test numbers).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps on a test ledger
+      description: Ideally from an empty ledger, with made-up transactions, so anyone can follow them.
+      placeholder: |
+        1. Settings → Wallets, exchanges and banks: add a second exchange, "Exchange 2"
+        2. Add a Buy of 0.1 BTC on Exchange 2 on 2025-01-02 for $9,000
+        3. Open Reports > IRS Reports for 2025
+    validations:
+      required: true
+  - type: dropdown
+    id: tax-figure
+    attributes:
+      label: Could this make a tax figure wrong?
+      description: Proceeds, cost basis, gain or loss, income, or a line on Form 8949 or Schedule D.
+      options:
+        - "Yes"
+        - "No"
+        - "Not sure"
+    validations:
+      required: true
+  - type: dropdown
+    id: blocker
+    attributes:
+      label: Did it stop you?
+      options:
+        - "Yes: I couldn't go on, or my test ledger was damaged"
+        - "No: I could carry on"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Pasted as text. Remove personal data first.
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you submit
+      options:
+        - label: I removed personal data (ledger figures, addresses, transaction ids, keys, passwords, server addresses).
+          required: true
+        - label: I checked the open beta reports for the same problem.
+          required: true
