@@ -2,6 +2,7 @@ import React from "react";
 import { ChevronDown } from "lucide-react";
 import { KIND_LABEL, canDelete, ledgerIds, sends1099da, type AccountRow } from "../../utils/ledgerAccounts";
 import ExchangeSwitch from "./ExchangeSwitch";
+import RenameAccount from "./RenameAccount";
 
 interface AccountRowItemProps {
   row: AccountRow;
@@ -15,6 +16,8 @@ interface AccountRowItemProps {
   onDelete: (row: AccountRow) => void;
   /** An exchange's 1099-DA switch turned on or off. */
   onSwitch1099da: (row: AccountRow, on: boolean) => void;
+  /** A new name sent; true once the server made it (#356). */
+  onRename: (row: AccountRow, name: string) => Promise<boolean>;
 }
 
 // The API's own words for what it refuses (services/account.py), said before it's asked
@@ -22,10 +25,10 @@ const IN_USE = "This account has transactions, so it can't be deleted. Hide it i
 const FIRST_OF_EACH = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use.";
 
 /** One of your accounts (an exchange: its two) as a row: its name, kind and
- * balance; its details, an exchange's 1099-DA switch, Hide or Show and Delete
- * while unused, open below it. */
+ * balance; its details, Rename, an exchange's 1099-DA switch, Hide or Show
+ * and Delete while unused, open below it. */
 const AccountRowItem: React.FC<AccountRowItemProps> = ({
-  row, balance, open, busy, switching, onToggle, onHide, onDelete, onSwitch1099da,
+  row, balance, open, busy, switching, onToggle, onHide, onDelete, onSwitch1099da, onRename,
 }) => {
   const details = ledgerIds.rowDetails(row.key);
   const deletable = canDelete(row);
@@ -52,6 +55,7 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({
       </button>
       {open && (
         <div id={details} className="ledger-account-details" role="region" aria-label={row.name}>
+          <RenameAccount row={row} busy={busy || switching} onRename={onRename} />
           {sends !== null && (
             <ExchangeSwitch rowKey={row.key} on={sends} busy={busy} onChange={(on) => onSwitch1099da(row, on)} />
           )}

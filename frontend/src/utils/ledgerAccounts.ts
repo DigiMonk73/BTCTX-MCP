@@ -166,13 +166,17 @@ export const POOLED_NOTE: Record<"wallet" | "exchange", string> = {
   exchange: pooled("exchange", "exchange accounts", "exchange account"),
 };
 
+/** A name as the server will keep it (5.1: each run of spaces one space, at the ends none). */
+function keptName(name: string): string {
+  return name.normalize("NFC").replace(/\p{Zs}+/gu, " ").replace(/^ | $/g, "");
+}
+
 /** The help text under the name when adding (5.1, 5.9): an exchange's with the
- * name as the server will keep it (5.1: each run of spaces one space, at the
- * ends none); none for a bank. */
+ * name as the server will keep it; none for a bank. */
 export function addHelp(kind: YourKind, name: string): string | null {
   if (kind === "wallet") return WALLET_HELP;
   if (kind === "bank") return null;
-  const shown = name.normalize("NFC").replace(/\p{Zs}+/gu, " ").replace(/^ | $/g, "");
+  const shown = keptName(name);
   return shown ? exchangeHelp(shown) : EXCHANGE_HELP;
 }
 
@@ -182,4 +186,21 @@ export function addHelp(kind: YourKind, name: string): string | null {
 export function pooledNote(book: AccountBook, kind: YourKind): string | null {
   if (kind === "bank") return null;
   return book.some((account) => account.kind === kind && account.in_use) ? POOLED_NOTE[kind] : null;
+}
+
+// Settings' Rename (#356, 2.0 spec 5.9 and 5.11's note on names in files)
+export const RENAME_FILES_NOTE =
+  "A CSV file names accounts as they're named when you import it: one saved before a rename still " +
+  "names this account by its old name.";
+
+/** Whether Rename has something to send: a name the server would keep that
+ * isn't the row's (an exchange's row: the exchange's); its case counts. */
+export function renameReady(row: AccountRow, typed: string): boolean {
+  const kept = keptName(typed);
+  return kept !== "" && kept !== row.name;
+}
+
+/** Under an exchange's new name, what its two accounts become, as Add says it; none for a bank or a wallet. */
+export function renameHelp(row: AccountRow, typed: string): string | null {
+  return row.kind === "exchange" ? addHelp("exchange", typed) : null;
 }

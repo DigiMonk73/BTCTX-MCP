@@ -20,10 +20,12 @@ All notable changes to BitcoinTX are documented in this file.
   name), shows an amount in its account's currency, calls any bitcoin
   account sent to itself a "Consolidation" (an exchange's too, which was
   "Between exchanges"), and gets an account filter grouped by kind. Ledger
-  Review (and `cli review`) names each item's accounts. Any account but
-  the fee accounts can be renamed through the account API (an exchange
-  renames both of its accounts), and your first bank, wallet and exchange
-  can take back their old names. No figure changes.
+  Review (and `cli review`) names each item's accounts. Settings' Wallets,
+  exchanges and banks gets Rename on each account: an exchange renames
+  both of its accounts, your first bank, wallet and exchange can take back
+  their old names, and the fee accounts keep theirs; a CSV file saved
+  before a rename still names the account by its old name. No figure
+  changes.
 - **Settings in sections, and "Wallets, exchanges and banks"** (B7b,
   #355). Settings opens as a list of its sections, each with a line on
   what's inside (Ledger Review's says how many transactions it wants you

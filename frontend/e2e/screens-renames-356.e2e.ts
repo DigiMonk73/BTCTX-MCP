@@ -1,8 +1,8 @@
-// B8's screens (#356; 2.0 spec 5.13, P7's mockups on #572): the dashboard's
-// cards and their "Show accounts (n)", a renamed Wallet on its card and in
-// the list, and the Transactions page's account filter. Elements by role and
-// name, as the mockups name them.
-import { test, expect, parseFigure, seedKnownLedger } from "./fixtures";
+// B8's screens (#356; 2.0 spec 5.9, 5.13, P7's mockups on #572): the
+// dashboard's cards and their "Show accounts (n)", a renamed Wallet on its
+// card and in the list, the Transactions page's account filter, and
+// Settings' Rename. Elements by role and name, as the mockups name them.
+import { test, expect, openSection, parseFigure, seedKnownLedger } from "./fixtures";
 import type { APIRequestContext, Page } from "@playwright/test";
 
 async function addAccount(request: APIRequestContext, kind: string, name: string) {
@@ -90,3 +90,45 @@ test("on a phone the cards stack and the toggle is a 44 px target", async ({ aut
   const [bank, exchange] = [await card(page, "Bank").boundingBox(), await card(page, "Exchange").boundingBox()];
   expect(exchange!.y).toBeGreaterThan(bank!.y + bank!.height - 1);
 });
+
+async function accountsSection(page: Page) {
+  await page.getByRole("link", { name: "Settings" }).click();
+  return openSection(page, "Wallets, exchanges and banks");
+}
+
+test("Settings' Rename renames a wallet and an exchange, and the list names them so", async ({ authedPage: page }) => {
+  await seedKnownLedger(page.request);
+  const section = await accountsSection(page);
+
+  await section.getByRole("button", { name: /^Wallet\b/ }).click();
+  const wallet = section.getByRole("region", { name: "Wallet" });
+  await expect(wallet.getByRole("button", { name: "Rename" })).toBeDisabled(); // its own name: nothing to send
+  await wallet.getByLabel("Name").fill("Phone Wallet");
+  await wallet.getByRole("button", { name: "Rename" }).click();
+  await expect(section.getByRole("button", { name: /^Phone Wallet\b/ })).toBeVisible();
+
+  await section.getByRole("button", { name: /^Exchange\b/ }).click();
+  const exchange = section.getByRole("region", { name: "Exchange" });
+  await exchange.getByLabel("Name").fill("Coinbase");
+  await expect(exchange.getByText(
+    "BitcoinTX keeps an exchange's dollars and bitcoin as two accounts, 'Coinbase USD' and 'Coinbase BTC'.",
+  )).toBeVisible();
+  await exchange.getByRole("button", { name: "Rename" }).click();
+  await expect(section.getByRole("button", { name: /^Coinbase\b/ })).toBeVisible();
+
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "Transfer" })).toContainText("Coinbase BTC \u2192 Phone Wallet");
+  await expect(page.getByRole("listitem").filter({ hasText: "Buy" })).toContainText("Coinbase");
+});
+
+test("Settings' Rename says what the server refuses, in its words", async ({ authedPage: page }) => {
+  const section = await accountsSection(page);
+  await section.getByRole("button", { name: /^Bank\b/ }).click();
+  const bank = section.getByRole("region", { name: "Bank" });
+  await bank.getByLabel("Name").fill("Wallet");
+  await bank.getByRole("button", { name: "Rename" }).click();
+  await expect(section.getByRole("alert")).toHaveText(
+    "'Wallet' always means your first wallet in files (CSV, River, BitcoinTX 1.x): choose another name.");
+  await expect(section.getByRole("button", { name: /^Bank\b/ })).toBeVisible();
+});
+
