@@ -711,7 +711,7 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
   cost of the lots it made 6200.00.` Tick Kraken's 1099-DA box again:
   saved at once, with no dialog (Kraken has no sale left). Expect 14 rows,
   every golden figure, and Kraken's row $0.00 · 0.00000000 BTC with
-  **Delete** offered again. Keep Kraken: AI-15, IMP-4b and END-2 use it.
+  **Delete** offered again. Keep Kraken: AI-15, IMP-4b to IMP-6 and END-2 use it.
 
 ### PYW: the past-year dialog's own rules (2.0; price source Nobody)
 
@@ -1251,25 +1251,27 @@ Set `KEY` to the key from AI-3, and use
     <V>; cost of the lots it made <V>.`, V being 0.00000123 × the price at
     `2025-03-13T00:00:00Z`, to the cent.
 
-  (From 2027 the dialog names tax years 2025 and 2026, and lists IMP-4b's
-  Sell too.) **Save anyway (a copy is made first)**. Expect "Imported 6
-  transaction(s)." On Transactions, **Filter transactions** `Kraken`: "9 of
-  26 transactions", the six with IMP-4b's three. The rows: the 0.005 BTC
-  Buy, Kraken USD → Kraken BTC, at a cost of $500.00 and a fee of $1.30
-  (its **Edit**: Amount USD 500, Fee (USD) 1.30); the Sell, Gain +$8.93
-  ($209.45 net of its $0.55 fee, less $200.52, the cost of 0.002 of Kraken's own 0.005 BTC, bought for
-  $500.00 plus its $1.30 fee); the 0.00098 BTC Buy, $100.00 and a $1.49
-  fee; the Transfer of 0.002015 BTC, Kraken BTC → Coldcard, its fee
-  0.000015 BTC; the Transfer of 0.001 BTC, Coldcard → Kraken BTC; and the
-  Reward of 0.00000123 BTC into Kraken BTC. IMP-4b's 2026 Sell now shows
-  Gain +$4.87, not +$13.33: Kraken's oldest coins are now the 2025 buy's,
-  and 0.0005 of them cost $50.13 (lots per exchange, first in, first out).
+  (From 2027 the dialog names tax years 2025 and 2026, and also lists IMP-4b's
+  Sell, now of the 2025 buy's coins (among its changes: gain 13.33 -> 4.87,
+  short-term to long-term, box G -> K, date acquired 03/03/2026 ->
+  01/03/2025), and IMP-4b's Transfer (cost of the lots it made 83.33 ->
+  100.26).) **Save anyway (a copy is made first)**. Expect "Imported 6
+  transaction(s)." On Transactions, **Filter transactions** `Kraken`: "9 of 26
+  transactions", the six with IMP-4b's three. The rows: the 0.005 BTC Buy,
+  Kraken USD → Kraken BTC, at a cost of $500.00 and a fee of $1.30 (its
+  **Edit**: Amount USD 500, Fee (USD) 1.30); the Sell, Gain +$8.93 ($209.45
+  net of its $0.55 fee, less $200.52, the cost of 0.002 of Kraken's own 0.005
+  BTC, bought for $500.00 plus its $1.30 fee); the 0.00098 BTC Buy, $100.00
+  and a $1.49 fee; the Transfer of 0.002015 BTC, Kraken BTC → Coldcard, its
+  fee 0.000015 BTC; the Transfer of 0.001 BTC, Coldcard → Kraken BTC; and the
+  Reward of 0.00000123 BTC into Kraken BTC. IMP-4b's 2026 Sell now shows Gain
+  +$4.87, not +$13.33: Kraken's oldest coins are now the 2025 buy's, and
+  0.0005 of them cost $50.13 (lots per exchange, first in, first out).
   Dashboard: the Exchange card's `Kraken` with no exchange's dollars below
-  zero, and 0.00326623 BTC, and the Wallet card's `Coldcard` 0.00200000
-  BTC. (KNOWN until #655 is fixed: the file's dollar deposit, row 2, isn't
-  read, so its buys leave Kraken at −$338.34.) Preview the
-  file again with the same choices: "6 already in ledger", "0 new";
-  **Cancel**.
+  zero, and 0.00326623 BTC, and the Wallet card's `Coldcard` 0.00200000 BTC.
+  (KNOWN until #655 is fixed: the file's dollar deposit, row 2, isn't read, so
+  its buys leave Kraken at −$338.34.) Preview the file again with the same
+  choices: "6 already in ledger", "0 new"; **Cancel**.
 - **IMP-6** (from 2.0) Another exchange's file, its columns matched by
   hand. Save this file as `example.csv` (B5b's click-through test's):
 
@@ -1307,7 +1309,13 @@ Set `KEY` to the key from AI-3, and use
   taxable gain incl. network fees <F − 1.01>; cost of the lots it made
   200.60.` (F: 0.00001 × the price at `2025-04-03T09:00:00Z`). **Save
   anyway**: "Imported 2 transaction(s).", the Buy's cost basis $1,000.00
-  and its fee $10.00 (the $1,010.00 paid held the fee). Reload: **Exchange
+  and its fee $10.00 (the $1,010.00 paid held the fee). IMP-4b's 2026 Sell
+  now shows Gain +$3.22: the Transfer took the rest of Kraken's 2025-01-03
+  lot, so the Sell's coins are now the 2025-02-15 buy's. (From 2027 the
+  dialog names 2025 and 2026 and also lists IMP-4b's Sell, among its
+  changes basis 50.13 -> 51.78, gain 4.87 -> 3.22 and date acquired
+  01/03/2025 -> 02/15/2025, and its Transfer, cost of the lots it made
+  100.26 -> 102.14.) Reload: **Exchange
   file** still lists `Example Exchange` under "Your mappings".
 - **IMP-7** Preview a CSV that isn't the chosen exchange's, for example
   `date,type,amount` plus one row. With **Exchange file** `River`, expect
