@@ -30,10 +30,19 @@ takes it once a day (see Branches).
   figure only on purpose, with a plain-words before-and-after the owner
   approves ("Reviews": the figures rule). The owner isn't asked to judge
   code: Claude is.
-- The owner's real ledger is the installed Mac app's data. Never test on it,
-  run a script against it or point the AI connector at it; use temp
-  databases, `make preview` or the StartOS test VM, and run a Mac build
-  only with `desktop/run-test-build.sh` (its own data folder and port).
+- The owner's real ledger is the installed Mac app's data, on the owner's
+  own Mac only. Never test on it, run a script against it or point the AI
+  connector at it; use temp databases, `make preview` or the StartOS test
+  VM, and run a Mac build only with `desktop/run-test-build.sh` (its own
+  data folder and port).
+- **Development happens on a separate computer, the development computer
+  (the Mac mini)** (the owner, 2026-10-19), which never holds a real
+  ledger, the installed app with one, or a connector to one. Every repo,
+  the test VM's lab (`~/code/btctx-vm-lab`), the Mac app's test builds and
+  the Monday report (on one computer only) are there; the owner's Mac keeps
+  the real ledger. It keeps its checkouts too, for work there now and then
+  and as a backup: pull first, push before leaving (`make sync-check` on
+  both), and the rule above holds there.
 - Other people install BitcoinTX from Start9's community registry: a
   release that breaks an update or loses data hurts users who trust it.
 - Start9's reviewers and users care about privacy: no price is asked of
@@ -49,7 +58,7 @@ takes it once a day (see Branches).
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
-  attention (a scheduled task on the owner's Mac).
+  attention (a scheduled task on the development computer).
 - **Grok** is a second set of eyes, never the developer (its
   roles and passes: `docs/GROK-REVIEW.md`):
   - Grok Bot on the web brainstorms from links the owner gives it
@@ -847,8 +856,10 @@ the rules.
    run opens an issue here, "Send vX.Y.Z to Start9", with the one-click link
    and steps for the owner; or open it yourself with the owner's OK
    (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
-   `scripts/start9-pull.sh --fork`). While a pull request of ours is still
-   open there, it carries the new release too, and no issue is opened.
+   `scripts/start9-pull.sh --fork`); with a token that can't post on
+   their fork, opening it is the owner's click ("Start9"). While a pull
+   request of ours is still open there, it carries the new release too, and
+   no issue is opened.
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
@@ -912,6 +923,9 @@ The whole flow, in plain steps for the owner and every session:
     would change one of the owner's decisions, ask the owner.
 - Start9's fork, Start9-Community/BTCTX-StartOS, is where the package is
   built and published; how a change reaches it is under "Releasing".
+  A token that can't post on the fork (a fine-grained one can't, on a
+  repository the owner isn't a member of) leaves every pull request,
+  issue and comment there to the owner's click in the browser.
 - Each merge there publishes to Community Beta
   (`https://community-beta-registry.start9.com`). The owner tests it on
   their server, then asks Start9 in an issue on the fork to promote it to
