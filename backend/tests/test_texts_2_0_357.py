@@ -69,8 +69,7 @@ def shipped_texts() -> dict[str, str]:
 
 def every_text() -> dict[str, str]:
     """Every tracked file that is text, whatever its kind (PyPI's summary is
-    in a .toml, the image's labels in the Dockerfile), as words; tests left
-    out. An image or a PDF isn't text."""
+    in a .toml), as words; tests left out. An image or a PDF isn't text."""
     texts = {}
     for path in tracked():
         if is_a_test(path):

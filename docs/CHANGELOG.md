@@ -11,10 +11,11 @@ All notable changes to BitcoinTX are documented in this file.
   the AI connector's README (PyPI's page, from the next pre-release's
   connector on), which also no longer gives a bank lots of its own (each
   wallet and exchange has its own lots), and the StartOS store listing's
-  long description, in all five languages. The rest of each sentence is
-  unchanged, and a test keeps the word out of everything that ships, in
-  every language (this CHANGELOG keeps its history as written). GitHub's
-  About for this repository follows when 2.0 replaces 1.x.
+  long description, in all five languages. Only the word goes, except that
+  the connector's line now says what BitcoinTX is, "a self-hosted Bitcoin
+  portfolio and tax tracker"; a test keeps the word out of everything that
+  ships, in every language (this CHANGELOG keeps its history as written).
+  GitHub's About for this repository follows when 2.0 replaces 1.x.
 
 ## [v2.0.0-alpha.1] - 2026-10-24 - 2.0's first alpha: your wallets, exchanges and banks, each wallet and exchange with its own coins
 
