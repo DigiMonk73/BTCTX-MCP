@@ -7,9 +7,11 @@ import { serverReason } from "../utils/apiError";
 import { parseTransaction } from "../utils/format";
 import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
+import PastYearDialog from "./PastYearDialog";
 import TypeFields from "./transactionForm/TypeFields";
-import { saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
+import { deleteTransaction, saveFailedMessage, saveTransaction } from "./transactionForm/saveTransaction";
 import { useFieldAutofill } from "./transactionForm/useFieldAutofill";
+import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 
 // What a change of type resets, and a new transaction starts with. Blank,
 // not 0: a blank income basis or Spent proceeds means "use that hour's BTC
@@ -57,6 +59,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Set synchronously: the state above only disables the button on the next
   // render, so a double click used to save the transaction twice.
   const submittingRef = useRef(false);
+  // A save or delete that changes an earlier tax year waits for the owner's
+  // answer (#352): nothing is processing meanwhile
+  const pastYears = usePastYearWarning();
+  const working = isSubmitting && !pastYears.asking;
 
   // The transaction to edit, read back with the book once it's in.
   useEffect(() => {
@@ -95,8 +101,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   }, [isDirty, onDirtyChange]);
 
   useEffect(() => {
-    onUpdateStatusChange?.(isSubmitting);
-  }, [isSubmitting, onUpdateStatusChange]);
+    onUpdateStatusChange?.(working);
+  }, [working, onUpdateStatusChange]);
 
   useFieldAutofill(currentType, form, book);
 
@@ -117,7 +123,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      toast.success(await saveTransaction(data, book, transactionId));
+      const saved = await pastYears.attempt(transactionId ? "edit" : "add", (confirm) =>
+        saveTransaction(data, book, transactionId, confirm));
+      if (saved === null) return; // the owner cancelled: nothing saved, and the form keeps what was typed
+      toast.success(saved);
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
@@ -130,6 +139,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleDeleteClick = async () => {
+    if (!transactionId) return;
     const confirmed = window.confirm(
       "Are you sure you want to delete this transaction?"
     );
@@ -137,7 +147,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      await api.delete(`/transactions/${transactionId}`);
+      const deleted = await pastYears.attempt("delete", (confirm) => deleteTransaction(transactionId, confirm));
+      if (deleted === null) return; // the owner cancelled: nothing deleted
       toast.success("Transaction deleted successfully!");
       reset();
       onSubmitSuccess?.();
@@ -159,7 +170,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         // eslint-disable-next-line react-hooks/refs
         onSubmit={handleSubmit(onSubmit)}
       >
-        {isSubmitting && (
+        {working && (
           <div className="loading-row form-status">
             <div className="spinner"></div>
             <span>Processing transaction…</span>
@@ -214,6 +225,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           />
         )}
       </form>
+      {/* Outside the form: its buttons and box are the dialog's, never the form's */}
+      {pastYears.question && <PastYearDialog {...pastYears.question} />}
     </FormProvider>
   );
 };

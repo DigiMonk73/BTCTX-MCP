@@ -78,3 +78,17 @@ def test_a_side_without_the_clock_gets_none(monkeypatch):
     monkeypatch.delattr(tax_time, "current_tax_year")
     snapshot.pin_tax_year()
     assert not hasattr(tax_time, "current_tax_year")
+
+
+def test_settings_1x_never_writes_are_left_out_of_the_database_rows(tmp_path):
+    """2.0's recalculated_by (#352) and accounts_old_rows (#348): the pin's
+    1.x side never writes them, so the comparison would count every ledger."""
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
+    with engine.begin() as con:
+        con.execute(text("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT)"))
+        for key in ("tax_timezone", "recalculated_by", "accounts_old_rows"):
+            con.execute(text("INSERT INTO app_settings VALUES (:k, 'x')"), {"k": key})
+    assert [row["key"] for row in snapshot.database_rows(engine)["app_settings"]] == ["tax_timezone"]
+    engine.dispose()
