@@ -42,6 +42,8 @@ declare global {
     currency: Currency;
     exchange_id: number | null;
     exchange: string | null;
+    // The exchange's "This exchange sends me a Form 1099-DA" switch (5.9); null for any other account
+    sends_1099da: boolean | null;
     hidden: boolean;
     in_use: boolean;
   }

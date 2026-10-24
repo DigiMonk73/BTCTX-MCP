@@ -2,7 +2,7 @@
 // the file's row and its column (#480), an error about the whole file is
 // said without a "Row 0:" (#534), and the CSV preview counts a row once,
 // however many errors it has (#479).
-import { test, expect, acceptDialogs } from "./fixtures";
+import { test, expect, acceptDialogs, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 const RIVER_HEADER =
@@ -20,6 +20,7 @@ function data(page: Page) {
 
 async function previewRiver(page: Page, lines: string[]) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from River");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n") + "\n"),
@@ -29,6 +30,7 @@ async function previewRiver(page: Page, lines: string[]) {
 
 async function previewCsv(page: Page, lines: string[]) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Data Management");
   await data(page).getByLabel("CSV file to import").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n") + "\n"),
   });

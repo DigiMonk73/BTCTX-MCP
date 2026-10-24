@@ -11,9 +11,10 @@ import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
  * Settings row: the timezone used for tax dates — which tax year a
  * transaction falls in, Form 8949 dates, and holding-period anniversaries.
  * A timezone that changes an earlier tax year's figures is saved only once
- * the owner confirms it (2.0 spec 5.8).
+ * the owner confirms it (2.0 spec 5.8). `onSaved` once one is: Ledger
+ * Review gives its times and tax years in it (#645).
  */
-const TaxTimezoneSetting: React.FC = () => {
+const TaxTimezoneSetting: React.FC<{ onSaved?: () => void }> = ({ onSaved }) => {
   const toast = useToast();
   const pastYears = usePastYearWarning();
   const [taxTimezone, setTaxTimezoneState] = useState<TaxTimezone | null>(null);
@@ -42,6 +43,7 @@ const TaxTimezoneSetting: React.FC = () => {
       const tz = await pastYears.attempt("setting", (confirm) => setTaxTimezone(selected, confirm));
       if (tz === null) return; // cancelled: nothing saved
       setTaxTimezoneState(tz);
+      onSaved?.();
       toast.success(`Tax timezone set to ${tz.timezone}. Gains were recalculated.`);
     } catch (err) {
       toast.error(timezoneNotSaved(err));
