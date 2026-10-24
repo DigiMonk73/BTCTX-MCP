@@ -4,6 +4,7 @@ no word left of 1.x's one wallet and one exchange in what ships, and the
 release tests' and the way back's words kept to what the app does.
 """
 
+import json
 import re
 import subprocess
 from pathlib import Path
@@ -83,8 +84,6 @@ def test_nothing_left_of_one_wallet_and_one_exchange():
 def test_the_release_tests_counts_are_the_apps():
     """REF-2's ledger count and the tool count AGENT-TESTS expects (119 went
     unseen when B7a's rows made it 141)."""
-    import json
-
     tests = (ROOT / "docs/AGENT-TESTS.md").read_text()
     rows = len(json.loads((ROOT / "testdata/reference_ledger.json").read_text())["transactions"])
     assert re.findall(r"✓ (\d+) transactions loaded", tests) == [str(rows)]

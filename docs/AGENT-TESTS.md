@@ -474,7 +474,8 @@ Start from the `clean` snapshot.
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
   §1.1012-1(j)). BitcoinTX uses first in, first out in each wallet and
-  exchange account, and records no Rev. Proc. 2024-28 allocation." (1.x's
+  exchange account (identified coins give other figures) and records no
+  Rev. Proc. 2024-28 allocation." (1.x's
   one-wallet bullet is gone), and the disclaimer. Section 2 of each report
   ends with "Sales by exchange", as in the expected-figures table (2025's
   report too). RPT-6 checks the values once prices are on.
@@ -541,7 +542,10 @@ second exchange, `Kraken` (its accounts `Kraken USD` and `Kraken BTC`), both
 unused, so every golden figure stays as it is. A row in **Wallets,
 exchanges and banks** reads its name, its kind and its balance.
 
-- **ACC-1** Settings. Expect the nine sections closed, in the order of
+- **ACC-1** Settings. Expect the nine sections in the order of
+  "Settings, one section at a time" above, all closed but **Ledger Review**,
+  which REV-4 left open (Settings remembers the section last open in this
+  browser); close it. Expect them in the order of
   "Settings, one section at a time" above, the summary under **Wallets,
   exchanges and banks** reading "1 wallet · 1 exchange · 1 bank". Open it.
   Expect three groups, Wallets, Exchanges and Banks, each with its button
@@ -1462,7 +1466,8 @@ Start from the `clean` snapshot.
 2.0 can't be downgraded in place, and 1.x can't read a 2.0 database or
 backup, so what was entered in 2.0 is lost on the way back. These are the
 ways back the release notes (StartOS) and `docs/MAINTENANCE.md` (Docker,
-the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24).
+the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
+StartOS backup's own way back, WAY-3, is recorded on #357 once tried).
 WAY-1 to WAY-5 run in order on one VM, from the `clean` snapshot, and need
 the second disk and the VM's StartOS password; WAY-6 needs Docker on your
 machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
@@ -1534,12 +1539,14 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   ```
 
   Expect the health's `1.2.10` and `"schema": "0012"`, the login, and
-  every recorded figure. The same copy made as root instead
-  (`docker run --rm --entrypoint sh -v btctx-way:/data
-  ghcr.io/digimonk73/btctx-mcp:v1.2.10 -c '<the same command>'`) stops a
-  container started with `--user 10001:10001` (B9's trial: "unable to
-  open database file"), while one started without `--user` hands the file
-  back to `btctx` and runs. Then `docker rm -f btctx-way` and `docker
+  every recorded figure. A copy root makes as a new file (`docker rm -f
+  btctx-way`, then `docker run --rm --entrypoint sh -v btctx-way:/data
+  ghcr.io/digimonk73/btctx-mcp:v1.2.10 -c 'rm -f /data/btctx.db && cp
+  /data/backups/btctx-pre-2.0-from-0012-*.db /data/btctx.db'`: `ls -l`
+  shows it root's) stops a container started with `--user 10001:10001`
+  ("unable to open database file", B9's trial), while one started without
+  `--user` hands the file back to `btctx` and runs. (A `cp` over the
+  existing `btctx.db` keeps its owner, so it starts either way.) Then `docker rm -f btctx-way` and `docker
   volume rm btctx-way`.
 - **WAY-7** The Mac app, on test builds only (Track C's rules: never the
   installed app's folder). Unpack 1.2.10's `BitcoinTX-macOS.zip` into a

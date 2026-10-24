@@ -8,6 +8,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../../test/books";
 import { offered, renderForm, shown } from "../../test/renderForm";
+import { WALLET_HINT } from "../../utils/disclaimer";
 import { ACCOUNTS_FAILED } from "../../utils/useAccounts";
 
 const WITHIN_WALLET = "Wallet: consolidate / move within the same wallet";
@@ -40,6 +41,11 @@ describe("with one of each: 1.x's form, its accounts by name", () => {
     expect(shown("To Account")).toBe("Select To Account");
     await form.choose("From Account", "Exchange BTC");
     expect(offered("To Account")).toEqual(["Wallet", WITHIN_EXCHANGE]);
+    // An exchange's consolidation points a move to another exchange at that exchange's account (#357)
+    await form.choose("To Account", WITHIN_EXCHANGE);
+    expect(screen.getByText(/^Moving coins to another exchange\? Choose that exchange's BTC account/)).toBeTruthy();
+    await form.choose("To Account", "Wallet");
+    expect(screen.getByText(WALLET_HINT)).toBeTruthy();
   });
 
   it("a Buy: no exchange to choose, and Paid from starts blank", async () => {

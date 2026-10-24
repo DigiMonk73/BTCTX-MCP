@@ -45,8 +45,8 @@ each with its balance:
   default: turn it off for an exchange that sends none (usually one outside
   the US), and its sales go in the Form 8949 boxes for no broker form.
 
-The **Dashboard** shows your banks, exchanges and wallets on three cards;
-each opens to show its accounts.
+The **Dashboard** shows your banks, exchanges and wallets on three cards; a
+card with more than one account opens to list them.
 
 BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
 cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
@@ -93,12 +93,13 @@ entries come out right.
   BTC account to a wallet, or one wallet to another. A bitcoin transfer's
   amount is what left, network fee included; the destination gets the rest
   and keeps each lot's acquisition date and its share of the basis, and
-  the fee is a disposal. A consolidation (a wallet to itself) records only
-  its network fee. A dollar transfer (between a bank and an exchange's USD
+  the fee is a disposal. A consolidation (a wallet, or an exchange's BTC
+  account, to itself) records only its network fee. A dollar transfer (between a bank and an exchange's USD
   account) is kept the other way round, like a withdrawal: its amount is
   what arrived, and its fee comes out of the sending account on top.
 - **Buy**: dollars from a bank or an exchange's USD account for bitcoin
-  into that exchange's BTC account (an exchange's dollars buy only there).
+  into an exchange's BTC account (an exchange's dollars buy only on that
+  exchange).
   Enter the dollars spent without the fee as **Amount USD** and the fee as
   **Fee (USD)**: the lot's cost basis is the two together.
 - **Sell**: bitcoin from an exchange's BTC account for dollars into the
@@ -109,8 +110,8 @@ entries come out right.
 A save that would change the figures of an earlier tax year, one you may
 already have filed (an add dated in it, an edit, a delete, a change of the
 Tax Timezone or of an exchange's 1099-DA switch, an import), says which
-years and what changes, and asks first: **Save anyway** makes a copy of
-your ledger, then saves.
+years and what changes, and asks first: **Save anyway** (for a delete,
+**Delete anyway**) makes a copy of your ledger, then saves.
 
 ## Lots, gains and the holding period
 
@@ -119,7 +120,7 @@ whatever leaves an account takes its oldest coins first. A sale is long-term onl
 anniversary of its lot's acquisition date (the IRS's "more than one year"),
 dates taken in your tax timezone.
 
-The **Tax Timezone** (Settings) decides which tax year a late-night
+The **Tax Timezone** (Settings → Account) decides which tax year a late-night
 December 31 transaction lands in, the dates on Form 8949, and when a lot
 turns long-term.
 

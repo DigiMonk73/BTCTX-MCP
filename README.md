@@ -21,14 +21,16 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 ## Features
 
-- **Dashboard**: your banks, exchanges and wallets on three cards (each
-  opens to show its accounts), BTC holdings, realized and unrealized gains
+- **Dashboard**: your banks, exchanges and wallets on three cards (one
+  with more than one account opens to list them), BTC holdings, realized
+  and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   or deletion, and every entry dated before your latest one, recalculates
   the whole ledger, so backdated entries come out right.
 - **FIFO lots per wallet and per exchange**: a transfer between your
   accounts keeps each lot's acquisition date and basis; a consolidation (a
-  wallet to itself) records only its network fee
+  wallet, or an exchange's BTC account, to itself) records only its network
+  fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
   tax report, and transaction history (PDF/CSV). Each exchange's sales go in
   the boxes its own 1099-DA uses (an exchange you mark as sending none, in
@@ -72,7 +74,7 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   Bitstamp your address; the live price stays on Tor. You can change the
   answer in Settings. With No, use your own Mempool for newer values, or
   type them
-- **Tax timezone** (Settings): decides which tax year a late-night Dec 31
+- **Tax timezone** (Settings → Account): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
 - **Encrypted backup/restore**, single-user login
 
@@ -100,8 +102,8 @@ rename, hide or delete them there:
   backup of the same keys (a seed phrase, or another device with the same
   keys) isn't a second wallet.
 - **An exchange** keeps its dollars and its bitcoin as two accounts,
-  "*name* USD" and "*name* BTC". Each has its own "This exchange sends me a
-  Form 1099-DA" switch, on by default: turn it off for an exchange that
+  "*name* USD" and "*name* BTC". Each exchange has its own "This exchange
+  sends me a Form 1099-DA" switch, on by default: turn it off for an exchange that
   sends none (usually one outside the US), and its sales go in the Form
   8949 boxes for no broker form.
 - **External** is everything outside BitcoinTX: other people, merchants,
@@ -307,7 +309,7 @@ longer accepts it for AI access. (1) In **Settings → Connect an AI
 Assistant**, turn on AI access and create an AI key; (2) in your AI app's
 settings, replace `BTCTX_PASSWORD` (and `BTCTX_USERNAME`) with `BTCTX_AI_KEY`
 set to that key, and delete the password; (3) change your BitcoinTX password
-(Settings → Reset Username & Password), or on StartOS run **Set Login
+(Settings → Account → Reset Username & Password), or on StartOS run **Set Login
 Credentials**, because the old one sat in that file. Mac app users: nothing
 to do.
 
@@ -320,11 +322,11 @@ to do.
    every figure a recalculation would change (old → new) and saved entries
    worth a second look, such as income and rebate deposits with a $0 or
    blank value, and Inherited deposits without a date of death. After them
-   comes a reminder, not an error: My BTC and Gift
-   deposits without a date originally acquired, counted from their deposit
-   date until you add one. The release notes say which to fix.
-4. Click **Settings → Recalculate Ledger** when you agree.
-5. Check your **Tax Timezone** in Settings.
+   come two reminders, not errors: My BTC and Gift deposits without a date
+   originally acquired, counted from their deposit date until you add one,
+   and exchange sales your exchange's Form 1099-DA may show differently. The release notes say which to fix.
+4. Click **Settings → Account → Recalculate Ledger** when you agree.
+5. Check your **Tax Timezone** in Settings → Account.
 6. If you use the AI connector: in your AI app's settings, change
    `btctx-mcp==<old version>` to `btctx-mcp==<new version>`, then restart
    the AI app. No new key, nothing to set up again. If you forget, every

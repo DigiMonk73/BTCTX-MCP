@@ -48,8 +48,8 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     assert "Print single-sided" in text
     # 5.14's one wording of the rule, and what BitcoinTX does and doesn't record (3.7)
     assert IRS_RULE in text
-    assert ("BitcoinTX uses first in, first out in each wallet and exchange account, and records no Rev. Proc. "
-            "2024-28 allocation.") in text
+    assert ("BitcoinTX uses first in, first out in each wallet and exchange account (identified coins give "
+            "other figures) and records no Rev. Proc. 2024-28 allocation.") in text
     assert "one exchange account" not in text and "pooled here" not in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text

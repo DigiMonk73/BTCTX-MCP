@@ -386,7 +386,9 @@ restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, or
 restore a backup made with this version."). 2.0's first start keeps a copy
 of the 1.x database in the data folder,
 `backups/btctx-pre-2.0-from-<revision>-<time>.db`, and never removes it.
-Each way back below was tried with 1.2.10 on 2026-10-24 (#357).
+The ways back below for Docker and the Mac app, and StartOS's by
+BitcoinTX's own backup, were tried with 1.2.10 on 2026-10-24; StartOS's by
+its own backup is recorded on #357 once tried.
 
 - **StartOS:** uninstall BitcoinTX (which deletes its data, that copy
   included), then restore the StartOS backup made before the update: it

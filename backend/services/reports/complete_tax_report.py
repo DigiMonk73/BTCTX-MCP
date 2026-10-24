@@ -813,8 +813,8 @@ class _TaxReport:
             # 5.14's one wording of the rule, then what BitcoinTX does and doesn't record (3.7)
             "From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins "
             "you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). "
-            "BitcoinTX uses first in, first out in each wallet and exchange account, and records no Rev. Proc. "
-            "2024-28 allocation.",
+            "BitcoinTX uses first in, first out in each wallet and exchange account (identified coins give "
+            "other figures) and records no Rev. Proc. 2024-28 allocation.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
