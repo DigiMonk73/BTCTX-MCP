@@ -300,6 +300,17 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   await expect(river.getByText("2 rows in file")).toBeVisible();
   expect(await sentForms(page)).toEqual([{ exchange_account_id: "102", wallet_account_id: "100" }]);
 
+  // The rows name them (B5a's preview), and a row's type change keeps the file's
+  const riverRow = (n: number) => river.getByRole("row").filter({ has: page.getByLabel(`Include row ${n}`) });
+  await expect(riverRow(2)).toContainText("Kraken BTC→ Coldcard");
+  await expect(riverRow(3).getByRole("group", { name: "Buy funding source" }).getByRole("button"))
+    .toHaveText(["Bank", "Kraken USD"]);
+  await expect(riverRow(3)).toContainText("→ Kraken BTC");
+  await riverRow(2).getByLabel("Transaction type").selectOption("Withdrawal");
+  await expect(riverRow(2)).toContainText("Kraken BTC→ External");
+  await riverRow(2).getByLabel("Transaction type").selectOption("Transfer");
+  await expect(riverRow(2)).toContainText("Kraken BTC→ Coldcard");
+
   // A new pick makes a new preview
   await wallet.selectOption({ label: "Wallet" });
   await expect.poll(() => sentForms(page)).toHaveLength(2);
