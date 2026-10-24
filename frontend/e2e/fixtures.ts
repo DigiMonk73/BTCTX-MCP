@@ -2,7 +2,7 @@
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
-import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test as base, expect, type Page, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
@@ -155,11 +155,33 @@ export async function choosePriceSource(page: Page, choice: PriceChoice) {
 
 export type TxPayload = Record<string, string | number | null>;
 
-/** Create a transaction over the API; returns the saved record. */
+/** Create a transaction over the API, confirming the past-year warning (sendConfirmed); returns the saved record. */
 export async function createTx(request: APIRequestContext, data: TxPayload) {
-  const r = await request.post("/api/transactions", { data });
+  const r = await sendConfirmed((params) => request.post("/api/transactions", { data, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   return r.json();
+}
+
+/**
+ * A write over the API through 2.0's past-year warning (docs/temp/2.0-accounts.md 5.8): the tests' rows are
+ * dated in earlier tax years, and no switch turns the warning off on a running server, so a 409 that gives a
+ * fingerprint (`confirm`) is sent again, once, with ?confirm=<it>. The answer either way: a second 409 (the
+ * ledger changed meanwhile) is the caller's to check.
+ */
+export async function sendConfirmed(
+  send: (params?: { confirm: string }) => Promise<APIResponse>,
+): Promise<APIResponse> {
+  const r = await send();
+  const fingerprint = await fingerprintAsked(r);
+  return fingerprint === undefined ? r : send({ confirm: fingerprint });
+}
+
+/** The `confirm` of the warning's 409; undefined for any other answer (Delete All's 409 asks for a typed DELETE). */
+async function fingerprintAsked(r: APIResponse): Promise<string | undefined> {
+  if (r.status() !== 409) return undefined;
+  const body: unknown = await r.json().catch(() => undefined);
+  const confirm = body !== null && typeof body === "object" ? (body as { confirm?: unknown }).confirm : undefined;
+  return typeof confirm === "string" ? confirm : undefined;
 }
 
 export async function listTx(request: APIRequestContext) {

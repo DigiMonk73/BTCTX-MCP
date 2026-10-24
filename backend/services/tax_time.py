@@ -227,6 +227,20 @@ def tax_year_bounds(year: int, tz: ZoneInfo) -> tuple[datetime, datetime]:
     return start, end
 
 
+def current_tax_year(tz: ZoneInfo) -> int:
+    """
+    The tax year it is now in the tax timezone `tz`: a year before it may
+    already be filed, so 2.0's past-year warning asks before a write changes
+    one (docs/temp/2.0-accounts.md 5.8). The one clock for "this tax year"
+    (5.15), which the tests pin to 2009 (backend/tests/conftest.py), so the
+    suite doesn't change on its own every 1 January: callers read it as
+    tax_time.current_tax_year, never bound by name, or the pin would miss
+    them. Every other "now" (a date's check, the report's values) keeps the
+    computer's clock.
+    """
+    return datetime.now(tz).year
+
+
 def local_noon_utc(d: date, tz: ZoneInfo) -> datetime:
     """A date with no time (e.g. '2024-03-05') means midday there — safely inside the day.
     At year 1 a zone's old local time can be 14 hours ahead (Alaska's), and at
@@ -239,5 +253,5 @@ __all__ = [
     "get_tax_timezone_name", "get_tax_timezone", "set_tax_timezone", "fill_tax_timezone",
     "never_chosen_with_transactions",
     "DATE_OUT_OF_RANGE", "date_out_of_range", "DateOutOfRange", "moved",
-    "as_utc", "local_date", "format_tax_date", "tax_year_bounds", "local_noon_utc",
+    "as_utc", "local_date", "format_tax_date", "tax_year_bounds", "current_tax_year", "local_noon_utc",
 ]
