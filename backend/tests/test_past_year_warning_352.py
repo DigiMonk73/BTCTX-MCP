@@ -333,7 +333,7 @@ def test_past_the_time_budget_the_years_come_from_its_date(ledger, monkeypatch):
 
 def test_within_the_time_budget_a_small_ledger_gets_the_exact_answer(ledger):
     client, rows = ledger
-    assert past_years.DRY_RUN_SECONDS == 5
+    assert past_years.DRY_RUN_SECONDS == 10  # set from the StartOS VM's measurement
     assert WRITES["edit"](client, rows).json()["exact"] is True
 
 
@@ -511,3 +511,49 @@ def test_a_row_deleted_before_the_dry_run_is_404(ledger, monkeypatch):
     monkeypatch.setattr(tx_service, "find_prices_first", deleted_meanwhile)
     r = client.delete(f"/api/transactions/{rows['sale 2024']}")
     assert (r.status_code, r.json()["detail"]) == (404, "Transaction not found.")
+
+
+# Gifts, donations and lost coins (the build's lead, 2026-10-24, under the
+# owner's decision 25): the report's section of them changes, and a
+# donation's value can be a charitable deduction on a filed return
+
+@pytest.fixture
+def gift_2025(ledger):
+    client, rows = ledger
+    body = {"type": "Withdrawal", "from_account_id": EXCHANGE_BTC, "to_account_id": EXTERNAL, "amount": "0.01",
+            "timestamp": "2025-06-01T12:00:00Z", "purpose": "Gift", "fmv_usd": "500", "fee_amount": "0"}
+    asked = client.post("/api/transactions", json=body)
+    gift = client.post("/api/transactions", json=body, params={"confirm": asked.json()["confirm"]})
+    assert gift.status_code == 200, gift.text
+    return client, gift.json()["id"]
+
+
+def test_a_gifts_value_that_moves_asks(gift_2025):
+    client, gift = gift_2025
+    r = client.put(f"/api/transactions/{gift}", json={"fmv_usd": "5000"})
+    assert r.status_code == 409, r.text
+    assert r.json()["years"] == [2025]
+    assert [i["change"] for i in r.json()["changes"]] == [
+        "Gifts, donations and lost coins: Gift 500.00 -> Gift 5000.00."]
+
+
+def test_a_gift_made_a_donation_asks(gift_2025):
+    client, gift = gift_2025
+    r = client.put(f"/api/transactions/{gift}", json={"purpose": "Donation", "fmv_usd": "500"})
+    assert r.status_code == 409, r.text
+    assert "Gifts, donations and lost coins: Gift 500.00 -> Donation 500.00" in r.json()["changes"][0]["change"]
+
+
+def test_a_dollar_withdrawals_leftover_purpose_and_value_count_for_nothing(ledger):
+    """#449: only bitcoin leaving is given, donated or lost; an older save's
+    leftover fields on a dollar withdrawal are dropped by an edit, and
+    nothing of a tax year moves."""
+    client, _ = ledger
+    with client.Session() as db:
+        db.execute(text(
+            "INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount, fee_amount,"
+            " fee_currency, purpose, fmv_usd) VALUES (980, 'Withdrawal', '2025-04-01T12:00:00Z', 1, 99, '100',"
+            " '0', 'USD', 'Gift', '100')"))
+        db.commit()
+    r = client.put("/api/transactions/980", json={"amount": "100"})
+    assert r.status_code == 200, r.text

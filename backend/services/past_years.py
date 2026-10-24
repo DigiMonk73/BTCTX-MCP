@@ -54,9 +54,12 @@ from backend.services.account import account_book
 logger = logging.getLogger(__name__)
 
 # How long the exact check may take before the warning names the years from
-# the write's date instead (the lead's decision of 2026-10-18; the StartOS
-# VM's measurement, 2.0 spec 7.6, sets it)
-DRY_RUN_SECONDS = 5
+# the write's date instead (the lead's decision of 2026-10-18, 5 s by
+# default). Set from the StartOS test VM's measurement (#352, 2026-10-24):
+# one replay takes 4.7 s there at 1,000 rows and 17.6 s at 3,000, so 10 s
+# gives the exact list up to about 1,800 rows on it (6,000 on a Mac), and
+# no one waits longer than that at the form before being asked.
+DRY_RUN_SECONDS = 10
 ADD, EDIT, DELETE = "add", "edit", "delete"
 COPY_LABEL = "past-year"
 CONFIRM = "Confirm to save it: a copy of your ledger is made first."

@@ -8,7 +8,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **A save that changes an earlier tax year asks first** (B6b, #352).
   Adding, editing or deleting a transaction in a way that would change
   the figures of a tax year before this one (a gain, a Form 8949 box, a
-  date acquired, an income) now shows which years and what changes, and
+  date acquired, an income or a rebate, a gift's, donation's or lost
+  coins' value or kind) now shows which years and what changes, and
   saves only after "Save anyway (a copy is made first)": BitcoinTX first
   keeps a copy of the database in its data folder's `backups`
   (`…-pre-change-past-year-….db`, the newest 5 and the first of each day
@@ -23,7 +24,7 @@ All notable changes to BitcoinTX are documented in this file.
   with the years, the changes and a fingerprint to confirm with), and
   with its key those rule fixes in an earlier year ask too; each confirmed
   AI change comes after a fresh AI copy. On a ledger too large to check
-  quickly (5 seconds), the warning names every year from the
+  quickly (10 seconds), the warning names every year from the
   transaction's date on instead of exactly what changes. No figure of any
   ledger moves: a save confirmed is saved as before.
 - **The forms and the report per exchange** (B4, #349). Form 8949's boxes

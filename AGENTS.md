@@ -217,7 +217,9 @@ from the Transaction row alone.
 **The past-year warning** (2.0, #352; `services/past_years.py`): an add,
 edit or delete on `/api/transactions` that would change the figures of a
 tax year before this one (Ledger Review's snapshot, each disposal's Form
-8949 box and column (b), each row's tax year: `services/year_changes.py`)
+8949 box and column (b), what the report counts as income or a rebate and
+as a gift, donation or lost coins, each row's tax year:
+`services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
 `exact`, `confirm`) and saves nothing. Sent again with
 `?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
@@ -227,9 +229,10 @@ commit, in `hourly_prices.with_prices_found`. The check runs on
 `database.scratch_copy` with the lock free, its prices found first; a write
 dated in this tax year (`tax_time.current_tax_year`, pinned to 2009 in the
 tests) or one moving only dollars saves at once, and past
-`past_years.DRY_RUN_SECONDS` the years come from the write's date. With a
-login, changes a recalculation alone would make never ask (the owner's
-"Don't warn for fixes"); with the AI key, those in an earlier year do.
+`past_years.DRY_RUN_SECONDS` (10 s, from the StartOS VM's measurement) the
+years come from the write's date. With a login, changes a recalculation
+alone would make never ask (the owner's "Don't warn for fixes"); with the
+AI key, those in an earlier year do.
 `recalculated_by` (`app_settings`) names the BitcoinTX that last
 recalculated the whole live ledger (every full replay writes it, a scratch
 copy's or a partial one's never): while it matches, nothing is pending. The

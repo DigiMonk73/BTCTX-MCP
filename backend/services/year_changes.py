@@ -12,7 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
-from backend.constants import INCOME_SOURCES, REBATE_SOURCE, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, INCOME_SOURCES, REBATE_SOURCE, normalized
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import review
 from backend.services.account import AccountBook, account_book
@@ -20,10 +20,12 @@ from backend.services.reports.form_8949 import acquired_text, disposal_box
 from backend.services.tax_time import local_date
 
 # Compared beside Ledger Review's figures: each disposal's box and column
-# (b), in the order they were made, and what the year's report counts as
-# income or a rebate (the source and value: a deposit made income keeps its
-# basis, so no stored figure shows it)
-COLUMNS = ("boxes", "acquired", "received")
+# (b), in the order they were made, what the year's report counts as income
+# or a rebate (the source and value: a deposit made income keeps its basis,
+# so no stored figure shows it), and its gifts, donations and lost coins
+# (the purpose and value: a donation's can be a charitable deduction; the
+# build's lead, 2026-10-24)
+COLUMNS = ("boxes", "acquired", "received", "given")
 RECEIVED = INCOME_SOURCES | {REBATE_SOURCE}
 # A row's figures, any one of which set makes it count (a dollar row never does)
 COUNTED = review.FIGURES + ("rows", "lots")
@@ -42,7 +44,7 @@ def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
     for t in db.query(Transaction):
         dollars = t.type not in ("Buy", "Sell") and not any(book.is_btc(a) for a in (t.from_account_id, t.to_account_id))
         found[t.id].update(year=local_date(t.timestamp, tz).year, dollars=dollars, boxes=[], acquired=[],
-                           received=_received(t, book))
+                           received=_received(t, book), given=_given(t, book))
     for disposal in _disposals(db):
         row = found[disposal.transaction_id]
         row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
@@ -58,6 +60,16 @@ def _received(t: Transaction, book: AccountBook) -> tuple[str, str | None] | Non
     if t.type != "Deposit" or source not in RECEIVED or not book.is_btc(t.to_account_id):
         return None
     return source.capitalize(), review.money(t.cost_basis_usd)
+
+
+def _given(t: Transaction, book: AccountBook) -> tuple[str, str | None] | None:
+    """(its purpose, its value) for bitcoin given, donated or lost (the
+    report's gifts, donations and lost coins); None for any other row, a
+    dollar withdrawal's leftover purpose or value included (#449)."""
+    purpose = normalized(t.purpose)
+    if t.type != "Withdrawal" or purpose not in GIFT_LIKE_PURPOSES or not book.is_btc(t.from_account_id):
+        return None
+    return purpose.capitalize(), review.money(t.fmv_usd)
 
 
 def _disposals(db: Session) -> list[LotDisposal]:
@@ -152,6 +164,8 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         parts.append("Form 8949 column (b), date acquired " + _moved_text(*diff["acquired"]))
     if "received" in diff:
         parts.append("income and rebates: " + " -> ".join(_received_text(side) for side in diff["received"]))
+    if "given" in diff:
+        parts.append("gifts, donations and lost coins: " + " -> ".join(_received_text(side) for side in diff["given"]))
     if "year" in diff:
         parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
     text = "; ".join(parts) + "."
@@ -159,7 +173,7 @@ def change_text(diff: dict, row: dict | None = None) -> str:
 
 
 def _received_text(received: tuple[str, str | None] | None) -> str:
-    """ "Income 1000.00", "Rebate 6.00", or "none"."""
+    """ "Income 1000.00", "Rebate 6.00", "Gift 500.00", or "none"."""
     return "none" if received is None else f"{received[0]} {received[1] or 'none'}"
 
 
