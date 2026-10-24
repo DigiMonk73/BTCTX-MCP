@@ -25,6 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- **setuptools 84.2.0** in the Mac app's build tools and the AI connector's
+  release tools (GHSA-xmj3-9gf7-h52w, low: a path escape in legacy wheel
+  installs on Windows; neither runs there, but CI's dependency audit
+  refused 84.0.0). Nothing BitcoinTX ships changes.
 - `make catch-up-2.0` (`scripts/catch-up-2.0.sh`): `develop` into the 2.0
   build. A clean merge is made as a commit of its own and merges once its
   own CI passes (the owner's decision 24, #251); a 1.x migration, a change
