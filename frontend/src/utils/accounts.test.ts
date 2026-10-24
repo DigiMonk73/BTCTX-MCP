@@ -141,5 +141,7 @@ describe("a picker's groups (P7's mockups)", () => {
       { label: "Exchanges", ids: [4, 103] },
     ]);
     expect(byKind(MANY, [3, 1])).toBeNull();
+    expect(byKind(MANY, [4, 103])).toBeNull(); // one kind: nothing to tell apart
+    expect(byKind(MANY, [1, 101])).toBeNull();
   });
 });
