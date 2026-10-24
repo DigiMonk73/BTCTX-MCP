@@ -14,6 +14,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from backend.main import app
 from backend.services import year_changes
@@ -143,3 +144,17 @@ def test_only_rows_reaching_an_earlier_year_are_kept_and_their_years_are_given(c
     earlier = year_changes.reaching(moved, 2026)
     assert set(earlier) == {lot, sale_2024}
     assert year_changes.years(earlier) == [2024]
+
+
+def test_a_gift_like_withdrawal_compares_its_purpose_and_value_a_dollar_one_doesnt(client):
+    deposit(client, "2024-01-10T12:00:00Z")
+    gift = save(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.01",
+                timestamp="2024-06-01T12:00:00Z", purpose="Gift", fmv_usd="500")
+    moved = changes_of(client, lambda: edit(client, gift, purpose="Lost", fmv_usd="400"))
+    assert moved[gift]["diff"]["given"] == (("Gift", "500.00"), ("Lost", "400.00"))
+    with client.Session() as db:
+        db.execute(text("INSERT INTO transactions (id, type, timestamp, from_account_id, to_account_id, amount,"
+                        " fee_amount, fee_currency, purpose, fmv_usd) VALUES (990, 'Withdrawal',"
+                        " '2024-07-01T12:00:00Z', 1, 99, '100', '0', 'USD', 'Gift', '100')"))
+        db.commit()
+    assert figures(client)[990]["given"] is None  # a dollar withdrawal's leftover fields (#449)
