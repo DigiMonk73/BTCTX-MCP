@@ -15,8 +15,9 @@ only the app code differs.
     python scripts/equivalence_check.py --bench          # recalculation time too
 
 Snapshots are kept in .equivalence/ (gitignored); the release's is reused
-while the snapshot code and the day are unchanged. Exit status 1 on any
-difference, or when recalculation is more than 5% slower.
+while the snapshot code and today's date in each ledger's tax timezone are
+unchanged. Exit status 1 on any difference, or when recalculation is more
+than 5% slower.
 """
 
 import argparse
@@ -28,8 +29,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from datetime import date
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import equivalence_inputs as inputs
 
 ROOT = Path(__file__).resolve().parents[1]
 STORE = ROOT / ".equivalence"
@@ -64,7 +68,7 @@ def _arguments():
 def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
     """The release's snapshot, taken in a temporary worktree of `ref`."""
     commit = _git("rev-parse", f"{ref}^{{commit}}").strip()
-    out = STORE / f"{commit[:12]}-{_snapshot_code_digest()}-{date.today().isoformat()}"
+    out = STORE / f"{commit[:12]}-{_snapshot_code_digest()}-{_dates_today()}"
     if fresh or not (out / "done").exists() or (bench and not (out / "bench.json").exists()):
         parent = Path(tempfile.mkdtemp(prefix="btctx-baseline-"))
         worktree = parent / "checkout"
@@ -75,6 +79,16 @@ def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
             _git("worktree", "remove", "--force", str(worktree))
             shutil.rmtree(parent, ignore_errors=True)
     return out
+
+
+def _dates_today() -> str:
+    """
+    Today's date in each of the ledgers' tax timezones, which a snapshot taken
+    now holds: a report prints the date in its ledger's zone, and a ledger's
+    reports run to this year there. So a baseline is reused only while every
+    one of those dates is unchanged, never across a midnight in one (#630).
+    """
+    return "_".join(datetime.now(ZoneInfo(zone)).date().isoformat() for zone in inputs.ZONES)
 
 
 def _snapshot_code_digest() -> str:

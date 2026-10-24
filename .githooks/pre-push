@@ -63,8 +63,10 @@ elif ! (cd startos && start-cli s9pk list-ingredients >/dev/null 2>&1); then
   # The SDK's make rules list the package's files with start-cli, even to type-check
   printf "\n– StartOS package checks skipped (needs start-cli on PATH: the SDK's make runs 'start-cli s9pk list-ingredients')\n"
 else
-  step "StartOS package: type check + lint + format check + bundle (the SDK's make)"
-  (cd startos && rm -rf javascript && make --no-print-directory javascript/index.js \
+  step "StartOS package: format check, then type check + lint + bundle (the SDK's make)"
+  # The SDK's make formats from 3.1.0 instead of checking: check first, so
+  # unformatted source fails here and isn't rewritten during a push
+  (cd startos && npm run -s format:check && rm -rf javascript && make --no-print-directory javascript/index.js \
     && node --no-deprecation scripts/check-manifest.mjs) || fail "startos package"
 fi
 

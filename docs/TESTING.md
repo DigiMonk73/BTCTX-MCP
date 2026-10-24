@@ -33,8 +33,9 @@ make hooks          # installs the pre-push gate
 - **Before every `git push`** (`.githooks/pre-push`): lint, static
   Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
   smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
-  exists), StartOS package type check, lint, format check and bundle (the
-  SDK's `make javascript/index.js`) and manifest check (if `startos/node_modules`
+  exists), StartOS package format check (`npm run format:check`), then type
+  check, lint and bundle (the SDK's `make javascript/index.js`, which from
+  start-sdk 3.1.0 formats instead of checking) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
@@ -49,8 +50,13 @@ make hooks          # installs the pre-push gate
     every change merged (a cancelled run's red "CI passed" isn't a
     failure). Every other pull request (into `develop`, `main` or any
     other branch) runs the full set. AGENTS.md, "Branches".
-- **Weekly:** `startos-sdk-check.yml` opens an issue when a newer start-sdk or
-  start-cli is out; `irs-forms-watch.yml` opens one when the IRS publishes
+- **Daily:** `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+  what Start9 changed that the StartOS package must follow: a newer start-sdk
+  or start-cli, a StartOS or start-registry release, changes to their
+  packaging guide or shared package workflows, a failed build on the mirror
+  or their fork, changes on their fork not taken back (startos/UPDATING.md,
+  "Watching Start9").
+- **Weekly:** `irs-forms-watch.yml` opens an issue when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
   Monthly, `price-history-watch.yml` checks that Bitstamp still gives every
   year of the hourly price history as fingerprinted, and opens an issue if not.
@@ -116,8 +122,9 @@ Everything the app produces is compared:
 - the CSV instructions PDF
 
 The snapshots are JSON files in `.equivalence/` (gitignored). The release's
-is reused for the rest of the day while `scripts/equivalence_*.py` are
-unchanged. Any difference is printed as a short diff per item and makes it
+is reused while `scripts/equivalence_*.py` are unchanged and it's still the
+same day in each of the ledgers' tax timezones (`equivalence_inputs.ZONES`,
+#630). Any difference is printed as a short diff per item and makes it
 exit 1. The API descriptions (text only the API docs show, with DEBUG)
 are listed but not counted; MCP tool descriptions are, since the AI reads
 them.
