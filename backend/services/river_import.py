@@ -173,8 +173,8 @@ class RiverProposal:
     # word: a send's or receive's wallet (5.11; the owner's decision, 2026-10-16)
     guessed: str | None = None
     # The side whose bank River's file never names: a buy's funding, the
-    # preview's default or the owner's edit (the build lead's call under the
-    # owner's decision 25, 2026-10-23): another bank there still matches
+    # preview's default or the owner's edit (the build lead's call under
+    # #251's decision 25, 2026-10-23): another bank there still matches
     unnamed_bank: str | None = None
     # The book naming its accounts
     book: AccountBook = field(default=FIXED_BOOK, repr=False, compare=False)
@@ -712,12 +712,16 @@ def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, gue
     another account of the same kind and currency as the row's (two
     wallets, two exchanges' BTC or USD accounts, two banks: the owner's
     rule, 2026-10-15), so exchange B's send to a wallet is never exchange
-    A's. With `guess` (the similar pass), a River row's guessed side may
-    name another wallet, and then counts as going the same way: the file
+    A's; but River never names a buy's funding bank, so another bank there
+    still matches (`_unnamed_bank`, the build lead's call under #251's
+    decision 25). With `guess` (the similar pass), a River row's guessed
+    side may name another wallet, and then counts as going the same way
+    when the other side is the row's own account or External: the file
     chose its wallet, River didn't (the owner's decision, 2026-10-16), so a
-    deposit typed into the other wallet is offered too."""
+    deposit typed into the other wallet is offered too, never a move
+    between two of the owner's wallets."""
     alike = [side for side in _other_accounts_alike(proposal, tx, book) if not _unnamed_bank(proposal, side, book)]
-    guessed = guess and proposal.guessed in alike
+    guessed = guess and proposal.guessed in alike and _beside_its_own(proposal, tx)
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
         and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id
@@ -735,6 +739,15 @@ def _other_accounts_alike(proposal: RiverProposal, tx: Transaction, book: Accoun
     return [side for side, ours, theirs in sides
             if ours != theirs and book.kind(ours) is not None
             and (book.kind(ours), book.currency(ours)) == (book.kind(theirs), book.currency(theirs))]
+
+
+def _beside_its_own(proposal: RiverProposal, tx: Transaction) -> bool:
+    """The transaction's side opposite the guessed one is the row's own
+    account or External: a deposit or a send typed into the other wallet, a
+    withdrawal or a receive typed from it."""
+    if proposal.guessed == "to":
+        return tx.from_account_id in (proposal.from_account_id, ACCOUNT_EXTERNAL)
+    return tx.to_account_id in (proposal.to_account_id, ACCOUNT_EXTERNAL)
 
 
 def _unnamed_bank(proposal: RiverProposal, side: str, book: AccountBook) -> bool:

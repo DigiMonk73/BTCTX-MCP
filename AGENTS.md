@@ -357,11 +357,13 @@ from the Transaction row alone.
   the same side another account of the same kind and currency (two
   wallets, two exchanges' BTC or USD accounts, two banks: the owner's
   rule, 2026-10-15, #350); but River's wallet is the file's guess
-  (`guessed`), so a send or receive typed into another wallet is only
-  similar, marked Review, ticked (the owner's decision, 2026-10-16); and
-  River never names a buy's funding bank (`unnamed_bank`), so another
-  bank there still matches exactly, as in 1.x (the build lead's call,
-  2026-10-23, under decision 25). The
+  (`guessed`), so a transaction typed into or from another wallet beside
+  River's send or receive (its other side the row's own or External,
+  never a move between two wallets) is only similar, marked Review,
+  ticked (the owner's decision, 2026-10-16); and River never names a
+  buy's funding bank (`unnamed_bank`), so another bank there still
+  matches exactly, as in 1.x (the build lead's call, 2026-10-23, #251's
+  decision 25). The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a

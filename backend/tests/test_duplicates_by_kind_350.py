@@ -216,3 +216,28 @@ def test_the_ais_buy_names_its_bank(client):
     result = ai_preview(client, type="Buy", from_account="Bank", to_account="Exchange BTC", source=None,
                         cost_basis_usd="500")
     assert (result["status"], result["matched_transaction_id"]) == ("ready", None)
+
+
+def test_a_resend_with_another_funding_bank_is_skipped(client):
+    """The execute's double-submit guard: the same buys sent again (a second
+    tab, a resend after editing the funding) are already recorded, whichever
+    bank each names (the re-check's finding: no test held the guard's flag)."""
+    rows = [{k: p[k] for k in ("row_number", "date", "type", "amount", "from_account", "to_account",
+                               "cost_basis_usd")} for p in river(client, *RECURRING)]
+    first = client.post("/api/import/river/execute", json={"rows": rows})
+    assert first.status_code == 200 and first.json()["imported_count"] == 4, first.text
+    again = client.post("/api/import/river/execute",
+                        json={"rows": [dict(row, from_account="Credit Union") for row in rows]})
+    assert (again.json()["imported_count"], again.json()["skipped_existing"]) == (0, 4), again.text
+
+
+def test_a_move_between_two_wallets_is_never_rivers_send(client):
+    """The guessed side counts as the same way only beside the row's own
+    exchange or External: a transfer from Wallet to Cold Storage isn't the
+    exchange's send to Wallet, nor one from Cold Storage to Wallet its
+    receive (the re-check's finding)."""
+    record(client, "Deposit", 99, WALLET, "1", at="2026-01-01T12:00:00Z", source="MyBTC", cost_basis_usd="1")
+    record(client, "Transfer", WALLET, COLD, "0.001005", fee_amount="0.000005", fee_currency="BTC")
+    record(client, "Transfer", COLD, WALLET, "0.0006")
+    send, receive = river(client, SEND, RECEIVE)
+    assert found(send) == ("new", None, False) and found(receive) == ("new", None, False)
