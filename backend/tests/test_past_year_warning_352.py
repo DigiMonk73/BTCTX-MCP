@@ -597,3 +597,17 @@ def test_a_deposit_whose_lot_is_dated_from_it_moved_a_day_asks(ledger):
     client, rows = ledger
     r = client.put(f"/api/transactions/{rows['deposit 2024']}", json={"timestamp": "2024-01-11T12:00:00Z"})
     assert r.status_code == 409, r.text  # its lot's date, every later sale's column (b)
+
+
+def test_an_inherited_deposit_valued_from_the_price_moved_a_day_asks(ledger):
+    """The report's table of values from the BTC price prints its date."""
+    client, _ = ledger
+    body = {"type": "Deposit", "from_account_id": EXTERNAL, "to_account_id": WALLET, "amount": "0.1",
+            "timestamp": "2025-05-01T12:00:00Z", "source": "Inherited", "acquired_at": "2025-04-01",
+            "fee_amount": "0"}
+    asked = client.post("/api/transactions", json=body)
+    inherited = client.post("/api/transactions", json=body, params={"confirm": asked.json()["confirm"]}).json()
+    assert inherited["values_from_price"] == ["cost_basis_usd"]
+    r = client.put(f"/api/transactions/{inherited['id']}", json={"timestamp": "2025-05-02T12:00:00Z"})
+    assert r.status_code == 409, r.text
+    assert [i["change"] for i in r.json()["changes"]] == ["Date 05/01/2025 -> 05/02/2025."]

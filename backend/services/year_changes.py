@@ -32,7 +32,8 @@ COLUMNS = ("boxes", "acquired", "received", "given")
 # And, for a row with figures, its tax year; and its date where a filed
 # return prints it, even within its year (the build's lead, 2026-10-24): a
 # disposal's date sold (Form 8949's column (c)), an income's, rebate's or
-# gift's (the report). The dates acquired are its lots' and column (b).
+# gift's, or a deposit's valued from the price (the report). The dates
+# acquired are its lots' and column (b).
 DATES = ("date", "year")
 RECEIVED = INCOME_SOURCES | {REBATE_SOURCE}
 # A row's figures, any one of which set makes it count (a dollar row never does)
@@ -54,7 +55,7 @@ def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
         dollars = t.type not in ("Buy", "Sell") and not any(book.is_btc(a) for a in (t.from_account_id, t.to_account_id))
         found[t.id].update(date=format_tax_date(t.timestamp, tz), year=local_date(t.timestamp, tz).year,
                            dollars=dollars, boxes=[], acquired=[], received=_received(t, book),
-                           given=_given(t, book))
+                           given=_given(t, book), priced=_valued_from_the_price(t))
     for disposal in _disposals(db):
         row = found[disposal.transaction_id]
         row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
@@ -125,9 +126,16 @@ def _row_diff(tx_id: int, old: dict | None, new: dict | None) -> dict[str, Any]:
 def _date_printed(row: dict) -> bool:
     """Whether a filed return prints the row's own date: it has lot
     disposals (column (c)), or the report lists it as income, a rebate or a
-    gift. A deposit's date isn't: its lot's is (a date originally acquired
-    being the lot's)."""
-    return bool(row.get("rows")) or row["received"] is not None or row["given"] is not None
+    gift, or among its values from the BTC price (an inheritance's). Any
+    other deposit's date isn't printed, but its lot's is (column (b)), a
+    date originally acquired being the lot's."""
+    return bool(row.get("rows")) or row["received"] is not None or row["given"] is not None or row["priced"]
+
+
+def _valued_from_the_price(t: Transaction) -> bool:
+    """A deposit whose value BitcoinTX filled from the price: the report's
+    table of values from the BTC price lists it, dated."""
+    return t.type == "Deposit" and bool(t.cost_basis_from_price) and t.cost_basis_usd is not None
 
 
 def counts(row: dict) -> bool:
