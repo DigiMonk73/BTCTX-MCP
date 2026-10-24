@@ -28,9 +28,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **No unit test sends a request** (#683). Five of River's import tests,
   in two files, let the card ask for the saved exchange mappings for real
   (jsdom sends it to its page's own address), where every test is meant to
-  stub what it asks. They stub it now, and a request no test stubbed is refused and
-  fails the test that made it (`frontend/src/test/setup.ts`). Tests only:
-  nothing in the app changes.
+  stub what it asks. They stub it now, and a request no test stubbed is
+  refused and fails the test that made it (`frontend/src/test/setup.ts`).
+  Tests only: nothing in the app changes.
 
 ## [v2.0.0-alpha.1] - 2026-10-24 - 2.0's first alpha: your wallets, exchanges and banks, each wallet and exchange with its own coins
 
