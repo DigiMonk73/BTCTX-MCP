@@ -1,5 +1,5 @@
 import React from "react";
-import { KIND_CHOICES } from "../../utils/exchangeMapping";
+import { KIND_CHOICES, kindOf } from "../../utils/exchangeMapping";
 
 interface MatchKindsProps {
   words: string[];
@@ -18,7 +18,7 @@ const MatchKinds: React.FC<MatchKindsProps> = ({ words, kinds, disabled, onChang
       {words.map((word, i) => (
         <div className="field" key={word}>
           <label htmlFor={`match-kind-${i}`}>“{word}” is</label>
-          <select id={`match-kind-${i}`} className="input" value={kinds[word] ?? ""} disabled={disabled}
+          <select id={`match-kind-${i}`} className="input" value={kindOf(kinds, word)} disabled={disabled}
             onChange={(e) => onChange(word, e.target.value as MappingKind | "")}>
             <option value="">Choose</option>
             {KIND_CHOICES.map((c) => <option key={c.kind} value={c.kind}>{c.label}</option>)}

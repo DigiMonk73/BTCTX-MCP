@@ -146,13 +146,15 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   };
 
   const pastYearsNote = preview && importNote(preview.past_years_dated);
+  // A preview, an import or a mapping's save on its way: another file or mapping waits
+  const busy = loading || exchange.saving;
 
   return (
     <>
 
-      <ExchangeFileChoice exchange={exchange} file={file} disabled={loading} onMappingChanged={dropPreview} />
+      <ExchangeFileChoice exchange={exchange} file={file} disabled={busy} onMappingChanged={dropPreview} />
 
-      <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={loading}
+      <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={busy}
         canPreview={!loading && file !== null && !unchosen && exchange.ready}
         onFile={(chosen) => {
           // Another file: the preview on screen is the last one's

@@ -1,7 +1,7 @@
 // B5b (#567): matching another exchange's columns, the owner's own mapping.
 import { describe, expect, it } from "vitest";
 import {
-  draftFrom, emptyDraft, guessColumns, guessKinds, mappingFrom, missingRoles, ROLES, type Draft,
+  draftFrom, emptyDraft, guessColumns, guessKinds, kindOf, mappingFrom, missingRoles, ROLES, withKind, type Draft,
 } from "./exchangeMapping";
 
 const COLUMNS = ["When", "Type", "Coins", "Dollars", "Charge", "Charge In", "Ref", "State"];
@@ -26,6 +26,18 @@ describe("guessKinds", () => {
     expect(guessKinds(["Bought", "Buy", "Purchase", "Sold", "Sale", "Sell", "Deposit", "Withdrawal", "Card"])).toEqual({
       Bought: "buy", Buy: "buy", Purchase: "buy", Sold: "sell", Sale: "sell", Sell: "sell",
     });
+  });
+});
+
+describe("a kind word in any case", () => {
+  it("is guessed once, under the file's first form of it", () => {
+    expect(guessKinds(["Buy", "BUY", "buy", "Sell"])).toEqual({ Buy: "buy", Sell: "sell" });
+  });
+
+  it("is read under any of its forms, and set on every form at once", () => {
+    expect(kindOf({ BUY: "buy" }, "Buy")).toBe("buy");
+    expect(withKind({ Buy: "buy", BUY: "buy", Sell: "sell" }, "Buy", "leave out")).toEqual({ Buy: "leave out", Sell: "sell" });
+    expect(withKind({ Buy: "buy", BUY: "buy", Sell: "sell" }, "Buy", "")).toEqual({ Sell: "sell" });
   });
 });
 

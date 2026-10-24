@@ -21,6 +21,7 @@ from backend.schemas.csv_import import CSVParseError
 from backend.services.csv_import import TOO_MANY_FIELDS
 from backend.services.exchange_cells import (
     HEADER_AGAIN,
+    another_header,
     HEADER_SEARCH,
     Cells,
     FileRead,
@@ -110,6 +111,9 @@ def _needed(mapping: Mapping) -> dict[str, tuple[str, ...]]:
 def _read_rows(data: list[tuple[int, list[str]]], header: Header, mapping: Mapping) -> FileRead:
     read, left_out, rows = FileRead(total_rows=len(data)), LeftOut(), []
     for number, cells in data:
+        if header.other_than(cells, _needed(mapping)):
+            read.errors.append(another_header(number))
+            break
         if header.repeated_by(cells):
             left_out.add(HEADER_AGAIN, number)
         elif any(c.strip() for c in cells[len(header.names):]):
@@ -442,7 +446,7 @@ def file_columns(content: bytes) -> FileColumns | CSVParseError:
         return CSVParseError(row_number=0, column=None, severity="error", message=NO_ROWS)
     at = next(i for i, width in enumerate(widths) if width >= usual)
     header = Header(*rows[at])
-    data = [cells for _number, cells in rows[at + 1:]]
+    data = [cells for _number, cells in rows[at + 1:] if not header.repeated_by(cells)]
     values = {name: list(dict.fromkeys(c[place].strip() for c in data if place < len(c) and c[place].strip()))[:MAX_VALUES]
               for place, name in enumerate(header.names) if name}
     return FileColumns(header.number, header.names, [c[:len(header.names)] for c in data[:SAMPLES]], values,

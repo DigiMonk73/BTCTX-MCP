@@ -141,3 +141,31 @@ def test_another_assets_unreadable_number_leaves_its_kraken_line_out_with_the_re
              '"L6","T5","2025-03-20 11:00:00","trade","tradespot","currency","USD","spot / main",-300.0000,0.78,0']
     answer = preview(client, KRAKEN, lines, mapping_id="kraken")
     assert answer["errors"] == [] and "are ETH, not bitcoin" in said(answer)
+
+
+# The final re-check: files joined whose headers differ, a header again with a mark
+
+def test_rows_after_another_header_with_other_columns_are_never_read_by_the_first(client):
+    """Kraken's export lets columns be left out: a second file without `wallet`, joined, read by the
+    first header, made a sell of 0.002 BTC for $210 one of 0.004 BTC for $0.55 with a $708.15 fee."""
+    other = '"txid","refid","time","type","subtype","aclass","asset","amount","fee","balance"'
+    sell = ['"S1","T2","2025-02-10 08:00:00","trade","tradespot","currency","BTC",-0.0020000000,0,0.003',
+            '"S2","T2","2025-02-10 08:00:00","trade","tradespot","currency","USD",210.0000,0.5500,708.15']
+    answer = preview(client, KRAKEN, [*BUY_LINES, other, *sell], mapping_id="kraken")
+    assert [p["type"] for p in answer["proposals"]] == ["Buy"]
+    assert "Row 4 names other columns than the file's header" in said(answer)
+    own = preview(client, "When,Type,Coins,Dollars", ["2025-04-01 09:00,Bought,0.01,100.00", "When,Type,Dollars,Coins",
+                                                      "2025-04-02 09:00,Bought,200.00,0.02"], mapping=OWN)
+    assert len(own["proposals"]) == 1 and "Row 3 names other columns than the file's header" in said(own)
+
+
+def test_a_header_again_with_a_byte_order_mark_or_a_trailing_empty_cell_is_the_header_again(client):
+    own = preview(client, "When,Type,Coins,Dollars", ["2025-04-01 09:00,Bought,0.01,100.00", "﻿When,Type,Coins,Dollars,",
+                                                      "2025-04-02 09:00,Bought,0.02,200.00"], mapping=OWN)
+    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeat the file's header" in said(own)
+
+
+def test_the_column_matcher_never_lists_a_header_again_as_a_word(client):
+    content = b"When,Type,Coins\n2025-04-01 09:00,Bought,0.01\nWhen,Type,Coins\n2025-04-02 09:00,Sold,0.02\n"
+    r = client.post("/api/import/exchange/columns", files={"file": ("f.csv", content, "text/csv")})
+    assert r.json()["values"]["Type"] == ["Bought", "Sold"]

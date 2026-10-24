@@ -179,7 +179,7 @@ test("imports", async ({ authedPage: page }) => {
     await record(page, name);
   }
 
-  // One section open at a time (#355): River's closes as Data Management opens
+  // One section open at a time (#355): the exchange import's closes as Data Management opens
   const data = await openSection(page, "Data Management");
   await data.locator("#csv-file-input").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: Buffer.from(CSV),

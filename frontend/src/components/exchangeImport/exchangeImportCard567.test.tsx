@@ -82,4 +82,28 @@ describe("the import's card", () => {
     await act(async () => answer({ data: PREVIEW }));
     expect((screen.getByLabelText("River CSV file") as HTMLInputElement).disabled).toBe(false);
   });
+
+  it("sends a kind word's kind for every case of it, so what the screen says is what's read", async () => {
+    const user = card();
+    vi.spyOn(api, "post").mockImplementation(async (url) => ({ data: url === "/import/exchange/columns"
+      ? { ...COLUMNS, values: { ...COLUMNS.values, Type: ["Buy", "BUY", "Sell"] } } : PREVIEW }));
+    await user.selectOptions(await screen.findByLabelText("Exchange file"), "Another exchange: match its columns");
+    await user.upload(screen.getByLabelText("Exchange CSV file"), new File(["a"], "x.csv", { type: "text/csv" }));
+    await user.selectOptions(await screen.findByLabelText("Date"), "When");
+    await user.selectOptions(screen.getByLabelText("Bitcoin amount"), "Coins");
+    await user.selectOptions(screen.getByLabelText("“Buy” is"), "leave out");
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    const sent = vi.mocked(api.post).mock.calls.find(([url]) => url === "/import/exchange/preview")!;
+    expect(JSON.parse(String((sent[1] as FormData).get("mapping"))).kinds).toEqual({ Buy: "leave out", Sell: "sell" });
+  });
+
+  it("holds the file and the exchange file while a mapping is being saved", async () => {
+    const user = card();
+    await matchedAndPreviewed(user);
+    await user.type(screen.getByLabelText("Mapping's name"), "Mine");
+    vi.spyOn(api, "post").mockImplementation(() => new Promise(() => {}));
+    await user.click(screen.getByRole("button", { name: "Save this mapping" }));
+    expect((screen.getByLabelText(/CSV file$/) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Exchange file") as HTMLSelectElement).disabled).toBe(true);
+  });
 });

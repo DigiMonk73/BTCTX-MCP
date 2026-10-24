@@ -3,7 +3,7 @@
 // never where its rows go: the exchange and the wallet are chosen apart.
 
 import React from "react";
-import { missingRoles, type Draft, type Role } from "../../utils/exchangeMapping";
+import { missingRoles, withKind, type Draft, type Role } from "../../utils/exchangeMapping";
 import MatchColumns from "./MatchColumns";
 import MatchFormat from "./MatchFormat";
 import MatchKinds from "./MatchKinds";
@@ -31,7 +31,7 @@ const ColumnMatcher: React.FC<ColumnMatcherProps> = ({ file, draft, disabled, sa
       <MatchColumns columns={file.columns} draft={draft} disabled={disabled} onChange={setColumn} />
       {draft.columns.kind && (
         <MatchKinds words={kindWords} kinds={draft.kinds} disabled={disabled}
-          onChange={(word, kind) => onChange({ ...draft, kinds: { ...draft.kinds, [word]: kind } })} />
+          onChange={(word, kind) => onChange({ ...draft, kinds: withKind(draft.kinds, word, kind) })} />
       )}
       {draft.columns.asset && (
         <MatchWords legend="Bitcoin's asset" hint="The rows of any other asset are left out." words={wordsOf("asset")}

@@ -14,6 +14,7 @@ from decimal import Decimal
 from backend.schemas.csv_import import CSVParseError
 from backend.services.exchange_cells import (
     HEADER_AGAIN,
+    another_header,
     Cells,
     FileRead,
     LeftOut,
@@ -47,9 +48,7 @@ def read_ledger(rows: Records, whose: str = "Kraken's") -> FileRead:
         return FileRead(errors=[header])
     data = [Cells(number, header, cells) for number, cells in rows if number > header.number]
     read, left_out = FileRead(total_rows=len(data)), LeftOut()
-    for line in [line for line in data if header.repeated_by(line.cells)]:
-        left_out.add(HEADER_AGAIN, line.number)
-    data = [line for line in data if not header.repeated_by(line.cells)]
+    data = _under_the_header(data, header, read, left_out)
     for lines in _events(data, left_out).values():
         try:
             event = _event(lines, left_out, read.warnings)
@@ -61,6 +60,22 @@ def read_ledger(rows: Records, whose: str = "Kraken's") -> FileRead:
     read.rows.sort(key=lambda r: r.row_number)
     read.warnings.extend(left_out.warnings())
     return read
+
+
+def _under_the_header(lines: list[Cells], header, read, left_out: LeftOut) -> list[Cells]:
+    """The lines the header names: a header again is left out (files
+    joined); at a header of other columns (a file exported with columns
+    left out, joined to this one), the reading stops, with its error."""
+    kept = []
+    for line in lines:
+        if header.other_than(line.cells, KRAKEN_COLUMNS):
+            read.errors.append(another_header(line.number))
+            break
+        if header.repeated_by(line.cells):
+            left_out.add(HEADER_AGAIN, line.number)
+        else:
+            kept.append(line)
+    return kept
 
 
 def _events(lines: list[Cells], left_out: LeftOut) -> dict[str, list[Cells]]:

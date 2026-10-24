@@ -73,8 +73,18 @@ class Header:
         return next((self.places[n.lower()] for n in names if n.lower() in self.places), None)
 
     def repeated_by(self, cells: list[str]) -> bool:
-        """Whether a row is this header again: files joined, each with its own."""
-        return [c.strip().lower() for c in cells] == [n.lower() for n in self.names]
+        """Whether a row is this header again (files joined, each with its
+        own), a byte-order mark or empty cells at its end aside."""
+        return _names(cells) == _names(self.names)
+
+    def other_than(self, cells: list[str], needed: dict[str, tuple[str, ...]]) -> bool:
+        """Whether a row is another header: one naming a column for each of
+        `needed`'s roles, but not this header's columns (a file joined to
+        this one with its columns left out or in another order)."""
+        if self.repeated_by(cells):
+            return False
+        other = Header(0, [c.replace("\ufeff", "") for c in cells])
+        return all(other.place(names) is not None for names in needed.values())
 
     def name(self, names: Iterable[str]) -> str | None:
         """That column's name as the file writes it."""
@@ -127,6 +137,21 @@ class RowError(ValueError):
 
 
 HEADER_AGAIN = "repeat the file's header (files joined)"
+
+
+def another_header(number: int) -> CSVParseError:
+    """The error for a header with other columns than the file's: the rows
+    under it would be read by the wrong columns, so none of them is."""
+    return CSVParseError(row_number=0, column=None, severity="error", message=(
+        f"Row {number} names other columns than the file's header (files joined?): it and the rows after it "
+        "aren't read. Import each file on its own."))
+
+
+def _names(cells: list[str]) -> list[str]:
+    names = [c.replace("\ufeff", "").strip().lower() for c in cells]
+    while names and not names[-1]:
+        names.pop()
+    return names
 
 
 class LeftOut:

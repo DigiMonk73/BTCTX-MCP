@@ -104,12 +104,27 @@ const PLAIN_WORDS: Record<string, MappingKind> = {
 };
 
 export function guessKinds(words: string[]): Record<string, MappingKind> {
-  const found: Record<string, MappingKind> = {};
+  let found: Record<string, MappingKind> = {};
   for (const word of words) {
     const kind = PLAIN_WORDS[word.trim().toLowerCase()];
-    if (kind) found[word] = kind;
+    if (kind && !kindOf(found, word)) found = withKind(found, word, kind);
   }
   return found;
+}
+
+// The import reads a kind word in any case ("Buy" is "BUY"), so the matcher
+// does too: one kind for every form of a word
+
+/** The kind a word has, under any of its forms. */
+export function kindOf(kinds: Record<string, MappingKind | "">, word: string): MappingKind | "" {
+  const key = Object.keys(kinds).find((k) => k.trim().toLowerCase() === word.trim().toLowerCase());
+  return key === undefined ? "" : kinds[key];
+}
+
+/** The kinds with `word`'s set to `kind` for every form of it ("": none, its rows left out). */
+export function withKind<K extends string>(kinds: Record<string, K>, word: string, kind: K | ""): Record<string, K> {
+  const others = Object.entries(kinds).filter(([k]) => k.trim().toLowerCase() !== word.trim().toLowerCase());
+  return Object.fromEntries(kind ? [...others, [word, kind]] : others) as Record<string, K>;
 }
 
 /** The mapping the draft says: the columns chosen, the words given a kind. */
