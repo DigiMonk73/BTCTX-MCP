@@ -413,3 +413,30 @@ def test_a_restore_of_a_1x_backup_lists_its_own_old_rows(live, tmp_path):  # noq
     with closing(sqlite3.connect(live.path)) as con:
         naming_7 = [i for (i,) in con.execute("SELECT id FROM transactions WHERE to_account_id = 7 ORDER BY id")]
     assert naming_7 and _old_rows(live) == [(json.dumps(naming_7),)]
+
+
+# Which BitcoinTX last recalculated the ledger (recalculated_by, 2.0 spec
+# 5.8, 5.11): a restore takes the backup's, which describes the figures that
+# come with it; a 1.x backup has none, so the next covered write takes both
+# passes of the past-year warning's dry run
+RECALCULATED_BY = "SELECT value FROM app_settings WHERE key = 'recalculated_by'"
+
+
+def _recalculated_by(live):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        return con.execute(RECALCULATED_BY).fetchall()
+
+
+def test_a_restore_takes_a_2_0_backups_recalculated_by(live, tmp_path):  # noqa: F811
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+    assert _recalculated_by(live)  # this install's
+    blob, _ = _backup(tmp_path, "INSERT INTO app_settings (key, value) VALUES ('recalculated_by', '2.0.0 0101 UTC')")
+    assert _restore(live.client, blob).status_code == 200
+    assert _recalculated_by(live) == [("2.0.0 0101 UTC",)]
+
+
+def test_a_restore_of_a_1x_backup_leaves_none(live, tmp_path):  # noqa: F811
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+    blob, _ = _backup(tmp_path, "DELETE FROM app_settings WHERE key = 'recalculated_by'")
+    assert _restore(live.client, blob).status_code == 200
+    assert _recalculated_by(live) == []

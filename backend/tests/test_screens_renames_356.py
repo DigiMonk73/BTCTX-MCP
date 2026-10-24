@@ -23,7 +23,7 @@ from backend.main import app
 from backend.models.transaction import Transaction
 from backend.services import calculation
 from backend.services.account import account_book
-from backend.services.review import _item
+from backend.services.review import row_item
 from backend.tests.account_pairs import BOOK
 from backend.tests.conftest import default_login, stub_prices_at
 
@@ -111,7 +111,7 @@ def test_an_item_between_two_accounts_names_both_from_then_to(client):
     tx = save(client, type="Transfer", timestamp="2024-01-03T12:00:00Z", from_account_id=1,
               to_account_id=CREDIT_UNION, amount="200", fee_currency="USD")
     with client.sessions() as db:
-        item = _item(db.get(Transaction, tx), timezone.utc, account_book(db), "", "")
+        item = row_item(db.get(Transaction, tx), timezone.utc, account_book(db), "", "")
     assert (item["accounts"], item["amount"], item["unit"]) == (["Bank", "Credit Union"], "200.00", "USD")
 
 
@@ -121,8 +121,8 @@ def test_a_consolidation_names_its_account_once_and_a_missing_one_as_the_book_do
                             from_account_id=COLD, to_account_id=COLD)
     missing = Transaction(id=2, type="Transfer", timestamp=when, amount=Decimal("0.1"),
                           from_account_id=2, to_account_id=12345)
-    assert _item(to_itself, timezone.utc, BOOK, "", "")["accounts"] == ["Cold Storage"]
-    assert _item(missing, timezone.utc, BOOK, "", "")["accounts"] == ["Wallet", "account 12345 (missing)"]
+    assert row_item(to_itself, timezone.utc, BOOK, "", "")["accounts"] == ["Cold Storage"]
+    assert row_item(missing, timezone.utc, BOOK, "", "")["accounts"] == ["Wallet", "account 12345 (missing)"]
 
 
 def test_the_hourly_checks_items_name_their_accounts(client, monkeypatch):

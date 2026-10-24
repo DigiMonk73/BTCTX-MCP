@@ -10,7 +10,7 @@
 //   Long-term: sell 2 (held > 1 year) 9,000 − 2,000 = 7,000
 //   Income: 0.01 BTC at $50,000 = 500
 import {
-  test, expect, figure, parseFigure, seedKnownLedger, choosePriceSource, CURRENT_PRICE,
+  test, expect, figure, parseFigure, seedKnownLedger, choosePriceSource, CURRENT_PRICE, sendConfirmed,
 } from "./fixtures";
 import type { Page } from "@playwright/test";
 
@@ -61,7 +61,8 @@ test("a rebate has its own line, never income (#129)", async ({ authedPage: page
     type: "Deposit", timestamp: "2026-04-01T12:00:00Z", from_account_id: 99, to_account_id: 2,
     amount: "0.001", fee_amount: "0", fee_currency: "BTC", source: "Rebate", cost_basis_usd: "50",
   };
-  const r = await page.request.post("/api/transactions", { data: rebate });
+  // Confirmed once its year is past: from 1 January 2027 (2.0 spec 5.8)
+  const r = await sendConfirmed((params) => page.request.post("/api/transactions", { data: rebate, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   await page.reload();
   expect(await figure(page, "Rebates (received)")).toBe(50);

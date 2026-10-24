@@ -1,0 +1,77 @@
+"""
+Every row of the reference test ledger saved again unchanged, through the
+past-year warning's path (2.0 spec 5.15; card B6b #352): the edit split from
+its commit, the dry run on a scratch copy, and the save. With every row in
+an earlier tax year (this tax year is 2027 here), each goes through the dry
+run, and nothing may move, so none asks: every disposal's proceeds, basis,
+gain, box, term and date acquired, every lot made, every stored figure.
+"""
+
+import importlib.util
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+from backend.main import app
+from backend.services import first_run, outbound, year_changes
+from backend.services.tax_time import get_tax_timezone
+
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parents[2] / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+seed_ledger = _script("seed_ledger")
+
+
+@pytest.fixture
+def seeded(fresh_app, monkeypatch):
+    """The reference ledger in a fresh install, as test_seed_ledger seeds it."""
+    async def find_prices(day, full):
+        return {}, False
+
+    monkeypatch.setattr("backend.services.price_history.find_prices", find_prices)
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    client = TestClient(app)
+    seed_ledger.log_in(client, "seed-user", "seed-password-123", first_run.ensure_code())
+    seed_ledger.seed(client)
+    return client, fresh_app
+
+
+def figures(Session) -> dict:
+    """Every row's that has figures of a tax year (year_changes.counts). A
+    dollar deposit's basis means nothing: an edit that sends its amount
+    stores the 0.00 its add left blank, as 1.x's edits always have."""
+    with Session() as db:
+        return {tx_id: row for tx_id, row in year_changes.figures(db, get_tax_timezone(db)).items()
+                if year_changes.counts(row)}
+
+
+def save_again(client, tx_id: int, body: dict) -> None:
+    """Saved at once: moving nothing, it never asks."""
+    r = client.put(f"/api/transactions/{tx_id}", json=body)
+    assert r.status_code == 200, (tx_id, r.text)
+
+
+@pytest.mark.slow
+def test_every_reference_row_saved_again_unchanged_keeps_its_figures(seeded, tax_year):
+    client, Session = seeded
+    before = figures(Session)
+    tax_year(2027)
+    for tx in client.get("/api/transactions").json():
+        save_again(client, tx["id"], {})
+    assert figures(Session) == before
+
+
+@pytest.mark.slow
+def test_and_with_its_own_date_and_amount_sent_back(seeded, tax_year):
+    client, Session = seeded
+    before = figures(Session)
+    tax_year(2027)
+    for tx in client.get("/api/transactions").json():
+        save_again(client, tx["id"], {"timestamp": tx["timestamp"], "amount": tx["amount"]})
+    assert figures(Session) == before
