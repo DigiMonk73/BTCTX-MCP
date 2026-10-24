@@ -22,6 +22,15 @@ All notable changes to BitcoinTX are documented in this file.
   account chosen for the type before. A page left open while BitcoinTX is
   updated to 2.0 can't save: "BitcoinTX was updated: reload the page." No
   figure changes.
+- **The past-year warning's groundwork** (B6p, #568; tests and scripts
+  only, nothing the app does changes). One clock for "this tax year", in
+  the tax timezone (`tax_time.current_tax_year`), which the warning before
+  a save that changes an earlier tax year will read: the tests pin it to
+  2009, so the suite never changes on its own on 1 January, while every
+  other date check keeps the computer's clock. What loads transactions
+  into a running server (`scripts/seed_ledger.py`, the transactions
+  `scripts/smoke_test.py` creates, the click-through tests' `createTx`)
+  confirms the warning when it asks, with the fingerprint it gives.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and
