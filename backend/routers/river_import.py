@@ -12,6 +12,7 @@ import logging
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
@@ -25,9 +26,12 @@ from backend.schemas.river_import import (
 )
 from backend.schemas.csv_import import CSVParseError
 from backend.services.account import AccountBook, account_book
-from backend.services import hourly_prices
+from backend.services import hourly_prices, past_years
+from backend.services.past_year_writes import Rows
 from backend.schemas.transaction import BTC_PLACES
-from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
+from backend.services.csv_import import (
+    _parse_decimal, _validate_row, create_in_time_order, execute_import, number_text,
+)
 from backend.services.exchange_import import Proposed, propose_file
 from backend.services.exchange_mappings import RIVER
 from backend.services.river_import import (
@@ -164,6 +168,10 @@ def previewed(proposed: Proposed, db: Session) -> RiverPreviewResponse:
         proposals=[_proposal_to_out(p) for p in proposals],
         errors=errors,
         warnings=warnings,
+        # By their dates: the owner edits the rows before the import, which
+        # names exactly what they change
+        past_years_dated=past_years.years_dated_before(
+            db, [p.timestamp for p in proposals if p.status != STATUS_MATCHED]),
     )
 
 
@@ -171,6 +179,7 @@ def previewed(proposed: Proposed, db: Session) -> RiverPreviewResponse:
 def execute_river_import(
     request: Request,
     payload: RiverExecuteRequest,
+    confirm: str | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -182,7 +191,10 @@ def execute_river_import(
     there, whose matches are kept for them (#253). The check and the writes
     hold one write lock, so the same rows imported twice at once (two tabs)
     are saved once (#454). All-or-nothing: any failure rolls back the
-    entire batch.
+    entire batch. Rows that would change the figures of an earlier tax year
+    answer 409 with the years, what changes and a fingerprint, and nothing
+    is saved until sent again with ?confirm=<fingerprint>: one confirm for
+    the file, after a copy of the database (2.0 spec 5.8).
     """
     _require_auth(request)
 
@@ -200,16 +212,19 @@ def execute_river_import(
     imported_count = 0
     if to_check:
         try:
-            imported_count = execute_import(
-                db, [tx_data for _number, tx_data, _row in to_check], lambda: _not_in_the_ledger(to_check, reserved, db))
+            imported_count = past_years.save(_past_year_write(to_check, reserved), db, confirm, by_ai=False)
         except HTTPException as exc:
             db.rollback()
+            if exc.status_code >= 500:  # the confirmed save's: busy, or no copy first
+                raise
             raise HTTPException(
                 status_code=400,
                 detail=f"Import failed: {exc.detail}. No transactions were saved.",
             )
         except Exception as exc:
             raise import_failure("River import", exc) from exc
+        if isinstance(imported_count, JSONResponse):
+            return imported_count  # the warning
     skipped = len(kept) - imported_count
 
     if not imported_count:
@@ -228,6 +243,24 @@ def execute_river_import(
         skipped_existing=skipped,
         message=message,
     )
+
+
+def _past_year_write(to_check: list[tuple[int, dict, RiverExecuteRow]], reserved: set[int]) -> Rows:
+    """The file's rows as one write through the past-year warning (2.0 spec
+    5.8): each pass and the confirmed save check them for duplicates
+    (_not_in_the_ledger) and save those not in the ledger, from the rows'
+    values as given; the confirmed save does so under its write lock."""
+    rows = tuple(tx_data for _number, tx_data, _row in to_check)
+
+    def write_them(db: Session) -> int:
+        return create_in_time_order(db, [dict(tx_data) for tx_data in _not_in_the_ledger(to_check, reserved, db)])
+
+    def save_them(db: Session) -> int:
+        # The rows the check returns, so a run made again for a price starts from them as given (with_prices_found)
+        return execute_import(db, list(rows), lambda: _not_in_the_ledger(to_check, reserved, db))
+
+    return Rows(rows, lambda db: _not_in_the_ledger(to_check, reserved, db), write_them, save_them,
+                named=sorted(reserved))
 
 
 def _rows_to_check(rows: list[RiverExecuteRow], book: AccountBook) -> list[tuple[int, dict, RiverExecuteRow]]:

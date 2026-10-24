@@ -3,7 +3,8 @@ Every connector test starts with a fresh version check and the accounts not
 read yet, the connector at
 BitcoinTX's own version (the installed package's metadata may be older in a
 dev environment; test_version_notice.py sets other versions itself), and with
-public price sites chosen. "This tax year" is the backend tests' (2009).
+public price sites chosen. "This tax year" is the backend tests' (2009),
+unless a test sets it (tax_year).
 """
 
 import pytest
@@ -24,6 +25,17 @@ def pinned_tax_year():
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(tax_time, "current_tax_year", lambda tz: PINNED_TAX_YEAR)
         yield
+
+
+@pytest.fixture
+def tax_year(monkeypatch):
+    """Sets "this tax year" for one test of the past-year warning: tax_year(2026)."""
+    from backend.services import tax_time
+
+    def set_year(year: int) -> None:
+        monkeypatch.setattr(tax_time, "current_tax_year", lambda tz: year)
+
+    return set_year
 
 
 @pytest.fixture(autouse=True)
