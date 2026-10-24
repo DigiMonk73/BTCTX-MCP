@@ -2,7 +2,8 @@
 The past-year warning on adds, edits and deletes (2.0 spec 5.8, 5.15's "Q4's
 reach" and "Q4"; card B6b #352; the owner's decision Q4, widened on
 2026-10-15): a write that would change the figures of a tax year before this
-one (the gains, the Form 8949 boxes, the dates acquired, the income) answers
+one (the gains, the Form 8949 boxes, the dates acquired, the income and
+rebates, gifts, donations and lost coins) answers
 409 and saves nothing, until it comes back with the 409's fingerprint
 (?confirm=); then a copy of the database is made first, under the write
 lock, and the write is checked again before it's committed. Worked out on a
@@ -557,3 +558,4 @@ def test_a_dollar_withdrawals_leftover_purpose_and_value_count_for_nothing(ledge
         db.commit()
     r = client.put("/api/transactions/980", json={"amount": "100"})
     assert r.status_code == 200, r.text
+    assert (r.json()["purpose"], r.json()["fmv_usd"]) == (None, None)  # dropped by the save

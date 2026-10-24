@@ -1,7 +1,9 @@
 """
 What a write changes, tax year by tax year (2.0 spec 5.8): for each
 transaction, Ledger Review's snapshot of its stored figures, its lot
-disposals' Form 8949 boxes and column (b), and its tax year. The boxes and
+disposals' Form 8949 boxes and column (b), what the year's report counts as
+income or a rebate and as a gift, donation or lost coins, and its tax year.
+The boxes and
 dates are compared even when every dollar matches: a covered sale can turn
 noncovered with the same gain (G to H), and two lots of the same cost and
 term can swap. A row with no figures (dollars only) changes no tax year,
@@ -37,8 +39,9 @@ PENDING = "Stored figures differ from what the current rules give."
 
 def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
     """Each transaction's stored figures (review.snapshot), its disposals'
-    Form 8949 boxes and column (b), what it brings as income or a rebate,
-    its tax year (tax timezone), and whether it's dollars only."""
+    Form 8949 boxes and column (b), what it brings as income or a rebate
+    and what it gives, donates or loses, its tax year (tax timezone), and
+    whether it's dollars only."""
     found = review.snapshot(db, tz)
     book = account_book(db)
     for t in db.query(Transaction):
