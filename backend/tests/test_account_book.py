@@ -300,7 +300,8 @@ def test_the_list_by_kind_without_a_leftover_and_writing_nothing(api):
         (1, "bank", False), (2, "wallet", False), (102, "wallet", True), (3, "exchange", False),
         (4, "exchange", False), (100, "exchange", False), (101, "exchange", False), (5, "fee", False),
         (6, "fee", False)]
-    assert set(r.json()[0]) == {"id", "name", "kind", "currency", "exchange_id", "exchange", "hidden", "in_use"}
+    assert set(r.json()[0]) == {"id", "name", "kind", "currency", "exchange_id", "exchange", "sends_1099da", "hidden",
+                                "in_use"}
     assert _rows(api.path, "SELECT * FROM accounts ORDER BY id") + _rows(api.path, "SELECT * FROM exchanges") == before
     assert api.client.get(f"{URL}2").json()["name"] == "Wallet"
     assert api.client.get(f"{URL}9999").status_code == 404

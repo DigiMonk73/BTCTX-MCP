@@ -19,27 +19,33 @@ class AccountCreate(BaseModel):
 
 class AccountUpdate(BaseModel):
     """Rename an account (an exchange's: its exchange and both of its
-    accounts), hide it from the pickers or show it again; at least one."""
+    accounts), hide it from the pickers or show it again, and turn its
+    exchange's "This exchange sends me a Form 1099-DA" off or on (an
+    exchange's account only); at least one."""
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = None
     hidden: bool | None = None
+    sends_1099da: bool | None = None
 
     @model_validator(mode="after")
     def _something_to_change(self) -> "AccountUpdate":
-        if self.name is None and self.hidden is None:
-            raise ValueError("Send a name, hidden, or both.")
+        if self.name is None and self.hidden is None and self.sends_1099da is None:
+            raise ValueError("Send name, hidden or sends_1099da (one or more).")
         return self
 
 
 class AccountRead(BaseModel):
     """An account as the API lists it: `exchange` is its exchange's name,
-    `in_use` whether a transaction or a ledger line names it."""
+    `sends_1099da` its exchange's 1099-DA switch (None for an account that
+    isn't an exchange's), `in_use` whether a transaction or a ledger line
+    names it."""
     id: int
     name: str
     kind: str
     currency: str
     exchange_id: int | None
     exchange: str | None
+    sends_1099da: bool | None
     hidden: bool
     in_use: bool

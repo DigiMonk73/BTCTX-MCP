@@ -16,9 +16,12 @@ export async function getTaxTimezone(): Promise<TaxTimezone> {
   return res.data;
 }
 
-/** Settings' Save: the owner's own choice (`chosen`, which a page from before #334 never sends). */
-export async function setTaxTimezone(timezone: string): Promise<TaxTimezone> {
-  const res = await api.put<TaxTimezone>("/settings/tax-timezone", { timezone, chosen: true });
+/** Settings' Save: the owner's own choice (`chosen`, which a page from
+ * before #334 never sends). `confirm`: the past-year warning's fingerprint
+ * the owner said yes to (2.0 spec 5.8). */
+export async function setTaxTimezone(timezone: string, confirm?: string): Promise<TaxTimezone> {
+  const res = await api.put<TaxTimezone>("/settings/tax-timezone", { timezone, chosen: true },
+    confirm ? { params: { confirm } } : undefined);
   return res.data;
 }
 

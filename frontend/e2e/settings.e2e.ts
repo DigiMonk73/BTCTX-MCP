@@ -3,7 +3,7 @@
 // Assistant prompt, and About BitcoinTX.
 import {
   test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
-  BLOCKED_KEY_FOLDER, sendConfirmed,
+  BLOCKED_KEY_FOLDER, sendConfirmed, SAVE_ANYWAY,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
@@ -36,6 +36,10 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
 
   await select.selectOption("Asia/Tokyo");
   await page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true }).click();
+  // It moves earlier tax years' figures: asked first, the sale under both years (2.0 spec 5.8, #353)
+  const dialog = page.getByRole("dialog", { name: "Change an earlier tax year?" });
+  await expect(dialog).toContainText(/tax year 2024 -> 2025/i);
+  await dialog.getByRole("button", { name: SAVE_ANYWAY }).click();
   await expect(page.getByText("Tax timezone set to Asia/Tokyo. Gains were recalculated.")).toBeVisible();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(1);
   expect((await historyCsv(page, 2025)).match(/Sell/g)).toHaveLength(1);

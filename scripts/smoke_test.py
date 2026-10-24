@@ -414,9 +414,10 @@ def check_entry_import(c: httpx.Client) -> None:
     r = c.post("/api/import/entries/preview", json={"rows": rows})
     check("preview", r.status_code == 200 and r.json()["ready_count"] == 1, r.text)
     check("preview saved nothing", len(c.get("/api/transactions").json()) == 4)
-    r = c.post("/api/import/entries/execute", json={"rows": rows})
+    # In an earlier tax year: the execute asks first (past_years), and is confirmed
+    r = send_confirmed(c, "POST", "/api/import/entries/execute", {"rows": rows})
     check("execute", r.status_code == 200 and r.json()["imported_count"] == 1, r.text)
-    r = c.post("/api/import/entries/execute", json={"rows": rows})
+    r = send_confirmed(c, "POST", "/api/import/entries/execute", {"rows": rows})
     check("re-import skips the duplicate", r.json()["skipped_duplicates"] == 1, r.text)
 
 

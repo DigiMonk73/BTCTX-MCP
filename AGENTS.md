@@ -252,6 +252,24 @@ recalculated the whole live ledger (every full replay writes it, a scratch
 copy's or a partial one's never): while it matches, nothing is pending. The
 scripts and the click-through specs confirm the 409 (`send_confirmed`,
 `sendConfirmed`, `saveForm`).
+The other writes go through the same `past_years.save`, each a write of
+its own (#353; `services/past_year_writes.py`): the AI's import and River's
+(one confirm for the batch or file, its duplicate check run inside the
+write lock its rows are written under; only the rows that check keeps
+count, so a batch sent again asks nothing; the AI's preview gives the
+execute's 409 as `past_years`, River's lists the past years its new rows
+are dated in as `past_years_dated`), Settings' Save of the tax timezone
+(each pass reads dates in its own timezone, so a row whose tax year moves
+is listed under both; the timezone in use saved again never asks; the
+login's fill is 1.x's, an empty ledger only), an exchange's 1099-DA
+switch (`PUT /api/accounts/{id}` `{sends_1099da}`: boxes compared, no
+replay) and, with the AI key,
+Recalculate Ledger (what it changes is `pending`; with a login it never
+asks). The AI connector answers a 409 as the tool's answer (`saved: false`,
+the fields, how to confirm: `confirm`, `update_transaction`'s
+`confirm_move`), and gives the writes that can answer one, and Ledger
+Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
+#637).
 
 ## Tax invariants (each has regression tests; don't break them)
 
@@ -551,7 +569,7 @@ scripts and the click-through specs confirm the 409 (`send_confirmed`,
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
-| `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger |
+| `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |

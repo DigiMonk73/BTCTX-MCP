@@ -20,6 +20,7 @@ from backend.schemas.transaction import (
     TransactionRead
 )
 from backend.services import past_years
+from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
 from backend.services import wipe
 from backend.services.account import account_book
@@ -109,18 +110,25 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
 
 
 @router.post("/recalculate")
-def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
+def recalculate_ledger(request: Request, confirm: str | None = None, db: Session = Depends(get_db)):
     """
     Rebuild every ledger line, lot and disposal from the transactions in
     chronological order (the same "scorched earth" pass edits trigger).
     Run once after upgrading so calculation fixes reach existing data.
-    With the AI key, its first change in an hour comes after an AI copy of
-    the database: a recalculation can move stored figures (#336).
+    With the AI key, one that would change the figures of an earlier tax
+    year answers 409 with the years, what changes (as pending) and a
+    fingerprint, and changes nothing until sent again with
+    ?confirm=<fingerprint>, after a fresh AI copy of the database; its
+    first change in an hour otherwise comes after an AI copy (#336). With a
+    login it's the owner's own fix, and never asks.
     """
-    if _by_ai(request):
-        _copy_before_ai_changes(db, "Not recalculated")
     try:
-        tx_service.recalculate_ledger(db)
+        if _by_ai(request):
+            done = past_years.save(Recalculation(), db, confirm, True, _ai_copy_first(db, True, "Not recalculated"))
+            if isinstance(done, JSONResponse):
+                return done  # the warning
+        else:
+            tx_service.recalculate_ledger(db)
     except Exception:
         db.rollback()
         raise
