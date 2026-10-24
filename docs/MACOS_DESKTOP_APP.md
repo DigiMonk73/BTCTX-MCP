@@ -275,16 +275,24 @@ On every pull request, every push to `develop` or `main`, or manually from the A
 runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
 sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the
 newest in the test matrix, which tests it; Docker and StartOS run 3.13 too. It
-never takes whichever Python the runner has. It launches the bundled binary,
-checks it answers on `http://127.0.0.1:8765/` and that
-`/api/import/entries/preview` returns 401 without a login, then uploads the
-zipped `.app` and an unsigned `.dmg` as a build artifact.
+never takes whichever Python the runner has. `scripts/mac-app.sh check`
+launches the bundled binary, finds the port it listens on, and checks it
+answers there and that `/api/import/entries/preview` returns 401 without a
+login; that the app is BitcoinTX (`org.bitcointx.desktop`) on 8765, or, for
+a 2.0 pre-release, never the installed app's name, bundle id or port; and
+that its data went into its own folder (a pre-release's never into
+BitcoinTX's). `scripts/mac-app.sh package` then makes the zipped `.app`
+and an unsigned `.dmg`, named after the app, uploaded as a build artifact.
+Both run only on GitHub's own runners: they open the build on its own data
+folder, which for a 1.x build is the installed app's.
 
 Releases (`.github/workflows/release.yml`, on a `release/vX.Y.Z` branch) build
 the app the same way, on `macos-latest`'s Apple silicon, so the app is arm64
 only (`lipo -info` on 1.2.9's binary): it runs on Macs with Apple silicon,
 not on Intel Macs. They attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
-drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release. Both
+drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release (a
+2.0 pre-release, an alpha or a beta from `prerelease/`,
+`BitcoinTX-Preview-macOS.dmg` and `.zip`). Both
 are unsigned and not notarized. Before it creates the release, the release
 job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with
 them) and attests the three (`actions/attest-build-provenance`); see

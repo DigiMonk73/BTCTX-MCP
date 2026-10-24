@@ -79,7 +79,7 @@ g log --oneline --no-merges "$OURS..$THEIRS" | sed 's/^/  /'
 base="$(g merge-base "$OURS" "$THEIRS")" || unsure "git can't find where 2.0 and develop meet"
 changed="$(g diff --name-only --no-renames "$base" "$THEIRS")" || unsure "git can't list what develop changed"
 migrations="$(echo "$changed" | grep -E '^backend/migrations/versions/.*\.py$' || true)"
-[ -z "$migrations" ] || STOPS+=("a 1.x migration ($(echo "$migrations" | xargs -n1 basename | tr '\n' ' ' | sed 's/ $//')): merge develop in a 2.0-merge-develop branch and put 2.0's migrations after it (0100 re-pointed until beta.1 is out, then a merge revision: #251 says which; 7.2, point 2)")
+[ -z "$migrations" ] || STOPS+=("a 1.x migration ($(echo "$migrations" | xargs -n1 basename | tr '\n' ' ' | sed 's/ $//')): merge develop in a 2.0-merge-develop branch and put 2.0's migrations after it (0100 re-pointed until the first pre-release (alpha.1) is out, then a merge revision: #251 says which; 7.2, point 2)")
 reference="$(echo "$changed" | grep -Fx -e "${REFERENCE[0]}" -e "${REFERENCE[1]}" || true)"
 [ -z "$reference" ] || STOPS+=("the reference test ledger or its figures changed: merge develop in a 2.0-merge-develop branch and make reference_1x.db and its figures again ($FIXTURE_SCRIPT)")
 set +e
