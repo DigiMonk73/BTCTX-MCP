@@ -50,6 +50,15 @@ def test_a_buy_with_its_own_exchanges_dollars_is_covered_too(ledger):
     assert agrees(ledger, 2026) == ["G"]
 
 
+@pytest.mark.parametrize("zone, box", [("UTC", "G"), ("America/Chicago", "H")])
+def test_bought_there_counts_from_2026_in_the_tax_timezone(ledger, zone, box):
+    """03:00 UTC on 2026-01-01 is still 2025 in Chicago: bought then, the coins are noncovered there."""
+    ledger.set_tax_timezone(zone)
+    ledger.save("Buy", "2026-01-01T03:00:00Z", BANK, KRAKEN_BTC, "1.00000000", cost_basis_usd="50000.00")
+    ledger.save("Sell", "2026-06-01", KRAKEN_BTC, KRAKEN_USD, "0.50000000", gross_proceeds_usd="40000.00")
+    assert agrees(ledger, 2026) == [box]
+
+
 def test_a_sell_on_the_second_exchange_in_2025_reports_proceeds_only(ledger):
     ledger.save("Buy", "2024-01-10", BANK, KRAKEN_BTC, "1.00000000", cost_basis_usd="40000.00")
     ledger.save("Buy", "2025-02-01", BANK, KRAKEN_BTC, "1.00000000", cost_basis_usd="90000.00")

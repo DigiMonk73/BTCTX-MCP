@@ -229,17 +229,21 @@ def _broker_reporting(disp: LotDisposal, year: int, tz, book: AccountBook) -> tu
         return tx.broker_reporting != "none", tx.broker_reporting == "basis"
     if year < 2025 or tx is None or tx.type != "Sell" or not _on_a_1099da(tx.from_account_id, book):
         return False, False
-    lot = disp.lot
+    return True, covered_lot(disp.lot, tx.from_account_id, tz)
+
+
+def covered_lot(lot, account_id: int | None, tz) -> bool:
+    """A lot whose basis an exchange reports when it's sold from `account_id`:
+    bought there (a Buy into that account) on or after 2026-01-01 in the tax
+    timezone (Treas. Reg. 1.6045-1(a)(15)(i)(J))."""
     origin = lot.created_transaction if lot else None
-    acquired = lot.acquired_date if lot else None
-    covered = (
+    return (
         origin is not None
         and origin.type == "Buy"
-        and origin.to_account_id == tx.from_account_id
-        and acquired is not None
-        and local_date(acquired, tz) >= COVERED_DIGITAL_ASSET_START
+        and origin.to_account_id == account_id
+        and lot.acquired_date is not None
+        and local_date(lot.acquired_date, tz) >= COVERED_DIGITAL_ASSET_START
     )
-    return True, covered
 
 
 def _on_a_1099da(account_id: int | None, book: AccountBook) -> bool:

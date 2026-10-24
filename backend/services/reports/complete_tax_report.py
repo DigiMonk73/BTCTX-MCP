@@ -510,7 +510,9 @@ class _TaxReport:
             return []
         rows = [self.header("Exchange", "Sends Form 1099-DA", "Boxes", "Rows", "Proceeds", "Cost basis", "Gain (loss)",
                             numbers_from=3)]
-        rows += [[self.name(s["exchange"]), self.text("Yes" if s["sends_1099da"] else "No"),
+        # Forms 1099-DA start with 2025 (Instructions for Form 1099-DA)
+        before = isinstance(self.year, int) and self.year < 2025
+        rows += [[self.name(s["exchange"]), self.text("—" if before else "Yes" if s["sends_1099da"] else "No"),
                   self.text(", ".join(s["boxes"])), *self.numbers(str(s["rows"]), fmt_usd(s["proceeds"]),
                                                                   fmt_usd(s["cost"]), fmt_gain(s["gain_loss"]))]
                  for s in sales]

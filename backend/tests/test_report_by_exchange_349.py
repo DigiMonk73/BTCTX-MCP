@@ -11,7 +11,7 @@ is the Kind cell's second line, and a 40-character name wraps inside it.
 import io
 
 from pypdf import PdfReader
-from reportlab.lib.units import inch
+from reportlab.platypus import Table
 
 from backend.services.reports.complete_tax_report import _TaxReport, generate_comprehensive_tax_report
 from backend.tests import two_exchanges
@@ -21,8 +21,8 @@ from backend.tests.two_exchanges import (
 
 ledger = two_exchanges.ledger  # the fixture: a fresh ledger with Kraken and Overseas
 
-# The Kind column of section 2's table, less its cell's padding (pdf_layout.data_table)
-KIND_WIDTH = 0.9 * inch - 10
+# A cell's padding, left and right (pdf_layout.data_table)
+PADDING = 10
 
 
 def shown(report: dict) -> str:
@@ -92,6 +92,13 @@ def test_a_1x_ledger_shows_one_exchange(ledger):
     assert "Salesbyexchange" in text and "SaleExchangeBTC" in text
 
 
+def test_before_2025_no_exchange_sent_a_1099da(ledger):
+    ledger.save("Buy", "2024-01-10", BANK, EXCHANGE_BTC, "1.00000000", cost_basis_usd="40000.00")
+    ledger.save("Sell", "2024-03-01", EXCHANGE_BTC, EXCHANGE_USD, "0.25000000", gross_proceeds_usd="12000.00")
+    text = shown(ledger.report(2024))
+    assert "Exchange—C1$12,000.00" in text[text.index("Salesbyexchange"):]
+
+
 def test_a_year_without_a_sell_has_no_sales_by_exchange(ledger):
     ledger.save("Buy", "2025-01-10", BANK, EXCHANGE_BTC, "1.00000000", cost_basis_usd="40000.00")
     ledger.save("Transfer", "2025-02-01", EXCHANGE_BTC, WALLET, "0.50000000", fee_amount="0.00010000", fee_usd="9.00")
@@ -125,9 +132,11 @@ def test_a_40_character_name_wraps_inside_the_kind_cell(ledger):
     names = [f"{long_exchange} BTC", long_wallet]
     assert [r["account"] for r in report["capital_gains_transactions"]] == [long_wallet, names[0]]
     tax_report = _TaxReport(report)
+    table = next(f for f in tax_report.capital_gains_detail() if isinstance(f, Table))
+    kind_width = table._colWidths[2] - PADDING  # the Kind column, as the report lays it out
     for row in report["capital_gains_transactions"]:
         kind, account = tax_report.disposal_row(row)[2]
-        account.wrap(KIND_WIDTH, 1000)
+        account.wrap(kind_width, 1000)
         assert len(account.blPara.lines) > 1, row["account"]
         # Each line's room to spare (a line of words keeps it first, one of characters as extraSpace)
         room = [line.extraSpace if hasattr(line, "extraSpace") else line[0] for line in account.blPara.lines]

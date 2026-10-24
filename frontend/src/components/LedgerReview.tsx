@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import api from "../api";
+import { showTheList } from "../utils/reminderList";
 import { reviewAmount, typeWithSourceOrPurpose } from "../utils/transactionList";
 import HourlyCheck from "./ledgerReview/HourlyCheck";
 import type { HourlyPick, LedgerReviewResponse, ReviewCheck } from "./ledgerReview/types";
@@ -24,7 +25,8 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
 /**
  * A reminder (#128): its rows aren't errors, so one explanation for
  * the group and the list folded until asked for. Nothing is saved: the
- * group shrinks as the owner edits the deposits.
+ * deposits' group shrinks as the owner edits them; the sales' (#349)
+ * stays, since nothing in the ledger is wrong.
  */
 const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
   const [open, setOpen] = useState(false);
@@ -40,7 +42,7 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
       ))}
       <p className="settings-option-subtitle">{check.action}</p>
       <button onClick={() => setOpen(!open)} className="btn btn-secondary">
-        {open ? "Hide the list" : `Show the ${check.count} deposit${check.count === 1 ? "" : "s"}`}
+        {open ? "Hide the list" : showTheList(check.key, check.count)}
       </button>
       {open && <ReviewItems check={check} />}
     </div>

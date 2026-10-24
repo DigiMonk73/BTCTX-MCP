@@ -30,6 +30,12 @@ class Ledger:
     def __init__(self, client: TestClient, Session):
         self.client, self.Session = client, Session
         self.rows: list[dict] = []
+        self.tax_timezone = "UTC"
+
+    def set_tax_timezone(self, zone: str) -> None:
+        r = self.client.put("/api/settings/tax-timezone", json={"timezone": zone, "chosen": True})
+        assert r.status_code == 200, r.text
+        self.tax_timezone = zone
 
     def save(self, kind, when, src, dst, amount, **more) -> dict:
         """One transaction, as the independent calculation reads it too."""
@@ -56,7 +62,8 @@ class Ledger:
     def independent_form_8949(self, year: int) -> list[tuple]:
         """The same rows by the second calculation, in the ledger's accounts and switches."""
         independent = independent_figures()
-        replayed = independent.replay(self.rows, accounts=independent.read_accounts({"accounts": self.accounts()}))
+        replayed = independent.replay(self.rows, accounts=independent.read_accounts({"accounts": self.accounts()}),
+                                      tax_timezone=self.tax_timezone)
         return sorted(tuple(r[c] for c in FORM_COLUMNS) for r in independent.year_figures(replayed, year)["form_8949"])
 
     def accounts(self) -> list[dict]:

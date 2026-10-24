@@ -375,16 +375,16 @@ def _build_sales_by_exchange(disposals: list[LotDisposal], rows: list[dict[str, 
     """
     "Sales by exchange" (2.0 spec 5.7): each exchange with Sells in the
     year, whether it sends a Form 1099-DA, its Sells' Form 8949 boxes and
-    rows, and their proceeds, cost and gain, network fees left out (a fee
-    is on no 1099-DA by itself): to set beside the 1099-DA it sends. Every
-    figure stays where it is: these are the totals of its Sells' rows
+    rows, and their proceeds, cost and gain: to set beside the 1099-DA it
+    sends. Sells only, so no network fee (a Sell's fee is in dollars; a
+    BTC fee is a Transfer's or a Withdrawal's, on no 1099-DA by itself).
+    Every figure stays where it is: these are the totals of its Sells' rows
     (`rows`, the capital-gains lines of `disposals`, in their order).
     """
     exchanges: dict[int, dict[str, Any]] = {}
     for d, row in zip(disposals, rows):
         tx = d.transaction
-        exchange = book.exchange_of(tx.from_account_id) if tx is not None and tx.type == "Sell" and not d.is_fee \
-            else None
+        exchange = book.exchange_of(tx.from_account_id) if tx is not None and tx.type == "Sell" else None
         if exchange is None:
             continue
         sales = exchanges.setdefault(exchange, {

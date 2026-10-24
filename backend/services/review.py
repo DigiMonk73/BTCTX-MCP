@@ -58,13 +58,14 @@ Checks:
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
 - sale_may_differ_from_1099da (2.0 spec 5.7, 5.13; a reminder): a Sell from
-  2026 on an exchange that sends a Form 1099-DA that took coins moved into
-  its account while that account held coins bought there before they
-  arrived. An exchange without the purchase dates of coins moved in treats
-  them as bought when they arrived, and sells the coins it dates first;
-  BitcoinTX sells the oldest by the date first acquired. So the exchange's
-  form may report other coins (a 2025 form reports no basis). Nothing in
-  the ledger is wrong, and nothing clears it: a reminder.
+  2026 on an exchange that sends a Form 1099-DA, with no Broker form of its
+  own, for which the exchange's own lot order takes other coins bought
+  there than BitcoinTX's. An exchange without the purchase dates of coins
+  moved in counts them from their arrival and sells the coins it counts as
+  oldest first; BitcoinTX sells first the coins acquired first. So the
+  exchange's form may report another basis for the sale (a 2025 form
+  reports none). Nothing in the ledger is wrong, and nothing clears it: a
+  reminder.
 - inherited_without_date (#154): an Inherited deposit into a BTC account
   with no date of death. New ones must have it; a deposit saved before
   1.1.0, when the source was free text, may say "inherited" without one. Its
@@ -128,7 +129,7 @@ from backend.services import hourly_prices, old_rows, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
-from backend.services.reports.form_8949 import COVERED_DIGITAL_ASSET_START
+from backend.services.reports.form_8949 import COVERED_DIGITAL_ASSET_START, covered_lot
 from backend.services.transaction import known_accounts, missing_accounts, received_known, what_is_missing
 from backend.services.tax_time import as_utc, get_tax_timezone, local_date, tax_year_bounds
 from backend.unexpected_errors import log_unexpected
@@ -227,8 +228,9 @@ CHECKS: dict[str, tuple] = {
     ),
     "sale_may_differ_from_1099da": (
         "Reminder: exchange sales your exchange's Form 1099-DA may show differently",
-        "Compare each with your exchange's Form 1099-DA. Where they differ, Form 8949 shows the exchange's figures "
-        "with an adjustment (code B): ask your tax preparer.",
+        "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file shows the "
+        "exchange's figures with an adjustment (code B), which BitcoinTX's forms leave blank: ask your tax "
+        "preparer.",
     ),
 }
 
@@ -259,12 +261,13 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "giver).",
     ),
     "sale_may_differ_from_1099da": (
-        "Your exchange may have reported other coins for these sales: it may treat coins you moved in as bought "
-        "when they arrived, and sell first the coins it dates first. BitcoinTX sells first the oldest coins in each "
-        "account by the date each was first acquired, so here it sold coins you moved in, while the exchange may "
-        "have sold coins you had bought there before they arrived.",
+        "Your exchange may have reported other coins for these sales. Without their purchase dates, an exchange "
+        "counts coins you moved in from the day they arrived, and sells first the coins it counts as oldest. "
+        "BitcoinTX sells first the coins acquired first in each account. For these sales the exchange's order "
+        "takes other coins bought there, whose cost basis its form reports. Once one sale has taken other coins, "
+        "a later one can differ too.",
         "Nothing in your ledger is wrong, and nothing needs editing: these are listed so you can check them "
-        "against the form.",
+        "against the form. A sale whose Broker form you set isn't listed.",
     ),
 }
 
@@ -603,45 +606,46 @@ def _sale_may_differ_items(db: Session, tz, book: AccountBook) -> list[dict[str,
     """
     Each Sell from 2026 in the tax timezone (a 2025 Form 1099-DA reports no
     basis) from an exchange's BTC account whose exchange sends a Form
-    1099-DA, and not marked as on none, that took coins it didn't buy there
-    (moved in, or deposited) while that account held coins bought there
-    after those were first acquired and before they arrived (5.7, 5.13):
-    BitcoinTX sold the moved coins first, as the older; the exchange, dating
-    them by their arrival, would sell the coins bought there first.
+    1099-DA, with no Broker form of its own (one set says the owner compared
+    it with the form), for which the exchange's own lot order takes other
+    covered coins (those whose basis it reports) than BitcoinTX's (5.7,
+    5.13). Both orders are replayed over the account's lots, each
+    transaction taking what it took; once they part, a later Sell can differ
+    without touching a moved coin.
     """
     start, _ = tax_year_bounds(COVERED_DIGITAL_ASSET_START.year, tz)
     sells = [t for t in db.query(Transaction).filter(Transaction.type == "Sell", Transaction.timestamp >= start)
              .order_by(Transaction.timestamp, Transaction.id)
-             if book.is_btc(t.from_account_id) and book.sends_1099da(t.from_account_id) and t.broker_reporting != "none"]
-    # (first acquired, arrived) of the coins each took that weren't bought there
-    moved = {t.id: [(as_utc(d.lot.acquired_date), as_utc(d.lot.created_transaction.timestamp))
-                    for d in t.lot_disposals if not d.is_fee and not _bought_there(d.lot)] for t in sells}
-    sells = [t for t in sells if moved[t.id]]
-    held: dict[int, dict[BitcoinLot, Decimal]] = {}
+             if book.is_btc(t.from_account_id) and book.sends_1099da(t.from_account_id) and not t.broker_reporting]
+    differ: set[int] = set()
     for account_id in {t.from_account_id for t in sells}:
-        held.update(replayed_lots(db, account_id, {t.id for t in sells})[0])
-    return [_item(t, tz, book, f"Sold coins moved into {book.name(t.from_account_id)} while it held coins bought "
-                  "there before they arrived.", "")
-            for t in sells if any(acquired < as_utc(lot.acquired_date) < arrived for acquired, arrived in moved[t.id]
-                                  for lot in held[t.id] if _bought_there(lot))]
+        wanted = {t.id for t in sells if t.from_account_id == account_id}
+        ours, theirs = (replayed_lots(db, account_id, wanted, by_arrival)[0] for by_arrival in (False, True))
+        differ |= {i for i in wanted if _covered(ours[i], account_id, tz) != _covered(theirs[i], account_id, tz)}
+    return [_item(t, tz, book, f"Counting coins moved into {book.name(t.from_account_id)} from their arrival, the "
+                  "exchange's own order sells other coins bought there for this sale than BitcoinTX does.", "")
+            for t in sells if t.id in differ]
 
 
-def _bought_there(lot: BitcoinLot) -> bool:
-    """Made by a Buy: into the account it's in, the one its exchange bought it for."""
-    return lot.created_transaction is not None and lot.created_transaction.type == "Buy"
+def _covered(taken: dict[BitcoinLot, Decimal], account_id: int, tz) -> dict[int, Decimal]:
+    """What a Sell took from each lot whose basis the exchange reports."""
+    return {lot.id: btc for lot, btc in taken.items() if covered_lot(lot, account_id, tz)}
 
 
-def replayed_lots(db: Session, account_id: int, wanted: set[int]) \
+def replayed_lots(db: Session, account_id: int, wanted: set[int], by_arrival: bool = False) \
         -> tuple[dict[int, dict[BitcoinLot, Decimal]], dict[BitcoinLot, Decimal]]:
     """
     A bitcoin account's lots replayed from the stored figures, in the
     ledger's order (timestamp, then id): the lots a transaction made in it
     join it, and what one took from it (its lot disposals there, and the
-    lots a transfer made elsewhere from it) leaves it oldest first, by date
-    acquired and then the first made, as the engine takes them
-    (transaction._open_lots). For each transaction in `wanted`, what each
-    lot held just before it (those with BTC); and what each holds at the
-    end, its stored remaining_btc. Reads only.
+    lots a transfer made elsewhere from it) leaves it oldest first: by date
+    acquired, then the first made, as the engine takes them
+    (transaction._open_lots); or, `by_arrival`, as an exchange without the
+    dates of coins moved in takes them (Instructions for Form 1099-DA, lot
+    selection): each lot from when it reached the account, a purchase there
+    from its own date. For each transaction in `wanted`, what it took from
+    each lot; and what each lot holds at the end (by the engine's order,
+    its stored remaining_btc). Reads only.
     """
     made: dict[int, list[BitcoinLot]] = defaultdict(list)
     for lot in (db.query(BitcoinLot).join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
@@ -658,28 +662,32 @@ def replayed_lots(db: Session, account_id: int, wanted: set[int]) \
                        .filter(Transaction.from_account_id == account_id, Transaction.to_account_id != account_id)):
         taken[tx_id] += btc  # what a transfer moved from it
     held: dict[BitcoinLot, Decimal] = {}
-    oldest: list[tuple] = []  # (date acquired, id, lot) of each lot with BTC, oldest first
-    before: dict[int, dict[BitcoinLot, Decimal]] = {}
+    oldest: list[tuple] = []  # (when it counts from, id, lot) of each lot with BTC, oldest first
+    took: dict[int, dict[BitcoinLot, Decimal]] = {}
     for (tx_id,) in (db.query(Transaction.id)
                      .filter(or_(Transaction.from_account_id == account_id, Transaction.to_account_id == account_id))
                      .order_by(Transaction.timestamp, Transaction.id)):
+        pieces = _take_oldest_first(held, oldest, taken.get(tx_id, Decimal(0)))
         if tx_id in wanted:
-            before[tx_id] = {lot: btc for lot, btc in held.items() if btc > 0}
-        _take_oldest_first(held, oldest, taken.get(tx_id, Decimal(0)))
+            took[tx_id] = pieces
         for lot in made.get(tx_id, []):
             held[lot] = lot.total_btc
-            heapq.heappush(oldest, (as_utc(lot.acquired_date), lot.id, lot))
-    return before, held
+            since = lot.created_transaction.timestamp if by_arrival else lot.acquired_date
+            heapq.heappush(oldest, (as_utc(since), lot.id, lot))
+    return took, held
 
 
-def _take_oldest_first(held: dict[BitcoinLot, Decimal], oldest: list[tuple], btc: Decimal) -> None:
+def _take_oldest_first(held: dict[BitcoinLot, Decimal], oldest: list[tuple], btc: Decimal) -> dict[BitcoinLot, Decimal]:
+    pieces: dict[BitcoinLot, Decimal] = {}
     while btc > 0 and oldest:
         lot = oldest[0][2]
         piece = min(held[lot], btc)
         held[lot] -= piece
         btc -= piece
+        pieces[lot] = piece
         if held[lot] == 0:
             heapq.heappop(oldest)
+    return pieces
 
 
 def _stops_saves(t: Transaction, known: set[int]) -> str:
