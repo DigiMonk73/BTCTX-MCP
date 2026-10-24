@@ -190,14 +190,12 @@ class Write(PastYearWrite):
         figure of any year, and with a login nothing pending asks."""
         book = account_book(db)
         stored = db.get(Transaction, self.tx_id) if self.kind != ADD else None
-        rows = [(stored.type, stored.from_account_id, stored.to_account_id)] if stored is not None else []
+        rows = [(stored.type, (stored.from_account_id, stored.to_account_id))] if stored is not None else []
         if self.kind != DELETE:
             def sent(key):
-                value = self.data.get(key, getattr(stored, key, None))
-                return getattr(value, "value", value)  # an enum's
-            rows.append((sent("type"), sent("from_account_id"), sent("to_account_id")))
-        return bool(rows) and all(kind not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)
-                                  for kind, *sides in rows)
+                return self.data.get(key, getattr(stored, key, None))
+            rows.append((sent("type"), (sent("from_account_id"), sent("to_account_id"))))
+        return bool(rows) and all(moves_only_dollars(kind, sides, book) for kind, sides in rows)
 
     def appends(self, db: Session) -> bool:
         """An add dated at or after every row: it replays nothing, and so
@@ -265,6 +263,13 @@ def years_dated_before(db: Session, moments) -> list[int]:
     tz = tax_time.get_tax_timezone(db)
     this_year = tax_time.current_tax_year(tz)
     return sorted({year for year in (tax_time.local_date(when, tz).year for when in moments) if year < this_year})
+
+
+def moves_only_dollars(kind: Any, sides: tuple, book) -> bool:
+    """A row of this type between these accounts has no figure of any tax
+    year, as year_changes.figures counts them: no Buy or Sell, and no
+    bitcoin account on either side."""
+    return getattr(kind, "value", kind) not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)  # an enum's
 
 
 def _saves_at_once(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int) -> bool:

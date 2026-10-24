@@ -257,7 +257,7 @@ its own (#353; `services/past_year_writes.py`): the AI's import and River's
 (one confirm for the batch or file, its duplicate check run inside the
 write lock its rows are written under; the AI's preview gives the
 execute's 409 as `past_years`, River's lists the past years its new rows
-are dated in), Settings' Save of the tax timezone (each pass reads dates in
+are dated in as `past_years_dated`), Settings' Save of the tax timezone (each pass reads dates in
 its own timezone, so a row whose tax year moves is listed under both; the
 timezone in use saved again never asks; the login's fill is 1.x's, an empty
 ledger only), an exchange's 1099-DA switch (`PUT /api/accounts/{id}`

@@ -22,7 +22,7 @@ const PREVIEW: RiverPreviewResponse = {
     to_account: "Exchange BTC", amount: "0.0003", cost_basis_usd: "25.00", type_choices: ["Buy"],
     funding_choices: ["Bank", "Exchange USD"], basis_autofilled: false, status: "new",
   }],
-  errors: [], warnings: [], past_years: [2025],
+  errors: [], warnings: [], past_years_dated: [2025],
 };
 
 const WARNING: PastYearWarning = {

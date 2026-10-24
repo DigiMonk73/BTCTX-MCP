@@ -48,7 +48,7 @@ class RiverPreviewResponse(BaseModel):
     # The tax years before this one the rows not found in the ledger are
     # dated in: importing them can change those years' figures, so the
     # import asks first (2.0 spec 5.8), with exactly what changes
-    past_years: list[int] = []
+    past_years_dated: list[int] = []
 
 
 class RiverExecuteRow(BaseModel):

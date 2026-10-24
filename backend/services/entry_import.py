@@ -782,5 +782,8 @@ def past_year_write(
         mark_duplicates(checked, db, exact_only=True)
         return _create_in_order(_chronological(checked), db), checked
 
+    def kept(db: Session) -> list[dict]:
+        return [p.tx_data for p in writable_now(taken, db)]
+
     rows = tuple(p.tx_data for p in taken if p.tx_data is not None)
-    return Rows(rows, write_them, save_them, named=[p.not_a_duplicate_of for p in taken])
+    return Rows(rows, kept, write_them, save_them, named=[p.not_a_duplicate_of for p in taken])

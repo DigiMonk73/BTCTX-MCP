@@ -79,7 +79,7 @@ declare global {
     warnings: CSVParseError[];
     /** The tax years before this one the rows not in the ledger are dated
      * in: importing them can change those years' figures, so the import asks first */
-    past_years?: number[];
+    past_years_dated?: number[];
   }
 
   interface RiverImportResponse {

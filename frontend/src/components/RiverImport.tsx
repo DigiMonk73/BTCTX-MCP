@@ -82,6 +82,8 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
     }
   };
 
+  const pastYearsNote = preview && importNote(preview.past_years_dated);
+
   return (
     <div className="settings-section river-import" role="region" aria-label="Import from River">
       <h3 className="section-title">Import from River</h3>
@@ -114,9 +116,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
         </div>
       </div>
 
-      {preview && importNote(preview.past_years) && (
-        <p className="note" role="note">{importNote(preview.past_years)}</p>
-      )}
+      {pastYearsNote && <p className="note" role="note">{pastYearsNote}</p>}
 
       {preview && (
         <RiverPreview

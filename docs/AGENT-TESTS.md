@@ -821,9 +821,9 @@ Set `KEY` to the key from AI-3, and use
   **Exchange USD** toggle. Click **Import 3 Transaction(s)** and confirm
   "Import 3 transaction(s) from River into your ledger?" (run in a later
   year, when 2026 is an earlier tax year, the preview first says "Rows
-  dated in tax year 2026 can change that year's figures…" and the import
-  asks in the past-year dialog: **Save anyway**, #353). Expect "Imported 3
-  transaction(s)." The Sell shows Gain +$5.00 (net proceeds $55.00 = River's
+  dated in tax year 2026 can change the figures of that year and later
+  ones…" and the import asks in the past-year dialog: **Save anyway**,
+  #353). Expect "Imported 3 transaction(s)." The Sell shows Gain +$5.00 (net proceeds $55.00 = River's
   $55.00 received, which is after River's $0.55 fee; basis 0.0005 × $100,000
   from lot C). Preview the same file again. Expect: "3 already in ledger" and
   "0 new". Click **Show 3 already-imported row(s)**. Expect each row's

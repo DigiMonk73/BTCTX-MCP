@@ -78,13 +78,14 @@ export function yearsInWords(years: readonly number[]): string {
 }
 
 /** What an import's preview says of its rows dated in earlier tax years
- * (River's past_years); null for none. */
+ * (River's past_years_dated): they can change those years and later ones;
+ * null for none. */
 export function importNote(years: readonly number[] | undefined): string | null {
   if (!years || years.length === 0) return null;
   const several = new Set(years).size > 1;
-  return `Rows dated in ${several ? "tax years" : "tax year"} ${yearsInWords(years)} can change ` +
-    `${several ? "those years'" : "that year's"} figures, which you may already have filed: BitcoinTX shows ` +
-    "what changes, and asks, before it imports them.";
+  return `Rows dated in ${several ? "tax years" : "tax year"} ${yearsInWords(years)} can change the figures of ` +
+    `${several ? "those years" : "that year"} and later ones you may already have filed: BitcoinTX shows what ` +
+    "changes, and asks, before it imports them.";
 }
 
 /** "Tax year 2025", "Tax years 2024 and 2025"; "" for none. */

@@ -166,7 +166,8 @@ def preview_river_import(
         warnings=warnings,
         # By their dates: the owner edits the rows before the import, which
         # names exactly what they change
-        past_years=past_years.years_dated_before(db, [p.timestamp for p in proposals if p.status != STATUS_MATCHED]),
+        past_years_dated=past_years.years_dated_before(
+            db, [p.timestamp for p in proposals if p.status != STATUS_MATCHED]),
     )
 
 
@@ -254,7 +255,8 @@ def _past_year_write(to_check: list[tuple[int, dict, RiverExecuteRow]], reserved
         # The rows the check returns, so a run made again for a price starts from them as given (with_prices_found)
         return execute_import(db, list(rows), lambda: _not_in_the_ledger(to_check, reserved, db))
 
-    return Rows(rows, write_them, save_them, named=sorted(reserved))
+    return Rows(rows, lambda db: _not_in_the_ledger(to_check, reserved, db), write_them, save_them,
+                named=sorted(reserved))
 
 
 def _rows_to_check(rows: list[RiverExecuteRow], book: AccountBook) -> list[tuple[int, dict, RiverExecuteRow]]:

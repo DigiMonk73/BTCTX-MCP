@@ -218,6 +218,42 @@ def test_a_batch_already_in_the_ledger_saves_nothing_and_asks_nothing(ledger):
     assert (r.json()["imported_count"], r.json()["skipped_duplicates"]) == (0, 1)
 
 
+SAME_DEPOSIT = {**OLD_ROW, "date": "2024-01-10T12:00:00Z", "cost_basis_usd": "1000"}  # the 2024 deposit again
+
+
+def test_a_duplicate_beside_a_row_dated_last_adds_at_once_and_applies_no_pending_change(ledger, monkeypatch):
+    """The rows its duplicate check leaves out don't count: the batch only
+    appends (review of #353: the duplicate's date made it a backdated batch,
+    whose dry run then showed a pending fix, reversed, as its own change)."""
+    client, rows = ledger
+    _make_pending(client, rows["sale 2024"])
+    no_dry_run(monkeypatch)
+    r = ai_import(client, [SAME_DEPOSIT, NEW_ROW])
+    assert r.status_code == 200, r.text
+    assert (r.json()["imported_count"], r.json()["skipped_duplicates"]) == (1, 1)
+    with client.Session() as db:  # an append replays nothing: the fix is still pending
+        assert db.get(Transaction, rows["sale 2024"]).realized_gain_usd == Decimal("1.00")
+
+
+@pytest.mark.parametrize("by", ["login", "AI key"])
+def test_a_batch_sent_again_saves_nothing_and_asks_nothing(ai, monkeypatch, by):
+    key, client, rows = ai
+    _make_pending(client, rows["sale 2024"])
+    no_dry_run(monkeypatch)
+    r = ai_import(client if by == "login" else key, [SAME_DEPOSIT])
+    assert r.status_code == 200, r.text
+    assert (r.json()["imported_count"], r.json()["skipped_duplicates"]) == (0, 1)
+
+
+def test_with_the_ai_key_a_duplicate_beside_a_row_dated_last_adds_at_once(ai, monkeypatch):
+    key, client, rows = ai
+    _make_pending(client, rows["sale 2024"])
+    no_dry_run(monkeypatch)
+    r = ai_import(key, [SAME_DEPOSIT, NEW_ROW])
+    assert r.status_code == 200, r.text
+    assert r.json()["imported_count"] == 1
+
+
 def test_its_confirm_checks_for_duplicates_inside_the_write_lock_it_writes_in(ledger, monkeypatch):
     client, _ = ledger
     asked = ai_import(client, [OLD_ROW]).json()
@@ -239,7 +275,9 @@ def test_its_confirm_checks_for_duplicates_inside_the_write_lock_it_writes_in(le
 
     monkeypatch.setattr(entry_import, "mark_duplicates", check)
     assert ai_import(client, [OLD_ROW], {"confirm": asked["confirm"]}).status_code == 200
-    assert locked == [True]
+    # The last check is the one its rows are written after (the earlier ones
+    # only decide which years the rows can reach)
+    assert locked and locked[-1] is True
 
 
 def test_with_the_ai_key_a_change_from_a_fixed_rule_in_an_earlier_year_asks(ai):
@@ -289,6 +327,18 @@ def test_a_river_import_dated_this_year_saves_at_once(ledger, monkeypatch):
     assert r.status_code == 200, r.text
 
 
+def test_a_river_file_sent_again_saves_nothing_and_asks_nothing(ledger, monkeypatch):
+    client, rows = ledger
+    _make_pending(client, rows["sale 2024"])
+    asked = river(client, [RIVER_OLD]).json()
+    assert river(client, [RIVER_OLD], {"confirm": asked["confirm"]}).status_code == 200
+    _make_pending(client, rows["sale 2024"])  # the confirmed import replayed the ledger
+    no_dry_run(monkeypatch)
+    r = river(client, [RIVER_OLD])  # a second tab, or a resend
+    assert r.status_code == 200, r.text
+    assert r.json()["imported_count"] == 0
+
+
 def test_a_river_row_the_ledger_refuses_is_refused_as_before(ledger):
     client, _ = ledger
     too_much = {**RIVER_OLD, "type": "Sell", "date": "2024-02-01T12:00:00Z", "amount": "5",
@@ -305,9 +355,9 @@ def test_the_river_preview_names_the_past_years_its_new_rows_are_dated_in(ledger
     r = river_preview(client, ["2025-03-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy",
                                "2026-03-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy"])
     assert r.status_code == 200, r.text
-    assert r.json()["past_years"] == [2025]
+    assert r.json()["past_years_dated"] == [2025]
     r = river_preview(client, ["2026-03-05 12:00:00,25.00,USD,0.00030000,BTC,,,Buy"])
-    assert r.json()["past_years"] == []
+    assert r.json()["past_years_dated"] == []
 
 
 # The tax timezone: Settings' Save (the PUT with "chosen")
@@ -529,3 +579,65 @@ def test_with_a_login_recalculate_never_asks(ledger, monkeypatch):
     assert client.post("/api/transactions/recalculate").status_code == 200
     with client.Session() as db:
         assert db.get(Transaction, rows["sale 2024"]).realized_gain_usd != Decimal("1.00")
+
+
+# Past the time budget (the lead's decision of 2026-10-18, on #353 too): the
+# years from the write's earliest date, then the confirmed save as ever
+
+def past_the_budget(monkeypatch):
+    monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
+
+
+def by_date_and_confirmed(client, send, detail: str, years: list[int], kind: str) -> None:
+    """The date-based 409 with these words and years, then its confirm saved after one copy of `kind`."""
+    r = send(None)
+    assert r.status_code == 409, r.text
+    body = r.json()
+    assert (body["detail"], body["years"], body["changes"], body["exact"]) == (detail, years, [], False)
+    assert body["why_not_exact"] == past_years.TOO_SLOW
+    assert send({"confirm": body["confirm"]}).status_code == 200
+    assert len(copies(client, kind)) == 1
+
+
+def test_past_the_budget_an_ai_import_names_the_years_from_its_first_row(ledger, monkeypatch):
+    client, _ = ledger
+    past_the_budget(monkeypatch)
+    by_date_and_confirmed(client, lambda params: ai_import(client, [OLD_ROW], params),
+                          "These rows start in 2023, so they can change 2023's figures and later years you may have "
+                          "filed. Save them? A copy of your ledger is made first.", [2023, 2024, 2025], PRE_CHANGE_KIND)
+
+
+def test_past_the_budget_with_the_ai_key_a_batch_names_every_year_a_fix_can_reach(ai, monkeypatch):
+    key, client, _ = ai
+    past_the_budget(monkeypatch)
+    by_date_and_confirmed(client, lambda params: ai_import(key, [{**NEW_ROW, "date": "2026-01-15T12:00:00Z"}], params),
+                          "These rows can change the figures of tax year 2024 and later years you may have filed: "
+                          "saving them also applies the rules fixed since they were saved. Save them? A copy of your "
+                          "ledger is made first.", [2024, 2025], "ai")
+
+
+def test_past_the_budget_a_river_import_names_the_years_from_its_first_row(ledger, monkeypatch):
+    client, _ = ledger
+    past_the_budget(monkeypatch)
+    by_date_and_confirmed(client, lambda params: river(client, [RIVER_OLD], params),
+                          "These rows start in 2023, so they can change 2023's figures and later years you may have "
+                          "filed. Save them? A copy of your ledger is made first.", [2023, 2024, 2025], PRE_CHANGE_KIND)
+
+
+def test_past_the_budget_the_tax_timezone_names_the_years_from_the_ledgers_first(tz_ledger, monkeypatch):
+    client, _ = tz_ledger
+    past_the_budget(monkeypatch)
+    by_date_and_confirmed(client, lambda params: save_timezone(client, "America/Chicago", params),
+                          "Saving this tax timezone recalculates your ledger from 2024 on, so it can change 2024's "
+                          "figures and later years you may have filed. Save it? A copy of your ledger is made first.",
+                          [2024, 2025], PRE_CHANGE_KIND)
+
+
+def test_past_the_budget_the_ais_recalculate_names_the_years_from_the_ledgers_first(ai, monkeypatch):
+    key, client, rows = ai
+    _make_pending(client, rows["sale 2024"])
+    past_the_budget(monkeypatch)
+    by_date_and_confirmed(client, lambda params: key.post("/api/transactions/recalculate", params=params),
+                          "Recalculating applies the rules fixed since your transactions were saved, so it can change "
+                          "the figures of tax year 2024 and later years you may have filed. Recalculate? A copy of "
+                          "your ledger is made first.", [2024, 2025], "ai")

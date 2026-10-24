@@ -806,3 +806,17 @@ async def test_each_request_waits_as_long_as_it_can_take():
         await btctx.request(method, path)
     await btctx.aclose()
     assert waits == {**dict.fromkeys(long, 1200.0), **dict.fromkeys(short, 120.0)}
+
+
+async def test_a_409_that_isnt_the_past_year_warning_stays_an_error():
+    """Only the warning's 409 gives a fingerprint (`confirm`) and is a tool's
+    answer; any other 409 (a refusal in plain words) is an error, as before."""
+    btctx = BtctxClient(base_url="http://testserver", ai_key="k", transport=httpx.MockTransport(
+        lambda request: httpx.Response(409, json={"detail": "Not saved: something else."})))
+    server.set_client(btctx)
+    try:
+        with pytest.raises(server.ToolError, match="^BitcoinTX returned 409: Not saved: something else.$"):
+            await server._write("POST", "/api/transactions/recalculate", None)
+    finally:
+        server.set_client(None)
+        await btctx.aclose()

@@ -124,10 +124,11 @@ describe("the years kept quiet for adds", () => {
 
 describe("importNote", () => {
   it("names the earlier tax years an import's rows are dated in, before it asks", () => {
-    expect(importNote([2025])).toBe("Rows dated in tax year 2025 can change that year's figures, which you may " +
-      "already have filed: BitcoinTX shows what changes, and asks, before it imports them.");
-    expect(importNote([2025, 2024])).toBe("Rows dated in tax years 2024 and 2025 can change those years' figures, " +
-      "which you may already have filed: BitcoinTX shows what changes, and asks, before it imports them.");
+    expect(importNote([2025])).toBe("Rows dated in tax year 2025 can change the figures of that year and later " +
+      "ones you may already have filed: BitcoinTX shows what changes, and asks, before it imports them.");
+    expect(importNote([2025, 2024])).toBe("Rows dated in tax years 2024 and 2025 can change the figures of those " +
+      "years and later ones you may already have filed: BitcoinTX shows what changes, and asks, before it " +
+      "imports them.");
   });
 
   it("says nothing for rows of this year, or a preview from before 2.0", () => {

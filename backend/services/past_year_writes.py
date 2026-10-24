@@ -20,7 +20,7 @@ from backend.services import account as account_service
 from backend.services import hourly_prices, recalculated_by, tax_time
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
-from backend.services.past_years import PastYearWrite
+from backend.services.past_years import PastYearWrite, moves_only_dollars
 
 ROWS_BY_DATE = ("These rows start in {year}, so they can change {year}'s figures and later years you may have "
                 "filed. Save them? A copy of your ledger is made first.")
@@ -41,14 +41,19 @@ RECALCULATES_BY_DATE = ("Recalculating applies the rules fixed since your transa
 class Rows(PastYearWrite):
     """
     An import's rows, one confirm for them all. `rows`: each row's data as
-    checked, which its dates and the fingerprint are read from.
-    `write_them`: the import's duplicate check and its rows in time order,
-    uncommitted, so in the confirmed save the check runs inside the write
-    lock the rows are written under (#454, #504). `save_them`: the import as
-    it always saved. `named`: the transactions the rows are told apart from
-    or matched to, which the fingerprint takes too.
+    checked, which the fingerprint takes. `kept`: those of them the
+    import's duplicate check keeps on a session's ledger, whose dates
+    decide what the rows can reach (a duplicate, left out, reaches nothing:
+    a batch sent again, or one keeping its duplicates beside a row dated
+    last, replays nothing). `write_them`: the duplicate check and its rows
+    in time order, uncommitted, so in the confirmed save the check runs
+    inside the write lock the rows are written under (#454, #504).
+    `save_them`: the import as it always saved. `named`: the transactions
+    the rows are told apart from or matched to, which the fingerprint takes
+    too.
     """
     rows: tuple[dict, ...]
+    kept: Callable[[Session], list[dict]]
     write_them: Callable[[Session], Any]
     save_them: Callable[[Session], Any]
     named: Any = None
@@ -63,20 +68,19 @@ class Rows(PastYearWrite):
 
     def earliest_year(self, db: Session, tz) -> int | None:
         try:
-            return min((tax_time.local_date(row["timestamp"], tz).year for row in self.rows), default=None)
+            return min((tax_time.local_date(row["timestamp"], tz).year for row in self.kept(db)), default=None)
         except tax_time.DateOutOfRange:  # the save refuses it
             return None
 
     def appends(self, db: Session) -> bool:
         latest = db.query(func.max(Transaction.timestamp)).scalar()
-        return latest is None or all(tax_time.as_utc(row["timestamp"]) >= tax_time.as_utc(latest) for row in self.rows)
+        return latest is None or all(tax_time.as_utc(row["timestamp"]) >= tax_time.as_utc(latest)
+                                     for row in self.kept(db))
 
     def moves_no_figure(self, db: Session) -> bool:
-        """Every row is dollars only: no Buy or Sell, and no bitcoin account on either side."""
         book = account_book(db)
-        return all(_text(row.get("type")) not in ("Buy", "Sell")
-                   and not any(book.is_btc(row.get(side)) for side in ("from_account_id", "to_account_id"))
-                   for row in self.rows)
+        return all(moves_only_dollars(row.get("type"), (row.get("from_account_id"), row.get("to_account_id")), book)
+                   for row in self.kept(db))
 
     def priced_rows(self, db: Session) -> list[dict]:
         return [dict(row) for row in self.rows]
@@ -194,7 +198,3 @@ class Recalculation(PastYearWrite):
     def parts(self) -> list:
         return [self.kind]
 
-
-def _text(value: Any) -> Any:
-    """An enum's value (a transaction type as the schema gives it), or the value."""
-    return getattr(value, "value", value)
