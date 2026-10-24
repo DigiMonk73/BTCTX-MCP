@@ -93,9 +93,11 @@ def test_a_second_exchanges_file_into_a_ledger_with_rows(client):
 
     answer = preview(client, exchange_account_id=KRAKEN_BTC, wallet_account_id=COLD)
     assert [(p["row_number"], p["type"], p["from_account"], p["to_account"], p["status"]) for p in answer["proposals"]] == [
-        (2, "Buy", "Kraken USD", "Kraken BTC", "matched"),
+        # Paid from the bank (#655), it still matches the buy recorded from Kraken's dollars: no
+        # exchange's file names the bank (5.11's unnamed bank)
+        (2, "Buy", "Bank", "Kraken BTC", "matched"),
         # The same buy on the first exchange is another buy (the owner's rule, 2026-10-15)
-        (3, "Buy", "Kraken USD", "Kraken BTC", "new"),
+        (3, "Buy", "Bank", "Kraken BTC", "new"),
         (4, "Sell", "Kraken BTC", "Kraken USD", "discrepancy"),
         (5, "Transfer", "Kraken BTC", "Cold Storage", "matched"),
         (6, "Transfer", "Cold Storage", "Kraken BTC", "new"),
@@ -141,7 +143,7 @@ def test_a_hidden_account_is_never_chosen_for_the_owner(client):
     for first in (2, 4):
         assert client.put(f"/api/accounts/{first}", json={"hidden": True}).status_code == 200
     accounts = {(p["from_account"], p["to_account"]) for p in preview(client)["proposals"]}
-    assert accounts == {("Kraken USD", "Kraken BTC"), ("Kraken BTC", "Kraken USD"), ("Kraken BTC", "Cold Storage"),
+    assert accounts == {("Bank", "Kraken BTC"), ("Kraken BTC", "Kraken USD"), ("Kraken BTC", "Cold Storage"),
                         ("Cold Storage", "Kraken BTC")}
 
 

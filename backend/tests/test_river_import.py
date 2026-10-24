@@ -131,15 +131,27 @@ class TestRiverAdapter:
             assert p.to_account == "Exchange BTC"
             assert p.funding_choices == ["Bank", "Exchange USD"]
 
-    def test_irregular_buy_defaults_to_exchange_usd(self):
+    def test_a_one_time_buy_no_sale_before_paid_for_defaults_to_the_bank(self):
+        """#655: River's file has no dollar deposits to fund a one-time buy, so
+        the exchange's dollars would go below zero; the bank paid for it (1.x
+        chose Exchange USD)."""
         proposals, _, _ = adapt(SYNTHETIC_ROWS)
         p = by_row(proposals, 7)
         assert p.type == "Buy"
-        assert p.from_account == "Exchange USD"
+        assert p.from_account == "Bank"
         assert p.amount == Decimal("0.00180000")
         assert p.cost_basis_usd == Decimal("148.50")  # sent, fee separate
         assert p.fee_amount == Decimal("1.50")
         assert p.fee_currency == "USD"
+
+    def test_a_one_time_buy_a_sale_before_paid_for_defaults_to_the_exchanges_dollars(self):
+        """#655: the sale's $54.45 (Received, after its fee) covers a $50.50 buy after it."""
+        proposals, _, _ = adapt([
+            "2026-02-10 16:00:00,0.00050000,BTC,54.45,USD,0.55,USD,Sell",
+            "2026-02-11 15:30:00,50.00,USD,0.00060000,BTC,0.50,USD,Buy",
+            "2026-02-12 15:30:00,50.00,USD,0.00060000,BTC,0.50,USD,Buy",
+        ])
+        assert [p.from_account for p in proposals if p.type == "Buy"] == ["Exchange USD", "Bank"]
 
     def test_sell_mapping(self):
         proposals, _, _ = adapt(SYNTHETIC_ROWS)
@@ -692,7 +704,7 @@ class TestExecute:
 
         balances = CLIENT.get("/api/calculations/accounts/balances").json()
         exchange_usd = next(b for b in balances if b["account_id"] == 3)
-        assert round(exchange_usd["balance"], 2) == -10.00  # -1000 buy + 990 sell
+        assert round(exchange_usd["balance"], 2) == 990.00  # the sale's net; the buy before it from the bank (#655)
 
     def test_buy_sent_amount_is_before_rivers_fee(self, test_engine):
         """F19: River's Sent Amount on a Buy is the subtotal; the fee is on
@@ -711,8 +723,8 @@ class TestExecute:
             lot_basis = con.execute(text("SELECT cost_basis_usd FROM bitcoin_lots")).scalar()
         assert Decimal(str(lot_basis)) == Decimal("20.00")
         balances = CLIENT.get("/api/calculations/accounts/balances").json()
-        exchange_usd = next(b for b in balances if b["account_id"] == 3)
-        assert round(exchange_usd["balance"], 2) == -20.00
+        bank = next(b for b in balances if b["account_id"] == 1)
+        assert round(bank["balance"], 2) == -20.00  # paid from the bank: no sale before it left dollars (#655)
 
     def test_funding_toggle_override_is_respected(self):
         delete_all_transactions()
