@@ -1,0 +1,4 @@
+Date,Transaction ID,Transaction Type,Currency,Amount,Fee,Net Amount,Asset Type,Asset Price,Asset Amount,Status,Notes,Name of sender/receiver,Account
+2025-08-01 10:00:00 CDT,bbb001,Bitcoin Buy,USD,"-$1,000.00",-$10.00,"-$1,010.00",BTC,"$100,000.00",0.01,COMPLETE,,,Cash Balance
+2025-08-02 10:00:00 CDT,bbb002,Bitcoin Buy,USD,-$100.00,-$1.00,-$101.00,BTC,"$100,000.00",0.001,FAILED,,,Cash Balance
+2025-08-03 10:00:00 CDT,bbb003,Sent P2P,USD,-$20.00,$0.00,-$20.00,,,,COMPLETE,Lunch,Example Person,Cash Balance

@@ -286,6 +286,8 @@ app.add_middleware(
         "/api/import/preview": MAX_FILE_SIZE,
         "/api/import/execute": MAX_FILE_SIZE,
         "/api/import/river/preview": MAX_FILE_SIZE,
+        "/api/import/exchange/preview": MAX_FILE_SIZE,
+        "/api/import/exchange/columns": MAX_FILE_SIZE,
     },
     secret_key=SECRET_KEY,
     session_cookie=SESSION_COOKIE,
@@ -437,7 +439,7 @@ def require_login_dependency(request: Request, db: Session = Depends(get_db)) ->
     return require_login(request, db)
 
 
-from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings, review
+from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, exchange_import, entry_import, settings, review
 
 # Every logged-in router: the login (or the AI key), then the text check
 # (#313), which an anonymous request never reaches
@@ -452,6 +454,7 @@ include(reports.reports_router, "/api/reports", tags=["reports"], dependencies=L
 include(backup.router, "/api/backup", tags=["backup"], dependencies=LOGGED_IN)
 include(csv_import.router, "/api/import", tags=["import"], dependencies=LOGGED_IN)
 include(river_import.router, "/api/import/river", tags=["import"], dependencies=LOGGED_IN)
+include(exchange_import.router, "/api/import/exchange", tags=["import"], dependencies=LOGGED_IN)
 include(entry_import.router, "/api/import/entries", tags=["import"], dependencies=LOGGED_IN)
 include(settings.router, "/api/settings", tags=["settings"], dependencies=LOGGED_IN)
 include(review.router, "/api/review", tags=["review"], dependencies=LOGGED_IN)

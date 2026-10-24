@@ -58,10 +58,6 @@ RIVER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 # The amounts, as River's header names them
 RIVER_NUMBER_COLUMNS = ("Sent Amount", "Received Amount", "Fee Amount")
 
-# The deposit source of BTC River pays, by River's tag: a mining payout is a
-# Reward (mining, staking, bonuses), income like the others (#399)
-RIVER_PAYOUT_SOURCES = {"Interest": "Interest", "Income": "Income", "Mining": "Reward"}
-
 # A buy outlay (sent + USD fee) that repeats at least this many times with no
 # fee is treated as a recurring auto-buy pulled from the bank via ACH.
 RECURRING_BUY_THRESHOLD = 4
@@ -341,7 +337,35 @@ def _river_numbers(r: dict[str, str], row_number: int,
     return tuple(numbers)
 
 
-def _usd_fee(row: RiverRow) -> Decimal:
+@dataclass
+class FileRow:
+    """
+    One event of an exchange's file as every mapping reads it (B5b, 2.0
+    spec 7.4): a buy, a sell, a send, a receive, or a payout, whose kind
+    names its deposit source. Its amounts are River's: `btc` a send's coins
+    as they arrived, its network fee on top; `usd` a buy's cost and a sell's
+    proceeds, each before the fee, or a payout's value at receipt when the
+    file gives one. `tag` is the file's own word for the row.
+    """
+    row_number: int
+    timestamp: datetime
+    kind: str
+    btc: Decimal | None
+    usd: Decimal | None = None
+    fee: Decimal | None = None
+    fee_currency: str | None = None
+    tag: str | None = None
+
+
+BUY, SELL, SEND, RECEIVE = "buy", "sell", "send", "receive"
+# A payout's kind, by the deposit source it is (#399: a mining payout is a
+# Reward, income like the others; #98: a Rebate is valued so, never income)
+PAYOUT_SOURCES = {"income": "Income", "interest": "Interest", "reward": "Reward", "rebate": "Rebate"}
+# River's payout tags, by their kind
+RIVER_PAYOUTS = {"Interest": "interest", "Income": "income", "Mining": "reward"}
+
+
+def _usd_fee(row: RiverRow | FileRow) -> Decimal:
     """River's USD fee on a Buy or Sell. River charges those in USD, and the
     proposal records the fee as USD even when Fee Currency is blank, so a
     blank one counts as USD here too (else a Sell's gross would leave out a
@@ -366,6 +390,50 @@ def _recurring_outlays(rows: list[RiverRow]) -> dict[Decimal, int]:
     return counts
 
 
+def river_file_rows(rows: list[RiverRow]) -> tuple[list[FileRow], list[CSVParseError]]:
+    """(rows, warnings): River's rows by River's patterns, each a FileRow; a
+    row that fits none is skipped with a warning, never silently dropped."""
+    file_rows, warnings = [], []
+    for row in rows:
+        file_row = _river_file_row(row)
+        if file_row is not None:
+            file_rows.append(file_row)
+            continue
+        warnings.append(CSVParseError(
+            row_number=row.row_number, column=None, severity="warning", message=(
+                f"Unrecognized row pattern (tag={row.tag or 'none'}, "
+                f"sent={row.sent_currency or '-'}, received={row.received_currency or '-'}) — skipped."),
+        ))
+    return file_rows, warnings
+
+
+def _river_file_row(row: RiverRow) -> FileRow | None:
+    """A River row as the event it is: a buy, a sell, a payout (tagged), a
+    send (bitcoin out, whatever else its tag: an auto-withdrawal is one,
+    #397), a receive (bitcoin in, untagged), or None."""
+    tag = row.tag
+
+    def event(kind: str, btc: Decimal | None, usd: Decimal | None = None) -> FileRow:
+        return FileRow(row.row_number, row.timestamp, kind, btc, usd, row.fee, row.fee_currency, tag)
+
+    if tag == "Buy" and row.sent_currency == "USD" and row.received_currency == "BTC":
+        return event(BUY, row.received, row.sent)
+    if tag == "Sell" and row.sent_currency == "BTC" and row.received_currency == "USD":
+        # River's Received Amount is what landed after River's fee (receipt:
+        # subtotal - fee = received). BitcoinTX's proceeds_usd is the gross
+        # before fees, and the ledger subtracts the USD fee from it, so the
+        # gross is received + fee.
+        received = row.received
+        return event(SELL, row.sent, received + _usd_fee(row) if received and received > 0 else received)
+    if tag in RIVER_PAYOUTS and row.received_currency == "BTC" and row.received:
+        return event(RIVER_PAYOUTS[tag], row.received)
+    if row.sent_currency == "BTC" and row.received is None:
+        return event(SEND, row.sent)
+    if row.received_currency == "BTC" and row.sent is None and tag is None:
+        return event(RECEIVE, row.received)
+    return None
+
+
 def adapt_river_rows(
     rows: list[RiverRow], accounts: RiverAccounts = RIVER_1X,
 ) -> tuple[list[RiverProposal], list[CSVParseError], list[CSVParseError]]:
@@ -373,139 +441,140 @@ def adapt_river_rows(
     (proposals, errors, warnings): each River row as a proposed BitcoinTX
     transaction into `accounts` (the owner's choice, river_accounts). A row
     that fits no known pattern, or lacks an amount, is skipped with a
-    warning (never silently dropped).
+    warning (never silently dropped). A recurring no-fee buy is paid from a
+    bank (River's rule).
     """
-    adapter = _RiverAdapter(rows, accounts)
+    file_rows, skipped = river_file_rows(rows)
+    proposals, errors, warnings = adapt_rows(file_rows, accounts, _recurring_outlays(rows))
+    return proposals, errors, sorted([*skipped, *warnings], key=lambda w: w.row_number)
+
+
+def adapt_rows(
+    rows: list[FileRow], accounts: RiverAccounts = RIVER_1X, outlays: dict[Decimal, int] | None = None,
+    from_bank: bool = False,
+) -> tuple[list[RiverProposal], list[CSVParseError], list[CSVParseError]]:
+    """
+    (proposals, errors, warnings): each file's row as a proposed BitcoinTX
+    transaction into `accounts`; a row lacking an amount is skipped with a
+    warning. A buy is paid from the exchange's dollars (B5b's decision 6),
+    but from the bank `from_bank` (Swan's, pulled by ACH), or when `outlays`
+    (River's: how often each buy outlay repeats in its file) makes it a
+    recurring no-fee buy. Either is the owner's to change in the preview.
+    """
+    adapter = _Adapter(accounts, outlays, from_bank)
     proposals = [p for p in map(adapter.adapt, rows) if p is not None]
     return proposals, [], adapter.warnings
 
 
-class _RiverAdapter:
-    """Turns River rows into proposals in the chosen accounts, collecting the warnings."""
+class _Adapter:
+    """Turns a file's rows into proposals in the chosen accounts, collecting the warnings."""
 
-    def __init__(self, rows: list[RiverRow], accounts: RiverAccounts):
-        self.outlay_counts = _recurring_outlays(rows)
+    def __init__(self, accounts: RiverAccounts, outlays: dict[Decimal, int] | None, from_bank: bool):
         self.accounts = accounts
+        self.outlays = outlays
+        self.from_bank = from_bank
         self.warnings: list[CSVParseError] = []
 
-    def adapt(self, row: RiverRow) -> RiverProposal | None:
-        tag = row.tag
-        if tag == "Buy" and row.sent_currency == "USD" and row.received_currency == "BTC":
+    def adapt(self, row: FileRow) -> RiverProposal | None:
+        if row.kind == BUY:
             return self.buy(row)
-        if tag == "Sell" and row.sent_currency == "BTC" and row.received_currency == "USD":
+        if row.kind == SELL:
             return self.sell(row)
-        if tag in RIVER_PAYOUT_SOURCES and row.received_currency == "BTC" and row.received:
-            return self.income(row)
-        if row.sent_currency == "BTC" and row.received is None:
+        if row.kind in PAYOUT_SOURCES:
+            return self.payout(row)
+        if row.kind == SEND:
             return self.send(row)
-        if row.received_currency == "BTC" and row.sent is None and tag is None:
-            return self.receive(row)
-        self.warn(row, (
-            f"Unrecognized row pattern (tag={tag or 'none'}, "
-            f"sent={row.sent_currency or '-'}, received={row.received_currency or '-'}) — skipped."
-        ))
-        return None
+        return self.receive(row)
 
-    def warn(self, row: RiverRow, message: str, column: str | None = None) -> None:
+    def warn(self, row: FileRow, message: str, column: str | None = None) -> None:
         self.warnings.append(CSVParseError(
             row_number=row.row_number, column=column, severity="warning", message=message,
         ))
 
-    def check_fee_currency(self, row: RiverRow, expected: str) -> None:
-        """River's Fee Currency is taken as `expected` for this kind of row;
-        say so when the file says otherwise instead of ignoring it."""
+    def check_fee_currency(self, row: FileRow, expected: str) -> None:
+        """The file's fee currency is taken as `expected` for this kind of
+        row; say so when the file says otherwise instead of ignoring it."""
         if row.fee and row.fee_currency and row.fee_currency != expected:
             self.warn(row, (
                 f"Fee Currency is {row.fee_currency}, but a fee on this kind of row is in {expected}; "
                 f"it was read as {row.fee} {expected}. Check the fee before importing."
             ), column="Fee Currency")
 
-    def buy(self, row: RiverRow) -> RiverProposal | None:
-        if not row.received or row.received <= 0 or not row.sent or row.sent <= 0:
-            self.warn(row, "Buy row missing sent/received amount — skipped.")
+    def proposal(self, row: FileRow, **fields) -> RiverProposal:
+        return RiverProposal(row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
+                             book=self.accounts.book, **fields)
+
+    def buy(self, row: FileRow) -> RiverProposal | None:
+        if not row.btc or row.btc <= 0 or not row.usd or row.usd <= 0:
+            self.warn(row, "Buy row missing its bitcoin or dollar amount — skipped.")
             return None
         self.check_fee_currency(row, "USD")
-        # Funding heuristic: a recurring no-fee outlay is an auto-buy pulled
-        # from the bank via ACH; anything else defaults to the River cash
-        # balance. Always user-overridable in the preview.
-        recurring = self.outlay_counts.get(_buy_outlay(row), 0) >= RECURRING_BUY_THRESHOLD
-        accounts = self.accounts
-        return RiverProposal(
-            row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Buy", from_account_id=accounts.bank if (recurring and not row.fee and accounts.bank is not None)
-            else accounts.exchange_usd,
-            to_account_id=accounts.exchange_btc,
-            amount=row.received,
-            cost_basis_usd=row.sent,
-            fee_amount=row.fee, fee_currency="USD" if row.fee else None,
-            funding_choices=accounts.funding_choices(), unnamed_bank="from", book=accounts.book,
+        return self.proposal(
+            row, type="Buy", from_account_id=self.funding(row), to_account_id=self.accounts.exchange_btc,
+            amount=row.btc, cost_basis_usd=row.usd, fee_amount=row.fee, fee_currency="USD" if row.fee else None,
+            funding_choices=self.accounts.funding_choices(), unnamed_bank="from",
         )
 
-    def sell(self, row: RiverRow) -> RiverProposal | None:
-        if not row.sent or row.sent <= 0 or not row.received or row.received <= 0:
-            self.warn(row, "Sell row missing sent/received amount — skipped.")
+    def funding(self, row: FileRow) -> int:
+        """Where a buy's dollars come from: the bank for an exchange that
+        pulls them from it, or a recurring no-fee outlay, an auto-buy pulled
+        from a bank via ACH (River's heuristic, by `outlays`); anything else
+        the exchange's cash balance."""
+        recurring = self.outlays is not None and not row.fee and (
+            self.outlays.get((row.usd or Decimal("0")) + _usd_fee(row), 0) >= RECURRING_BUY_THRESHOLD)
+        if (recurring or self.from_bank) and self.accounts.bank is not None:
+            return self.accounts.bank
+        return self.accounts.exchange_usd
+
+    def sell(self, row: FileRow) -> RiverProposal | None:
+        if not row.btc or row.btc <= 0 or not row.usd or row.usd <= 0:
+            self.warn(row, "Sell row missing its bitcoin or dollar amount — skipped.")
             return None
         self.check_fee_currency(row, "USD")
-        # River's Received Amount is what landed after River's fee (receipt:
-        # subtotal - fee = received). BitcoinTX's proceeds_usd is the gross
-        # before fees, and the ledger subtracts the USD fee from it, so the
-        # gross is received + fee.
-        return RiverProposal(
-            row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Sell", from_account_id=self.accounts.exchange_btc,
-            to_account_id=self.accounts.exchange_usd,
-            amount=row.sent,
-            proceeds_usd=row.received + _usd_fee(row),
-            fee_amount=row.fee, fee_currency="USD" if row.fee else None, book=self.accounts.book,
+        return self.proposal(
+            row, type="Sell", from_account_id=self.accounts.exchange_btc, to_account_id=self.accounts.exchange_usd,
+            amount=row.btc, proceeds_usd=row.usd, fee_amount=row.fee, fee_currency="USD" if row.fee else None,
         )
 
-    def income(self, row: RiverRow) -> RiverProposal:
-        # BTC paid by River (interest on the cash balance too, which River
-        # pays in BTC). Its basis, the value at receipt, is filled from the
-        # hour's price by the router; editable.
-        return RiverProposal(
-            row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Deposit", from_account_id=ACCOUNT_EXTERNAL,
-            to_account_id=self.accounts.exchange_btc,
-            amount=row.received,
-            source=RIVER_PAYOUT_SOURCES[row.tag], book=self.accounts.book,
+    def payout(self, row: FileRow) -> RiverProposal:
+        # BTC the exchange paid (River's interest on the cash balance too,
+        # which River pays in BTC). Its basis, the value at receipt, is the
+        # file's when it gives one, else filled from the hour's price by the
+        # router; editable.
+        return self.proposal(
+            row, type="Deposit", from_account_id=ACCOUNT_EXTERNAL, to_account_id=self.accounts.exchange_btc,
+            amount=row.btc, cost_basis_usd=row.usd, source=PAYOUT_SOURCES[row.kind],
         )
 
-    def send(self, row: RiverRow) -> RiverProposal | None:
+    def send(self, row: FileRow) -> RiverProposal | None:
         """
-        BTC left River: almost always a move to the user's cold storage,
-        whether a send (untagged) or an auto-withdrawal (Tag=Withdrawal: River
-        sends the balance to the address the user set, #397). The user can
-        make it a Withdrawal in the preview. River's Sent Amount is what the
+        BTC left the exchange: almost always a move to the user's cold
+        storage, whether a send or River's auto-withdrawal (Tag=Withdrawal:
+        River sends the balance to the address the user set, #397). The user
+        can make it a Withdrawal in the preview. The amount is what the
         destination receives, the network fee on top (River's Total is Sent
-        plus Fee, #39); the proposal keeps River's numbers, and
-        ledger_amount() gives a Transfer's BitcoinTX amount (fee included)
-        for dedup and at execute.
+        plus Fee, #39); the proposal keeps it, and ledger_amount() gives a
+        Transfer's BitcoinTX amount (fee included) for dedup and at execute.
         """
-        if not row.sent or row.sent <= 0:
+        if not row.btc or row.btc <= 0:
             self.warn(row, "BTC send row missing amount — skipped.")
             return None
         self.check_fee_currency(row, "BTC")
-        return RiverProposal(
-            row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Transfer", from_account_id=self.accounts.exchange_btc,
-            to_account_id=self.accounts.wallet,
-            amount=row.sent, fee_amount=row.fee, fee_currency="BTC" if row.fee else None,
-            type_choices=["Transfer", "Withdrawal"], guessed="to", book=self.accounts.book,
+        return self.proposal(
+            row, type="Transfer", from_account_id=self.accounts.exchange_btc, to_account_id=self.accounts.wallet,
+            amount=row.btc, fee_amount=row.fee, fee_currency="BTC" if row.fee else None,
+            type_choices=["Transfer", "Withdrawal"], guessed="to",
         )
 
-    def receive(self, row: RiverRow) -> RiverProposal | None:
-        """Untagged BTC arriving at River: by default back from cold storage,
-        with no fee (River can't see the wallet's network fee; editable)."""
-        if not row.received or row.received <= 0:
+    def receive(self, row: FileRow) -> RiverProposal | None:
+        """BTC arriving at the exchange: by default back from cold storage,
+        with no fee (the exchange can't see the wallet's network fee; editable)."""
+        if not row.btc or row.btc <= 0:
             self.warn(row, "BTC receive row missing amount — skipped.")
             return None
-        return RiverProposal(
-            row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Transfer", from_account_id=self.accounts.wallet,
-            to_account_id=self.accounts.exchange_btc,
-            amount=row.received,
-            type_choices=["Transfer", "Deposit"], guessed="from", book=self.accounts.book,
+        return self.proposal(
+            row, type="Transfer", from_account_id=self.accounts.wallet, to_account_id=self.accounts.exchange_btc,
+            amount=row.btc, type_choices=["Transfer", "Deposit"], guessed="from",
         )
 
 

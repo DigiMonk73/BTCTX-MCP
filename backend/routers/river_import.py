@@ -28,17 +28,16 @@ from backend.services.account import AccountBook, account_book
 from backend.services import hourly_prices
 from backend.schemas.transaction import BTC_PLACES
 from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
+from backend.services.exchange_import import Proposed, propose_file
+from backend.services.exchange_mappings import RIVER
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
     STATUS_NEW,
     RiverProposal,
-    adapt_river_rows,
     annotate_duplicates,
     ledger_amount,
-    parse_river_csv,
     river_accounts,
-    rows_in_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,11 +132,15 @@ def preview_river_import(
 
     content = _read_validated_csv(file)
     accounts = river_accounts(account_book(db), exchange_account_id, wallet_account_id)
+    return previewed(propose_file(content, RIVER, accounts), db)
 
-    rows, errors = parse_river_csv(content)
-    proposals, adapt_errors, warnings = adapt_river_rows(rows, accounts)
-    errors.extend(adapt_errors)
 
+def previewed(proposed: Proposed, db: Session) -> RiverPreviewResponse:
+    """A file's preview, for River's and every exchange's (exchange_import):
+    its proposals with River's payouts valued at their hour's price and
+    those already in the ledger marked (#253), counted; 400 for more rows
+    than an import takes."""
+    proposals, errors, warnings = proposed.proposals, proposed.errors, proposed.warnings
     if len(proposals) > MAX_ROWS:
         raise HTTPException(
             status_code=400,
@@ -153,7 +156,7 @@ def preview_river_import(
 
     return RiverPreviewResponse(
         success=len(errors) == 0,
-        total_rows=rows_in_file(rows, errors),
+        total_rows=proposed.total_rows,
         new_count=new_count,
         matched_count=matched_count,
         discrepancy_count=discrepancy_count,
