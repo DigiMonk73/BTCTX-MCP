@@ -389,41 +389,26 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: Build BitcoinTX.app
+      - name: Build the app (BitcoinTX, or BitcoinTX Preview for a pre-release)
         run: ./desktop/build-mac.sh
         env:
           # The Python set up above, never one the runner happens to have (#284)
           BTCTX_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
-      - name: Launch the bundled app and check its API answers on :8765
-        run: |
-          APP=desktop/dist/BitcoinTX.app/Contents/MacOS/BitcoinTX
-          test -x "$APP"
-          "$APP" > app.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -sf -o /dev/null http://127.0.0.1:8765/; then
-              curl -sf http://127.0.0.1:8765/api/health | grep -q '"status":"ok"'
-              code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8765/api/import/entries/preview -H 'content-type: application/json' -d '{"rows":[]}')
-              echo "entries endpoint (anonymous) -> $code"; test "$code" = "401"
-              pkill -f BitcoinTX.app || true
-              exit 0
-            fi
-            sleep 2
-          done
-          cat app.log; exit 1
+      - name: Launch the bundled app and check its API answers on its own port, its data in its own folder
+        # Its name, executable and port from the build (scripts/mac-app.sh):
+        # a pre-release's is BitcoinTX Preview, never the installed app (2.0
+        # plan 7.4, B10a)
+        run: scripts/mac-app.sh check
       - name: Zip and unsigned .dmg (same steps as release.yml)
-        run: |
-          ditto -c -k --keepParent desktop/dist/BitcoinTX.app BitcoinTX-macOS.zip
-          mkdir dmg
-          cp -R desktop/dist/BitcoinTX.app dmg/
-          ln -s /Applications dmg/Applications
-          hdiutil create -volname BitcoinTX -srcfolder dmg -ov -format UDZO BitcoinTX-macOS.dmg
-          hdiutil verify BitcoinTX-macOS.dmg
+        id: package
+        run: scripts/mac-app.sh package >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: BitcoinTX-macOS
+          # the files' own stem: the app's name, then -macOS
+          name: ${{ steps.package.outputs.stem }}
           path: |
-            BitcoinTX-macOS.zip
-            BitcoinTX-macOS.dmg
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.dmg }}
           retention-days: 7
 
   # The one check the rulesets require: every job above but the macOS build
