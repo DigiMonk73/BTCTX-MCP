@@ -118,17 +118,19 @@ seed_ledger = _script("seed_ledger")
 def reference(fresh_app, monkeypatch):
     """The reference test ledger (testdata/reference_ledger.json) on a
     database of its own, price source Off; yields the owner's client and a
-    client with only the AI key."""
+    client with only the AI key, a 2.0 connector's (the ledger has
+    multiple wallets and exchanges, which a 1.x one can't write to)."""
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
     owner = TestClient(app)
     seed_ledger.log_in(owner, "seed-user", "seed-password-123", first_run.ensure_code())
     assert seed_ledger.seed(owner) == len(seed_ledger.ledger_rows())
     assert owner.put("/api/settings/ai-access", json={"on": True}).status_code == 200
     key = owner.post("/api/settings/ai-key").json()["key"]
-    yield owner, TestClient(app, headers={"Authorization": f"Bearer {key}"})
+    yield owner, TestClient(app, headers={"Authorization": f"Bearer {key}", "X-BitcoinTX-Connector": "2.0.0"})
 
 
 BEFORE_IT_ALL = datetime(2022, 1, 3, 15, tzinfo=timezone.utc)  # the reference ledger starts in 2023
+LATEST = max(row["timestamp"] for row in seed_ledger.ledger_rows())  # its latest entry, as stored
 
 
 def largest_allowed(ledger_size: int) -> int:
@@ -148,7 +150,7 @@ def test_too_many_earlier_rows_with_the_ai_key_are_refused_saying_how_many(refer
         r = ai.post(url, json={"rows": too_many})
         assert r.status_code == 400, (url, r.text)
         detail = r.json()["detail"]
-        assert detail.startswith("Too many rows dated before the ledger's latest entry (2026-09-16T12:00:00Z)")
+        assert detail.startswith(f"Too many rows dated before the ledger's latest entry ({LATEST})")
         assert f"Send at most {AI_MAX_REPLAYED // (size + allowed + 1)} of them per request" in detail
     assert count(owner) == size
     assert owner.post(PREVIEW, json={"rows": too_many}).status_code == 200  # a login: no such limit
@@ -156,7 +158,8 @@ def test_too_many_earlier_rows_with_the_ai_key_are_refused_saying_how_many(refer
 
 def test_rows_dated_after_the_ledger_dont_count(reference):
     owner, ai = reference
-    later = buys(AI_MAX_ROWS, datetime(2026, 9, 17, tzinfo=timezone.utc), every=timedelta(minutes=30))
+    after = datetime.fromisoformat(LATEST.replace("Z", "+00:00")) + timedelta(days=1)
+    later = buys(AI_MAX_ROWS, after, every=timedelta(minutes=30))
     r = ai.post(PREVIEW, json={"rows": later})
     assert r.status_code == 200, r.text
     assert r.json()["ready_count"] == AI_MAX_ROWS
