@@ -28,12 +28,12 @@ describe("PrereleaseNotice", () => {
 });
 
 describe("PrereleaseBanner", () => {
-  it("shows at once, claiming neither install, then what the server says it is", async () => {
+  it("shows at once, then the Mac's words once the server says it is the Mac app", async () => {
     let answer: (value: unknown) => void = () => undefined;
     const get = vi.spyOn(api, "get").mockReturnValue(new Promise((ok) => (answer = ok)));
     render(<PrereleaseBanner />);
     const before = prereleaseBanner(__BTCTX_VERSION__, undefined);
-    const after = prereleaseBanner(__BTCTX_VERSION__, false);
+    const after = prereleaseBanner(__BTCTX_VERSION__, true);
     if (!before || !after) {
       expect(banner()).toBeNull();
       expect(get).not.toHaveBeenCalled();
@@ -41,11 +41,11 @@ describe("PrereleaseBanner", () => {
     }
     expect(screen.getByRole("note").textContent).toBe(`${before.title}: ${before.note}`);
     expect(get).toHaveBeenCalledWith("/users/setup-status");
-    answer({ data: { desktop: false } });
+    answer({ data: { desktop: true } });
     await waitFor(() => expect(screen.getByRole("note").textContent).toBe(`${after.title}: ${after.note}`));
   });
 
-  it("claims nothing when the server doesn't answer", async () => {
+  it("keeps a server's words when the server doesn't answer: never the Mac's", async () => {
     vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
     render(<PrereleaseBanner />);
     const expected = prereleaseBanner(__BTCTX_VERSION__, undefined);

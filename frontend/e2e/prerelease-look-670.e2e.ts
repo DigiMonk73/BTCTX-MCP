@@ -45,7 +45,7 @@ test.describe("on a phone", () => {
   test("the banner wraps and the login page still fits", async ({ page }) => {
     test.skip(!PRERELEASE, "a release shows no banner");
     await page.goto("/login");
-    await expect(banner(page)).toBeVisible();
+    await expect(banner(page)).toHaveText(`BitcoinTX · ${VERSION}: a test version, not a release`);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await fitsTheWindow(page);
   });

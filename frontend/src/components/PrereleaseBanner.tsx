@@ -10,9 +10,10 @@ import PrereleaseNotice from "./PrereleaseNotice";
 
 const PrereleaseBanner: React.FC = () => {
   const prerelease = prereleaseParts(__BTCTX_VERSION__) !== null;
-  // Unknown until the server answers: the banner shows at once, claiming
-  // neither install, so the page never moves down under the user's pointer
-  // when it arrives (a server reached over Tor answers slowly)
+  // Unknown until the server answers: the banner shows at once in a server's
+  // words, true on every install, so the page never moves down under the
+  // user's pointer when the answer arrives (a server reached over Tor
+  // answers slowly; the Mac app's window is never narrow enough to wrap)
   const [desktop, setDesktop] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {

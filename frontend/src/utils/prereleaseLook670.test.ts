@@ -18,8 +18,8 @@ describe("prereleaseBanner", () => {
     expect(text(prereleaseBanner("2.0.0-alpha.2", false))).toBe("BitcoinTX · 2.0.0-alpha.2: a test version, not a release");
   });
 
-  it("before the server says which, claims neither", () => {
-    expect(text(prereleaseBanner("2.0.0-beta.1", undefined))).toBe("BitcoinTX · 2.0.0-beta.1: a test version");
+  it("before the server says which, says what is true on every install, a server's words", () => {
+    expect(text(prereleaseBanner("2.0.0-beta.1", undefined))).toBe("BitcoinTX · 2.0.0-beta.1: a test version, not a release");
   });
 
   it("is none for a release, or a version it can't read", () => {

@@ -21,12 +21,14 @@ export function macApp(version?: string): string {
  * version. On a Mac it is BitcoinTX Preview, an app of its own beside
  * BitcoinTX; on a server (StartOS, Docker) the pre-release is BitcoinTX
  * itself, updated in place or on a volume of its own, so it says nothing of
- * "apart". Until the server has said which (`desktop` unknown), neither.
+ * "apart". Until the server has said which (`desktop` unknown), a server's
+ * words, true on every install: a server's answer then changes nothing,
+ * not even the banner's height on a phone, where its words take two lines.
  */
 export function prereleaseBanner(version?: string, desktop?: boolean): { title: string; note: string } | null {
   if (!prereleaseParts(version)) return null;
   if (desktop) return { title: `${macApp(version)} · ${version}`, note: "a test version, apart from your BitcoinTX" };
-  return { title: `BitcoinTX · ${version}`, note: desktop === false ? "a test version, not a release" : "a test version" };
+  return { title: `BitcoinTX · ${version}`, note: "a test version, not a release" };
 }
 
 /** BitcoinTX Preview's line on its first page, where the tester chooses a
