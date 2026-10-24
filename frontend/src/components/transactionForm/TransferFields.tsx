@@ -54,8 +54,19 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
  * bitcoin or in dollars (#447; useFieldAutofill).
  */
 const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
-  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  const { register, watch, getValues, setValue, formState: { errors, defaultValues } } =
+    useFormContext<TransactionFormData>();
   const fromId = chosenId(watch("fromAccountId"));
+  // A new From never turns the To chosen into a consolidation, which records
+  // only a fee (#159): the To goes, as 1.x set the new From's own. Only the
+  // row's saved consolidation stays one.
+  const toNotItself = () => {
+    const from = chosenId(getValues("fromAccountId"));
+    const savedItself = chosenId(defaultValues?.fromAccountId) === from && chosenId(defaultValues?.toAccountId) === from;
+    if (from !== undefined && chosenId(getValues("toAccountId")) === from && !savedItself) {
+      setValue("toAccountId", undefined);
+    }
+  };
   const fromCurrency = accountCurrency(book, fromId);
   const amountProblem = (field: "amountFrom" | "amountTo") =>
     (_v: unknown, values: TransactionFormData) => transferAmountProblem(values, book, field) ?? true;
@@ -70,6 +81,7 @@ const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
         placeholder="Select From Account"
         requiredMessage="From Account is required"
         deps={["amountFrom", "amountTo"]} // messages about the old source go
+        onChange={toNotItself}
       >
         {accountKind(book, fromId) === "wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
       </AccountPicker>

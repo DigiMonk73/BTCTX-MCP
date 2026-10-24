@@ -18,6 +18,8 @@ interface AccountPickerProps {
   optionLabel?: (id: number) => string;
   /** Fields checked again when this one changes (a Transfer's amounts). */
   deps?: FieldPath<TransactionFormData>[];
+  /** What else a choice here changes (a Transfer's From, its To). */
+  onChange?: () => void;
   /** Not shown while it holds the only account that fits (a Buy's exchange
    * with one exchange: 1.x's form has no such field). */
   quietWhenFixed?: boolean;
@@ -32,7 +34,7 @@ interface AccountPickerProps {
  * picker shows blank, so a save can't put the row into the first account.
  */
 const AccountPicker: React.FC<AccountPickerProps> = ({
-  id, label, field, book, choices, placeholder, requiredMessage, optionLabel, deps, quietWhenFixed, children,
+  id, label, field, book, choices, placeholder, requiredMessage, optionLabel, deps, onChange, quietWhenFixed, children,
 }) => {
   const { register, watch, setValue, clearErrors, formState: { errors, defaultValues } } =
     useFormContext<TransactionFormData>();
@@ -68,6 +70,7 @@ const AccountPicker: React.FC<AccountPickerProps> = ({
     setValueAs: chosenId,
     validate: (value: number | undefined) => (value !== undefined && options.includes(value)) || requiredMessage,
     deps,
+    onChange,
   };
   const fixed = options.length === 1 && chosen === options[0];
   if (fixed && quietWhenFixed) return <input type="hidden" {...register(field, rules)} />;

@@ -92,6 +92,16 @@ describe("with more accounts", () => {
     expect(shown("To Account")).toBe("Select To Account");
   });
 
+  it("never turns the To chosen into a consolidation when the From changes to it", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Wallet");
+    await form.choose("To Account", "Exchange BTC");
+    await form.choose("From Account", "Exchange BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+    expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
+  });
+
   it("buys on a chosen exchange, paid from its dollars or a bank (Q15)", async () => {
     const form = await renderForm({ book: MANY });
     await form.pickType("Buy");

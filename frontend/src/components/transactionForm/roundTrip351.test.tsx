@@ -96,6 +96,19 @@ describe("a row saved unchanged keeps its accounts", () => {
     expect(await savedUnchanged(MANY, sell(103, 102))).toMatchObject({ amount: 0.1, gross_proceeds_usd: 6000 });
   });
 
+  it("an edit's new From never makes its To a consolidation, but a saved one stays one", async () => {
+    const moved = await renderForm({ book: ONE_OF_EACH, transaction: btcTransfer(4, 2) });
+    await moved.choose("From Account", "Wallet");
+    expect(shown("To Account")).toBe("Select To Account");
+    await moved.save();
+    expect(moved.sent()).toBeUndefined();
+    moved.unmount();
+    const consolidation = await renderForm({ book: ONE_OF_EACH, transaction: btcTransfer(2, 2) });
+    await consolidation.choose("From Account", "Exchange BTC");
+    await consolidation.choose("From Account", "Wallet");
+    expect(shown("To Account")).toBe("Wallet: consolidate / move within the same wallet");
+  });
+
   it("showing a hidden account it names", async () => {
     await renderForm({ book: MANY, transaction: btcTransfer(104, 2) });
     expect([shown("From Account"), shown("To Account")]).toEqual(["Old phone", "Sparrow"]);
