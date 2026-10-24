@@ -22,8 +22,6 @@ NAMES = {"BTC_ACCOUNTS", "ACCOUNT_ID_TO_NAME", "ACCOUNT_NAME_TO_ID",
 
 # (file, name): how many times, and the card that changes them
 STILL_BY_NUMBER = {
-    # B4: Form 8949's boxes by the book (5.7: _broker_reporting's Sell and covered lot)
-    ("services/reports/form_8949.py", "ACCOUNT_EXCHANGE_BTC"): 2,
     # B7a: the gate (5.10: USER_ACCOUNTS, 1 to 4 and 99, until the book's yours())
     ("services/transaction.py", "ACCOUNT_BANK"): 1,
     ("services/transaction.py", "ACCOUNT_WALLET"): 1,

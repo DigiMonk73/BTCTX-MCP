@@ -5,6 +5,23 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The forms and the report per exchange** (B4, #349). Form 8949's boxes
+  ask the account book: a Sell is on a Form 1099-DA when its exchange's
+  "This exchange sends me a Form 1099-DA" is on (with it off, its Sells
+  are I/L, as a self-custody spend's are), and its basis is reported only
+  for coins bought into that same account from 2026 (coins moved from one
+  exchange to another arrive noncovered, H/K). The complete tax report
+  shows each disposal's account under its kind and each lot held when the
+  year began with its account, and a new "Sales by exchange" table gives
+  each exchange's Sells of the year (its 1099-DA switch, boxes, rows,
+  proceeds, cost and gain, network fees left out), to set beside the
+  1099-DA it sends. Ledger Review reminds of each Sell from 2026 for which
+  the exchange's own order (it counts coins moved in from their arrival)
+  and BitcoinTX's take different coins bought there: the exchange's form
+  may show another basis. Account names are printed as text, never
+  markup. No figure of any ledger changes: a 1.x ledger's boxes are as
+  before, and its report adds only the account names and one row,
+  "Exchange", in "Sales by exchange".
 - **Imports, the CSV export and the AI connector by your accounts** (B5a,
   #350). A CSV file names an account as Settings does, by its name now, in
   any case; Bank, Wallet, Exchange USD and Exchange BTC always mean your

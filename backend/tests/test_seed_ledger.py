@@ -12,7 +12,9 @@ import importlib.util
 import io
 import json
 import os
+import re
 from collections import defaultdict
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
 from typing import get_args
@@ -64,6 +66,14 @@ ROUTES = {
     *(("Deposit", 99, a) for a in (1, 2, 3, 4)), *(("Withdrawal", a, 99) for a in (1, 2, 3, 4)),
     ("Transfer", 1, 3), ("Transfer", 3, 1), ("Transfer", 2, 4), ("Transfer", 4, 2),
     ("Transfer", 2, 2), ("Transfer", 4, 4),  # consolidations (#159)
+}
+# The report's keys 2.0 adds (card B4, #349): each capital-gains row's and
+# each start-of-year lot's account, and "Sales by exchange". The saved
+# figures may lack only these until the gate's step (B7a) accepts new ones.
+NEW_KEYS = {
+    "years.*.report.capital_gains_transactions[].account",
+    "years.*.report.start_of_year_balances[].account",
+    "years.*.report.sales_by_exchange",
 }
 
 
@@ -130,6 +140,11 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
         assert forms["short_term"] and forms["long_term"], year
     for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates"):
         assert report[part], (year, part)
+    # One exchange, as in 1.x, adding up its Sells' rows (#349)
+    sales = [r for r in report["capital_gains_transactions"] if r["kind"] == "Sale"]
+    assert [(s["exchange"], s["rows"]) for s in report["sales_by_exchange"]] == [("Exchange", len(sales))]
+    for total in ("proceeds", "cost", "gain_loss"):
+        assert round(report["sales_by_exchange"][0][total], 2) == round(sum(r[total] for r in sales), 2), total
     assert {"Income", "Interest", "Reward"} <= {k for k, v in report["income_summary"].items() if v}
     assert {g["type"] for g in report["gifts_donations_lost"]} == {"Gift", "Donation", "Lost"}
 
@@ -195,8 +210,21 @@ def test_the_reference_figures_have_not_moved(seeded):
     if os.environ.get("BTCTX_UPDATE_REFERENCE_FIGURES"):
         reference_figures.FIGURES.write_text(reference_figures.dumps(now))
     saved = json.loads(reference_figures.FIGURES.read_text())
-    moved = list(reference_figures.differences(saved, now))
+    moved = list(reference_figures.differences(saved, now, allow_new=True))
     assert not moved, "figures moved (make reference-figures if meant):\n" + "\n".join(moved[:20])
+    assert set(_new_keys(saved, now)) <= NEW_KEYS
+
+
+def _new_keys(saved, now, path: str = "") -> Iterator[str]:
+    """Where `now` has a key `saved` hasn't, as a path: a list's items as
+    [], each year as *."""
+    if isinstance(saved, dict) and isinstance(now, dict):
+        for key in now:
+            where = re.sub(r"^years\.\d+$", "years.*", f"{path}.{key}" if path else key)
+            yield from [where] if key not in saved else _new_keys(saved[key], now[key], where)
+    elif isinstance(saved, list) and isinstance(now, list):
+        for a, b in zip(saved, now):
+            yield from _new_keys(a, b, f"{path}[]")
 
 
 @pytest.mark.parametrize("tz", ["Asia/Tokyo", "Australia/Adelaide", "Pacific/Honolulu", "America/New_York"])

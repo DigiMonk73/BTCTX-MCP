@@ -169,12 +169,13 @@ def test_ledger_review_lists_them_as_a_reminder_after_the_checks(auth_client):
     explanation for the group, after the checks and not in the total."""
     undated = deposit(auth_client)
     review = auth_client.get("/api/review").json()
-    *checks, reminder = review["checks"]
-    assert reminder["key"] == "original_date_missing" and reminder["kind"] == "reminder"
-    assert reminder["title"].startswith("Reminder:")
+    kinds = [c["kind"] for c in review["checks"]]
+    assert kinds == sorted(kinds)  # every "check", then the reminders
+    reminder = next(c for c in review["checks"] if c["key"] == "original_date_missing")
+    assert reminder["kind"] == "reminder" and reminder["title"].startswith("Reminder:")
     assert [i["id"] for i in reminder["items"]] == [undated["id"]]
     assert reminder["explanation"][0].startswith("If these are really income, interest, rewards or rebates")
-    assert {c["kind"] for c in checks} == {"check"}
+    checks = [c for c in review["checks"] if c["kind"] == "check"]
     # Only the hourly check (#144) explains itself, like a reminder
     assert [c["key"] for c in checks if c["explanation"]] == ["day_priced_values"]
     assert review["total"] == 0 and review["reminders"] == 1

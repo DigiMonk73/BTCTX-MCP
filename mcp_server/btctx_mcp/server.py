@@ -469,10 +469,12 @@ async def review_ledger() -> ToolResult:
     date of death; income or rebate deposits with a $0 or blank value, or with a typed value
     far from that hour's price; gifts, donations and lost coins with a $0 or blank value). Each
     item has its id, date, what looks
-    odd and what would change; `total` counts these. Last, a reminder (kind "reminder", not in
-    `total`, not an error): My BTC and Gift deposits without a date originally acquired,
-    with one explanation for the group; pass it on in short and suggest changing the Source
-    (and checking the cost basis) if they are really income, interest, rewards or rebates.
+    odd and what would change; `total` counts these. Last, the reminders (kind "reminder", not
+    in `total`, not errors), each with one explanation for its group: My BTC and Gift deposits
+    without a date originally acquired (pass it on in short and suggest changing the Source,
+    and checking the cost basis, if they are really income, interest, rewards or rebates); and
+    exchange Sells the exchange's Form 1099-DA may show differently (suggest comparing each with
+    that form; nothing to edit).
     Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 

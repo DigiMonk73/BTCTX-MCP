@@ -487,8 +487,11 @@ from the Transaction row alone.
   (the tax timezone, as `cli review` and the AI see them) and a price's
   hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
-  (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
-  2026-01-01 and never moved G/J; self-custody spends and fees I/L. A
+  (1099-DA without basis); 2026+ Sells of lots bought on that exchange (a Buy
+  into the account sold from) on/after 2026-01-01 and never moved G/J;
+  self-custody spends and fees I/L, and so are the Sells of an exchange whose
+  "This exchange sends me a Form 1099-DA" is off (`exchanges.sends_1099da`,
+  2.0, #349). A
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
   rules for that transaction, a spend's fee disposals included (#549).
   One sheet per box, line 2 totals that sheet's rows, Schedule D line per
