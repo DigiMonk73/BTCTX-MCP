@@ -10,7 +10,9 @@ import tseslint from 'typescript-eslint'
 // renamed, hidden and joined by others. External (99) and the fee accounts
 // (5, 6) stay fixed ids. An account id is a name with "account" in it, `id`,
 // or one ending in `Id` or `_id`; Literal's `raw`, since esquery matches a
-// pattern only against text.
+// pattern only against text. A named constant (B7b's FIRST_OF_EACH, which
+// mirrors services/account.FIRST_OF_EACH to hide Delete) isn't a comparison:
+// it says why where it's defined.
 const ACCOUNT_ID = '/[Aa]ccount|^id$|Id$|_id$/'
 const ONE_TO_FOUR = "[raw=/^[1-4]$/]"
 const NAMED = (side) => `:matches([${side}.name=${ACCOUNT_ID}], [${side}.property.name=${ACCOUNT_ID}])`
@@ -22,6 +24,10 @@ const NO_ACCOUNT_BY_NUMBER = [
   { selector: `BinaryExpression[operator=/^[!=]==?$/][left.type='Literal'][left.raw=/^[1-4]$/]${NAMED('right')}`,
     message: BY_NUMBER },
   { selector: `SwitchStatement${NAMED('discriminant')} > SwitchCase > Literal.test${ONE_TO_FOUR}`,
+    message: BY_NUMBER },
+  // [1, 3].includes(account_id): a comparison too
+  { selector: "CallExpression[callee.property.name=/^(includes|indexOf)$/][callee.object.type='ArrayExpression']"
+      + `${NAMED('arguments.0')}:has(MemberExpression > ArrayExpression > Literal${ONE_TO_FOUR})`,
     message: BY_NUMBER },
 ]
 

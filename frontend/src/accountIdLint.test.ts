@@ -21,6 +21,8 @@ describe("the lint against an account id compared with 1 to 4", () => {
     "export const d = (accountId: number) => accountId == 1;",
     "export const e = (account: { id: number }) => account.id === 4;",
     "export function f(account_id: number) { switch (account_id) { case 1: return 'Bank'; default: return ''; } }",
+    "export const g = (from_account_id: number) => [1, 3].includes(from_account_id);",
+    "export const h = (tx: { to_account_id: number }) => [2, 4].indexOf(tx.to_account_id) >= 0;",
   ])("refuses %s", async (code) => {
     expect(await refusals(code)).toBe(1);
   });
@@ -38,6 +40,9 @@ describe("the lint against an account id compared with 1 to 4", () => {
     "export const e = (rows: number[]) => rows.length === 1;",
     "export const f = (valid: number) => valid === 2;",
     "export function g(count: number) { switch (count) { case 1: return 'one'; default: return ''; } }",
+    "export const h = (n: number) => [1, 2].includes(n);",
+    // A named constant, defined once with why (B7b's FIRST_OF_EACH mirrors services/account.FIRST_OF_EACH)
+    "const FIRST_OF_EACH = new Set([1, 2, 3, 4]);\nexport const i = (id: number) => FIRST_OF_EACH.has(id);",
   ])("leaves %s alone", async (code) => {
     expect(await refusals(code)).toBe(0);
   });

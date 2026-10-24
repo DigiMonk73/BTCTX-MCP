@@ -8,11 +8,14 @@ interface AccountFilterProps {
 }
 
 /** The Transactions page's account filter (P7's mockups, #356): a native
- * select with its choices grouped by kind, so a phone shows its own picker. */
+ * select with its choices grouped by kind, so a phone shows its own picker.
+ * Named "Filter transactions", not the mockup's "Account": the form's own
+ * Account field is on the same page, and a label with "account" in it would
+ * make that one ambiguous. */
 const AccountFilter: React.FC<AccountFilterProps> = ({ book, value, onChange }) => (
   <select
     className="input select-pill"
-    aria-label="Account"
+    aria-label="Filter transactions"
     value={value}
     onChange={(e) => onChange(e.target.value)}
   >
