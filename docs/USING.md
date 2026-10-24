@@ -45,8 +45,10 @@ each with its balance:
   default: turn it off for an exchange that sends none (usually one outside
   the US), and its sales go in the Form 8949 boxes for no broker form.
 
-The **Dashboard** shows your banks, exchanges and wallets on three cards; a
-card with more than one wallet, exchange or bank opens to list them.
+The **Dashboard**'s Portfolio Overview shows what your banks, your
+exchanges (their dollars and their bitcoin) and your wallets hold, each
+kind's total on a line; a kind with more than one account has a caret on
+its line, which lists them under it.
 
 BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
 cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
