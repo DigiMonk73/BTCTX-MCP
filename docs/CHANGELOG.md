@@ -25,6 +25,14 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- The before-and-after check (`scripts/equivalence_check.py`) reuses a
+  release's snapshot only while today's date is the same in each of its
+  ledgers' tax timezones (UTC, New York, Chicago, Tokyo: the date the
+  current year's Complete Tax Report says it was made on). Kept by the
+  computer's own date, a snapshot was reused across a midnight in another
+  zone (in Chicago, in summer: Tokyo's at 10:00, UTC's at 19:00, New
+  York's at 23:00), and that date showed as a difference no change made
+  (#630).
 - **setuptools 84.2.0** in the Mac app's build tools and the AI connector's
   release tools (GHSA-xmj3-9gf7-h52w, low: a path escape in legacy wheel
   installs on Windows; neither runs there, but CI's dependency audit

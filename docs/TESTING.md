@@ -122,8 +122,9 @@ Everything the app produces is compared:
 - the CSV instructions PDF
 
 The snapshots are JSON files in `.equivalence/` (gitignored). The release's
-is reused for the rest of the day while `scripts/equivalence_*.py` are
-unchanged. Any difference is printed as a short diff per item and makes it
+is reused while `scripts/equivalence_*.py` are unchanged and it's still the
+same day in each of the ledgers' tax timezones (`equivalence_inputs.ZONES`,
+#630). Any difference is printed as a short diff per item and makes it
 exit 1. The API descriptions (text only the API docs show, with DEBUG)
 are listed but not counted; MCP tool descriptions are, since the AI reads
 them.
