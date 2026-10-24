@@ -222,3 +222,17 @@ def test_updating_md_has_start9s_two_sections():
     headings = h2(read("UPDATING.md"))
     wanted = ["Determining the upstream version", "Applying the bump"]
     assert [h for h in headings if h in wanted] == wanted
+
+
+def test_the_format_check_runs_before_the_sdks_make():
+    """From start-sdk 3.1.0 the SDK's make formats startos/ instead of
+    rejecting unformatted source (its s9pk.mk), so CI and the pre-push hook
+    run the format check themselves, before make: unformatted source must
+    fail there, not be rewritten and pass (#617's review). Start9's review
+    runs a format check."""
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+    job = ci.split("\n  startos:\n", 1)[1].split("\n  startos-pack:\n", 1)[0]
+    assert "run: npm run format:check" in job
+    assert job.index("npm run format:check") < job.index("make javascript/index.js")
+    hook = (ROOT / ".githooks" / "pre-push").read_text()
+    assert "npm run -s format:check && rm -rf javascript && make" in hook
