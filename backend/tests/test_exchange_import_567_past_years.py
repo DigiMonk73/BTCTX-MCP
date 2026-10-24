@@ -46,13 +46,13 @@ def execute(client, rows, confirm=None):
                        params={"confirm": confirm} if confirm else None)
 
 
-def test_the_preview_names_the_earlier_years_its_new_rows_are_dated_in(ledger):
+def test_the_preview_names_the_earlier_years_its_new_rows_are_dated_in(ledger):  # noqa: F811
     client, _ = ledger
     assert preview(client, BACKDATED, THIS_YEAR)["past_years_dated"] == [2023]
     assert preview(client, THIS_YEAR)["past_years_dated"] == []
 
 
-def test_a_file_that_changes_an_earlier_year_asks_once_and_its_confirm_saves_once(ledger):
+def test_a_file_that_changes_an_earlier_year_asks_once_and_its_confirm_saves_once(ledger):  # noqa: F811
     client, _ = ledger
     rows = request(preview(client, BACKDATED, THIS_YEAR))
     before = stored(client)
@@ -69,14 +69,14 @@ def test_a_file_that_changes_an_earlier_year_asks_once_and_its_confirm_saves_onc
     assert again.status_code == 200 and again.json()["imported_count"] == 0, again.text
 
 
-def test_a_file_dated_this_year_saves_at_once(ledger, monkeypatch):
+def test_a_file_dated_this_year_saves_at_once(ledger, monkeypatch):  # noqa: F811
     client, _ = ledger
     no_dry_run(monkeypatch)
     r = execute(client, request(preview(client, THIS_YEAR)))
     assert r.status_code == 200 and r.json()["imported_count"] == 1, r.text
 
 
-def test_only_the_rows_the_duplicate_check_keeps_count(ledger, monkeypatch):
+def test_only_the_rows_the_duplicate_check_keeps_count(ledger, monkeypatch):  # noqa: F811
     """A backdated row already in the ledger asks nothing: it isn't saved."""
     client, _ = ledger
     rows = request(preview(client, BACKDATED))
