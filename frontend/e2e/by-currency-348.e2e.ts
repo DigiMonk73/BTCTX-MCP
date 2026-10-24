@@ -5,7 +5,7 @@
 // start keeps is the backend's (test_old_rows_348.py): here the database is written
 // as that start leaves it. Saving into a wallet added in Settings waits for the gate
 // (B7a) and Settings' accounts (B7b), whose own specs click it through.
-import { test, expect, createTx, figure, python } from "./fixtures";
+import { test, expect, createTx, figure, python, sendConfirmed } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -42,7 +42,9 @@ test("a row from before 0.9.2 counts as income and is listed until it's deleted"
   await page.getByRole("link", { name: "Dashboard" }).click();
   expect(await figure(page, "Income")).toBe(500);
 
-  expect((await page.request.delete(`/api/transactions/${old.id}`)).ok()).toBeTruthy();
+  // A 2024 deposit: its delete changes an earlier tax year, so it's confirmed (2.0 spec 5.8)
+  expect((await sendConfirmed((params) => page.request.delete(`/api/transactions/${old.id}`, { params }))).ok())
+    .toBeTruthy();
   await openReview(page);
   await expect(list).toHaveCount(0);
 });

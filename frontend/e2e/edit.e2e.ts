@@ -1,6 +1,6 @@
 // Editing one field changes only that field; the time survives to the second
 // in every timezone (the v0.9.1 bug shifted it by the UTC offset).
-import { test, expect, createTx, listTx, seedFunds, saveForm, type TxPayload } from "./fixtures";
+import { test, expect, createTx, listTx, seedFunds, saveForm, DELETE_ANYWAY, type TxPayload } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 // 03:04:05 UTC: the previous evening in Chicago, midday in Tokyo.
@@ -151,6 +151,8 @@ test("delete asks once, then removes the transaction", async ({ authedPage: page
   });
   await openEdit(page, "Sell");
   await page.getByRole("button", { name: "Delete" }).click();
+  // A sale of an earlier tax year: the past-year dialog asks too (2.0 spec 5.8)
+  await page.getByRole("button", { name: DELETE_ANYWAY }).click();
   await expect(page.getByRole("heading", { name: "Edit Transaction" })).toHaveCount(0);
   expect(dialogs).toEqual(["Are you sure you want to delete this transaction?"]);
   expect((await listTx(page.request)).map((t) => t.type).sort()).toEqual(["Buy", "Deposit"]);

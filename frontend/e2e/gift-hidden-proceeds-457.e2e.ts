@@ -3,7 +3,7 @@
 // connector, the API) it was a $0 sale, its whole basis a loss. Saved
 // unchanged, a gift now keeps none; made a Spent, it's priced like a Spent
 // left blank, in the form as through the API.
-import { test, expect, createTx, listTx, seedFunds, saveForm } from "./fixtures";
+import { test, expect, createTx, listTx, seedFunds, saveForm, sendConfirmed } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 const GIFT = {
@@ -35,7 +35,9 @@ test("a gift saved unchanged keeps no proceeds; made a Spent through the API, it
   expect(await saved(page, gift.id)).toMatchObject({ purpose: "Gift", gross_proceeds_usd: null, proceeds_usd: null });
 
   // What the AI connector's update_transaction(purpose="Spent") sends
-  const r = await page.request.put(`/api/transactions/${gift.id}`, { data: { purpose: "Spent" } });
+  // A 2024 gift made a spend changes that tax year: confirmed, as the connector will (2.0 spec 5.8)
+  const r = await sendConfirmed((params) =>
+    page.request.put(`/api/transactions/${gift.id}`, { data: { purpose: "Spent" }, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   const spent = await r.json();
   expect(spent.proceeds_from_price).toBe(true);
