@@ -3,7 +3,9 @@
 // button or the keyboard, the open one remembered by this browser; your accounts by
 // kind, Add with its help text and Q5's note, Hide, Show and Delete. Saving
 // into a new account waits for the gate (B7a), whose rows this spec gains then.
-import { test, expect, createTx, openSection, seedFunds, seedKnownLedger, SAVE_ANYWAY } from "./fixtures";
+import {
+  test, expect, createTx, listTx, openAddForm, openSection, saveForm, seedFunds, seedKnownLedger, SAVE_ANYWAY,
+} from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 const SECTIONS = [
@@ -378,4 +380,96 @@ test("an exchange's 1099-DA switch: in 5.9's words, and past years' boxes move o
   await expect(dialog).toHaveCount(0);
   await expect(box).not.toBeChecked();
   expect([await switchOf(3), await switchOf(4)]).toEqual([false, false]);
+});
+
+/** The newest transaction's row on Transactions, opened for an edit. */
+async function editNewest(page: Page, type: string) {
+  await page.getByRole("link", { name: "Transactions" }).click();
+  await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
+  const newest = page.getByRole("listitem").first();
+  await expect(newest).toContainText(type);
+  await newest.getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByRole("heading", { name: "Edit Transaction" })).toBeVisible();
+}
+
+test("a second exchange added in Settings takes a Buy and a Sell, which keep it when edited", async ({
+  authedPage: page,
+}) => {
+  await seedFunds(page.request);
+  const section = await openAccounts(page);
+  await group(section, "Exchanges").getByRole("button", { name: "Add an exchange" }).click();
+  await section.getByRole("form", { name: "Add an exchange" }).getByLabel("Name").fill("Kraken");
+  await section.getByRole("form", { name: "Add an exchange" }).getByRole("button", { name: "Add", exact: true }).click();
+  await expect(row(group(section, "Exchanges"), "Kraken")).toBeVisible();
+  const accounts = await listed(page);
+  const krakenUsd = accounts.find((a) => a.name === "Kraken USD")!.id;
+  const krakenBtc = accounts.find((a) => a.name === "Kraken BTC")!.id;
+  // Dollars onto Kraken from the bank, as the owner would move them
+  await createTx(page.request, {
+    type: "Transfer", timestamp: "2026-01-05T15:00:00Z", from_account_id: 1, to_account_id: krakenUsd,
+    amount: "5000", fee_amount: "0", fee_currency: "USD",
+  });
+
+  await openAddForm(page, "Buy");
+  await page.getByLabel("Exchange", { exact: true }).selectOption({ label: "Kraken" });
+  await page.getByLabel("Paid from").selectOption({ label: "Kraken USD" });
+  await page.getByLabel("Amount USD").fill("3000");
+  await page.getByLabel("Amount BTC").fill("0.05");
+  await saveForm(page);
+  await openAddForm(page, "Sell");
+  await page.getByLabel("Account", { exact: true }).selectOption({ label: "Kraken" });
+  await page.getByLabel("Amount BTC").fill("0.02");
+  await page.getByLabel("Gross Proceeds (USD)").fill("1500");
+  await saveForm(page);
+  const saved = async () => (await listTx(page.request)).filter((t) => t.type === "Buy" || t.type === "Sell")
+    .filter((t) => t.from_account_id === krakenUsd || t.from_account_id === krakenBtc)
+    .map((t) => [t.type, t.from_account_id, t.to_account_id, Number(t.amount)]);
+  expect(await saved()).toEqual([["Buy", krakenUsd, krakenBtc, 0.05], ["Sell", krakenBtc, krakenUsd, 0.02]]);
+
+  // Edited, each keeps Kraken: never your first exchange's accounts by default
+  await editNewest(page, "Sell");
+  await expect(page.getByLabel("Account", { exact: true })).toHaveValue(String(krakenBtc));
+  await page.getByLabel("Amount BTC").fill("0.03");
+  await saveForm(page, "Update Transaction");
+  const buy = page.getByRole("listitem").filter({ hasText: "+0.05000000 BTC" });
+  await buy.getByRole("button", { name: "Edit" }).click();
+  await expect(page.getByLabel("Exchange", { exact: true })).toHaveValue(String(krakenBtc));
+  await expect(page.getByLabel("Paid from")).toHaveValue(String(krakenUsd));
+  await page.getByLabel("Amount USD").fill("3100");
+  await saveForm(page, "Update Transaction");
+  expect(await saved()).toEqual([["Buy", krakenUsd, krakenBtc, 0.05], ["Sell", krakenBtc, krakenUsd, 0.03]]);
+});
+
+test("River with two exchanges and two wallets saves into the ones picked", async ({ authedPage: page }) => {
+  const dialogs: string[] = [];
+  page.on("dialog", async (d) => {
+    dialogs.push(d.message());
+    await d.accept();
+  });
+  await seedFunds(page.request);
+  for (const [kind, name] of [["wallet", "Coldcard"], ["exchange", "Kraken"]]) {
+    expect((await page.request.post("/api/accounts/", { data: { kind, name } })).status()).toBe(201);
+  }
+  const accounts = await listed(page);
+  const id = (name: string) => accounts.find((a) => a.name === name)!.id;
+  await page.getByRole("link", { name: "Settings" }).click();
+  const river = await openSection(page, "Import from River");
+  await river.getByLabel("Exchange", { exact: true }).selectOption({ label: "Kraken" });
+  await river.getByLabel("Wallet for sends and receives").selectOption({ label: "Coldcard" });
+  await river.getByLabel("River CSV file").setInputFiles({
+    name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
+  });
+  await river.getByRole("button", { name: "Preview" }).click();
+  await expect(river.getByText("2 rows in file")).toBeVisible();
+  await river.getByRole("button", { name: "Import 2 Transaction(s)" }).click();
+  await expect(page.getByText("Imported 2 transaction(s).")).toBeVisible();
+  expect(dialogs).toEqual(["Import 2 transaction(s) from River into your ledger?"]);
+
+  // The buy paid from Kraken's dollars, into Kraken's bitcoin; the send from Kraken to Coldcard
+  const fromRiver = (await listTx(page.request)).filter((t) => t.timestamp && String(t.timestamp).startsWith("2026-02"))
+    .map((t) => [t.type, t.from_account_id, t.to_account_id]);
+  expect(fromRiver).toEqual(expect.arrayContaining([
+    ["Buy", id("Kraken USD"), id("Kraken BTC")], ["Transfer", id("Kraken BTC"), id("Coldcard")],
+  ]));
+  expect(fromRiver).toHaveLength(2);
 });
