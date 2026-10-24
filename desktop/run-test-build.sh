@@ -8,7 +8,8 @@
 #   desktop/run-test-build.sh [--app PATH] [--fresh] [--background]
 #   desktop/run-test-build.sh --where       # print the folder (mcp.json is in it)
 #
-#   --app PATH     the build to run (default: desktop/dist/BitcoinTX.app); one
+#   --app PATH     the build to run (default: the one app in desktop/dist,
+#                  BitcoinTX.app or a pre-release's BitcoinTX Beta.app); one
 #                  older than this script also gets a test home (HOME=<folder>/home),
 #                  so it can't reach the real ledger either
 #   --fresh        empty the test folder first (refused while a test run is open)
@@ -16,13 +17,14 @@
 #
 # The folder is $BTCTX_TEST_DATA_DIR, else btctx-test-build in the user's
 # temp folder. The script uses only a folder that is empty or that it marked
-# as its own, and never the installed app's folder however it is spelled. An
+# as its own, and never an installed app's folder (BitcoinTX's, or BitcoinTX
+# Beta's: a tester's copy of their ledger) however it is spelled. An
 # MCP server reaches the test run with BTCTX_MCP_FILE=<folder>/mcp.json in
 # the server's own environment (the MCP Inspector's -e, a client's "env" block).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/desktop/dist/BitcoinTX.app"
+APP=""
 TEMP="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo /tmp)}"
 DATA="${BTCTX_TEST_DATA_DIR:-$TEMP/btctx-test-build}"
 PORT=8766
@@ -51,11 +53,19 @@ physical() {
 
 lower() { printf '%s' "$1" | tr '[:upper:]' '[:lower:]'; }
 
-# Whether $1 is the installed app's folder or inside it: by name, ignoring
+# Whether $1 is an installed app's folder or inside it: by name, ignoring
 # case (macOS file systems do), and by identity for each existing folder on
 # the way up, so a symlink or another spelling is caught too.
 in_real_folder() {
-  local d="$1" real="$HOME/Library/Application Support/BitcoinTX" name
+  local real
+  for real in "$HOME/Library/Application Support/BitcoinTX" "$HOME/Library/Application Support/BitcoinTX Beta"; do
+    in_folder "$1" "$real" && return 0
+  done
+  return 1
+}
+
+in_folder() {
+  local d="$1" real="$2" name
   for name in "$real" "$(physical "$real")"; do
     case "$(lower "$d")/" in "$(lower "$name")/"*) return 0 ;; esac
   done
@@ -76,7 +86,7 @@ while [ $# -gt 0 ]; do
     --fresh) fresh=1; shift ;;
     --background) background=1; shift ;;
     --where) where=1; shift ;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "run-test-build.sh: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -84,7 +94,7 @@ done
 # Refuses the installed app's folder, and a folder with other things in it:
 # --fresh deletes the app's files there.
 check_folder() {
-  in_real_folder "$1" && fail "refusing $1: it is the installed app's data folder"
+  in_real_folder "$1" && fail "refusing $1: it is an installed app's data folder"
   local entries=""
   if [ -d "$1" ]; then
     entries="$(ls -A "$1")" || fail "can't list $1"
@@ -111,6 +121,11 @@ if [ "$where" = 1 ]; then
   exit 0
 fi
 
+if [ -z "$APP" ]; then
+  APPS=("$ROOT"/desktop/dist/*.app)
+  [ "${#APPS[@]}" = 1 ] || fail "desktop/dist holds more than one app: give --app"
+  APP="${APPS[0]}"
+fi
 BIN="$APP/Contents/MacOS/BitcoinTX"
 [ -x "$BIN" ] || fail "no app at $APP (build one with desktop/build-mac.sh, or give --app)"
 if [ "$fresh" = 1 ]; then

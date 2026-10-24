@@ -24,9 +24,16 @@ const SERVER_SETUP_CODE_HINT =
   "It is printed in the server's log at startup (docker logs <container>) " +
   "and saved as setup-code.txt in the data folder (/data on Docker).";
 
+/** The Mac app this page belongs to: BitcoinTX, or BitcoinTX Beta for a 2.0
+ * pre-release (X.Y.Z-beta.N, 2.0 plan 7.4, B10a), with a folder of its own. */
+export function macApp(version: string): string {
+  return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version) ? "BitcoinTX Beta" : "BitcoinTX";
+}
+
 // The Mac app never logs it (backend/services/first_run.py)
 const MAC_SETUP_CODE_HINT =
-  "It is saved as setup-code.txt in BitcoinTX's data folder (~/Library/Application Support/BitcoinTX).";
+  `It is saved as setup-code.txt in ${macApp(__BTCTX_VERSION__)}'s data folder ` +
+  `(~/Library/Application Support/${macApp(__BTCTX_VERSION__)}).`;
 
 /** Where the setup code is: the Mac app's data folder, or a server's log
  * and data folder. In a browser at the Mac app's address there's no window

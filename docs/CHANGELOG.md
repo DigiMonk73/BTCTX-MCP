@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The beta's own builds** (B10a, #532). A 2.0 pre-release
+  (`VERSION` 2.0.0-beta.N) builds a separate Mac app, **BitcoinTX Beta**,
+  installed beside BitcoinTX, never in its place: its own bundle id
+  (`org.bitcointx.desktop.beta`), its own data and log folders
+  (`~/Library/Application Support/BitcoinTX Beta`, `~/Library/Logs/BitcoinTX
+  Beta`) and its own port (8767), so a tester's real ledger is never
+  opened or upgraded. It refuses the installed app's folder however that
+  is spelled (another case, a link), with a message, and a second launch
+  brings forward the copy that's open by its bundle id, never "BitcoinTX"
+  by name (which would bring up the installed app on its ledger). Its
+  Settings → Connect an AI Assistant pins the beta's own connector
+  (`btctx-mcp==2.0.0bN`), links its tag's `AI_SETUP.md` and names the
+  server `bitcointx-beta`, beside the tester's own `bitcointx`, which it
+  never replaces; the beta connector's Mac key file is BitcoinTX Beta's,
+  and its version notice reads a beta on both sides (the connector's
+  2.0.0bN is BitcoinTX's 2.0.0-beta.N). The StartOS package's checks take
+  `2.0.0-beta.N:0`, on `2.0` only. 2.0.0 itself builds the ordinary app,
+  with no edit.
 - **2.0's texts, and the way back to 1.x** (B9, #357). Every text that
   said BitcoinTX tracks one wallet and one exchange now describes your
   wallets, exchanges and banks, with one wording of the IRS rule

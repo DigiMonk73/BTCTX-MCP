@@ -3,7 +3,8 @@ Port handling for the Mac app, and its checks of its own address (imported
 by entrypoint.py; no pywebview here, so the tests run on any OS).
 
 The app serves on a fixed port (127.0.0.1:8765, BTCTX_DESKTOP_PORT) so the
-MCP server can find it. Up to v0.9.1 a probe bind without SO_REUSEADDR
+MCP server can find it; BitcoinTX Beta, a 2.0 pre-release, on one of its own
+(BETA_PORT), so it never answers in the installed app's place. Up to v0.9.1 a probe bind without SO_REUSEADDR
 decided whether the port was free: connections from the previous run still
 in TIME_WAIT made it fail, and the app silently moved to a random port for the
 whole session. Now the listening socket itself is bound, with SO_REUSEADDR
@@ -25,12 +26,15 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 
-from desktop_paths import app_name
+from desktop_paths import app_name, bundle_id, is_beta
 
 logger = logging.getLogger("BitcoinTX")
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
+# BitcoinTX Beta's (2.0 plan 7.4, B10a): not the installed app's, nor
+# desktop/run-test-build.sh's 8766
+BETA_PORT = 8767
 # This computer's own address never goes through a proxy set for the whole
 # machine (HTTP_PROXY and co., the Mac's system proxy, #474): one elsewhere
 # can't reach this Mac's 127.0.0.1, and the app would quit or misjudge
@@ -43,7 +47,7 @@ def open_here(url: str, timeout: float):
 
 
 def preferred_port() -> int:
-    return int(os.environ.get("BTCTX_DESKTOP_PORT", DEFAULT_PORT))
+    return int(os.environ.get("BTCTX_DESKTOP_PORT", BETA_PORT if is_beta() else DEFAULT_PORT))
 
 
 def _listening_socket(port: int) -> socket.socket:
@@ -150,6 +154,11 @@ def wait_for_backend(port: int, timeout: float = 30.0) -> bool:
 RETRY, OTHER_PORT, QUIT = "Retry", "Use Another Port", "Quit"
 
 
+def _quoted(text: str) -> str:
+    """Text as an AppleScript string."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _osascript(script: str) -> str | None:
     try:
         out = subprocess.run(
@@ -190,22 +199,36 @@ def ask_port_busy(port: int) -> str:
 
 def tell_already_running(port: int, bring_forward: bool = True) -> None:
     """
-    Say BitcoinTX is already open and bring it forward. A test run
-    (bring_forward=False) only says so: AppleScript finds the app by name,
-    so it could bring forward, or start, the installed app on its real
-    ledger instead of the test copy. The message names the copy that
-    shows it ("BitcoinTX Test" on a test run), so it isn't taken for the
-    installed app's.
+    Say BitcoinTX is already open and bring it forward, by its own bundle
+    id: by name, a second BitcoinTX Beta would bring forward, or start, the
+    installed BitcoinTX on its real ledger. A test run (bring_forward=False)
+    only says so: AppleScript finds the app by its id, so it could bring
+    forward, or start, the installed app on its real ledger instead of the
+    test copy. The message names the copy that shows it ("BitcoinTX Test"
+    on a test run), so it isn't taken for the installed app's.
     """
     if sys.platform != "darwin":
         logger.error("BitcoinTX is already running on port %d", port)
         return
     if bring_forward:
-        _osascript('tell application "BitcoinTX" to activate')
+        _osascript(f'tell application id "{bundle_id()}" to activate')
     name = app_name()
     _osascript(
         f'display dialog "{name} is already open." with title "{name}" '
         'buttons {"OK"} default button "OK"'
+    )
+
+
+def tell_refused(message: str) -> None:
+    """Say why the app won't start (BitcoinTX Beta given the installed app's
+    folder, desktop_paths.InstalledAppsFolder)."""
+    if sys.platform != "darwin":
+        logger.error("%s", message)
+        return
+    name = app_name()
+    _osascript(
+        f'display dialog {_quoted(message)} with title {_quoted(name)} '
+        'buttons {"OK"} default button "OK" with icon stop'
     )
 
 

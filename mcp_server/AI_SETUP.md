@@ -40,6 +40,11 @@ refusal, sending nothing, while `BTCTX_PASSWORD` is set. Name the server `bitcoi
 software or editing any file, and keep every other server already in a
 configuration file intact.
 
+**A BitcoinTX 2.0 beta** (its prompt names the server `bitcointx-beta` and
+the connector `btctx-mcp==2.0.0bN`): add it under that name, beside any
+`bitcointx` server, which stays exactly as it is, since it belongs to the
+user's own BitcoinTX.
+
 **Already set up?** If their AI app already has a `bitcointx` server, don't
 add it again: change only the version in its arguments to
 `btctx-mcp==X.Y.Z`, keep its key and certificate path, and restart the app

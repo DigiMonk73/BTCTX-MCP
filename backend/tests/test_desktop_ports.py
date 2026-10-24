@@ -20,7 +20,15 @@ from backend.tests.conftest import MAC_APP_HOST
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_ports  # noqa: E402
+import desktop_paths  # noqa: E402
 from desktop_ports import OTHER_PORT, QUIT, RETRY, bind_port, choose_socket, running_instance  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def a_release(monkeypatch):
+    """BitcoinTX's own defaults, whatever VERSION is: from 2.0's first
+    pre-release it's a beta, whose own are test_beta_app_532.py's."""
+    monkeypatch.setattr(desktop_paths, "app_version", lambda: "2.0.0")
 
 
 def _free_port() -> int:

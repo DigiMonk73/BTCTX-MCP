@@ -137,6 +137,25 @@ sqlite3 ~/Library/Application\ Support/BitcoinTX/btctx.db  # inspect
 **Backups:** use the encrypted backup/restore in the app's Settings page, or
 quit the app and copy the whole `BitcoinTX` folder.
 
+### BitcoinTX Beta (a 2.0 pre-release)
+
+A build whose `VERSION` is a 2.0 pre-release (`2.0.0-beta.N`) is another
+app, **BitcoinTX Beta** (`BitcoinTX Beta.app`, bundle id
+`org.bitcointx.desktop.beta`), installed beside BitcoinTX, never in its
+place. It keeps everything in `~/Library/Application Support/BitcoinTX
+Beta/`, logs to `~/Library/Logs/BitcoinTX Beta/`, and answers on
+`127.0.0.1:8767`, so it never opens or upgrades BitcoinTX's ledger. The
+1.x connector never reaches it, nor the beta connector
+(`btctx-mcp==2.0.0bN`) BitcoinTX: each reads its own app's key file. It
+refuses a data folder that is BitcoinTX's, however written (another case,
+a link), and says so. It starts empty: to try your records, download a
+backup in BitcoinTX and restore it in BitcoinTX Beta's Settings, which
+copies the data and leaves BitcoinTX's file as it is. Its names, folders
+and port come from `desktop/desktop_paths.py` and `desktop_ports.py`
+(`is_beta()`, from `VERSION`), which `BitcoinTX.spec` reads too. On this
+Mac, run a beta build only through `desktop/run-test-build.sh --app`, as any
+build.
+
 ## Building
 
 Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (Vite 8 needs it;

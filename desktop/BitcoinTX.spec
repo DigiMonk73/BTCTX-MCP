@@ -14,6 +14,14 @@ from PyInstaller.utils.hooks import collect_submodules
 SPEC_DIR = Path(SPECPATH)
 PROJECT_ROOT = SPEC_DIR.parent
 
+# The app's name and bundle id: BitcoinTX, or BitcoinTX Beta for a 2.0
+# pre-release (VERSION 2.0.0-beta.N), installed beside it (2.0 plan 7.4,
+# B10a). desktop_paths reads VERSION as the app will
+sys.path[:0] = [str(PROJECT_ROOT), str(SPEC_DIR)]
+from desktop_paths import bundle_id, own_name  # noqa: E402
+
+APP_NAME, APP_ID = own_name(), bundle_id()
+
 # Verify paths exist
 assert (PROJECT_ROOT / "backend").exists(), "backend/ not found"
 assert (PROJECT_ROOT / "frontend" / "dist").exists(), "frontend/dist/ not found - run npm build first"
@@ -266,15 +274,17 @@ coll = COLLECT(
     name="BitcoinTX",
 )
 
+# Apple takes only numbers for a bundle's version: a beta's bundle says
+# X.Y.Z, and the app shows its VERSION itself
 app = BUNDLE(
     coll,
-    name="BitcoinTX.app",
+    name=f"{APP_NAME}.app",
     icon=str(SPEC_DIR / "resources" / "icon.icns") if (SPEC_DIR / "resources" / "icon.icns").exists() else None,
-    bundle_identifier="org.bitcointx.desktop",
+    bundle_identifier=APP_ID,
     info_plist={
-        "CFBundleName": "BitcoinTX",
-        "CFBundleDisplayName": "BitcoinTX",
-        "CFBundleIdentifier": "org.bitcointx.desktop",
+        "CFBundleName": APP_NAME,
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleIdentifier": APP_ID,
         "CFBundleVersion": "1.2.10",
         "CFBundleShortVersionString": "1.2.10",
         "NSHighResolutionCapable": True,

@@ -14,6 +14,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_paths  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def a_release(monkeypatch):
+    """BitcoinTX's own defaults, whatever VERSION is: from 2.0's first
+    pre-release it's a beta, whose own are test_beta_app_532.py's."""
+    monkeypatch.setattr(desktop_paths, "app_version", lambda: "2.0.0")
+
+
 def test_default_is_application_support(monkeypatch, tmp_path):
     monkeypatch.delenv(desktop_paths.DATA_DIR_ENV, raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))

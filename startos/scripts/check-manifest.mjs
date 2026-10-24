@@ -16,7 +16,14 @@ check(m.id === 'btctx', `package id must stay "btctx" (existing installs), got $
 check(m.license === 'MIT', `license should be the SPDX id "MIT", got ${m.license}`)
 
 const [upstream, revision] = m.version.split(':')
-check(/^\d+\.\d+\.\d+$/.test(upstream) && /^\d+$/.test(revision ?? ''), `version ${m.version} is not <x.y.z>:<n>`)
+// A 2.0 pre-release is <x.y.z>-beta.<n>:0 (Start9's ExVer for an upstream
+// beta, versions.md), on the 2.0 branch only: never a package revision, a
+// fix is the next beta (2.0 plan 7.4, B10a)
+const beta = /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(upstream)
+check(
+  (/^\d+\.\d+\.\d+$/.test(upstream) && /^\d+$/.test(revision ?? '')) || (beta && revision === '0'),
+  `version ${m.version} is not <x.y.z>:<n> or <x.y.z>-beta.<n>:0`,
+)
 // In the BTCTX-MCP monorepo the package must match the app's VERSION.
 const versionFile = new URL('../../VERSION', import.meta.url)
 if (existsSync(versionFile)) {

@@ -60,7 +60,7 @@ isn't ready for this walk.
 | Release candidate | the `develop` commit that bumps `VERSION` to the new version (call it `X.Y.Z`, the commit `$SHA`) |
 | `btctx_x86_64.s9pk` | that commit's CI run, artifact `btctx-s9pk-x86_64` (`gh run download <run id> -n btctx-s9pk-x86_64`) |
 | Previous release's `btctx.s9pk` | the latest release on https://github.com/DigiMonk73/BTCTX-MCP/releases (Track B) |
-| Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C) |
+| Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Beta-macOS`, holding `BitcoinTX Beta.app` |
 | MCP connector | not on PyPI until the release, so run it from the commit: `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP@$SHA#subdirectory=mcp_server" btctx-mcp` |
 | The last 1.x release (2.0 and its pre-releases: Track B, AI-15, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
 | A pre-release (BETA) | the GitHub pre-release `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Beta-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` and the connector `uvx btctx-mcp==2.0.0bN`; for BETA-2 also the pre-release before it |

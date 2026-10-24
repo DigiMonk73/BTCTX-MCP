@@ -2,7 +2,8 @@
 """
 BitcoinTX Desktop Application Entry Point
 
-Starts the FastAPI backend on 127.0.0.1:8765 (BTCTX_DESKTOP_PORT) and opens a pywebview window.
+Starts the FastAPI backend on 127.0.0.1:8765 (BTCTX_DESKTOP_PORT; BitcoinTX
+Beta, a 2.0 pre-release, on its own port) and opens a pywebview window.
 Handles graceful shutdown and data directory management.
 """
 
@@ -15,8 +16,9 @@ import logging.handlers
 from pathlib import Path
 
 from desktop_api import DesktopAPI
-from desktop_paths import DATA_DIR_ENV, app_name, data_dir, data_dir_override, log_dir
-from desktop_ports import choose_socket, preferred_port, running_instance, tell_already_running, wait_for_backend
+from desktop_paths import DATA_DIR_ENV, InstalledAppsFolder, app_name, data_dir, data_dir_override, log_dir
+from desktop_ports import (choose_socket, preferred_port, running_instance, tell_already_running, tell_refused,
+                           wait_for_backend)
 
 LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 
@@ -24,9 +26,10 @@ LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 def setup_logging() -> None:
     """
     Log to stderr and, on macOS, to ~/Library/Logs/BitcoinTX/BitcoinTX.log
-    (rotating; desktop_paths.log_dir): a Finder-launched app has no terminal,
-    so without the file nothing it logs (such as why it couldn't use its
-    port) is kept.
+    (rotating; desktop_paths.log_dir; BitcoinTX Beta's in its own folder): a
+    Finder-launched app has no terminal, so without the file nothing it logs
+    (such as why it couldn't use its port) is kept. A beta given the
+    installed app's folder logs nothing there.
     """
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if sys.platform == "darwin":
@@ -36,7 +39,7 @@ def setup_logging() -> None:
             handlers.append(logging.handlers.RotatingFileHandler(
                 folder / "BitcoinTX.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"
             ))
-        except OSError as exc:
+        except (OSError, InstalledAppsFolder) as exc:
             print(f"BitcoinTX: no log file ({exc})", file=sys.stderr)
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, handlers=handlers)
 
@@ -73,8 +76,13 @@ def main():
     """Main entry point for the desktop application."""
     import webview
 
-    # Set up data directory
-    app_support = data_dir()
+    # Set up data directory: BitcoinTX Beta never opens the installed app's
+    try:
+        app_support = data_dir()
+    except InstalledAppsFolder as exc:
+        logger.error("%s", exc)
+        tell_refused(str(exc))
+        return
     if data_dir_override() is not None:
         logger.info(f"Test data folder from {DATA_DIR_ENV}: {app_support}")
     db_path = app_support / "btctx.db"
