@@ -18,10 +18,17 @@ All notable changes to BitcoinTX are documented in this file.
   GitHub's About for this repository follows when 2.0 replaces 1.x.
 
 ### Development
-- **No unit test sends a request** (#683). Two of River's import tests
-  let the card ask for the saved exchange mappings for real (jsdom sends
-  it to its page's own address), where every test is meant to stub what
-  it asks. They stub it now, and a request no test stubbed is refused and
+- **A test that failed now and then, fixed** (#660). Three of the
+  exchange import card's tests chose "Another exchange: match its
+  columns" before the picker offered it (it does only once the saved
+  mappings have loaded), so a slow runner turned `2.0`'s CI red at
+  random ("not found in options"). They now wait for it, and the test's
+  mappings answer 50 ms late, so the race is there on every run. Tests
+  only: nothing in the app changes.
+- **No unit test sends a request** (#683). Five of River's import tests,
+  in two files, let the card ask for the saved exchange mappings for real
+  (jsdom sends it to its page's own address), where every test is meant to
+  stub what it asks. They stub it now, and a request no test stubbed is refused and
   fails the test that made it (`frontend/src/test/setup.ts`). Tests only:
   nothing in the app changes.
 
