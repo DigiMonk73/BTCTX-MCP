@@ -35,8 +35,7 @@ function card() {
   return userEvent.setup();
 }
 
-/** "Another exchange: match its columns", once the picker offers it: only
- * after the saved mappings have loaded (#660). */
+/** "Another exchange: match its columns", once the picker offers it. */
 async function chooseAnotherExchange(user: ReturnType<typeof userEvent.setup>) {
   const choice = "Another exchange: match its columns";
   await screen.findByRole("option", { name: choice });
