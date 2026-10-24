@@ -17,6 +17,14 @@ All notable changes to BitcoinTX are documented in this file.
   ships, in every language (this CHANGELOG keeps its history as written).
   GitHub's About for this repository follows when 2.0 replaces 1.x.
 
+### Development
+- **No unit test sends a request** (#683). Two of River's import tests
+  let the card ask for the saved exchange mappings for real (jsdom sends
+  it to its page's own address), where every test is meant to stub what
+  it asks. They stub it now, and a request no test stubbed is refused and
+  fails the test that made it (`frontend/src/test/setup.ts`). Tests only:
+  nothing in the app changes.
+
 ## [v2.0.0-alpha.1] - 2026-10-24 - 2.0's first alpha: your wallets, exchanges and banks, each wallet and exchange with its own coins
 
 **About this alpha.** BitcoinTX 2.0's first pre-release, for anyone who
