@@ -34,7 +34,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from btctx_mcp.accounts import AccountNames
-from btctx_mcp.client import BtctxClient, BtctxError
+from btctx_mcp.client import BtctxClient, BtctxError, PastYearWarning
 from btctx_mcp.guide import LEDGER_GUIDE
 
 # What a tool returns. typing.Dict, not dict: the MCP SDK describes a Dict
@@ -58,6 +58,17 @@ AMOUNT_LIMIT = Decimal(10) ** 10
 USD_LIMIT = Decimal(10) ** 16
 AmountValue = Annotated[Decimal, Field(lt=AMOUNT_LIMIT)]
 UsdValue = Annotated[Decimal, Field(lt=USD_LIMIT)]
+
+# The fingerprint of a past-year warning the user said yes to (2.0 spec 5.8)
+Confirm = Annotated[str | None, Field(
+    description="Only after the user said yes to this change of an earlier tax year: the confirm this tool's "
+                "earlier answer gave (saved: false), with the same arguments as then. Never set it on your own.")]
+# A past-year warning as the tool answers it: what the user is asked about
+WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "confirm")
+TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
+              "Show the user detail, the years and the changes (and pending apart: rules fixed since those rows "
+              "were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
+              "arguments and {param} set to this answer's confirm. A copy of the ledger is made first.")
 
 
 class TransactionInput(BaseModel):
@@ -184,6 +195,26 @@ async def _call(method: str, path: str, **kwargs: Any) -> Any:
         return await get_client().request(method, path, **kwargs)
     except BtctxError as exc:
         raise ToolError(str(exc)) from exc
+
+
+async def _write(method: str, path: str, confirm: str | None, **kwargs: Any) -> tuple[Any, dict[str, Any] | None]:
+    """(BitcoinTX's answer, None), or (None, its past-year warning) when the
+    write would change an earlier tax year's figures and saved nothing
+    (2.0 spec 5.8). `confirm`, the user's yes, goes as ?confirm=."""
+    try:
+        return await get_client().request(method, path, params={"confirm": confirm} if confirm else None,
+                                          **kwargs), None
+    except PastYearWarning as warning:
+        return None, warning.body
+    except BtctxError as exc:
+        raise ToolError(str(exc)) from exc
+
+
+def _asks(warning: dict[str, Any], tool: str, param: str = "confirm") -> dict[str, Any]:
+    """The tool's answer to a past-year warning: saved false, what the user
+    is asked about, and how to confirm it."""
+    return {"saved": False, **{key: warning.get(key) for key in WARNING_FIELDS},
+            "to_confirm": TO_CONFIRM.format(tool=tool, param=param)}
 
 
 async def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
@@ -489,7 +520,10 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
     within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
     holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
-    before add_transactions. At most 500 rows a call, and fewer dated before the ledger's
+    before add_transactions. past_years: when the rows would change the figures of an earlier tax
+    year, one the user may already have filed (null otherwise), what add_transactions will ask
+    about: the years, the changes and its confirm; show it to the user too.
+    At most 500 rows a call, and fewer dated before the ledger's
     latest entry (each recalculates the whole ledger; the error says how many): split a long
     list by date, oldest first, and preview and add each part before the next."""
     return await _call("POST", "/api/import/entries/preview", json={"rows": await _rows(transactions)})
@@ -498,7 +532,7 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=False))
 @with_version_notice
-async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
+async def add_transactions(transactions: list[TransactionInput], confirm: Confirm = None) -> ToolResult:
     """Save transactions to the ledger, all-or-nothing. Only call after preview_transactions and
     the user's confirmation, with the previewed rows. Each created row's from_price says which
     values came from a price and its hour, source and USD per BTC. Duplicates are skipped (keep them in the
@@ -507,8 +541,13 @@ async def add_transactions(transactions: list[TransactionInput]) -> ToolResult:
     matched_transaction_id the preview gave it (and each identical row beside it too, or send
     that row in a call of its own: a named row beside an identical one without it is refused). Rows
     previewed as possible_duplicate ARE saved, so drop any the user says is already recorded.
+    Rows that would change the figures of an earlier tax year (the preview's past_years) aren't
+    saved at first: the answer is saved: false with the years, the changes and a confirm. Show
+    them to the user, and only if they say yes, call again with the same rows and confirm.
     The same row limits as preview_transactions."""
-    return await _call("POST", "/api/import/entries/execute", json={"rows": await _rows(transactions)})
+    added, asked = await _write("POST", "/api/import/entries/execute", confirm,
+                                json={"rows": await _rows(transactions)})
+    return _asks(asked, "add_transactions") if asked else added
 
 
 @mcp.tool(annotations=ToolAnnotations(
@@ -531,9 +570,14 @@ async def update_transaction(
     fee_usd: UsdValue | None = None,
     broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
     acquired_at: str | None = None,
+    confirm_move: Confirm = None,
 ) -> ToolResult:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
     recalculated, so gains on later sales may change. Confirm with the user first.
+    A change that would move the figures of an earlier tax year (one the user may already have
+    filed) isn't saved at first: the answer is saved: false with the years, the changes and a
+    confirm. Show them to the user, and only if they say yes, call again with the same arguments
+    and confirm_move set to that confirm.
     date is read as add_transactions reads it: without a timezone, in the user's tax
     timezone (a bare date is midday there).
     Changing type or accounts requires passing type, from_account and to_account together.
@@ -591,8 +635,8 @@ async def update_transaction(
 
     await _complete_for_server_rules(transaction_id, changes, proceeds_given=proceeds_usd is not None)
     names = await _account_names()  # before the write: a failure after it would report a saved edit as failed
-    updated = await _call("PUT", f"/api/transactions/{transaction_id}", json=changes)
-    return _compact(updated, names)
+    updated, asked = await _write("PUT", f"/api/transactions/{transaction_id}", confirm_move, json=changes)
+    return _asks(asked, "update_transaction", "confirm_move") if asked else _compact(updated, names)
 
 
 def _text(value: Decimal | None) -> str | None:
@@ -653,23 +697,30 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=True, idempotent_hint=True, open_world_hint=False))
 @with_version_notice
-async def delete_transaction(transaction_id: int) -> ToolResult:
+async def delete_transaction(transaction_id: int, confirm: Confirm = None) -> ToolResult:
     """Permanently delete one transaction. The ledger is
-    recalculated afterward. Confirm with the user first and tell them what you're deleting."""
+    recalculated afterward. Confirm with the user first and tell them what you're deleting.
+    A deletion that would change the figures of an earlier tax year isn't made at first: the
+    answer is saved: false with the years, the changes and a confirm. Show them to the user,
+    and only if they say yes, call again with confirm."""
     current = await _call("GET", f"/api/transactions/{transaction_id}")
     names = await _account_names()  # before the write, as update_transaction's
-    await _call("DELETE", f"/api/transactions/{transaction_id}")
-    return {"deleted": _compact(current, names)}
+    _, asked = await _write("DELETE", f"/api/transactions/{transaction_id}", confirm)
+    return _asks(asked, "delete_transaction") if asked else {"deleted": _compact(current, names)}
 
 
 @mcp.tool(annotations=ToolAnnotations(
     read_only_hint=False, destructive_hint=False, idempotent_hint=True, open_world_hint=True))
 @with_version_notice
-async def recalculate_ledger() -> ToolResult:
+async def recalculate_ledger(confirm: Confirm = None) -> ToolResult:
     """Rebuild all cost-basis lots, disposals and gains from the recorded transactions.
     Run it only when the user asks (after an upgrade, review_ledger shows first what it
-    would change). Transactions themselves are not changed."""
-    return await _call("POST", "/api/transactions/recalculate")
+    would change). Transactions themselves are not changed. When it would change the figures
+    of an earlier tax year (rules fixed since rows were saved), it doesn't run at first: the
+    answer is saved: false with the years, what changes (pending) and a confirm. Show them to
+    the user, and only if they say yes, call again with confirm."""
+    done, asked = await _write("POST", "/api/transactions/recalculate", confirm)
+    return _asks(asked, "recalculate_ledger") if asked else done
 
 
 @mcp.tool(annotations=ToolAnnotations(

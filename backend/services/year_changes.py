@@ -52,7 +52,7 @@ def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
     found = review.snapshot(db, tz)
     book = account_book(db)
     for t in db.query(Transaction):
-        dollars = t.type not in ("Buy", "Sell") and not any(book.is_btc(a) for a in (t.from_account_id, t.to_account_id))
+        dollars = moves_only_dollars(t.type, (t.from_account_id, t.to_account_id), book)
         found[t.id].update(date=format_tax_date(t.timestamp, tz), year=local_date(t.timestamp, tz).year,
                            dollars=dollars, boxes=[], acquired=[], received=_received(t, book),
                            given=_given(t, book), priced=_valued_from_the_price(t))
@@ -61,6 +61,13 @@ def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
         row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
         row["acquired"].append(acquired_text(disposal, tz))
     return found
+
+
+def moves_only_dollars(kind: Any, sides: tuple, book: AccountBook) -> bool:
+    """A row of this type between these accounts has no figure of any tax
+    year: no Buy or Sell, and no bitcoin account on either side (a write's
+    too, before it's saved: past_years, past_year_writes)."""
+    return getattr(kind, "value", kind) not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)  # an enum's
 
 
 def _received(t: Transaction, book: AccountBook) -> tuple[str, str | None] | None:

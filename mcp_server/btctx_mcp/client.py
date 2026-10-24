@@ -33,6 +33,19 @@ class BtctxError(Exception):
     """An API error with a message suitable for showing to the model."""
 
 
+class PastYearWarning(BtctxError):
+    """
+    BitcoinTX's past-year warning (2.0 spec 5.8): the write would change the
+    figures of an earlier tax year, so it saved nothing. `body` is its 409:
+    the years, what changes, and the fingerprint (`confirm`) the same write
+    is sent again with once the user says yes.
+    """
+
+    def __init__(self, body: dict[str, Any]):
+        super().__init__(str(body.get("detail") or "BitcoinTX asks before this changes an earlier tax year."))
+        self.body = body
+
+
 PASSWORD_REFUSED = (
     "BitcoinTX no longer uses your password for AI access. Create an AI key in "
     "BitcoinTX Settings and replace BTCTX_PASSWORD with BTCTX_AI_KEY in your AI "
@@ -49,6 +62,24 @@ ACCOUNTS_PATH = "/api/accounts/"
 # user's wallets and exchanges apart, with its version ("unknown" from a
 # source tree): a 1.x connector sends none (5.12)
 CONNECTOR_HEADER = "X-BitcoinTX-Connector"
+
+# How long a request may take: previews fetch historical prices
+TIMEOUT = 120.0
+# The writes that can answer the past-year warning (2.0 spec 5.8) and the
+# long reads: each can replay the whole ledger more than once (a dry run's
+# two passes, then the save). Three times that on the StartOS test VM at
+# 10,000 rows, 3 x (2 x 140 s + 111 s), rounded up (#352's measurement;
+# Ledger Review alone outran 120 s there: #637)
+LONG_TIMEOUT = 1200.0
+LONG_WRITES = ("/api/transactions", "/api/import/entries")
+LONG_READS = ("/api/review",)
+
+
+def timeout_for(method: str, path: str) -> float:
+    """The time a request to `path` may take (TIMEOUT or LONG_TIMEOUT)."""
+    if path in LONG_READS or (method != "GET" and path.startswith(LONG_WRITES)):
+        return LONG_TIMEOUT
+    return TIMEOUT
 
 
 def normalize_base_url(url: str) -> str:
@@ -169,7 +200,7 @@ class BtctxClient:
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",
             verify=verify,
-            timeout=120.0,  # previews fetch historical prices
+            timeout=TIMEOUT,  # each request's own: timeout_for
             transport=transport,
             follow_redirects=False,  # the key goes only to BitcoinTX's own address
             headers={CONNECTOR_HEADER: __version__},
@@ -284,6 +315,7 @@ class BtctxClient:
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         """The request; with the Mac app's key file, sent again once the file
         is read afresh when the app restarted or the key was reset."""
+        kwargs.setdefault("timeout", timeout_for(method, path))
         try:
             r = await self._http.request(method, path, **kwargs)
         except httpx.ConnectError:
@@ -303,6 +335,8 @@ class BtctxClient:
             raise BtctxError(self._redirected(r))
         if r.status_code == 403:
             raise BtctxError(KEY_REFUSED)
+        if r.status_code == 409 and (warning := _past_year_warning(r)) is not None:
+            raise PastYearWarning(warning)
         if r.is_error:
             raise BtctxError(f"BitcoinTX returned {r.status_code}: {_error_detail(r, path)}")
         if r.status_code == 204 or not r.content:
@@ -353,6 +387,16 @@ class BtctxClient:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _past_year_warning(r: httpx.Response) -> dict[str, Any] | None:
+    """The past-year warning's 409 body; None for any other 409 (only it
+    gives a fingerprint, `confirm`)."""
+    try:
+        body = r.json()
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) and isinstance(body.get("confirm"), str) else None
 
 
 def _error_detail(r: httpx.Response, path: str) -> str:

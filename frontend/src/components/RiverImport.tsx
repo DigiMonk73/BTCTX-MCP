@@ -7,16 +7,20 @@ import React, { useEffect, useState } from "react";
 import api from "../api";
 import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
+import { importNote } from "../utils/pastYears";
 import {
   importRequestRows, importableRows, refusedCellPlace, toEditableRow, type EditableRow,
 } from "../utils/riverImport";
+import PastYearDialog from "./PastYearDialog";
 import RiverPreview from "./riverImport/RiverPreview";
+import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 import "../styles/riverImport.css";
 
 /** `onPreviewShown(true)` while a preview is open: its table needs the
  * window's width, wider than the Settings card (#259). */
 const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ onPreviewShown }) => {
   const toast = useToast();
+  const pastYears = usePastYearWarning();
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
@@ -65,7 +69,10 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
     const sent = importRequestRows(rows);
     setLoading(true);
     try {
-      const res = await api.post<RiverImportResponse>("/import/river/execute", { rows: sent });
+      // Rows that change an earlier tax year are imported only once the owner confirms it (2.0 spec 5.8)
+      const res = await pastYears.attempt("import", (confirm) =>
+        api.post<RiverImportResponse>("/import/river/execute", { rows: sent }, confirm ? { params: { confirm } } : undefined));
+      if (res === null) return; // cancelled: nothing imported, the preview stays as it was
       toast.success(res.data.message);
       reset();
     } catch (err) {
@@ -74,6 +81,8 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
       setLoading(false);
     }
   };
+
+  const pastYearsNote = preview && importNote(preview.past_years_dated);
 
   return (
     <div className="settings-section river-import" role="region" aria-label="Import from River">
@@ -107,6 +116,8 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
         </div>
       </div>
 
+      {pastYearsNote && <p className="note" role="note">{pastYearsNote}</p>}
+
       {preview && (
         <RiverPreview
           preview={preview}
@@ -119,6 +130,7 @@ const RiverImport: React.FC<{ onPreviewShown: (shown: boolean) => void }> = ({ o
           onCancel={reset}
         />
       )}
+      {pastYears.question && <PastYearDialog {...pastYears.question} />}
     </div>
   );
 };

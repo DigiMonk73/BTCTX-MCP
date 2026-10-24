@@ -182,7 +182,7 @@ async def test_a_reserved_name_of_a_renamed_account_is_refused_in_rows(backend_d
 async def test_get_portfolio_lists_the_accounts(backend_db, seen):  # noqa: F811
     assert add(backend_db, "exchange", "Kraken") == [100, 101]
     with sessionmaker(bind=backend_db)() as db:
-        account_service.set_hidden(db, 101, True)
+        account_service.change_account(db, 101, hidden=True)
     portfolio = await call(seen.mcp, "get_portfolio")
     assert portfolio["accounts"] == [
         {"id": 1, "name": "Bank", "kind": "bank", "currency": "USD", "exchange": None, "hidden": False},

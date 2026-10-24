@@ -4,13 +4,18 @@ import {
   browserTimezone, canSaveTimezone, getTaxTimezone, setTaxTimezone, timezoneNotSaved, timezoneSuggestion,
   type TaxTimezone,
 } from "../utils/taxTimezone";
+import PastYearDialog from "./PastYearDialog";
+import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 
 /**
  * Settings row: the timezone used for tax dates — which tax year a
  * transaction falls in, Form 8949 dates, and holding-period anniversaries.
+ * A timezone that changes an earlier tax year's figures is saved only once
+ * the owner confirms it (2.0 spec 5.8).
  */
 const TaxTimezoneSetting: React.FC = () => {
   const toast = useToast();
+  const pastYears = usePastYearWarning();
   const [taxTimezone, setTaxTimezoneState] = useState<TaxTimezone | null>(null);
   const current = taxTimezone?.timezone ?? "";
   const [selected, setSelected] = useState<string>("");
@@ -34,7 +39,8 @@ const TaxTimezoneSetting: React.FC = () => {
   const save = async () => {
     setSaving(true);
     try {
-      const tz = await setTaxTimezone(selected);
+      const tz = await pastYears.attempt("setting", (confirm) => setTaxTimezone(selected, confirm));
+      if (tz === null) return; // cancelled: nothing saved
       setTaxTimezoneState(tz);
       toast.success(`Tax timezone set to ${tz.timezone}. Gains were recalculated.`);
     } catch (err) {
@@ -79,6 +85,7 @@ const TaxTimezoneSetting: React.FC = () => {
           </button>
         </div>
       </div>
+      {pastYears.question && <PastYearDialog {...pastYears.question} />}
     </div>
   );
 };
