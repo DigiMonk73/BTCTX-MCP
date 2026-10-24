@@ -261,8 +261,9 @@ execute's 409 as `past_years`, River's lists the past years its new rows
 are dated in as `past_years_dated`), Settings' Save of the tax timezone
 (each pass reads dates in its own timezone, so a row whose tax year moves
 is listed under both; the timezone in use saved again never asks; the
-login's fill is 1.x's, an empty ledger only), an exchange's 1099-DA switch (`PUT /api/accounts/{id}`
-`{sends_1099da}`: boxes compared, no replay) and, with the AI key,
+login's fill is 1.x's, an empty ledger only), an exchange's 1099-DA
+switch (`PUT /api/accounts/{id}` `{sends_1099da}`: boxes compared, no
+replay) and, with the AI key,
 Recalculate Ledger (what it changes is `pending`; with a login it never
 asks). The AI connector answers a 409 as the tool's answer (`saved: false`,
 the fields, how to confirm: `confirm`, `update_transaction`'s
