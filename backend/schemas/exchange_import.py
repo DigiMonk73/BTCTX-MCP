@@ -68,6 +68,12 @@ class OwnMapping(BaseModel):
     def _words(cls, kinds: dict[str, str]) -> dict[str, str]:
         if any(not word.strip() or len(word) > 200 for word in kinds):
             raise ValueError("Each word for a kind of row has 1 to 200 characters.")
+        seen: dict[str, tuple[str, str]] = {}
+        for word, kind in kinds.items():
+            other = seen.setdefault(word.strip().lower(), (word, kind))
+            if other[1] != kind:
+                raise ValueError(f"“{other[0]}” and “{word}” are the same word to BitcoinTX (it reads them in any "
+                                 "case): give them one kind.")
         return kinds
 
     @field_validator("btc_assets", "done")

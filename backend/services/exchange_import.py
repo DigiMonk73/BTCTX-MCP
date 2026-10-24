@@ -177,7 +177,7 @@ def _merged(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[Cell
     for group in groups.values():
         if len(group) == 1:
             kept.append(group[0])
-        elif _adds_up_to_nothing(group, mapping):
+        elif _adds_up_to_nothing(group, mapping) is True:
             for row in group:
                 left_out.add("were reversed or cancelled (their pieces add up to nothing)", row.number)
         else:
@@ -186,11 +186,16 @@ def _merged(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[Cell
     return sorted(kept, key=lambda row: row.number)
 
 
-def _adds_up_to_nothing(group: list[Cells], mapping: Mapping) -> bool:
+def _adds_up_to_nothing(group: list[Cells], mapping: Mapping) -> bool | None:
+    """Whether the pieces' bitcoin and dollars add up to nothing; None when a
+    piece can't be read (the merged row's reading says why)."""
     merged = Cells(group[0].number, group[0].header, group[0].cells, pieces=group)
     columns = mapping.columns
-    return all(not _number(merged, names, mapping, unit)[0]
-               for names, unit in ((columns.btc, "BTC"), (columns.usd, "USD")) if names)
+    try:
+        return all(not _number(merged, names, mapping, unit)[0]
+                   for names, unit in ((columns.btc, "BTC"), (columns.usd, "USD")) if names)
+    except RowError:
+        return None
 
 
 def _kind_if_read(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None:
@@ -245,16 +250,17 @@ _WAYS = {BUY: (1, -1), SELL: (-1, 1), SEND: (-1, None), RECEIVE: (1, None), **{k
 def _against_kind(row: Cells, kind: str, mapping: Mapping) -> bool:
     """Whether a column whose sign follows the money (`mapping.signs`) has
     it going the other way than the kind's: a reversal written as a buy is
-    never read as a second buy. A cell that can't be read isn't judged
-    here: the row's reading says what's wrong with it."""
+    never read as a second buy. Coins coming in (a buy, a receive, a
+    payout) are never negative, whatever a file's signs mean. A cell that
+    can't be read isn't judged here: the row's reading says what's wrong."""
     for role, unit, way in (("btc", "BTC", _WAYS[kind][0]), ("usd", "USD", _WAYS[kind][1])):
-        if role not in mapping.signs or way is None:
+        if way is None or (role not in mapping.signs and not (role == "btc" and way > 0)):
             continue
         try:
             value = _number(row, getattr(mapping.columns, role), mapping, unit)[0]
         except RowError:
             return False
-        if value and (value > 0) != (way > 0):
+        if value and (value > 0) != (way > 0) and (role in mapping.signs or value < 0):
             return True
     return False
 
@@ -335,7 +341,7 @@ def file_row(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseErr
     btc = _number(row, columns.btc, mapping, "BTC")[0]
     btc = to_sats(abs(btc), row.number, row.header.name(columns.btc), warnings) if btc is not None else None
     usd = _number(row, columns.usd, mapping, "USD")[0]
-    usd = to_cents(abs(usd)) if usd is not None else None
+    usd = to_cents(abs(usd), row.header.name(columns.usd)) if usd is not None else None
     fee = _fee(row, kind, mapping, warnings) if kind in (BUY, SELL, SEND) else None
     if kind in mapping.after_fee and usd is not None and fee is not None:
         usd = usd - fee if kind == BUY else usd + fee
@@ -383,7 +389,7 @@ def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError])
             message=(f"This {kind}'s fee is {shown}: BitcoinTX records a {kind}'s fee in {wanted}, so it isn't "
                      f"read. Add it in {wanted} if it belongs in the figures.")))
         return None
-    return to_cents(fee) if wanted == "USD" else to_sats(fee, row.number, None, warnings)
+    return to_cents(fee, "Fee") if wanted == "USD" else to_sats(fee, row.number, None, warnings)
 
 
 def _given_fee(row: Cells, wanted: str, mapping: Mapping) -> tuple[Decimal | None, str | None]:

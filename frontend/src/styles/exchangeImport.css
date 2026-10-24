@@ -49,3 +49,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* A phone: a picker and a button a thumb can hit (P7) */
+@media (max-width: 480px) {
+  .exchange-file-choice .input,
+  .exchange-file-choice .btn {
+    height: 44px;
+  }
+}

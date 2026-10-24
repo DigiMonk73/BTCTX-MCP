@@ -152,10 +152,12 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
 
       <ExchangeFileChoice exchange={exchange} file={file} disabled={loading} onMappingChanged={dropPreview} />
 
-      <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview}
+      <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={loading}
         canPreview={!loading && file !== null && !unchosen && exchange.ready}
         onFile={(chosen) => {
+          // Another file: the preview on screen is the last one's
           setFile(chosen);
+          dropPreview();
           void exchange.fileChosen(chosen);
         }}
         onPreview={() => void handlePreview()} />

@@ -8,12 +8,14 @@ interface ExchangeFileRowProps {
   canPreview: boolean;
   /** The file is being read for its first preview. */
   processing: boolean;
+  /** A preview or an import is on its way: another file waits. */
+  busy: boolean;
   onFile: (file: File | null) => void;
   onPreview: () => void;
 }
 
 /** The import's file and its Preview button. */
-const ExchangeFileRow: React.FC<ExchangeFileRowProps> = ({ name, river, canPreview, processing, onFile, onPreview }) => (
+const ExchangeFileRow: React.FC<ExchangeFileRowProps> = ({ name, river, canPreview, processing, busy, onFile, onPreview }) => (
   <div className="settings-option">
     <div className="option-info">
       <span className="settings-option-title">{river ? "River Bitcoin Activity CSV" : `${name} CSV`}</span>
@@ -29,6 +31,7 @@ const ExchangeFileRow: React.FC<ExchangeFileRowProps> = ({ name, river, canPrevi
         id="river-csv-input"
         aria-label={`${name} CSV file`}
         accept=".csv"
+        disabled={busy}
         onChange={(e) => onFile(e.target.files?.[0] ?? null)}
         className="csv-file-input"
       />

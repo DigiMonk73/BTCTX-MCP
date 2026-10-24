@@ -60,13 +60,20 @@ def read_ledger(rows: Records, whose: str = "Kraken's") -> FileRead:
 
 
 def _events(lines: list[Cells], left_out: LeftOut) -> dict[str, list[Cells]]:
-    """The lines by event (refid), in the file's order; a pending copy left out."""
+    """The lines by event (refid), in the file's order; a pending copy left
+    out, and a line whose txid an earlier line has (overlapping exports
+    joined: summed, it would double the event)."""
     events: dict[str, list[Cells]] = {}
+    seen: set[str] = set()
     for line in lines:
-        if not line.get(KRAKEN_COLUMNS["txid"]):
+        txid = line.get(KRAKEN_COLUMNS["txid"])
+        if not txid:
             left_out.add(PENDING, line.number)
-            continue
-        events.setdefault(line.get(KRAKEN_COLUMNS["refid"]) or f"line {line.number}", []).append(line)
+        elif txid in seen:
+            left_out.add("repeat an earlier line (txid)", line.number)
+        else:
+            seen.add(txid)
+            events.setdefault(line.get(KRAKEN_COLUMNS["refid"]) or f"line {line.number}", []).append(line)
     return events
 
 
@@ -79,9 +86,10 @@ class _Lines:
         self.has_btc = self.has_usd = False
         self.others: list[str] = []
         for line in lines:
-            amount = read_number(line.get(("amount",)), column="amount") or Decimal(0)
-            fee = read_number(line.get(("fee",)), column="fee") or Decimal(0)
             asset = line.get(("asset",)).upper().split(".")[0]
+            unit = "BTC" if asset in BITCOIN else "USD" if asset in DOLLARS else None
+            amount = read_number(line.get(("amount",)), column="amount", unit=unit) or Decimal(0)
+            fee = read_number(line.get(("fee",)), column="fee", unit=unit) or Decimal(0)
             if asset in BITCOIN:
                 self.btc, self.btc_fee, self.has_btc = self.btc + amount, self.btc_fee + fee, True
             elif asset in DOLLARS:
@@ -132,13 +140,13 @@ def _trade(first: Cells, numbers: list[int], moment, summed: _Lines, kinds: set,
         return _left(left_out, numbers, "are a trade with no dollar side")
     coins = summed.btc - summed.btc_fee
     tag = "/".join(sorted(kinds))
-    fee = to_cents(summed.usd_fee) if summed.usd_fee else None
+    fee = to_cents(summed.usd_fee, "fee") if summed.usd_fee else None
     if coins > 0 and summed.usd < 0:
         return FileRow(first.number, moment, BUY, to_sats(coins, first.number, "amount", warnings),
-                       to_cents(-summed.usd), fee, "USD" if fee else None, tag)
+                       to_cents(-summed.usd, "amount"), fee, "USD" if fee else None, tag)
     if coins < 0 and summed.usd > 0:
         return FileRow(first.number, moment, SELL, to_sats(-coins, first.number, "amount", warnings),
-                       to_cents(summed.usd), fee, "USD" if fee else None, tag)
+                       to_cents(summed.usd, "amount"), fee, "USD" if fee else None, tag)
     return _left(left_out, numbers, "are a trade whose bitcoin and dollars don't go opposite ways")
 
 

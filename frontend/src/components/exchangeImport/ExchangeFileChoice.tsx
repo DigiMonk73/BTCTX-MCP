@@ -2,9 +2,11 @@
 // one of the owner's saved mappings) the column matcher (B5b, #567).
 
 import React from "react";
+import { mappingFrom, type Draft } from "../../utils/exchangeMapping";
 import type { ExchangeFile } from "../../utils/useExchangeFile";
 import ColumnMatcher from "./ColumnMatcher";
-import ExchangeFilePicker, { MATCH_COLUMNS } from "./ExchangeFilePicker";
+import { MATCH_COLUMNS } from "../../utils/exchangeMapping";
+import ExchangeFilePicker from "./ExchangeFilePicker";
 import "../../styles/exchangeImport.css";
 
 interface ExchangeFileChoiceProps {
@@ -14,6 +16,10 @@ interface ExchangeFileChoiceProps {
   /** Another mapping was chosen: a preview made with the old one is out of date. */
   onMappingChanged: () => void;
 }
+
+/** Whether a draft reads the file another way than the one before: its name alone doesn't. */
+const readsOtherwise = (before: Draft, after: Draft) =>
+  JSON.stringify(mappingFrom({ ...before, name: "" })) !== JSON.stringify(mappingFrom({ ...after, name: "" }));
 
 const ExchangeFileChoice: React.FC<ExchangeFileChoiceProps> = ({ exchange, file, disabled, onMappingChanged }) => {
   const choose = (id: string) => {
@@ -45,7 +51,7 @@ const ExchangeFileChoice: React.FC<ExchangeFileChoiceProps> = ({ exchange, file,
       {exchange.matching && exchange.columns && (
         <ColumnMatcher file={exchange.columns} draft={exchange.draft} disabled={disabled} saving={exchange.saving}
           onChange={(draft) => {
-            onMappingChanged();
+            if (readsOtherwise(exchange.draft, draft)) onMappingChanged();
             exchange.setDraft(draft);
           }}
           onSave={() => void exchange.save()} />

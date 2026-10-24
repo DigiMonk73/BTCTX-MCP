@@ -3,6 +3,9 @@
 // how to read a file, never where its rows go: the exchange and the wallet
 // are chosen for each file.
 
+/** The exchange file chosen when the owner matches another exchange's columns. */
+export const MATCH_COLUMNS = "match";
+
 export type Role = "date" | "time" | "kind" | "btc" | "usd" | "fee" | "fee_currency" | "fee_btc" | "asset"
   | "status" | "row_id";
 

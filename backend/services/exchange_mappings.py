@@ -37,6 +37,7 @@ MAX_OWN_MAPPINGS = 50
 MAPPING_NOT_FOUND = "No such mapping."
 TOO_MANY_MAPPINGS = f"You can save up to {MAX_OWN_MAPPINGS} mappings: delete one first."
 NAME_TAKEN = "A mapping of yours already has that name."
+READY_MADE_NAME = "A ready-made mapping has that name."
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
 
 
@@ -278,6 +279,8 @@ def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) ->
         last_id, mappings = _stored(db)
         if mapping_id is not None and mapping_id not in mappings:
             raise HTTPException(status_code=404, detail=MAPPING_NOT_FOUND)
+        if any(m.name.casefold() == own.name.casefold() for m in READY_MADE.values()):
+            raise HTTPException(status_code=409, detail=READY_MADE_NAME)
         if any(m.name.casefold() == own.name.casefold() for i, m in mappings.items() if i != mapping_id):
             raise HTTPException(status_code=409, detail=NAME_TAKEN)
         if mapping_id is None:

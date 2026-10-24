@@ -149,19 +149,26 @@ def rows_said(numbers: list[int]) -> str:
 
 # A number as exchanges write it. A thousands group never starts with a
 # zero, and a bitcoin amount has no thousands separator at all: read as one,
-# a decimal comma would make "0,005" BTC 5 (#452)
-_POINT = re.compile(r"([1-9]\d{0,2}(,\d{3})+|\d+)(\.\d+)?|\.\d+")
-_COMMA = re.compile(r"([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?|,\d+")
-_POINT_ONLY = re.compile(r"\d+(\.\d+)?|\.\d+")
-_COMMA_ONLY = re.compile(r"\d+(,\d+)?|,\d+")
+# a decimal comma would make "0,005" BTC 5
+# (#452). Digits are ASCII: Python's \d would take "٠.٥" too.
+_POINT = re.compile(r"([1-9]\d{0,2}(,\d{3})+|\d+)(\.\d+)?|\.\d+", re.ASCII)
+_COMMA = re.compile(r"([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?|,\d+", re.ASCII)
+_POINT_ONLY = re.compile(r"\d+(\.\d+)?|\.\d+", re.ASCII)
+_COMMA_ONLY = re.compile(r"\d+(,\d+)?|,\d+", re.ASCII)
 # The currency a cell may write beside its number, by how it writes it
 _UNITS = {"US$": "USD", "USD": "USD", "$": "USD", "BTC": "BTC", "XBT": "BTC", "₿": "BTC"}
 
 
 def read_number(text: str, decimal_comma: bool = False, column: str | None = None,
-                bitcoin: bool = False) -> Decimal | None:
-    """The number a cell holds (read_amount's), its unit aside."""
-    return read_amount(text, decimal_comma, column, bitcoin)[0]
+                bitcoin: bool = False, unit: str | None = None) -> Decimal | None:
+    """The number a cell holds (read_amount's, as strictly as a bitcoin
+    amount's when `unit` is BTC); a RowError when the cell writes another
+    currency than `unit`: "$5.00" is never 5 BTC."""
+    value, written = read_amount(text, decimal_comma, column, bitcoin or unit == "BTC")
+    if unit and written and written != unit:
+        raise RowError(f"{column or 'A number'} '{text.strip()}' isn't {'bitcoin' if unit == 'BTC' else 'dollars'}.",
+                       column)
+    return value
 
 
 def read_amount(text: str, decimal_comma: bool = False, column: str | None = None,
@@ -212,8 +219,9 @@ def _without_units(text: str) -> tuple[str, set[str]]:
 
 def to_sats(value: Decimal, number: int, column: str | None, warnings: list[CSVParseError]) -> Decimal:
     """A bitcoin amount to the satoshi: a finer one (Kraken writes ten
-    places) is rounded, and the warning says so."""
-    rounded = value.quantize(SAT, rounding=ROUND_HALF_EVEN)
+    places) is rounded, and the warning says so; one too large to hold is
+    the row's error."""
+    rounded = _quantized(value, SAT, column)
     if rounded != value:
         warnings.append(CSVParseError(
             row_number=number, column=column, severity="warning",
@@ -221,10 +229,18 @@ def to_sats(value: Decimal, number: int, column: str | None, warnings: list[CSVP
     return rounded
 
 
-def to_cents(value: Decimal) -> Decimal:
+def to_cents(value: Decimal, column: str | None = None) -> Decimal:
     """A dollar amount to the cent, an exact half cent to the even one, as a
-    value worked out from a price is (#556): Kraken writes four places."""
-    return value.quantize(CENT, rounding=ROUND_HALF_EVEN)
+    value worked out from a price is (#556): Kraken writes four places. One
+    too large to hold is the row's error."""
+    return _quantized(value, CENT, column)
+
+
+def _quantized(value: Decimal, places: Decimal, column: str | None) -> Decimal:
+    try:
+        return value.quantize(places, rounding=ROUND_HALF_EVEN)
+    except InvalidOperation:
+        raise RowError(f"{column or 'An amount'} '{value}' is too large to be one.", column) from None
 
 
 # A moment as exchanges write it

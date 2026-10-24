@@ -1,7 +1,5 @@
 import React from "react";
-
-/** The choice that opens the column matcher for another exchange's file. */
-export const MATCH_COLUMNS = "match";
+import { MATCH_COLUMNS } from "../../utils/exchangeMapping";
 
 // Until the list is read: River, whose file the import always read
 const RIVER_ONLY: ExchangeMapping[] = [{ id: "river", name: "River", ready_made: true, help: "", checked: true }];
@@ -28,7 +26,8 @@ const ExchangeFilePicker: React.FC<ExchangeFilePickerProps> = ({ mappings, value
     <div className="field">
       <label htmlFor="exchange-file">Exchange file</label>
       <select id="exchange-file" className="input" value={value} disabled={disabled}
-        aria-describedby="exchange-file-hint" onChange={(e) => onChange(e.target.value)}>
+        aria-describedby={unchecked ? "exchange-file-hint exchange-file-unchecked" : "exchange-file-hint"}
+        onChange={(e) => onChange(e.target.value)}>
         {ready.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
         {own.length > 0 && (
           <optgroup label="Your mappings">
@@ -39,7 +38,7 @@ const ExchangeFilePicker: React.FC<ExchangeFilePickerProps> = ({ mappings, value
       </select>
       {hint && <p id="exchange-file-hint" className="field-hint">{hint}</p>}
       {unchecked && (
-        <p className="field-warning">
+        <p id="exchange-file-unchecked" className="field-warning">
           Read as {chosen.name} publishes its file, not yet checked against a real one: check the preview's
           rows against your file before you import them.
         </p>

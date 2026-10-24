@@ -5,7 +5,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { AxiosResponse } from "axios";
 import { describe, expect, it, vi } from "vitest";
 import api from "../api";
-import { MATCH_COLUMNS } from "../components/exchangeImport/ExchangeFilePicker";
+import { MATCH_COLUMNS } from "./exchangeMapping";
 import { useExchangeFile } from "./useExchangeFile";
 
 const OWN: OwnMapping = {
@@ -90,6 +90,45 @@ describe("useExchangeFile", () => {
     await act(async () => result.current.save());
     expect(posted).toHaveBeenCalledWith("/import/exchange/mappings", expect.objectContaining({ name: "Another one" }));
     expect(result.current.chosenId).toBe("own-2");
+  });
+
+  it("keeps the owner's matching for a new file with the same columns, and guesses again for other columns", async () => {
+    setUp();
+    const { result } = renderHook(() => useExchangeFile(toast));
+    await waitFor(() => expect(result.current.mappings).toBeDefined());
+    await act(async () => result.current.choose(MATCH_COLUMNS, FILE));
+    act(() => result.current.setDraft({ ...result.current.draft, name: "Mine", kinds: { Buy: "buy", Card: "leave out" } }));
+    await act(async () => result.current.fileChosen(FILE));
+    expect(result.current.draft).toMatchObject({ name: "Mine", kinds: { Buy: "buy", Card: "leave out" } });
+    vi.spyOn(api, "post").mockResolvedValue(answered({ ...COLUMNS, columns: ["Other", "Columns"], values: {} }));
+    await act(async () => result.current.fileChosen(FILE));
+    expect(result.current.draft.name).toBe("");
+  });
+
+  it("never lets a late answer for an earlier file replace a newer one's columns", async () => {
+    setUp();
+    let answerFirst: (v: AxiosResponse<FileColumnsResponse>) => void = () => {};
+    const { result } = renderHook(() => useExchangeFile(toast));
+    await waitFor(() => expect(result.current.mappings).toBeDefined());
+    const posted = vi.spyOn(api, "post");
+    posted.mockImplementationOnce(() => new Promise((resolve) => { answerFirst = resolve as typeof answerFirst; }));
+    posted.mockResolvedValueOnce(answered({ ...COLUMNS, header_row: 2 }));
+    let first: Promise<void> = Promise.resolve();
+    await act(async () => { first = result.current.choose(MATCH_COLUMNS, FILE); });
+    await act(async () => result.current.fileChosen(FILE));
+    await act(async () => { answerFirst(answered({ ...COLUMNS, header_row: 1 })); await first; });
+    expect(result.current.columns?.header_row).toBe(2);
+  });
+
+  it("names an own mapping by its draft when the list can't be read again", async () => {
+    setUp();
+    const { result } = renderHook(() => useExchangeFile(toast));
+    await waitFor(() => expect(result.current.mappings).toBeDefined());
+    await act(async () => result.current.choose(MATCH_COLUMNS, FILE));
+    act(() => result.current.setDraft({ ...result.current.draft, name: "Another one" }));
+    vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
+    await act(async () => result.current.save());
+    expect(result.current.name).toBe("Another one");
   });
 
   it("can't preview a matched file until it says what each column holds", async () => {

@@ -4,7 +4,8 @@
 import "../../test/setup";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import ExchangeFilePicker, { MATCH_COLUMNS } from "./ExchangeFilePicker";
+import { MATCH_COLUMNS } from "../../utils/exchangeMapping";
+import ExchangeFilePicker from "./ExchangeFilePicker";
 
 const MAPPINGS: ExchangeMapping[] = [
   { id: "river", name: "River", ready_made: true, help: "river.com → Taxes & Documents → Bitcoin activity (CSV).", checked: true },
