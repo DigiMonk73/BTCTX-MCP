@@ -37,8 +37,8 @@ export default defineConfig(
     },
   },
   {
-    // A test scenario can be long.
-    files: ['src/**/*.test.ts'],
+    // A test scenario can be long, and so can a stub that answers each of its requests.
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: { complexity: 'off', 'max-lines': 'off' },
   },
   {

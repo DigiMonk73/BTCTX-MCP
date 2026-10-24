@@ -6,18 +6,18 @@ import TransferFields from "./TransferFields";
 import WithdrawalFields from "./WithdrawalFields";
 
 /** The fields of the chosen transaction type; none before one is chosen. */
-const TypeFields: React.FC<{ type: TransactionType | "" }> = ({ type }) => {
+const TypeFields: React.FC<{ type: TransactionType | ""; book: AccountBook }> = ({ type, book }) => {
   switch (type) {
     case "Deposit":
-      return <DepositFields />;
+      return <DepositFields book={book} />;
     case "Withdrawal":
-      return <WithdrawalFields />;
+      return <WithdrawalFields book={book} />;
     case "Transfer":
-      return <TransferFields />;
+      return <TransferFields book={book} />;
     case "Buy":
-      return <BuyFields />;
+      return <BuyFields book={book} />;
     case "Sell":
-      return <SellFields />;
+      return <SellFields book={book} />;
     default:
       return null;
   }

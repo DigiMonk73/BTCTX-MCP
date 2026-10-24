@@ -30,6 +30,25 @@ declare global {
     };
   }
 
+  // GET /api/accounts/ (2.0 spec 5.9): banks, wallets, exchanges, then the
+  // two fee accounts, each by id. An exchange is two accounts, its USD and its
+  // BTC, sharing an exchange_id; `exchange` is that exchange's name.
+  type AccountKind = "bank" | "wallet" | "exchange" | "fee";
+
+  interface LedgerAccount {
+    id: number;
+    name: string;
+    kind: AccountKind;
+    currency: Currency;
+    exchange_id: number | null;
+    exchange: string | null;
+    hidden: boolean;
+    in_use: boolean;
+  }
+
+  /** The account book as the API lists it (utils/accounts.ts answers from it). */
+  type AccountBook = LedgerAccount[];
+
   // The dashboard's figures
   interface AccountBalance {
     account_id: number;
@@ -240,8 +259,6 @@ declare global {
   // The transaction form
   type TransactionType = "Deposit" | "Withdrawal" | "Transfer" | "Buy" | "Sell";
 
-  type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
-
   type DepositSource = "N/A" | "MyBTC" | "Gift" | "Inherited" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
   // What a broker reported on Form 1099-DA/1099-B (backend.constants.BROKER_REPORTING_VALUES)
@@ -257,9 +274,13 @@ declare global {
     type: TransactionType;
     timestamp: string;
 
+    // Both of the row's accounts, by id, for every type (2.0 spec 5.13): a
+    // Deposit's is its To, a Withdrawal's and a Sell's its From; a Sell's To
+    // is its exchange's dollars. Each account's currency is the book's.
+    fromAccountId?: number;
+    toAccountId?: number;
+
     // Single-account
-    account?: AccountType;
-    currency?: Currency;
     amount?: BtcFieldValue;
     source?: DepositSource;      // for BTC deposit
     purpose?: WithdrawalPurpose; // for BTC withdrawal
@@ -268,20 +289,13 @@ declare global {
     proceeds_usd?: number;
     fmv_usd?: number;
 
-    // Transfer
-    fromAccount?: AccountType;
-    fromCurrency?: Currency;
-    toAccount?: AccountType;
-    toCurrency?: Currency;
+    // Transfer: what left and what arrived
     amountFrom?: BtcFieldValue;
     amountTo?: BtcFieldValue;
 
     // Buy / Sell
     amountUSD?: number;
     amountBTC?: BtcFieldValue;
-
-    // For Buy transactions: source account (Bank or Exchange)
-    buyFromAccount?: "Bank" | "Exchange";
 
     // A Sell's proceeds as typed, before fees
     grossProceedsUSD?: number;
