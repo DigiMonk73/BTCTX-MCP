@@ -207,7 +207,7 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (119 transactions, 2023 to 2026). Every
+`testdata/reference_ledger.json` (141 transactions, 2023 to 2026). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the
@@ -216,6 +216,16 @@ every report has entries in each part (every Form 8949 box of 2024, 2025
 and 2026, in any tax timezone), My BTC and Gift deposits carry a date
 originally acquired, and inherited coins are sold within a year of the death. Every USD value a price lookup would fill is given, so
 it loads with the price source Nobody. Each row's `why` says what it is for.
+From 2.0 it holds multiple wallets, exchanges or accounts: its `accounts`
+list adds two of each kind (wallets Coldcard and Jade, exchanges Kraken and
+Overseas, whose 1099-DA switch is off, banks Credit union and Savings),
+which the seed makes through the account API before the rows, and the rows
+marked `"since": "2.0"` use them, all in 2026, so no earlier year's
+figures move. The one exception is the last row, the fee-less split of a
+pooled wallet (Wallet to the Coldcard). `test_reference_ledger_354.py`
+proves every older row keeps its figures beside them (the equivalence
+check's ledgers leave them out) and that the split moves only those two
+wallets' year-end lots and balances.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
 
@@ -226,7 +236,10 @@ python scripts/seed_ledger.py --url https://host:port --user NAME --password-std
 ```
 
 It refuses a ledger that has transactions, and the Mac app's address
-(`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine.
+(`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine. It
+stops if an account it makes doesn't get the id the ledger lists (an
+install where accounts were added by hand); one a Delete All left is used
+again.
 `--setup-code` claims a fresh Docker install first. On the StartOS test VM,
 the lab's `tools/vmtest seed` loads it and installs the next year's draft
 forms (the app ships the 2026 drafts as a preview until 2027-01-01; see
