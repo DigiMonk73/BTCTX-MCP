@@ -20,7 +20,8 @@ from backend.services import account as account_service
 from backend.services import hourly_prices, recalculated_by, tax_time
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
-from backend.services.past_years import PastYearWrite, moves_only_dollars
+from backend.services.past_years import PastYearWrite
+from backend.services.year_changes import moves_only_dollars
 
 ROWS_BY_DATE = ("These rows start in {year}, so they can change {year}'s figures and later years you may have "
                 "filed. Save them? A copy of your ledger is made first.")

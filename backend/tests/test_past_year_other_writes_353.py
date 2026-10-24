@@ -435,7 +435,7 @@ def test_saving_a_timezone_that_changes_an_earlier_years_figures_asks_and_saves_
     changed = {i["id"]: i for i in body["changes"]}
     assert set(changed) == {rows["sale 2025"], rows["sale 2026"]}
     assert changed[rows["sale 2025"]]["change"] == ("short-term gain 0.00 -> 14750.00; long-term gain 14750.00 -> "
-                                                  "0.00; Form 8949 box K -> H.")
+                                                  "0.00; Form 8949 box K -> H; date 03/02/2025 -> 03/01/2025.")
     assert changed[rows["sale 2025"]]["years"] == [2025]
     assert stored(client) == before
     assert client.get("/api/settings/tax-timezone").json() == {"timezone": "UTC", "source": "default"}
@@ -446,7 +446,22 @@ def test_a_sale_that_only_changes_tax_year_is_listed_under_both(tz_ledger):
     body = save_timezone(client, "America/Chicago").json()
     moved = next(i for i in body["changes"] if i["id"] == rows["sale 2026"])
     assert moved["years"] == [2025, 2026]
-    assert moved["change"] == "Tax year 2026 -> 2025."
+    assert moved["change"] == "Date 01/01/2026 -> 12/31/2025; tax year 2026 -> 2025."
+
+
+def test_a_sale_whose_date_moves_within_its_year_asks_too(fresh_app, monkeypatch, tax_year):
+    """Form 8949 prints the date sold (column (c)): a timezone that moves it
+    within a filed year asks, though its gain, term, box and year stay."""
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    client = logged_in()
+    deposit(client, "2024-03-01T12:00:00Z")
+    sale = sell(client, "2025-06-01T03:00:00Z")  # 31 May in Chicago
+    tax_year(2026)
+    client.Session = fresh_app
+    r = save_timezone(client, "America/Chicago")
+    assert r.status_code == 409, r.text
+    assert [(i["id"], i["change"], i["years"]) for i in r.json()["changes"]] == [
+        (sale, "Date 06/01/2025 -> 05/31/2025.", [2025])]
 
 
 def test_its_confirm_saves_the_timezone_after_a_copy(tz_ledger):
