@@ -148,12 +148,12 @@ async def test_ledger_guide_says_each_wallet_is_its_own_account():
     assert "## Wallets, exchanges and banks" in readme
     flat = " ".join(LEDGER_GUIDE.split())
     assert "get_portfolio" in flat and "accounts" in flat
-    assert "a second wallet or exchange" in flat
+    assert "A second wallet or exchange that isn't listed: the user adds it" in flat
     assert "Settings -> Wallets, exchanges and banks" in flat
     assert "github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks" in flat
     # The user's own wallet as External would make a move between their
     # own wallets a taxable withdrawal; pooling it would mix their lots
-    assert "never External" in flat
+    assert "never as External" in flat
     for gone in ("pools it", "One wallet, one exchange", "one-wallet-one-exchange", "exchange by exchange"):
         assert gone not in flat, gone
 
