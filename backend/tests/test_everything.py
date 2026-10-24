@@ -145,6 +145,14 @@ def api_get(endpoint: str, **params) -> Tuple[int, Any]:
         return 0, str(e)
 
 
+def bitcoin_account_ids() -> set[int]:
+    """Every wallet and every exchange's BTC account, whatever accounts the
+    owner added (2.0), but not the fee account BTC Fees."""
+    status, accounts = api_get("accounts/")
+    assert_true(status == 200, "Can retrieve accounts")
+    return {a["id"] for a in accounts if a["currency"] == "BTC" and a["kind"] != "fee"}
+
+
 def api_post(endpoint: str, data: dict) -> Tuple[int, Any]:
     """Make a POST request to the API."""
     try:
@@ -487,8 +495,9 @@ def test_fifo_integrity():
     status, balances = api_get("calculations/accounts/balances")
     assert_true(status == 200, "Can retrieve balances")
 
-    # Find BTC account balances
-    btc_accounts = [b for b in balances if b.get("account_id") in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)]
+    # Every bitcoin account's balance, the ones the owner added included (2.0)
+    bitcoin = bitcoin_account_ids()
+    btc_accounts = [b for b in balances if b.get("account_id") in bitcoin]
     for acc in btc_accounts:
         balance = float(acc.get("balance", 0))
         assert_true(balance >= 0, f"Account {acc.get('account_id')} balance >= 0 ({balance:.8f})")
@@ -605,8 +614,9 @@ def test_transaction_types():
     subsection("Deposit Source Coverage")
 
     deposits = by_type.get("Deposit", [])
-    # BTC deposits go to Wallet (2) or Exchange BTC (4)
-    btc_deposits = [d for d in deposits if d.get("to_account_id") in (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)]
+    # BTC deposits go into a bitcoin account: a wallet or an exchange's BTC
+    bitcoin = bitcoin_account_ids()
+    btc_deposits = [d for d in deposits if d.get("to_account_id") in bitcoin]
     sources = set(d.get("source") for d in btc_deposits if d.get("source"))
 
     expected_sources = ["MyBTC", "Gift", "Income", "Interest", "Reward"]

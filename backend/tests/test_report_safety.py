@@ -148,7 +148,7 @@ def test_complete_tax_report_prints_markup_and_fetches_nothing(listener):
     assert "<b>unclosed" in shown
 
 
-def test_account_names_typed_through_the_account_api_are_text(gate_open, fresh_app, listener):
+def test_account_names_typed_through_the_account_api_are_text(fresh_app, listener):
     """2.0 (spec 5.7, card B4 #349): the owner types the account names, and
     the complete tax report shows them (each row's account, "Sales by
     exchange", the year-end lots): printed as written, nothing fetched; in a

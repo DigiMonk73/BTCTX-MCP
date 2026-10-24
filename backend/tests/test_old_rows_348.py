@@ -36,7 +36,7 @@ def save(client, **body) -> int:
 
 
 @pytest.fixture
-def ledger(gate_open, fresh_app, monkeypatch):
+def ledger(fresh_app, monkeypatch):
     """A 1.x ledger as 2.0 first finds it: accounts made through 1.x's API (a
     BTC "cold2" as 7, a USD "old bank" as 8, and a 99 that 1.x's API could
     make, internal since External is 99, 5.3), rows saved into them back

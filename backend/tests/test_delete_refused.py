@@ -59,9 +59,9 @@ def test_the_ledger_still_saves_after_a_refused_delete(auth_client, ledger):
 def test_a_delete_nothing_depends_on_still_recalculates(auth_client, ledger):
     assert auth_client.delete(f"/api/transactions/{ledger['sell']}").status_code == 204
 
-    balances = {b["name"]: b["balance"] for b in auth_client.get("/api/calculations/accounts/balances").json()}
-    assert balances["Exchange BTC"] == pytest.approx(0.4)
-    assert balances["Exchange USD"] == 0
+    balances = {b["account_id"]: b["balance"] for b in auth_client.get("/api/calculations/accounts/balances").json()}
+    assert balances[4] == pytest.approx(0.4)  # Exchange BTC
+    assert balances[3] == 0  # Exchange USD
     assert auth_client.get("/api/calculations/gains-and-losses").json()["total_net_capital_gains"] == pytest.approx(5.40)
 
 
