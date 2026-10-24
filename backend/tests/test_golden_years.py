@@ -182,7 +182,7 @@ def test_golden_income_and_balances(golden, auth_client):
     txs = auth_client.get("/api/transactions").json()
     income = next(t for t in txs if t["source"] == "Income")
     assert D(income["cost_basis_usd"]) == D("1000.00")
-    balances = {b["name"]: D(str(b["balance"])) for b in auth_client.get("/api/calculations/accounts/balances").json()}
+    balances = {b["account_id"]: D(str(b["balance"])) for b in auth_client.get("/api/calculations/accounts/balances").json()}
     # Wallet: 0.5998 - 0.01 + 0.02 - 0.1 - 0.1 - 0.0101 = 0.3997; Exchange BTC: 0.2 - 0.05 = 0.15
-    assert balances["Wallet"] == D("0.3997")
-    assert balances["Exchange BTC"] == D("0.15")
+    assert balances[2] == D("0.3997")
+    assert balances[4] == D("0.15")

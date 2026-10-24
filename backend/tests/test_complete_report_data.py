@@ -57,8 +57,8 @@ def test_year_end_snapshot_price_and_asset_summary(auth_client, test_engine):
     assert summary["profit"] == 4000.0 and summary["loss"] == 0.0 and summary["net"] == 4000.0
 
     # Live data is intact afterwards (the 2025 sale still counts)
-    balances = {b["name"]: b["balance"] for b in CLIENT.get("/api/calculations/accounts/balances").json()}
-    assert abs(balances["Exchange BTC"] - 0.3) < 1e-9
+    balances = {b["account_id"]: b["balance"] for b in CLIENT.get("/api/calculations/accounts/balances").json()}
+    assert abs(balances[4] - 0.3) < 1e-9  # Exchange BTC
     CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
 
 

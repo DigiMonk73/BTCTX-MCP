@@ -18,7 +18,7 @@ COLD, EXTERNAL, BANK = 100, 99, 1
 
 
 @pytest.fixture
-def client(gate_open, fresh_app, monkeypatch) -> TestClient:
+def client(fresh_app, monkeypatch) -> TestClient:
     stub_prices_at(monkeypatch, lambda when: PRICE)
     c = TestClient(app)
     assert c.post("/api/login", json=default_login()).status_code == 200
