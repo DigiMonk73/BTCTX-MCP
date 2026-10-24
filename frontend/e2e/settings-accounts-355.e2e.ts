@@ -11,7 +11,7 @@ import type { Locator, Page } from "@playwright/test";
 
 const SECTIONS = [
   "Account", "Wallets, exchanges and banks", "Ledger Review", "Privacy & Network", "Connect an AI Assistant",
-  "Data Management", "Import from River", "Backup & Restore", "About BitcoinTX",
+  "Data Management", "Import from an exchange", "Backup & Restore", "About BitcoinTX",
 ];
 
 const WALLET_HELP =
@@ -273,7 +273,7 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   authedPage: page,
 }) => {
   await page.getByRole("link", { name: "Settings" }).click();
-  const river = await openSection(page, "Import from River");
+  const river = await openSection(page, "Import from an exchange");
   await expect(river.getByLabel("River CSV file")).toBeVisible();
   await expect(river.getByLabel("Exchange", { exact: true })).toHaveCount(0);
   await expect(river.getByLabel("Wallet for sends and receives")).toHaveCount(0);
@@ -457,7 +457,7 @@ test("River with two exchanges and two wallets saves into the ones picked", asyn
   const accounts = await listed(page);
   const id = (name: string) => accounts.find((a) => a.name === name)!.id;
   await page.getByRole("link", { name: "Settings" }).click();
-  const river = await openSection(page, "Import from River");
+  const river = await openSection(page, "Import from an exchange");
   await river.getByLabel("Exchange", { exact: true }).selectOption({ label: "Kraken" });
   await river.getByLabel("Wallet for sends and receives").selectOption({ label: "Coldcard" });
   await river.getByLabel("River CSV file").setInputFiles({

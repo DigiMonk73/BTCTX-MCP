@@ -1,0 +1,6 @@
+"Swan Bitcoin (an example of the two lines Swan writes above its header)"
+Phone: 0000000000
+Created At,Timezone,Transaction ID,Executed At,Canceled At,Status,Bitcoin Amount,Automatic,IP Address
+2025-03-20 10:00:00+00,UTC,0123456789abcdef,2025-03-20 10:30:00+00,,completed,0.00150000,t,192.0.2.1
+2025-03-21 10:00:00+00,UTC,0123456789abcde0,,2025-03-21 11:00:00+00,canceled,0.00100000,f,192.0.2.1
+2025-03-22 10:00:00+00,UTC,0123456789abcde1,,,pending,0.00100000,f,192.0.2.1

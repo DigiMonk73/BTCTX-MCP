@@ -1,0 +1,8 @@
+"An example of the note Coinbase writes above its header, which may hold commas, like this one."
+
+Transactions
+User,example@example.com,00000000-0000-4000-8000-00000000000b
+
+Timestamp,Transaction Type,Asset,Quantity Transacted,Spot Price Currency,Spot Price at Transaction,Subtotal,Total (inclusive of fees and/or spread),Fees and/or Spread,Notes
+2022-03-01T15:00:00Z,Buy,BTC,0.002,USD,43000.00,86.00,87.99,1.99,Bought 0.002 BTC for $87.99 USD
+2022-04-01T15:00:00Z,Sell,BTC,0.001,USD,45000.00,45.00,44.33,0.67,Sold 0.001 BTC for $44.33 USD

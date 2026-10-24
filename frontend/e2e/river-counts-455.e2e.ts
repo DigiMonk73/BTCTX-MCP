@@ -8,12 +8,12 @@ const RIVER_HEADER =
   "Date,Sent Amount,Sent Currency,Received Amount,Received Currency,Fee Amount,Fee Currency,Tag";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 async function previewRiver(page: Page, rows: string[]) {
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from([RIVER_HEADER, ...rows].join("\n") + "\n"),

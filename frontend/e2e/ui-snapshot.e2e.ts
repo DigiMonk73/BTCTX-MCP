@@ -149,8 +149,8 @@ test("edit forms", async ({ authedPage: page }) => {
 
 test("imports", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
-  const river = page.getByRole("region", { name: "Import from River" });
+  await openSection(page, "Import from an exchange");
+  const river = page.getByRole("region", { name: "Import from an exchange" });
   await river.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
   });
@@ -179,7 +179,7 @@ test("imports", async ({ authedPage: page }) => {
     await record(page, name);
   }
 
-  // One section open at a time (#355): River's closes as Data Management opens
+  // One section open at a time (#355): the exchange import's closes as Data Management opens
   const data = await openSection(page, "Data Management");
   await data.locator("#csv-file-input").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: Buffer.from(CSV),

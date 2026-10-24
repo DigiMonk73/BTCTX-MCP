@@ -396,7 +396,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   auto-withdrawal, to the address the owner set: a Transfer to Wallet like
   any other send (#397). A `Mining` payout is a Reward deposit (#399).
 - **Import duplicates** (#253, the owner's rule): the AI connector's and the
-  River import's check (`river_import.annotate_duplicates`) leaves out only
+  River import's check (`river_import.annotate_duplicates`; every
+  exchange's file is read into River's rows and checked as River's, B5b)
+  leaves out only
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). A row is only ever compared with transactions of its own
@@ -576,6 +578,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
 | `backend/services/river_import.py`, `csv_import.py` | file imports |
+| `backend/services/exchange_import.py`, `exchange_mappings.py`, `exchange_cells.py`, `exchange_kraken.py` | any exchange's CSV (B5b): the mappings (ready-made, the owner's own in `app_settings`), each read into River's rows; what isn't read is named by reason |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
 | `backend/services/reports/draft_forms.py` | next year's IRS draft forms: the shipped preview (`assets/irs_templates/drafts/`, until January 1 after its year) and a test install's (`<data dir>/irs-draft-forms/`, `cli install-draft-forms`) |

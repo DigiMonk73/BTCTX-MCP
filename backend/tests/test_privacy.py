@@ -374,8 +374,11 @@ def test_settings_names_every_site_public_prices_may_contact():
             continue
         for text in _code_strings(path):
             # #161 (owner, 2026-10-12): never asked again, for their terms; not
-            # even by an address built from parts
-            assert not re.search("coinbase|coingecko", text, re.IGNORECASE), where
+            # even by an address built from parts. Only the importer's
+            # mappings (B5b) may name Coinbase, the exchange whose own file
+            # the owner uploads, which asks Coinbase nothing: never in an address
+            named_file = where.as_posix() == "services/exchange_mappings.py" and not WEB_HOST.search(text)
+            assert not re.search("coingecko" if named_file else "coinbase|coingecko", text, re.IGNORECASE), where
             for host in WEB_HOST.findall(text):
                 found.setdefault(host.lower(), set()).add(where.as_posix())
     assert found.pop("www.irs.gov", set()) <= OWN_REQUESTS_ALLOWED
@@ -387,6 +390,32 @@ def test_settings_names_every_site_public_prices_may_contact():
     public = help_text[help_text.index('value: "public"'):help_text.index('value: "off"')]
     assert [names[h] for h in sorted(hosts) if names[h] not in public] == []
     assert "when BitcoinTX is open" in public and "IP address" in public
+
+
+# What can reach a network, or load what can: none of it in the one file
+# that may name Coinbase (#161, B5b)
+NETWORK_MODULES = ("backend.services.outbound", "httpx", "urllib", "urllib3", "requests", "socket", "http.client",
+                   "http", "aiohttp", "ssl", "importlib")
+
+
+def test_the_file_that_may_name_coinbase_can_make_no_request():
+    """#161: BitcoinTX never asks Coinbase anything, not even by an address
+    built from parts. The importer's mappings may name it (the exchange
+    whose own file the owner uploads), so their module imports nothing that
+    reaches a network and loads nothing by name; every outside request
+    comes from outbound.py alone (test_network_settings's
+    test_no_other_module_makes_its_own_http_client)."""
+    path = Path(__file__).resolve().parents[1] / "services" / "exchange_mappings.py"
+    tree = ast.parse(path.read_text())
+    imported = [alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names]
+    imported += [node.module or "" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)]
+    imported += [f"{node.module}.{alias.name}" for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)
+                 for alias in node.names]
+    reaching = [name for name in imported
+                if any(name == module or name.startswith(module + ".") for module in NETWORK_MODULES)]
+    assert reaching == [], reaching
+    calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert not calls & {"__import__", "eval", "exec", "compile", "open"}
 
 
 def test_deleted_rows_are_erased_from_the_database_file(tmp_path):

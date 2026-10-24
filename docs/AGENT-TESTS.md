@@ -816,7 +816,7 @@ Set `KEY` to the key from AI-3, and use
   2026-02-10 16:00:00,0.00050000,BTC,55.00,USD,0.55,USD,Sell
   ```
 
-  Settings > Import from River > River CSV file, then **Preview**. Expect:
+  Settings > Import from an exchange > River CSV file, then **Preview**. Expect:
   "3 new", "3 rows in file", and each Buy row showing the **Bank** /
   **Exchange USD** toggle. Click **Import 3 Transaction(s)** and confirm
   "Import 3 transaction(s) from River into your ledger?" (run in a later

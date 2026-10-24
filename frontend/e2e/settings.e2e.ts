@@ -19,7 +19,7 @@ async function openSettings(page: Page, section: string) {
 // Settings' sections, in the page's order
 const SECTIONS = [
   "Account", "Wallets, exchanges and banks", "Ledger Review", "Privacy & Network", "Connect an AI Assistant",
-  "Data Management", "Import from River", "Backup & Restore", "About BitcoinTX",
+  "Data Management", "Import from an exchange", "Backup & Restore", "About BitcoinTX",
 ];
 
 async function historyCsv(page: Page, year: number) {
