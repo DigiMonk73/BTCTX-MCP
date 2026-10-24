@@ -58,9 +58,9 @@ Checks:
   listed, so it is a reminder: one explanation for the group, listed after
   the checks and left out of `total`.
 - sale_may_differ_from_1099da (2.0 spec 5.7, 5.13; a reminder): a Sell from
-  2026 on an exchange that sends a Form 1099-DA, with no Broker form of its
-  own, for which the exchange's own lot order takes other coins bought
-  there than BitcoinTX's. An exchange without the purchase dates of coins
+  2026 on an exchange that sends a Form 1099-DA (and not marked as on none,
+  or as without basis), for which the exchange's own lot order and
+  BitcoinTX's take different coins bought there. An exchange without the purchase dates of coins
   moved in counts them from their arrival and sells the coins it counts as
   oldest first; BitcoinTX sells first the coins acquired first. So the
   exchange's form may report another basis for the sale (a 2025 form
@@ -263,11 +263,12 @@ REMINDERS: dict[str, tuple[str, ...]] = {
     "sale_may_differ_from_1099da": (
         "Your exchange may have reported other coins for these sales. Without their purchase dates, an exchange "
         "counts coins you moved in from the day they arrived, and sells first the coins it counts as oldest. "
-        "BitcoinTX sells first the coins acquired first in each account. For these sales the exchange's order "
-        "takes other coins bought there, whose cost basis its form reports. Once one sale has taken other coins, "
-        "a later one can differ too.",
+        "BitcoinTX sells first the coins acquired first in each account. For these sales the two orders take "
+        "different coins bought there (the coins whose cost basis its form reports). Once one sale has taken other "
+        "coins, a later one can differ too.",
         "Nothing in your ledger is wrong, and nothing needs editing: these are listed so you can check them "
-        "against the form. A sale whose Broker form you set isn't listed.",
+        "against the form. A sale whose Broker form you set to no form, or to proceeds without basis, isn't "
+        "listed.",
     ),
 }
 
@@ -606,25 +607,31 @@ def _sale_may_differ_items(db: Session, tz, book: AccountBook) -> list[dict[str,
     """
     Each Sell from 2026 in the tax timezone (a 2025 Form 1099-DA reports no
     basis) from an exchange's BTC account whose exchange sends a Form
-    1099-DA, with no Broker form of its own (one set says the owner compared
-    it with the form), for which the exchange's own lot order takes other
-    covered coins (those whose basis it reports) than BitcoinTX's (5.7,
-    5.13). Both orders are replayed over the account's lots, each
+    1099-DA, and whose own Broker form doesn't say the form reports no
+    basis for it ("none", "proceeds"), for which the exchange's own lot
+    order and BitcoinTX's take different covered coins (those whose basis
+    it reports) (5.7, 5.13). One set to "basis" stays: that form reports
+    the basis of the coins the exchange chose. Both orders are replayed over the account's lots, each
     transaction taking what it took; once they part, a later Sell can differ
     without touching a moved coin.
     """
     start, _ = tax_year_bounds(COVERED_DIGITAL_ASSET_START.year, tz)
     sells = [t for t in db.query(Transaction).filter(Transaction.type == "Sell", Transaction.timestamp >= start)
              .order_by(Transaction.timestamp, Transaction.id)
-             if book.is_btc(t.from_account_id) and book.sends_1099da(t.from_account_id) and not t.broker_reporting]
+             if book.is_btc(t.from_account_id) and book.sends_1099da(t.from_account_id)
+             and t.broker_reporting not in NO_BASIS_ON_THE_FORM]
     differ: set[int] = set()
     for account_id in {t.from_account_id for t in sells}:
         wanted = {t.id for t in sells if t.from_account_id == account_id}
         ours, theirs = (replayed_lots(db, account_id, wanted, by_arrival)[0] for by_arrival in (False, True))
         differ |= {i for i in wanted if _covered(ours[i], account_id, tz) != _covered(theirs[i], account_id, tz)}
     return [_item(t, tz, book, f"Counting coins moved into {book.name(t.from_account_id)} from their arrival, the "
-                  "exchange's own order sells other coins bought there for this sale than BitcoinTX does.", "")
+                  "exchange's own order and BitcoinTX's take different coins bought there for this sale.", "")
             for t in sells if t.id in differ]
+
+
+# A Sell's Broker form saying its 1099-DA reports no basis: nothing to compare
+NO_BASIS_ON_THE_FORM = ("none", "proceeds")
 
 
 def _covered(taken: dict[BitcoinLot, Decimal], account_id: int, tz) -> dict[int, Decimal]:

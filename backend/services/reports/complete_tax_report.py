@@ -520,8 +520,8 @@ class _TaxReport:
             *self.subheading("Sales by exchange"),
             data_table(rows, [1.9, 0.85, 0.6, 0.45, 1.05, 1.05, 1.1]),
             self.text("Each exchange's Sells from the list above, network fees left out (a fee is on no Form 1099-DA "
-                      "by itself): to set beside the Form 1099-DA each exchange sends. Every figure stays where it is "
-                      "on Form 8949.", self.styles.note),
+                      "by itself)" + ("" if before else ": to set beside the Form 1099-DA each exchange sends") +
+                      ". Every figure stays where it is on Form 8949.", self.styles.note),
         ]
 
     # 3. Income

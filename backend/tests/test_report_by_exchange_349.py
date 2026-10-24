@@ -95,8 +95,8 @@ def test_a_1x_ledger_shows_one_exchange(ledger):
 def test_before_2025_no_exchange_sent_a_1099da(ledger):
     ledger.save("Buy", "2024-01-10", BANK, EXCHANGE_BTC, "1.00000000", cost_basis_usd="40000.00")
     ledger.save("Sell", "2024-03-01", EXCHANGE_BTC, EXCHANGE_USD, "0.25000000", gross_proceeds_usd="12000.00")
-    text = shown(ledger.report(2024))
-    assert "Exchange—C1$12,000.00" in text[text.index("Salesbyexchange"):]
+    after = shown(ledger.report(2024)).split("Salesbyexchange")[1]
+    assert "Exchange—C1$12,000.00" in after and "tosetbesidetheForm1099-DA" not in after
 
 
 def test_a_year_without_a_sell_has_no_sales_by_exchange(ledger):

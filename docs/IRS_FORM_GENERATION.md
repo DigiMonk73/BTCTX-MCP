@@ -201,9 +201,10 @@ cost and gain, network fees left out, to set beside each exchange's
 1099-DA. It moves no figure: its totals are its Sells' rows. Each lot held
 when the year began names its account too, as the year-end lots do.
 Ledger Review's reminder `sale_may_differ_from_1099da` lists a Sell from
-2026, on an exchange that sends a 1099-DA and with no Broker form of its
-own, for which the exchange's own lot order takes other coins bought there
-(whose basis it reports) than BitcoinTX's: an exchange without the purchase
+2026, on an exchange that sends a 1099-DA (and whose Broker form doesn't
+say "none" or "proceeds"), for which the exchange's own lot order and
+BitcoinTX's take different coins bought there (whose basis it reports): an
+exchange without the purchase
 dates of coins moved in counts them from their arrival (Instructions for
 Form 1099-DA, lot selection). Once the two orders part, a later Sell can
 differ too. Where the form differs, the Form 8949 the owner files shows the

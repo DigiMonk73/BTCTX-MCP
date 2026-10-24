@@ -17,8 +17,8 @@ All notable changes to BitcoinTX are documented in this file.
   proceeds, cost and gain, network fees left out), to set beside the
   1099-DA it sends. Ledger Review reminds of each Sell from 2026 for which
   the exchange's own order (it counts coins moved in from their arrival)
-  sells other coins bought there than BitcoinTX's: the exchange's form may
-  show another basis. Account names
+  and BitcoinTX's take different coins bought there: the exchange's form
+  may show another basis. Account names
   are printed as text, never markup. No figure of any ledger changes: a
   1.x ledger's boxes are as before, and its report adds only the account
   names and one row, "Exchange", in "Sales by exchange".

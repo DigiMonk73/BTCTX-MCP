@@ -127,10 +127,11 @@ def test_not_in_2025_whose_1099da_reports_no_basis(ledger):
     assert listed(ledger) == []
 
 
-@pytest.mark.parametrize("broker_form", ["none", "proceeds", "basis"])
-def test_not_a_sale_whose_broker_form_the_owner_set(ledger, broker_form):
-    bought_then_older_coins_moved_in(ledger, broker_reporting=broker_form)
-    assert listed(ledger) == []
+@pytest.mark.parametrize("broker_form, listed_too", [("none", False), ("proceeds", False), ("basis", True)])
+def test_a_sale_whose_broker_form_says_no_basis_is_not_listed(ledger, broker_form, listed_too):
+    """With "basis", the form reports the basis of the coins the exchange chose: still worth comparing."""
+    sale = bought_then_older_coins_moved_in(ledger, broker_reporting=broker_form)
+    assert listed(ledger) == ([sale["id"]] if listed_too else [])
 
 
 def test_not_when_the_coins_were_bought_there_after_the_move_in(ledger):
