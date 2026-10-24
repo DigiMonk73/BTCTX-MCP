@@ -18,6 +18,8 @@ import os
 import re
 import shutil
 import subprocess
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -212,12 +214,99 @@ def test_a_beta_build_is_never_the_installed_app(tmp_path):
 
 def test_the_mac_check_never_runs_off_githubs_runners(tmp_path):
     """It opens the build's own data folder: a 1.x build's is the installed
-    app's, the owner's real ledger. Off CI, a build runs only through
-    desktop/run-test-build.sh."""
+    app's, the owner's real ledger. Off GitHub's own runners (a self-hosted
+    one too), a build runs only through desktop/run-test-build.sh."""
     root = checkout(tmp_path, "1.2.11", "1.2.11:0")
     for command in ("check", "package"):
-        made = run(root, "mac-app.sh", command, env={"CI": "", "GITHUB_ACTIONS": ""})
-        assert made.returncode == 1 and "only on GitHub's runners" in made.stderr, command
+        for runner in ({"GITHUB_ACTIONS": ""}, {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "self-hosted"}):
+            made = run(root, "mac-app.sh", command, env={"RUNNER_ENVIRONMENT": "", **runner})
+            assert made.returncode == 1 and "only on GitHub's runners" in made.stderr, (command, runner)
+
+
+FAKE_APP = """#!{python}
+# A stand-in for BitcoinTX Beta: its data folder, then (after a while, as the
+# real app takes) an API on a port of its own
+import http.server, json, os, pathlib, sys, time
+home = pathlib.Path(os.environ["HOME"]) / "Library"
+(home / "Application Support" / "BitcoinTX Beta").mkdir(parents=True)
+for extra in filter(None, os.environ.get("FAKE_ALSO", "").split(":")):
+    (home / extra).mkdir(parents=True)
+if os.environ.get("FAKE_QUITS"):
+    print("the fake app quit"); sys.exit(3)
+time.sleep(1.5)
+class Api(http.server.BaseHTTPRequestHandler):
+    def answer(self, code, body=b"{{}}"):
+        self.send_response(code); self.end_headers(); self.wfile.write(body)
+    def do_GET(self):
+        self.answer(200, json.dumps({{"status": "ok", "version": "2.0.0-beta.1"}}, separators=(",", ":")).encode())
+    def do_POST(self):
+        self.answer(401)
+    def log_message(self, *args):
+        pass
+http.server.HTTPServer(("127.0.0.1", 0), Api).serve_forever()
+"""
+PLIST = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>BitcoinTX</string>
+<key>CFBundleIdentifier</key><string>org.bitcointx.desktop.beta</string>
+</dict></plist>
+"""
+on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="lsof's, PlistBuddy's and hdiutil's macOS")
+
+
+def fake_beta(tmp_path: Path) -> tuple[Path, dict]:
+    """A beta checkout whose desktop/dist holds a fake BitcoinTX Beta.app, and
+    the environment of one of GitHub's runners with a home of its own."""
+    root = checkout(tmp_path / "repo", "2.0.0-beta.1", "2.0.0-beta.1:0")
+    app = root / "desktop/dist/BitcoinTX Beta.app/Contents"
+    (app / "MacOS").mkdir(parents=True)
+    (app / "Info.plist").write_text(PLIST)
+    (app / "MacOS/BitcoinTX").write_text(FAKE_APP.format(python=sys.executable))
+    (app / "MacOS/BitcoinTX").chmod(0o755)
+    (tmp_path / "home").mkdir()
+    return root, {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted", "HOME": str(tmp_path / "home")}
+
+
+def mac_app(root: Path, command: str, env: dict) -> subprocess.CompletedProcess:
+    return subprocess.run(["bash", str(root / "scripts/mac-app.sh"), command], cwd=root, capture_output=True,
+                          text=True, check=False, timeout=180, env={**os.environ, **env})
+
+
+@on_a_mac
+def test_the_mac_check_waits_for_the_app_and_finds_its_port(tmp_path):
+    """It launches the build, waits until it listens, and checks it there."""
+    root, env = fake_beta(tmp_path)
+    made = mac_app(root, "check", env)
+    assert made.returncode == 0, made.stdout + made.stderr
+    assert re.search(r"BitcoinTX Beta \(org\.bitcointx\.desktop\.beta\) answers on port \d+", made.stdout)
+    assert "entries endpoint (anonymous) -> 401" in made.stdout
+
+
+@on_a_mac
+@pytest.mark.parametrize("folder", ["Application Support/BitcoinTX", "Logs/BitcoinTX"])
+def test_a_beta_that_writes_in_the_installed_apps_folders_fails_the_check(tmp_path, folder):
+    root, env = fake_beta(tmp_path)
+    made = mac_app(root, "check", {**env, "FAKE_ALSO": folder})
+    assert made.returncode == 1 and f"made ~/Library/{folder}, the installed app's" in made.stderr
+
+
+@on_a_mac
+def test_an_app_that_quits_shows_its_log(tmp_path):
+    root, env = fake_beta(tmp_path)
+    made = mac_app(root, "check", {**env, "FAKE_QUITS": "1"})
+    assert made.returncode == 1 and "BitcoinTX Beta quit before it answered" in made.stderr
+    assert "the fake app quit" in made.stdout
+
+
+@on_a_mac
+def test_the_mac_files_are_named_after_the_app(tmp_path):
+    root, env = fake_beta(tmp_path)
+    made = mac_app(root, "package", env)
+    assert made.returncode == 0, made.stderr
+    assert made.stdout.splitlines() == ["stem=BitcoinTX-Beta-macOS", "dmg=BitcoinTX-Beta-macOS.dmg",
+                                        "zip=BitcoinTX-Beta-macOS.zip"]
+    assert (root / "BitcoinTX-Beta-macOS.dmg").is_file() and (root / "BitcoinTX-Beta-macOS.zip").is_file()
 
 
 # The workflows
@@ -263,6 +352,61 @@ def test_a_beta_is_a_github_prerelease_never_latest():
     for words in ("BitcoinTX Beta", "its own empty ledger", "Make a StartOS backup", "a new volume",
                   "never your real data", "docs/MAINTENANCE.md#going-back-to-1x", "beta_report.yml"):
         assert words in beta, words
+
+
+def release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> tuple[str, str]:
+    """release.yml's "Create the release" step, run with a gh that writes
+    down what it was asked: (the notes, the gh command)."""
+    release = job(RELEASE_YML, "release")
+    block = release[release.index("- name: Create the release"):]
+    script = textwrap.dedent(block[block.index("run: |\n") + len("run: |\n"):])
+    root = tmp_path / "root"
+    (root / "scripts").mkdir(parents=True)
+    shutil.copy(REPO / "scripts/release-notes.sh", root / "scripts")
+    (root / "docs").mkdir()
+    (root / "docs/CHANGELOG.md").write_text(f"# Changelog\n\n{changelog}\n## [v1.0.0]\n")
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text('#!/bin/sh\nfor a in "$@"; do printf "%s\\n" "$a"; done > "$ASKED"\n')
+    (bin_dir / "gh").chmod(0o755)
+    made = subprocess.run(["bash", "-e", "-c", script], cwd=root, capture_output=True, text=True, check=False, env={
+        **os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "ASKED": str(tmp_path / "asked"),
+        "GITHUB_REPOSITORY": "DigiMonk73/BTCTX-MCP", "GITHUB_SHA": SHA, "TAG": tag, **env})
+    assert made.returncode == 0, made.stderr
+    return (root / "notes.md").read_text(), (tmp_path / "asked").read_text()
+
+
+def test_a_release_is_created_as_before(tmp_path):
+    notes, asked = release_step(
+        tmp_path, "v1.2.11", "## [v1.2.11]\n\n### Fixed\n- A fix.\n", VERSION="v1.2.11", CONNECTOR="1.2.11",
+        PRERELEASE="false", MAC_DMG="BitcoinTX-macOS.dmg", MAC_ZIP="BitcoinTX-macOS.zip", PACKAGE="1.2.11:0")
+    assert asked.splitlines() == [
+        "release", "create", "v1.2.11", "--target", SHA, "--title", "v1.2.11 · StartOS package 1.2.11:0",
+        "--notes-file", "notes.md", "dist/btctx.s9pk", "dist/BitcoinTX-macOS.dmg", "dist/BitcoinTX-macOS.zip",
+        "dist/SHA256SUMS"]
+    assert notes.startswith("\n### Fixed\n- A fix.\n\n## Downloads\n")
+    for line in ("installs of earlier versions update in place", "`BitcoinTX-macOS.dmg`",
+                 "`ghcr.io/digimonk73/btctx-mcp:v1.2.11` (amd64 and arm64).", "`uvx btctx-mcp==1.2.11` (PyPI)",
+                 "**Checking a download:**"):
+        assert line in notes, line
+    assert "pre-release" not in notes and "Beta" not in notes
+
+
+def test_a_beta_is_created_as_a_prerelease_with_its_own_notes(tmp_path):
+    notes, asked = release_step(
+        tmp_path, "v2.0.0-beta.1", "## [v2.0.0-beta.1]\n\n**About this beta.** Words.\n\n### Added\n- x\n",
+        VERSION="v2.0.0-beta.1", CONNECTOR="2.0.0b1", PRERELEASE="true", MAC_DMG="BitcoinTX-Beta-macOS.dmg",
+        MAC_ZIP="BitcoinTX-Beta-macOS.zip", PACKAGE="2.0.0-beta.1:0")
+    assert asked.splitlines() == [
+        "release", "create", "v2.0.0-beta.1", "--prerelease", "--latest=false", "--target", SHA, "--title",
+        "v2.0.0-beta.1 · pre-release · StartOS package 2.0.0-beta.1:0", "--notes-file", "notes.md",
+        "dist/btctx.s9pk", "dist/BitcoinTX-Beta-macOS.dmg", "dist/BitcoinTX-Beta-macOS.zip", "dist/SHA256SUMS"]
+    assert notes.startswith("**This is a pre-release of BitcoinTX 2.0, for testing.**")
+    assert notes.index("**About this beta.** Words.") < notes.index("## Downloads")
+    for line in ("`uvx btctx-mcp==2.0.0b1` (a pre-release on PyPI)", "`BitcoinTX-Beta-macOS.dmg`",
+                 "`ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.1` (amd64 and arm64), on a new volume",
+                 "/blob/v2.0.0-beta.1/docs/MAINTENANCE.md#going-back-to-1x", "**Checking a download:**"):
+        assert line in notes, line
 
 
 def test_the_release_notes_name_the_betas_own_downloads():

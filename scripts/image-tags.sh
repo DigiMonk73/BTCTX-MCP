@@ -7,10 +7,10 @@
 #                                   (2.0 plan 7.4, B10a), and nothing else:
 #                                   never :latest, :main or a moving tag, so
 #                                   no one's update takes a beta
-# A version tag is never overwritten. A beta is published only by
-# release.yml's run for its own branch, prerelease/vX.Y.Z-beta.N: a push to
-# main or a run started by hand elsewhere publishes none (nothing goes out
-# without the owner's "release").
+# A version tag is never overwritten. A beta is published only from its own
+# branch, prerelease/vX.Y.Z-beta.N (release.yml's run there, which the
+# owner's "release" starts): a push to main or a run started by hand on any
+# other branch publishes none.
 #
 #   scripts/image-tags.sh >> "$GITHUB_OUTPUT"
 #

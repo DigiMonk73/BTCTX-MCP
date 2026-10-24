@@ -9,9 +9,10 @@
 #   scripts/mac-app.sh package >> "$GITHUB_OUTPUT"  <Name>-macOS.dmg and .zip (stem=, dmg=, zip=)
 #   scripts/mac-app.sh identity NAME BUNDLE_ID PORT may VERSION's build be that?
 #
-# check and package run only on GitHub's runners: they open the build as it
-# is, on its own data folder, and a 1.x build's is the installed app's, the
-# real ledger. Anywhere else a build runs only through desktop/run-test-build.sh.
+# check and package run only on GitHub's own runners: they open the build as
+# it is, on its own data folder, and a 1.x build's is the installed app's, the
+# real ledger. Anywhere else (a self-hosted runner too) a build runs only
+# through desktop/run-test-build.sh.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,7 +40,7 @@ identity() {
 }
 
 on_ci() {
-  [ "${GITHUB_ACTIONS:-}" = true ] \
+  [ "${GITHUB_ACTIONS:-}" = true ] && [ "${RUNNER_ENVIRONMENT:-}" = github-hosted ] \
     || fail "only on GitHub's runners: it opens the build's own data folder (a 1.x build's is the real ledger). Run a build with desktop/run-test-build.sh"
 }
 
@@ -55,9 +56,10 @@ the_app() {
   [ -x "$EXE" ] || fail "$EXE is not executable"
 }
 
-# The port the launched app listens on, once it does
+# The port the launched app listens on, once it does; nothing before (lsof
+# then fails, which pipefail would make this script's end)
 listening_port() {
-  lsof -nP -a -p "$1" -iTCP -sTCP:LISTEN -Fn 2>/dev/null | sed -n 's/^n.*:\([0-9][0-9]*\)$/\1/p' | head -1
+  { lsof -nP -a -p "$1" -iTCP -sTCP:LISTEN -Fn 2>/dev/null || true; } | sed -n 's/^n.*:\([0-9][0-9]*\)$/\1/p' | head -1
 }
 
 stop() {
@@ -81,9 +83,11 @@ check() {
   done
   [ -n "$port" ] || { cat app.log; fail "$NAME never answered"; }
   echo "$NAME ($ID) answers on port $port"
-  curl -sf "http://127.0.0.1:$port/api/health" | grep -q '"status":"ok"' || fail "/api/health isn't ok"
+  local health
+  health="$(curl -sf "http://127.0.0.1:$port/api/health" || true)"
+  [[ "$health" == *'"status":"ok"'* ]] || fail "/api/health isn't ok: $health"
   code="$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$port/api/import/entries/preview" \
-    -H 'content-type: application/json' -d '{"rows":[]}')"
+    -H 'content-type: application/json' -d '{"rows":[]}' || true)"
   echo "entries endpoint (anonymous) -> $code"
   [ "$code" = 401 ] || fail "an anonymous import preview answered $code, not 401"
   identity "$NAME" "$ID" "$port"

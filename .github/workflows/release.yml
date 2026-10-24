@@ -296,7 +296,7 @@ jobs:
           - **StartOS:** it updates your BitcoinTX in place. **Make a StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x, uninstall BitcoinTX (which deletes its data) and restore that backup.
           - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/docs/MAINTENANCE.md#going-back-to-1x).
 
-          What you enter in a beta can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 beta report]($REPO_URL/issues/new?template=beta_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next beta.
+          What you enter in a beta can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 beta report]($REPO_URL/issues/new?template=beta_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next beta: until 2.0 is out, StartOS won't offer a server on a beta 1.x's updates.
 
           EOF
             scripts/release-notes.sh "$TAG" >> beta.md
