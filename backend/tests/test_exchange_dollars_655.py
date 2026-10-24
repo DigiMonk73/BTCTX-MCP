@@ -10,6 +10,7 @@ depends on which account paid: a buy's basis is the same either way.
 """
 
 import io
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 
@@ -19,7 +20,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.services.exchange_import import propose_file
 from backend.services.exchange_mappings import READY_MADE
-from backend.services.river_import import RIVER_1X
+from backend.services.river_import import BUY, RIVER_1X, SELL, FileRow, adapt_rows
 from backend.tests.conftest import default_login, stub_daily_prices
 
 FILES = Path(__file__).resolve().parents[2] / "testdata" / "exchange_files"
@@ -151,3 +152,58 @@ def test_a_river_file_saved_under_1xs_default_is_found_again_whole(client):
     again = preview()
     assert {p["status"] for p in again["proposals"]} == {"matched"}
     assert again["new_count"] == 0 and again["discrepancy_count"] == 0
+
+
+def _at(day: int) -> datetime:
+    return datetime(2026, 1, day, 12, 0, tzinfo=timezone.utc)
+
+
+def test_a_sales_fee_counts_as_the_usd_the_proposal_records_whatever_its_currency():
+    """covered_buys must mirror what the ledger does, not what the file
+    labels: buy() and sell() record every fee as USD (fee_currency="USD"),
+    so a sale's fee leaves the exchange's dollars even when the file wrote it
+    in bitcoin. A $50 sale with a $5 fee leaves $45 on the exchange; a $48
+    buy after it isn't covered, and is paid from the bank, not the exchange
+    (#655 review finding 1: counting the fee as _usd_fee, which is 0 for a
+    BTC fee currency, would cover the buy and take the exchange to -$3)."""
+    rows = [
+        FileRow(1, _at(5), SELL, Decimal("0.001"), Decimal("50"), Decimal("5"), "BTC", None),
+        FileRow(2, _at(6), BUY, Decimal("0.0005"), Decimal("48"), None, None, None),
+    ]
+    proposals, _, _ = adapt_rows(rows, RIVER_1X)
+    buy = next(p for p in proposals if p.type == "Buy")
+    assert buy.from_account_id == RIVER_1X.bank
+
+
+def _buy_funding(rows: list[FileRow], **kw) -> list[int]:
+    proposals, _, _ = adapt_rows(rows, RIVER_1X, **kw)
+    return [p.from_account_id for p in proposals if p.type == "Buy"]
+
+
+def test_the_fee_decides_whether_a_sale_covers_a_buy():
+    """A buy is covered only when the exchange's dollars reach its cost and
+    its USD fee together: a $50 sale covers a $49 buy with a $1 fee exactly
+    ($50), but not a $50 buy with a $1 fee ($51 needed) — that one is paid
+    from the bank. The fee the ledger subtracts is part of the test (#655)."""
+    sale = FileRow(1, _at(5), SELL, Decimal("0.001"), Decimal("50"), None, None, None)
+    covered = FileRow(2, _at(6), BUY, Decimal("0.0005"), Decimal("49"), Decimal("1"), "USD", None)
+    not_covered = FileRow(2, _at(6), BUY, Decimal("0.0005"), Decimal("50"), Decimal("1"), "USD", None)
+    assert _buy_funding([sale, covered]) == [RIVER_1X.exchange_usd]
+    assert _buy_funding([sale, not_covered]) == [RIVER_1X.bank]
+
+
+def test_a_bank_funded_buy_doesnt_consume_a_sales_proceeds():
+    """A buy the rule pays from a bank anyway doesn't draw on a sale's
+    dollars, so a later one-time buy still finds them (#655). River's
+    recurring no-fee auto-buys (outlays) are such buys; Swan's (from_bank)
+    are too — there every buy is the bank's."""
+    recurring = [FileRow(i, _at(i), BUY, Decimal("0.0003"), Decimal("25"), None, None, "Buy")
+                 for i in range(1, 5)]
+    sale = FileRow(5, _at(5), SELL, Decimal("0.01"), Decimal("500"), None, None, "Sell")
+    one_time = FileRow(6, _at(6), BUY, Decimal("0.005"), Decimal("500"), None, None, "Buy")
+    rows = [*recurring, sale, one_time]
+    # The four recurring buys are the bank's and spend none of the sale, so
+    # the one-time buy's $500 is still on the exchange and covers it.
+    assert _buy_funding(rows, outlays={Decimal("25"): 4}) == [RIVER_1X.bank] * 4 + [RIVER_1X.exchange_usd]
+    # Swan: every buy is the bank's, the sale untouched.
+    assert _buy_funding(rows, from_bank=True) == [RIVER_1X.bank] * 5

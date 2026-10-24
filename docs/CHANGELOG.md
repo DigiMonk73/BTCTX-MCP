@@ -233,10 +233,11 @@ All notable changes to BitcoinTX are documented in this file.
   −$338.34). Now a buy's "Paid from" is the exchange's dollars only when
   the file's earlier rows (its sales, less their fees, and the buys they
   already paid) leave enough there, and the first bank that isn't hidden
-  otherwise. **River's one-time buys now default to the bank when the file
-  shows no dollars to pay them**, where 1.x chose Exchange USD and could
-  leave it below zero; River's recurring buys stay the bank's, as before.
-  No figure changes (a buy's cost basis is the same whichever account
+  otherwise (the exchange's own dollars when every bank is hidden).
+  **River's one-time buys now default to the bank when the file shows no
+  dollars to pay them**, where 1.x chose Exchange USD and could leave it
+  below zero; River's recurring buys stay the bank's, as before.
+  No tax figure changes (a buy's cost basis is the same whichever account
   paid), a file imported before is still found whole (a buy's bank never
   stops a match), and you can still switch each row's "Paid from" in the
   preview.

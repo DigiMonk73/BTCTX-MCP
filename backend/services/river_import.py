@@ -13,7 +13,8 @@ do I download my account activity?" defines the columns and tags.
 Account model (spec 5.11, Q8): River is the exchange the owner chooses for
 the file (its USD and BTC accounts; by default the first exchange), its
 sends go to the wallet the owner chooses (by default the first wallet), a
-recurring buy is paid from the first bank, and External is everything else.
+buy is paid from the first bank unless the file's earlier sales left the
+exchange's dollars to pay it (#655), and External is everything else.
 
 Every other exchange's file (exchange_import, B5b) is read into the same
 FileRows River's are, so this adapter, duplicate check and save serve them
@@ -81,9 +82,9 @@ CHOOSE_WALLET = "Choose one of your wallets."
 @dataclass(frozen=True)
 class RiverAccounts:
     """Where a River file goes (5.11, Q8): the exchange's two accounts, the
-    wallet its sends go to, the bank a recurring buy is paid from (None when
-    every bank is hidden: then the exchange's dollars), the banks a buy may
-    be paid from besides the exchange's dollars, and the book naming them."""
+    wallet its sends go to, the bank its buys are paid from by default (None
+    when every bank is hidden: then the exchange's dollars), the banks a buy
+    may be paid from besides the exchange's dollars, and the book naming them."""
     exchange_usd: int
     exchange_btc: int
     wallet: int
@@ -379,6 +380,14 @@ def _usd_fee(row: RiverRow | FileRow) -> Decimal:
     return Decimal("0")
 
 
+def _recorded_fee(row: RiverRow | FileRow) -> Decimal:
+    """The USD fee a buy's or sell's proposal records. buy() and sell() save
+    every fee as fee_currency="USD", so the ledger subtracts row.fee from the
+    exchange's dollars whatever currency the file wrote the fee in; covered_buys
+    counts this same amount, not _usd_fee's 0 for a BTC fee currency (#655)."""
+    return row.fee or Decimal("0")
+
+
 def _buy_outlay(row: RiverRow) -> Decimal:
     """Total USD that left for a buy: sent + USD fee."""
     return (row.sent or Decimal("0")) + _usd_fee(row)
@@ -445,8 +454,9 @@ def adapt_river_rows(
     (proposals, errors, warnings): each River row as a proposed BitcoinTX
     transaction into `accounts` (the owner's choice, river_accounts). A row
     that fits no known pattern, or lacks an amount, is skipped with a
-    warning (never silently dropped). A recurring no-fee buy is paid from a
-    bank (River's rule).
+    warning (never silently dropped). A buy is paid from a bank unless the
+    file's earlier sales left the exchange's dollars to pay it (#655); a
+    recurring no-fee buy from a bank always (River's rule).
     """
     file_rows, skipped = river_file_rows(rows)
     proposals, errors, warnings = adapt_rows(file_rows, accounts, _recurring_outlays(rows))
@@ -552,9 +562,9 @@ class _Adapter:
         for row in sorted(rows, key=lambda r: r.timestamp):
             usable = row.btc and row.btc > 0 and row.usd and row.usd > 0
             if row.kind == SELL and usable:
-                dollars += row.usd - _usd_fee(row)
-            elif row.kind == BUY and usable and not self.from_a_bank(row) and dollars >= row.usd + _usd_fee(row):
-                dollars -= row.usd + _usd_fee(row)
+                dollars += row.usd - _recorded_fee(row)
+            elif row.kind == BUY and usable and not self.from_a_bank(row) and dollars >= row.usd + _recorded_fee(row):
+                dollars -= row.usd + _recorded_fee(row)
                 covered.add(id(row))
         return covered
 
