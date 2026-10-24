@@ -15,7 +15,7 @@ import { accountsSummary } from "../utils/ledgerAccounts";
 import {
   browserStore, initiallyOpen, linkedSection, rememberOpen, reviewSummary, toggled, type SettingsSectionId,
 } from "../utils/settingsSections";
-import { useAccounts } from "../utils/useAccounts";
+import { useSettingsAccounts } from "../utils/useSettingsAccounts";
 import "../styles/settings.css";
 
 /**
@@ -34,7 +34,7 @@ const Settings: React.FC = () => {
   const [open, setOpen] = useState(() => initiallyOpen(browserStore(), hash));
   const [seenHash, setSeenHash] = useState(hash);
   const [review, setReview] = useState<LedgerReviewResponse | null>();
-  const accounts = useAccounts();
+  const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };
 
   // A link followed while the page is open opens its section too

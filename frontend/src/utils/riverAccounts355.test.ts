@@ -1,7 +1,7 @@
 // River's exchange and wallet (#355; 2.0 spec 5.11, 5.13, Q8): the file's
 // choice, never a hidden default, and a row's type change keeping it.
 import { describe, expect, it } from "vitest";
-import { ONE_OF_EACH, TWO_OF_EACH } from "../test/accountBooks";
+import { MANY, ONE_OF_EACH } from "../test/books";
 import {
   FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, riverAccountNames, riverChoices, toEditableRow, typeChange,
 } from "./riverImport";
@@ -18,33 +18,33 @@ describe("the file's exchange and wallet", () => {
   });
 
   it("with more than one, are asked, the first of each chosen (Q8), each exchange by its name", () => {
-    const choices = riverChoices(TWO_OF_EACH);
-    expect(choices.exchanges).toEqual([{ id: 4, name: "Exchange" }, { id: 103, name: "Kraken" }]);
-    // Old Wallet is hidden
-    expect(choices.wallets).toEqual([{ id: 2, name: "Wallet" }, { id: 101, name: "Cold Storage" }]);
+    const choices = riverChoices(MANY);
+    // Closed and Old phone are hidden
+    expect(choices.exchanges).toEqual([{ id: 4, name: "River" }, { id: 103, name: "Kraken" }]);
+    expect(choices.wallets).toEqual([{ id: 2, name: "Sparrow" }, { id: 100, name: "Coldcard" }]);
     expect(choices.defaults).toEqual({ exchange: 4, wallet: 2 });
     expect([choices.askExchange, choices.askWallet]).toEqual([true, true]);
     // Only the kind with a choice is asked
-    expect(riverChoices(hide(TWO_OF_EACH, [101])).askWallet).toBe(false);
+    expect(riverChoices(hide(MANY, [100])).askWallet).toBe(false);
   });
 
   it("never default to a hidden one: the first shown is, and a hidden one isn't offered", () => {
-    const choices = riverChoices(hide(TWO_OF_EACH, [2, 3, 4]));
-    expect(choices.defaults).toEqual({ exchange: 103, wallet: 101 });
+    const choices = riverChoices(hide(MANY, [2, 3, 4]));
+    expect(choices.defaults).toEqual({ exchange: 103, wallet: 100 });
     expect(choices.exchanges.map((e) => e.id)).toEqual([103]);
     expect([choices.askExchange, choices.askWallet]).toEqual([false, false]);
   });
 
   it("with every one of a kind hidden, ask with none chosen, among the hidden ones", () => {
-    const choices = riverChoices(hide(TWO_OF_EACH, [2, 101]));
+    const choices = riverChoices(hide(MANY, [2, 100]));
     expect(choices.defaults).toEqual({ exchange: 4, wallet: undefined });
-    expect(choices.wallets.map((w) => w.id)).toEqual([2, 101, 104]);
+    expect(choices.wallets.map((w) => w.id)).toEqual([2, 100, 104]);
     expect(choices.askWallet).toBe(true);
   });
 
   it("are named in the rows as the import reads them: the exchange's BTC account, the wallet", () => {
-    expect(riverAccountNames(TWO_OF_EACH, { exchange: 103, wallet: 101 })).toEqual({
-      exchange: "Kraken BTC", wallet: "Cold Storage",
+    expect(riverAccountNames(MANY, { exchange: 103, wallet: 100 })).toEqual({
+      exchange: "Kraken BTC", wallet: "Coldcard",
     });
     expect(riverAccountNames(ONE_OF_EACH, { exchange: 4, wallet: 2 })).toEqual(FIRST_RIVER_ACCOUNTS);
     expect(riverAccountNames(undefined, {})).toEqual(FIRST_RIVER_ACCOUNTS);
@@ -75,11 +75,11 @@ describe("a row's type change keeps the file's exchange and wallet", () => {
 
 describe("the pick", () => {
   it("is the owner's while it's offered, else the first shown one; nothing before the book is read", () => {
-    const choices = riverChoices(TWO_OF_EACH);
+    const choices = riverChoices(MANY);
     expect(chosenRiverAccounts(choices, {})).toEqual({ exchange: 4, wallet: 2 });
     expect(chosenRiverAccounts(choices, { exchange: 103 })).toEqual({ exchange: 103, wallet: 2 });
     // Kraken hidden since it was picked: back to the first shown
-    expect(chosenRiverAccounts(riverChoices(hide(TWO_OF_EACH, [102, 103])), { exchange: 103 }))
+    expect(chosenRiverAccounts(riverChoices(hide(MANY, [102, 103])), { exchange: 103 }))
       .toEqual({ exchange: 4, wallet: 2 });
     expect(chosenRiverAccounts(undefined, { exchange: 103 })).toEqual({});
   });

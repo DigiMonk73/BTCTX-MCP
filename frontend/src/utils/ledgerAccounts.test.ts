@@ -1,15 +1,18 @@
 // Settings' "Wallets, exchanges and banks" (#355, 2.0 spec 5.9): its rows,
 // grouped by kind, and its texts word for word.
 import { describe, expect, it } from "vitest";
-import { ONE_OF_EACH, TWO_OF_EACH } from "../test/accountBooks";
+import { MANY, ONE_OF_EACH } from "../test/books";
 import {
   ADD_LABEL, EXCHANGE_HELP, POOLED_NOTE, WALLET_HELP, accountGroups, accountsSummary, addHelp, balanceText,
   canDelete, pooledNote,
 } from "./ledgerAccounts";
 
-/** One of each, and two of each with one wallet hidden (src/test/accountBooks.ts). */
-const BOOK = ONE_OF_EACH;
-const MORE = TWO_OF_EACH;
+/** These accounts named by a transaction or a ledger line (the test books name none). */
+const used = (book: AccountBook, ids: number[]) => book.map((a) => (ids.includes(a.id) ? { ...a, in_use: true } : a));
+
+/** A 1.x ledger in use, and more of each (src/test/books.ts) with Coldcard and Kraken's bitcoin in use. */
+const BOOK = used(ONE_OF_EACH, [1, 2, 3, 4]);
+const MORE = used(MANY, [1, 2, 3, 4, 100, 103]);
 
 describe("the rows", () => {
   it("are grouped wallets, exchanges, banks, each with its Add button; never the fee accounts", () => {
@@ -25,15 +28,16 @@ describe("the rows", () => {
   it("show an exchange as one row of its two accounts, dollars first, by its own name", () => {
     const [, exchanges] = accountGroups(MORE);
     expect(exchanges.shown.map((r) => [r.name, r.accounts.map((a) => a.id)])).toEqual([
-      ["Exchange", [3, 4]], ["Kraken", [102, 103]],
+      ["River", [3, 4]], ["Kraken", [102, 103]],
     ]);
   });
 
   it("keep the book's order within a kind, and put hidden ones apart", () => {
-    const [wallets, , banks] = accountGroups(MORE);
-    expect(wallets.shown.map((r) => r.name)).toEqual(["Wallet", "Cold Storage"]);
-    expect(wallets.hidden.map((r) => r.name)).toEqual(["Old Wallet"]);
-    expect(banks.shown.map((r) => r.name)).toEqual(["Bank", "Credit Union"]);
+    const [wallets, exchanges, banks] = accountGroups(MORE);
+    expect(wallets.shown.map((r) => r.name)).toEqual(["Sparrow", "Coldcard"]);
+    expect(wallets.hidden.map((r) => r.name)).toEqual(["Old phone"]);
+    expect(exchanges.hidden.map((r) => r.name)).toEqual(["Closed"]);
+    expect(banks.shown.map((r) => r.name)).toEqual(["Checking", "Savings"]);
   });
 
   it("an exchange is hidden when its accounts are, in use when either is", () => {
@@ -41,16 +45,18 @@ describe("the rows", () => {
     const kraken = accountGroups(MORE)[1].shown[1];
     expect([kraken.hidden, kraken.inUse]).toEqual([false, true]);
     const gone: AccountBook = MORE.map((a) => (a.exchange_id === 2 ? { ...a, hidden: true } : a));
-    expect(accountGroups(gone)[1].hidden.map((r) => r.name)).toEqual(["Kraken"]);
+    expect(accountGroups(gone)[1].hidden.map((r) => r.name)).toEqual(["Kraken", "Closed"]);
+    // Only one of the two hidden (never so through the API): shown, so it's never lost from view
+    const half: AccountBook = MORE.map((a) => (a.id === 103 ? { ...a, hidden: true } : a));
+    expect(accountGroups(half)[1].shown.map((r) => r.name)).toEqual(["River", "Kraken"]);
   });
 
   it("offer Delete only for an account no transaction names, never your first bank, wallet or exchange", () => {
     const rows = (book: AccountBook) => accountGroups(book).flatMap((g) => [...g.shown, ...g.hidden]);
-    expect(rows(MORE).filter(canDelete).map((r) => r.name)).toEqual(["Credit Union"]);
-    const added = MORE.map((a) => (a.id >= 100 ? { ...a, in_use: false } : a));
-    expect(rows(added).filter(canDelete).map((r) => r.name)).toEqual(["Cold Storage", "Old Wallet", "Kraken", "Credit Union"]);
-    const unused = BOOK.map((a) => ({ ...a, in_use: false }));
-    expect(rows(unused).filter(canDelete)).toEqual([]);
+    expect(rows(MORE).filter(canDelete).map((r) => r.name)).toEqual(["Old phone", "Closed", "Savings"]);
+    expect(rows(MANY).filter(canDelete).map((r) => r.name))
+      .toEqual(["Coldcard", "Old phone", "Kraken", "Closed", "Savings"]);
+    expect(rows(ONE_OF_EACH).filter(canDelete)).toEqual([]);
   });
 });
 
@@ -79,7 +85,7 @@ describe("a row's balance", () => {
 describe("the section's summary", () => {
   it("counts each kind shown, and the hidden ones", () => {
     expect(accountsSummary(BOOK)).toBe("1 wallet · 1 exchange · 1 bank");
-    expect(accountsSummary(MORE)).toBe("2 wallets · 2 exchanges · 2 banks · 1 hidden");
+    expect(accountsSummary(MORE)).toBe("2 wallets · 2 exchanges · 2 banks · 2 hidden");
     expect(accountsSummary(undefined)).toBe("Your accounts, by kind");
   });
 });
@@ -131,7 +137,7 @@ describe("adding an account (5.1, 5.8, 5.9: their words, exactly)", () => {
   });
 
   it("gives no note while no other one of that kind has transactions (a new user's second wallet)", () => {
-    const fresh = BOOK.map((a) => ({ ...a, in_use: false }));
+    const fresh = ONE_OF_EACH;
     expect(pooledNote(fresh, "wallet")).toBeNull();
     expect(pooledNote(fresh, "exchange")).toBeNull();
     // A hidden wallet with transactions still had its coins figured with the others
