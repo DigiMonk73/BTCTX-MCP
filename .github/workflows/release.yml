@@ -296,12 +296,13 @@ jobs:
           case "$PRERELEASE" in true | false) ;; *) echo "prerelease is '$PRERELEASE', not true or false"; exit 1 ;; esac
           case "$TAG" in
             *-alpha.* | *-beta.*) [ "$PRERELEASE" = true ] || { echo "$TAG is a pre-release, not marked one"; exit 1; }; STAGE="${TAG#*-}" ;;
+            *) [ "$PRERELEASE" = false ] || { echo "$TAG is marked a pre-release but is neither an alpha nor a beta"; exit 1; } ;;
           esac
           REPO_URL="https://github.com/$GITHUB_REPOSITORY"
           if [ "$PRERELEASE" = true ]; then
             # A pre-release's notes open with what it is, how each platform
             # keeps a tester's records, and the way back (2.0 plan 7.4, B10a; 5.16)
-            if [ "${STAGE%%.*}" = alpha ]; then what="an alpha of BitcoinTX 2.0, its earliest test version"; else what="a beta of BitcoinTX 2.0"; fi
+            if [ "${STAGE%%.*}" = alpha ]; then what="an alpha of BitcoinTX 2.0, its earliest test stage"; else what="a beta of BitcoinTX 2.0"; fi
             cat > pre.md <<EOF
           **This is $what: a pre-release, for testing.** It's for people who choose to try 2.0 before it's released, and it may have bugs. Nobody gets it as an update: BitcoinTX's releases, Docker's \`:latest\`, the Mac app's download, the landing page and Start9's store stay on 1.x.
 

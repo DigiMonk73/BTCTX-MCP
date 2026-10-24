@@ -371,7 +371,7 @@ def test_a_pre_release_keeps_the_price_historys_age_check_and_goes_to_pypi():
     assert "if: needs.check.outputs.exists == 'false' && needs.check.outputs.revision == '0'" in job(RELEASE_YML, "pypi")
 
 
-def test_a_beta_is_a_github_prerelease_never_latest():
+def test_a_pre_release_is_a_github_prerelease_never_latest():
     release = job(RELEASE_YML, "release")
     assert 'if [ "$PRERELEASE" = true ]; then kind=(--prerelease --latest=false)' in release
     assert 'gh release create "$TAG" "${kind[@]}"' in release
@@ -451,7 +451,7 @@ def test_an_alpha_is_created_as_a_prerelease_and_called_an_alpha(tmp_path):
         MAC_ZIP="BitcoinTX-Preview-macOS.zip", PACKAGE="2.0.0-alpha.1:0")
     assert asked.splitlines()[:7] == ["release", "create", "v2.0.0-alpha.1", "--prerelease", "--latest=false",
                                       "--target", SHA]
-    assert notes.startswith("**This is an alpha of BitcoinTX 2.0, its earliest test version: a pre-release, for testing.**")
+    assert notes.startswith("**This is an alpha of BitcoinTX 2.0, its earliest test stage: a pre-release, for testing.**")
     assert "`uvx btctx-mcp==2.0.0a1` (a pre-release on PyPI)" in notes
     assert "a beta of" not in notes
 
@@ -461,6 +461,9 @@ def test_an_alpha_is_created_as_a_prerelease_and_called_an_alpha(tmp_path):
     ("v1.2.11", "yes", "prerelease is 'yes', not true or false"),
     ("v2.0.0-beta.1", "false", "v2.0.0-beta.1 is a pre-release, not marked one"),
     ("v2.0.0-alpha.1", "false", "v2.0.0-alpha.1 is a pre-release, not marked one"),
+    # and the other way: only an alpha or a beta is a pre-release
+    ("v2.0.0-rc.1", "true", "v2.0.0-rc.1 is marked a pre-release but is neither an alpha nor a beta"),
+    ("v1.2.11", "true", "v1.2.11 is marked a pre-release but is neither an alpha nor a beta"),
 ])
 def test_a_release_whose_kind_is_unclear_is_never_created(tmp_path, tag, prerelease, says):
     """Made a normal release, a beta would be "Latest" (gh's default), and
@@ -471,7 +474,7 @@ def test_a_release_whose_kind_is_unclear_is_never_created(tmp_path, tag, prerele
     assert not (tmp_path / "asked").exists()
 
 
-def test_the_release_notes_name_the_betas_own_downloads():
+def test_the_release_notes_name_the_pre_releases_own_downloads():
     release = job(RELEASE_YML, "release")
     assert "uvx btctx-mcp==$CONNECTOR" in release
     assert "\\`$MAC_DMG\\`" in release and "ghcr.io/digimonk73/btctx-mcp:$VERSION" in release

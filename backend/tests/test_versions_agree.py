@@ -8,8 +8,8 @@ here, so a release can't ship an s9pk that pulls the previous image.
 A 2.0 pre-release (2.0 plan 7.4, B10a; #251's decision 28: alphas, then
 betas) has VERSION X.Y.Z-alpha.N or X.Y.Z-beta.N, which each place writes in
 its own form: Apple takes only numbers for a bundle's version (X.Y.Z), PyPI
-the PEP 440 form (X.Y.ZaN, X.Y.ZbN), StartOS the ExVer one (X.Y.Z-beta.N:0)
-and the image tag VERSION itself.
+the PEP 440 form (X.Y.ZaN, X.Y.ZbN), StartOS the ExVer one (X.Y.Z-alpha.N:0,
+X.Y.Z-beta.N:0) and the image tag VERSION itself.
 """
 
 import re
