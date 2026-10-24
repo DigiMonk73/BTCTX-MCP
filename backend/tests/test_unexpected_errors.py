@@ -219,7 +219,7 @@ def test_the_tax_timezone_change_shows_only_its_own_words(clean, monkeypatch, ca
     after = "Asia/Tokyo" if before != "Asia/Tokyo" else "Europe/Paris"
     r = clean.put("/api/settings/tax-timezone", json={"timezone": "Not/AZone", "chosen": True})
     assert r.status_code == 400 and "Unknown timezone" in r.json()["detail"]
-    monkeypatch.setattr("backend.routers.settings.recalculate_all_transactions", _raises(ValueError(LEAKY)))
+    monkeypatch.setattr("backend.services.transaction.recalculate_all_transactions", _raises(ValueError(LEAKY)))
     with caplog.at_level("INFO"):
         r = clean.put("/api/settings/tax-timezone", json={"timezone": after, "chosen": True})
     assert (r.status_code, r.json()) == (500, {"detail": UNEXPECTED})

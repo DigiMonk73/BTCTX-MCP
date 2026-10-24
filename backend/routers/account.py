@@ -1,13 +1,17 @@
 """
 Your accounts (2.0 spec 5.9): the list, one account, adding a bank, a
-wallet or an exchange, hiding and showing, and deleting an unused one.
-Login only.
+wallet or an exchange, hiding and showing, an exchange's 1099-DA switch
+(through the past-year warning, 5.8), and deleting an unused one. Login
+only.
 """
 
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead
 from backend.services import account as account_service
+from backend.services import past_years
+from backend.services.past_year_writes import AccountChange
 from backend.database import get_db
 
 router = APIRouter(tags=["accounts"])
@@ -33,9 +37,22 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{account_id}", response_model=AccountRead)
-def update_account(account_id: int, change: AccountUpdate, db: Session = Depends(get_db)):
-    """Hide or show an account (an exchange's: both); 400 for a fee account, 404."""
-    account_service.set_hidden(db, account_id, change.hidden)
+def update_account(account_id: int, change: AccountUpdate, confirm: str | None = None,
+                   db: Session = Depends(get_db)):
+    """
+    Hide or show an account (an exchange's: both), and turn an exchange's
+    1099-DA switch off or on (from either of its accounts); 400 for a fee
+    account hidden, or the switch on an account that isn't an exchange's;
+    404. A switch that moves the Form 8949 box of a sale in an earlier tax
+    year answers 409 with the years, what changes and a fingerprint, and
+    saves nothing until sent again with ?confirm=<fingerprint>; a copy of
+    the database comes first.
+    """
+    account_service.one(db, account_id)  # 404 first
+    write = AccountChange(account_id, hidden=change.hidden, sends_1099da=change.sends_1099da)
+    done = past_years.save(write, db, confirm, by_ai=False)
+    if isinstance(done, JSONResponse):
+        return done  # the warning
     return account_service.one(db, account_id)
 
 

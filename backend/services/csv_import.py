@@ -985,16 +985,23 @@ def execute_import(
         if not take_write_lock(db):
             raise ImportBusy
         try:
-            to_save = sorted_txns if check is None else sorted(check(), key=lambda x: x["timestamp"])
-            for tx_data in to_save:
-                create_transaction_record(tx_data, db, auto_commit=False)
+            saved = create_in_time_order(db, sorted_txns if check is None else check())
             db.commit()
-            return len(to_save)
+            return saved
         except Exception:
             db.rollback()
             raise
 
     return hourly_prices.with_prices_found(db, save, *sorted_txns)
+
+
+def create_in_time_order(db: Session, transactions: list[dict[str, Any]]) -> int:
+    """Each transaction created, uncommitted, by timestamp (rows at the same
+    time in the file's order: execute_import); how many."""
+    to_save = sorted(transactions, key=lambda x: x["timestamp"])
+    for tx_data in to_save:
+        create_transaction_record(tx_data, db, auto_commit=False)
+    return len(to_save)
 
 
 # The template's sample rows, in date order: at least one of each type, both

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer
 
@@ -110,6 +111,26 @@ class AccountBalance(BaseModel):
         return eight_places(v)
 
 
+class PastYearWarning(BaseModel):
+    """
+    The past-year warning (2.0 spec 5.8): the rows would change the figures
+    of an earlier tax year, so the execute saves them only when sent again
+    with ?confirm=<confirm>. `changes` are the rows whose figures move, as
+    Ledger Review lists them, each with what moves and its tax years;
+    `pending`, apart, what a save that recalculates also applies (with the
+    AI key); `exact` false when the server ran out of time to work out
+    exactly what moves, and names every year the rows can reach instead.
+    """
+    detail: str
+    years: list[int]
+    changes: list[dict[str, Any]]
+    pending: list[dict[str, Any]]
+    recalc_error: str | None = None
+    exact: bool
+    why_not_exact: str | None = None
+    confirm: str
+
+
 class EntryPreviewResponse(BaseModel):
     ok: bool  # True when every row is ready or an exact duplicate
     ready_count: int
@@ -120,6 +141,7 @@ class EntryPreviewResponse(BaseModel):
     results: list[EntryResult]
     affected_existing: list[AffectedTransaction] = []
     balances_after: list[AccountBalance] = []
+    past_years: PastYearWarning | None = None
 
 
 class CreatedTransaction(BaseModel):
