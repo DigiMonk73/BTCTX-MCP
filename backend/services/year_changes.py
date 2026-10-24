@@ -6,9 +6,9 @@ income or a rebate and as a gift, donation or lost coins, and its date and
 tax year. The boxes and
 dates are compared even when every dollar matches: a covered sale can turn
 noncovered with the same gain (G to H), and two lots of the same cost and
-term can swap; and its date is printed on a filed return (Form 8949's
-column (c)) even when it stays in its year. A row with no figures (dollars
-only) changes no tax year, wherever it moves.
+term can swap; and a date a filed return prints (Form 8949's column (c),
+the report's income and gifts) counts even when it stays in its year. A
+row with no figures (dollars only) changes no tax year, wherever it moves.
 """
 
 from typing import Any
@@ -29,9 +29,10 @@ from backend.services.tax_time import format_tax_date, local_date
 # (the purpose and value: a donation's can be a charitable deduction; the
 # build's lead, 2026-10-24)
 COLUMNS = ("boxes", "acquired", "received", "given")
-# And, for a row with figures, its date and tax year: a filed return prints
-# the date (Form 8949's column (c), the report's income and gifts), so it
-# counts even within its year (the build's lead, 2026-10-24)
+# And, for a row with figures, its tax year; and its date where a filed
+# return prints it, even within its year (the build's lead, 2026-10-24): a
+# disposal's date sold (Form 8949's column (c)), an income's, rebate's or
+# gift's (the report). The dates acquired are its lots' and column (b).
 DATES = ("date", "year")
 RECEIVED = INCOME_SOURCES | {REBATE_SOURCE}
 # A row's figures, any one of which set makes it count (a dollar row never does)
@@ -113,8 +114,20 @@ def _row_diff(tx_id: int, old: dict | None, new: dict | None) -> dict[str, Any]:
     if not (counts(old) or counts(new)):
         return {}
     diff = review.differences({tx_id: old}, {tx_id: new}).get(tx_id, {})
-    diff.update({key: (old[key], new[key]) for key in (*COLUMNS, *DATES) if old[key] != new[key]})
+    diff.update({key: (old[key], new[key]) for key in COLUMNS if old[key] != new[key]})
+    if old["date"] != new["date"] and (_date_printed(old) or _date_printed(new)):
+        diff["date"] = (old["date"], new["date"])
+    if old["year"] != new["year"]:
+        diff["year"] = (old["year"], new["year"])
     return diff
+
+
+def _date_printed(row: dict) -> bool:
+    """Whether a filed return prints the row's own date: it has lot
+    disposals (column (c)), or the report lists it as income, a rebate or a
+    gift. A deposit's date isn't: its lot's is (a date originally acquired
+    being the lot's)."""
+    return bool(row.get("rows")) or row["received"] is not None or row["given"] is not None
 
 
 def counts(row: dict) -> bool:
@@ -159,7 +172,8 @@ def items(changes: dict, rows: dict, db: Session, tz, book: AccountBook, issue: 
 
 def change_text(diff: dict, row: dict | None = None) -> str:
     """What moves, in words: Ledger Review's for the figures, then the box,
-    column (b) and the tax year; an added or deleted row's figures (`row`)."""
+    column (b), income and rebates, gifts, the date and the tax year; an
+    added or deleted row's figures (`row`)."""
     if diff.get("added") or diff.get("deleted"):
         named = [f"{review.FIGURE_NAMES[k]} {review.money(row[k])}" for k in NAMED if (row or {}).get(k) is not None]
         return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
