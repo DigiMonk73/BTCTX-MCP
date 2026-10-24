@@ -39,14 +39,21 @@ const Settings: React.FC = () => {
 
   // A link's section opens, as if its button were pressed (remembered), and
   // the link's "#" goes: a reload then shows what's open, not the link's again
+  const [scrollTo, setScrollTo] = useState<SettingsSectionId | null>(null);
   useEffect(() => {
     const linked = linkedSection(hash);
     if (!linked) return;
     setOpen(linked);
     rememberOpen(browserStore(), linked);
-    document.getElementById(`settings-${linked}-section`)?.scrollIntoView({ block: "start" });
+    setScrollTo(linked);
     navigate(pathname, { replace: true });
   }, [hash, pathname, navigate]);
+  // Once it's open and the one before has closed, so the place it scrolls to holds
+  useEffect(() => {
+    if (!scrollTo || open !== scrollTo) return;
+    document.getElementById(`settings-${scrollTo}-section`)?.scrollIntoView({ block: "start" });
+    setScrollTo(null);
+  }, [scrollTo, open]);
 
   const toggle = (id: SettingsSectionId) => {
     const next = toggled(open, id);

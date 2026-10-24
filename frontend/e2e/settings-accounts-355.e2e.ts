@@ -280,7 +280,7 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   expect((await page.request.put(`/api/accounts/${phone.id}`, { data: { hidden: true } })).ok()).toBeTruthy();
   await page.reload();
 
-  // Asked, the first of each chosen (Q8); a hidden wallet isn't offered
+  // Asked, the first shown one of each chosen (Q8)
   const exchange = river.getByLabel("Exchange", { exact: true });
   const wallet = river.getByLabel("Wallet for sends and receives");
   await expect(exchange).toHaveValue("4");
@@ -306,7 +306,7 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   expect((await sentForms(page))[1]).toEqual({ exchange_account_id: "102", wallet_account_id: "2" });
   await expect(wallet).toHaveValue("2");
 
-  // One that fails leaves the pick and the rows as the preview on screen has them
+  // One that fails leaves the pick as the preview on screen has it
   await page.route("**/api/import/river/preview", (route) =>
     route.fulfill({ status: 500, json: { detail: "Down for a moment." } }));
   await wallet.selectOption({ label: "Coldcard" });
