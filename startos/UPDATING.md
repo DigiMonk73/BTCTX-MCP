@@ -96,7 +96,10 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
   in `startos/`, and so does the release workflow, before publishing
   anything.
 - **Contribute each release, only by a pull request:** from
-  DigiMonk73/BTCTX-StartOS `main` to the fork's default branch. The sync
+  DigiMonk73/BTCTX-StartOS `main` to the fork's default branch. Before
+  opening or updating one, the SDK must be current
+  (`npm view @start9labs/start-sdk version`; Start9's `publishing.md`,
+  "Pre-Publish Checklist"): bump it first ("Bumping the SDK"). The sync
   first fast-forwards the mirror's `main` to the fork's branch, so the pull
   request shows only our changes. After the mirror push, the release
   workflow opens an issue in BTCTX-MCP, "Send vX.Y.Z to Start9: open the
@@ -126,6 +129,15 @@ with nothing in it), its package version back at `:0`, released as in
 (owner's rule, 2026-10-17). Its notes cover everything since the version the
 community registry serves. If a package fix can't wait and no app fix is
 ready, ask the owner: the rules change then.
+
+**A change Start9's review asks for** on a pull request to their fork, for a
+version the community registry doesn't serve yet, is taken under that same
+version (Start9's `versions.md`; the owner, 2026-10-23, #617): byte-identical
+to their proposal when they give one, in `startos/` by a pull request from a
+branch cut from `main` (the release the mirror holds), and the mirror is synced
+from that branch so the fork's pull request carries only it.
+Our GitHub release keeps the `.s9pk` it shipped; the CHANGELOG says how
+Start9's build of that version differs.
 
 ## The package version
 
@@ -157,8 +169,9 @@ its release notes (what StartOS shows before updating) and its migration.
   that already claims the version. Start9 keeps a package-only follow-up to
   a version it doesn't serve yet under that version, its notes added to the
   ones already there; our release workflow can't release a version again, so
-  here such a fix rides in a small app release (above, at the end of "After
-  Start9 forks the mirror").
+  here such a fix rides in a small app release (above, "Before the community
+  registry serves the current version"), unless Start9's review asks for it
+  (the paragraph after that one).
 - Release notes are user-facing: what changed for them, in plain language,
   in `en_US`, `es_ES`, `de_DE`, `pl_PL` and `fr_FR`, each ending with the
   CHANGELOG link. They cover every change since the version the community
@@ -171,17 +184,34 @@ its release notes (what StartOS shows before updating) and its migration.
   messages describe the package as it is, to someone who never ran an older
   version.
 
-Checks: `rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
-(`make` type-checks, lints, format-checks and bundles), and `backend/tests/test_versions_agree.py`.
+Checks: `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
+(`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
+instead of checking, so the format check comes first), and `backend/tests/test_versions_agree.py`.
+
+## Watching Start9
+
+Start9 moves fast (on 2026-10-23 alone: StartOS 0.4.0.3, start-cli 2.5.0 and
+start-registry 1.2.0), and their reviewers hold the
+package to their current guide and SDK. So BTCTX-MCP watches them daily
+(BTCTX-MCP's `.github/workflows/start9-watch.yml` and `scripts/start9-watch.sh`; the owner,
+2026-10-23): one issue, labelled `start9`, for each newer start-sdk or
+start-cli than `develop` pins, each StartOS release (test the package on it,
+the lab VM first), each start-registry release (check our start-cli still
+reads the registries), each day Start9's packaging guide or shared package
+workflows change, a failed build on the mirror or their fork, and changes on
+their fork not taken back. In BTCTX-MCP, `scripts/start9-watch.sh --dry-run` shows the
+same without opening anything. Each issue says what to do; the Monday report
+lists the open ones.
 
 ## Bumping the SDK
 
-BTCTX-MCP's `.github/workflows/startos-sdk-check.yml` opens an issue when npm
-has a newer `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt
-them:
+BTCTX-MCP's `scripts/start9-watch.sh` opens an issue when npm has a newer
+`@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt them:
 
-1. Read its CHANGELOG (in `node_modules/@start9labs/start-sdk/` after
-   installing) for breaking changes and the minimum StartOS version.
+1. Read its release notes
+   (`https://github.com/Start9Labs/start-technologies/releases/tag/start-sdk/v<version>`;
+   the npm package's `CHANGELOG.md` can lag, as 3.1.0's did) for breaking
+   changes and the minimum StartOS version (the SDK's `OSVersion`).
 2. First save the bundle's list of sibling modules, on the tree as it is
    (below). Then `npm install --save-exact @start9labs/start-sdk@<version>`,
    and run `npm install` again until `package-lock.json` stops changing
@@ -228,7 +258,9 @@ them:
    take it with `scripts/start9-pull.sh` instead of steps 1 and 2.
 4. Run the checks, bump the package revision, release. While the community
    registry doesn't serve the current version, the bump rides in the next
-   app release instead (the end of "After Start9 forks the mirror").
+   app release instead ("Before the community registry serves the current
+   version"), unless Start9's review asks for it (the paragraph after that
+   one).
 
 ## Building locally
 
