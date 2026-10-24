@@ -52,7 +52,8 @@ def test_a_header_alone():
 def test_a_file_that_isnt_utf8_is_read_as_latin1():
     content = b"date,type,amount,from_account,to_account\n2024-01-01,Deposit,1,External,Bank\xff\n"
     assert errors_of(content) == [
-        (2, "to_account", "Invalid account 'bank\xff'. Must be one of: Bank, Wallet, Exchange USD, Exchange BTC, External."),
+        (2, "to_account",
+         "Invalid account 'Bank\xff'. Must be one of your accounts (Bank, Wallet, Exchange USD, Exchange BTC) or External."),
     ]
 
 

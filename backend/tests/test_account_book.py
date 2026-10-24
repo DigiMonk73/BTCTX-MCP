@@ -82,8 +82,8 @@ def _ledger(tmp_path, source=None):
 
 
 # The book
-# 1.x's names and ids (constants.ACCOUNT_ID_TO_NAME, which B3 removes), and
-# its bitcoin accounts (constants.BTC_ACCOUNTS)
+# 1.x's names and ids (constants.ACCOUNT_ID_TO_NAME, which B5a removed), and
+# its bitcoin accounts (constants.BTC_ACCOUNTS, which B3 removed)
 NAMES_1X = {1: "Bank", 2: "Wallet", 3: "Exchange USD", 4: "Exchange BTC", 5: "BTC Fees", 6: "USD Fees",
             99: "External"}
 BTC_1X = [2, 4]

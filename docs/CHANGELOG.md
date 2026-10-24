@@ -21,6 +21,49 @@ All notable changes to BitcoinTX are documented in this file.
   which exchange the file is from, and which wallet its sends and
   receives go with, when there's more than one of either. Saving into an
   added account still waits for a later step.
+- **The forms and the report per exchange** (B4, #349). Form 8949's boxes
+  ask the account book: a Sell is on a Form 1099-DA when its exchange's
+  "This exchange sends me a Form 1099-DA" is on (with it off, its Sells
+  are I/L, as a self-custody spend's are), and its basis is reported only
+  for coins bought into that same account from 2026 (coins moved from one
+  exchange to another arrive noncovered, H/K). The complete tax report
+  shows each disposal's account under its kind and each lot held when the
+  year began with its account, and a new "Sales by exchange" table gives
+  each exchange's Sells of the year (its 1099-DA switch, boxes, rows,
+  proceeds, cost and gain, network fees left out), to set beside the
+  1099-DA it sends. Ledger Review reminds of each Sell from 2026 for which
+  the exchange's own order (it counts coins moved in from their arrival)
+  and BitcoinTX's take different coins bought there: the exchange's form
+  may show another basis. Account names are printed as text, never
+  markup. No figure of any ledger changes: a 1.x ledger's boxes are as
+  before, and its report adds only the account names and one row,
+  "Exchange", in "Sales by exchange".
+- **Imports, the CSV export and the AI connector by your accounts** (B5a,
+  #350). A CSV file names an account as Settings does, by its name now, in
+  any case; Bank, Wallet, Exchange USD and Exchange BTC always mean your
+  first bank, wallet and exchange, so a 1.x file imports as before. Any
+  other name is refused, the error listing the names a file may use; a
+  hidden account still imports, with a warning ("Wallet is hidden in
+  Settings."). The import's preview and the CSV export write each
+  account's name now. A fee whose currency is left blank is in the
+  currency of the account it's paid from (a deposit's: the account it goes
+  into), as a saved transaction always took it, so a dollar deposit's fee
+  with a blank currency, refused before, imports in dollars. A River file
+  goes into the exchange and the wallet you choose (by default the first
+  of each that isn't hidden), its recurring buys paid from your first bank
+  that isn't hidden. The River and AI imports' duplicate checks never take
+  a transaction in another wallet, another exchange or another bank for a
+  row's copy, with two exceptions for River, whose file names neither the
+  wallet nor the bank: a transaction typed with another wallet is marked
+  Review and imported unless you untick it, and a buy recorded as paid
+  from another bank is still found. The AI connector takes any of your
+  accounts by name, refuses one you haven't added before it sends
+  anything (and a renamed account's old name, saying its new one), lists
+  your accounts in get_portfolio, and tells BitcoinTX it is a 2.0
+  connector; the AI key may read the account list, never add, hide or
+  delete one, and its add passes a hidden account's warning on. Saving
+  into an added account still waits for a later step. No figure of a
+  ledger moves.
 - **The transaction form names accounts by the account book** (B6a, #351).
   Editing a transaction keeps the accounts it was saved with: a Buy or a
   Sell stays on its exchange, a Transfer keeps its destination. Where more
@@ -137,10 +180,34 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- The before-and-after check (`scripts/equivalence_check.py`) reuses a
+  release's snapshot only while today's date is the same in each of its
+  ledgers' tax timezones (UTC, New York, Chicago, Tokyo: the date the
+  current year's Complete Tax Report says it was made on). Kept by the
+  computer's own date, a snapshot was reused across a midnight in another
+  zone (in Chicago, in summer: Tokyo's at 10:00, UTC's at 19:00, New
+  York's at 23:00), and that date showed as a difference no change made
+  (#630).
 - **setuptools 84.2.0** in the Mac app's build tools and the AI connector's
   release tools (GHSA-xmj3-9gf7-h52w, low: a path escape in legacy wheel
   installs on Windows; neither runs there, but CI's dependency audit
   refused 84.0.0). Nothing BitcoinTX ships changes.
+- `make catch-up-2.0` (`scripts/catch-up-2.0.sh`): `develop` into the 2.0
+  build. A clean merge is made as a commit of its own and merges once its
+  own CI passes (the owner's decision 24, #251); a 1.x migration, a change
+  to the reference test ledger or a conflict stops for the build's lead.
+  Run before every 2.0 step and nightly.
+- **Start9 watched daily** (the owner, 2026-10-23: "we have to be aware
+  when they push updates"). The weekly SDK check missed start-sdk 3.1.0
+  and start-cli 2.4.2 by hours on 2026-10-19 and looked for nothing else.
+  `start9-watch.yml` (was `startos-sdk-check.yml`) now runs
+  `scripts/start9-watch.sh` daily: one `start9` issue for each newer
+  start-sdk or start-cli than `develop` pins, each StartOS and
+  start-registry release, each day Start9's packaging guide or shared
+  package workflows change, a failed build on the mirror or Start9's fork,
+  and changes on their fork not taken back; `--dry-run` shows the same
+  without opening anything. The schedule runs from `main`, so it starts at
+  the next release; until then each session runs the script.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes
@@ -154,6 +221,16 @@ All notable changes to BitcoinTX are documented in this file.
   its own five transactions (each one checked) and empties it again
   afterwards; a new test leaves another module's transaction in first. Tests
   only: nothing in the app changes.
+- **start-cli 2.5.0** (from 2.4.1) packs `btctx.s9pk` in CI and the
+  release, as Start9's own builds do with the newest (`START_CLI_VERSION`,
+  `START_CLI_SHA256`; startos/UPDATING.md, "Bumping the SDK", step 3). It
+  signs requests and registry entries with an updated scheme and manages
+  only servers on StartOS 0.4.0.3 or later; a package it packs still
+  installs and runs on StartOS 0.4.0.2 (the lab VM, 2026-10-23, packed with
+  2.5.0's Linux build: its macOS build doesn't start on macOS 27). On the
+  lab that day, start-cli 2.4.1 and 2.4.2 failed on `registry package
+  install` against Start9's new start-registry 1.2.0, though Start9's notes
+  say older start-clis keep working; CI reads no registry.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
@@ -479,6 +556,20 @@ withdrawal, can't be matched on Form 8949 yet (#551).
   Ledger once, and dropping the password the store kept) moves to its own
   file (`versions/v1.2.9_0.ts`), so an install on 1.2.8:0 or earlier still
   runs it on the way.
+- **start-sdk 3.1.0** (from 3.0.6), on Start9's review of 1.2.10:0
+  (Start9-Community/BTCTX-StartOS#8; their publishing checklist asks for the
+  current SDK). Under the same package version, 1.2.10:0, since the
+  community registry doesn't serve it yet (Start9's `versions.md`): Start9's
+  build of 1.2.10:0 uses 3.1.0, and the `btctx.s9pk` on the v1.2.10 GitHub
+  release was packed with 3.0.6, the same app and package otherwise. Its
+  fixes (daemon readiness and health-check polling) change nothing in how
+  BitcoinTX's service starts or is checked; zod 4.6.7 replaces
+  `zod-deep-partial`, and its `make` now formats `startos/` instead of
+  rejecting unformatted source, so CI and the pre-push hook run
+  `npm run format:check` first.
+  Its minimum StartOS stays 0.4.0.2, and the bundled sibling packages
+  (Mempool's, Tor's) are unchanged. The release notes say so in five
+  languages.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which

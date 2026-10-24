@@ -10,9 +10,10 @@ Dates are "YYYY-MM-DD HH:MM:SS" in UTC. Tag is one of Buy, Sell, Income
 auto-withdrawal), or empty (on-chain sends/receives). River's help page "How
 do I download my account activity?" defines the columns and tags.
 
-Account model (deliberate simplification, see plan doc):
-    Exchange USD / Exchange BTC = River; Bank = outside bank; Wallet = cold
-    storage; External = everything else.
+Account model (spec 5.11, Q8): River is the exchange the owner chooses for
+the file (its USD and BTC accounts; by default the first exchange), its
+sends go to the wallet the owner chooses (by default the first wallet), a
+recurring buy is paid from the first bank, and External is everything else.
 """
 
 from __future__ import annotations
@@ -28,20 +29,14 @@ from functools import partial
 from decimal import Decimal
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.constants import (
-    ACCOUNT_BANK,
-    ACCOUNT_EXCHANGE_BTC,
-    ACCOUNT_EXCHANGE_USD,
-    ACCOUNT_EXTERNAL,
-    ACCOUNT_ID_TO_NAME,
-    ACCOUNT_WALLET,
-)
+from backend.constants import ACCOUNT_EXTERNAL
 from backend.models.transaction import Transaction
 from backend.schemas.csv_import import CSVParseError
 from backend.schemas.transaction import BTC_PLACES
-from backend.services.account import AccountBook, account_book
+from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.csv_import import (
     _parse_decimal,
@@ -78,6 +73,56 @@ FUZZY_AMOUNT_TOLERANCE = Decimal("0.20")  # ±20% for transfer near-matches
 STATUS_NEW = "new"
 STATUS_MATCHED = "matched"
 STATUS_DISCREPANCY = "discrepancy"
+
+CHOOSE_EXCHANGE = "Choose one of your exchanges."
+CHOOSE_WALLET = "Choose one of your wallets."
+
+
+@dataclass(frozen=True)
+class RiverAccounts:
+    """Where a River file goes (5.11, Q8): the exchange's two accounts, the
+    wallet its sends go to, the bank a recurring buy is paid from (None when
+    every bank is hidden: then the exchange's dollars), the banks a buy may
+    be paid from besides the exchange's dollars, and the book naming them."""
+    exchange_usd: int
+    exchange_btc: int
+    wallet: int
+    bank: int | None
+    banks: tuple[int, ...]
+    book: AccountBook
+
+    def funding_choices(self) -> list[str]:
+        return [self.book.name(i) for i in (*self.banks, self.exchange_usd)]
+
+
+# 1.x's: a file read without a ledger (the adapter's tests)
+RIVER_1X = RiverAccounts(exchange_usd=3, exchange_btc=4, wallet=2, bank=1, banks=(1,), book=FIXED_BOOK)
+
+
+def river_accounts(book: AccountBook, exchange_account_id: int | None = None,
+                   wallet_account_id: int | None = None) -> RiverAccounts:
+    """The accounts the owner chose for the file: an exchange's BTC account
+    and a wallet, else the first of each that isn't hidden (1.x's 4 and 2),
+    never a hidden one; 422 for anything else, or with none to take."""
+    exchange_btc = _chosen(book, exchange_account_id, _exchanges_btc(book), CHOOSE_EXCHANGE)
+    wallet = _chosen(book, wallet_account_id, [i for i in book.yours() if book.kind(i) == "wallet"], CHOOSE_WALLET)
+    banks = tuple(i for i in book.yours() if book.kind(i) == "bank" and not book.is_hidden(i))
+    return RiverAccounts(exchange_usd=book.usd_of(exchange_btc), exchange_btc=exchange_btc, wallet=wallet,
+                         bank=banks[0] if banks else None, banks=banks, book=book)
+
+
+def _exchanges_btc(book: AccountBook) -> list[int]:
+    return [i for i in book.yours() if book.kind(i) == "exchange" and book.currency(i) == "BTC"]
+
+
+def _chosen(book: AccountBook, chosen: int | None, allowed: list[int], refusal: str) -> int:
+    """The account chosen, when it's one of `allowed`; none chosen, the first
+    of them not hidden."""
+    if chosen is None:
+        chosen = next((i for i in allowed if not book.is_hidden(i)), None)
+    if chosen not in allowed:
+        raise HTTPException(status_code=422, detail=refusal)
+    return chosen
 
 
 @dataclass
@@ -124,14 +169,23 @@ class RiverProposal:
     # Matched only by a near amount (a BTC move typed by hand): the preview
     # leaves it unticked, as it's most likely that move (owner, 2026-10-15, #253)
     near_amount: bool = False
+    # The side ("from" or "to") whose account is the file's guess, not River's
+    # word: a send's or receive's wallet (5.11; the owner's decision, 2026-10-16)
+    guessed: str | None = None
+    # The side whose bank River's file never names: a buy's funding, the
+    # preview's default or the owner's edit (the build lead's call under
+    # #251's decision 25, 2026-10-23): another bank there still matches
+    unnamed_bank: str | None = None
+    # The book naming its accounts
+    book: AccountBook = field(default=FIXED_BOOK, repr=False, compare=False)
 
     @property
     def from_account(self) -> str:
-        return ACCOUNT_ID_TO_NAME[self.from_account_id]
+        return self.book.name(self.from_account_id)
 
     @property
     def to_account(self) -> str:
-        return ACCOUNT_ID_TO_NAME[self.to_account_id]
+        return self.book.name(self.to_account_id)
 
     def to_tx_data(self) -> dict[str, Any]:
         """Build the dict create_transaction_record() expects."""
@@ -313,23 +367,25 @@ def _recurring_outlays(rows: list[RiverRow]) -> dict[Decimal, int]:
 
 
 def adapt_river_rows(
-    rows: list[RiverRow],
+    rows: list[RiverRow], accounts: RiverAccounts = RIVER_1X,
 ) -> tuple[list[RiverProposal], list[CSVParseError], list[CSVParseError]]:
     """
     (proposals, errors, warnings): each River row as a proposed BitcoinTX
-    transaction. A row that fits no known pattern, or lacks an amount, is
-    skipped with a warning (never silently dropped).
+    transaction into `accounts` (the owner's choice, river_accounts). A row
+    that fits no known pattern, or lacks an amount, is skipped with a
+    warning (never silently dropped).
     """
-    adapter = _RiverAdapter(rows)
+    adapter = _RiverAdapter(rows, accounts)
     proposals = [p for p in map(adapter.adapt, rows) if p is not None]
     return proposals, [], adapter.warnings
 
 
 class _RiverAdapter:
-    """Turns River rows into proposals, collecting the warnings."""
+    """Turns River rows into proposals in the chosen accounts, collecting the warnings."""
 
-    def __init__(self, rows: list[RiverRow]):
+    def __init__(self, rows: list[RiverRow], accounts: RiverAccounts):
         self.outlay_counts = _recurring_outlays(rows)
+        self.accounts = accounts
         self.warnings: list[CSVParseError] = []
 
     def adapt(self, row: RiverRow) -> RiverProposal | None:
@@ -373,14 +429,16 @@ class _RiverAdapter:
         # from the bank via ACH; anything else defaults to the River cash
         # balance. Always user-overridable in the preview.
         recurring = self.outlay_counts.get(_buy_outlay(row), 0) >= RECURRING_BUY_THRESHOLD
+        accounts = self.accounts
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Buy", from_account_id=ACCOUNT_BANK if (recurring and not row.fee) else ACCOUNT_EXCHANGE_USD,
-            to_account_id=ACCOUNT_EXCHANGE_BTC,
+            type="Buy", from_account_id=accounts.bank if (recurring and not row.fee and accounts.bank is not None)
+            else accounts.exchange_usd,
+            to_account_id=accounts.exchange_btc,
             amount=row.received,
             cost_basis_usd=row.sent,
             fee_amount=row.fee, fee_currency="USD" if row.fee else None,
-            funding_choices=["Bank", "Exchange USD"],
+            funding_choices=accounts.funding_choices(), unnamed_bank="from", book=accounts.book,
         )
 
     def sell(self, row: RiverRow) -> RiverProposal | None:
@@ -394,11 +452,11 @@ class _RiverAdapter:
         # gross is received + fee.
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Sell", from_account_id=ACCOUNT_EXCHANGE_BTC,
-            to_account_id=ACCOUNT_EXCHANGE_USD,
+            type="Sell", from_account_id=self.accounts.exchange_btc,
+            to_account_id=self.accounts.exchange_usd,
             amount=row.sent,
             proceeds_usd=row.received + _usd_fee(row),
-            fee_amount=row.fee, fee_currency="USD" if row.fee else None,
+            fee_amount=row.fee, fee_currency="USD" if row.fee else None, book=self.accounts.book,
         )
 
     def income(self, row: RiverRow) -> RiverProposal:
@@ -408,9 +466,9 @@ class _RiverAdapter:
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
             type="Deposit", from_account_id=ACCOUNT_EXTERNAL,
-            to_account_id=ACCOUNT_EXCHANGE_BTC,
+            to_account_id=self.accounts.exchange_btc,
             amount=row.received,
-            source=RIVER_PAYOUT_SOURCES[row.tag],
+            source=RIVER_PAYOUT_SOURCES[row.tag], book=self.accounts.book,
         )
 
     def send(self, row: RiverRow) -> RiverProposal | None:
@@ -430,10 +488,10 @@ class _RiverAdapter:
         self.check_fee_currency(row, "BTC")
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Transfer", from_account_id=ACCOUNT_EXCHANGE_BTC,
-            to_account_id=ACCOUNT_WALLET,
+            type="Transfer", from_account_id=self.accounts.exchange_btc,
+            to_account_id=self.accounts.wallet,
             amount=row.sent, fee_amount=row.fee, fee_currency="BTC" if row.fee else None,
-            type_choices=["Transfer", "Withdrawal"],
+            type_choices=["Transfer", "Withdrawal"], guessed="to", book=self.accounts.book,
         )
 
     def receive(self, row: RiverRow) -> RiverProposal | None:
@@ -444,10 +502,10 @@ class _RiverAdapter:
             return None
         return RiverProposal(
             row_number=row.row_number, timestamp=row.timestamp, river_tag=row.tag,
-            type="Transfer", from_account_id=ACCOUNT_WALLET,
-            to_account_id=ACCOUNT_EXCHANGE_BTC,
+            type="Transfer", from_account_id=self.accounts.wallet,
+            to_account_id=self.accounts.exchange_btc,
             amount=row.received,
-            type_choices=["Transfer", "Deposit"],
+            type_choices=["Transfer", "Deposit"], guessed="from", book=self.accounts.book,
         )
 
 
@@ -558,6 +616,8 @@ def annotate_duplicates(
 
     Pass 2 (similar, STATUS_DISCREPANCY): the same amount within ±48 h,
     anything else different; its note says what. Never left out by itself.
+    The one pass offered a transaction in another wallet than the one a
+    River row's wallet side guessed (_compatible's `guess`).
 
     Pass 3 (BTC moves only, never a dollar row, #581): within ±48 h and an
     amount within ±20 %: the user's manual transfer entries are known to be
@@ -575,11 +635,11 @@ def annotate_duplicates(
     by_time = sorted(proposals, key=lambda p: p.timestamp)
     nearby = _nearby(proposals, existing)
 
-    def each_new(match, types=None, order=by_time) -> None:
+    def each_new(match, types=None, order=by_time, guess=False) -> None:
         """One pass: `match` for every row still new (of `types`), in `order` (time, unless given)."""
         for proposal in order:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
-                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids, book), used_tx_ids)
+                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids, book, guess), used_tx_ids)
 
     timed_first = sorted(proposals, key=_timed_first)
     for same_amount in rule.amounts:
@@ -589,7 +649,8 @@ def annotate_duplicates(
     if exact_only:
         return
     for same_amount in rule.amounts:
-        each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz, book=book))
+        each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz, book=book),
+                 guess=True)
     each_new(partial(_match_roughly, book=book), types=("Transfer", "Withdrawal"))
 
 
@@ -631,28 +692,83 @@ def _window(moment: datetime) -> tuple[datetime, datetime]:
 
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set,
-                book: AccountBook) -> list[Transaction]:
+                book: AccountBook, guess: bool = False) -> list[Transaction]:
     """The unmatched transactions of a compatible type within the window,
     going the same way (_compatible). The window is checked here too, so
     that over the whole ledger (the speed test's reference) it's exact."""
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
-        and _compatible(proposal, tx, book)
+        and _compatible(proposal, tx, book, guess)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
 
 
-def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> bool:
+def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, guess: bool = False) -> bool:
     """A compatible type going the same way: from the row's account or to
     it, so a send never matches a deposit, nor a receive a withdrawal (#253);
-    and in the row's currency, so a bitcoin amount is never a dollar one of
-    the same number, nor the other way round (#581)."""
+    in the row's currency, so a bitcoin amount is never a dollar one of the
+    same number, nor the other way round (#581); and naming on neither side
+    another account of the same kind and currency as the row's (two
+    wallets, two exchanges' BTC or USD accounts, two banks: the owner's
+    rule, 2026-10-15), so exchange B's send to a wallet is never exchange
+    A's; but River never names a buy's funding bank, so another bank there
+    still matches (`_unnamed_bank`, the build lead's call under #251's
+    decision 25). With `guess` (the similar pass), a River row's guessed
+    side may name another wallet, and then counts as going the same way
+    when the other side is the row's own account or External: the file
+    chose its wallet, River didn't (the owner's decision, 2026-10-16), so a
+    deposit typed into the other wallet is offered too, never a move
+    between two of the owner's wallets."""
+    alike = [side for side in _other_accounts_alike(proposal, tx, book) if not _unnamed_bank(proposal, side, book)]
+    guessed = guess and proposal.guessed in alike and _beside_its_own(proposal, tx)
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
-        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id
+             or guessed)
         and _in_dollars(tx, book) == _in_dollars(proposal, book)
+        and all(guessed and side == proposal.guessed for side in alike)
     )
+
+
+def _other_accounts_alike(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> list[str]:
+    """The sides ("from", "to") on which the transaction names another
+    account than the row, of the same kind and currency. External, an
+    account of another kind, or one the book doesn't have, is never alike."""
+    sides = (("from", proposal.from_account_id, tx.from_account_id), ("to", proposal.to_account_id, tx.to_account_id))
+    return [side for side, ours, theirs in sides
+            if ours != theirs and book.kind(ours) is not None
+            and (book.kind(ours), book.currency(ours)) == (book.kind(theirs), book.currency(theirs))]
+
+
+def _beside_its_own(proposal: RiverProposal, tx: Transaction) -> bool:
+    """The transaction's side opposite the guessed one is the row's own
+    account or External: a deposit or a send typed into the other wallet, a
+    withdrawal or a receive typed from it."""
+    if proposal.guessed == "to":
+        return tx.from_account_id in (proposal.from_account_id, ACCOUNT_EXTERNAL)
+    return tx.to_account_id in (proposal.to_account_id, ACCOUNT_EXTERNAL)
+
+
+def _unnamed_bank(proposal: RiverProposal, side: str, book: AccountBook) -> bool:
+    """A bank River's file never names (a buy's funding): another bank on
+    that side doesn't stop a match, as an edit of the funding never did."""
+    account = proposal.from_account_id if side == "from" else proposal.to_account_id
+    return side == proposal.unnamed_bank and book.kind(account) == "bank"
+
+
+def account_differences(proposal: RiverProposal, tx: Transaction, book: AccountBook,
+                        sides: tuple[str, ...] = ("from", "to")) -> list[str]:
+    """The accounts the transaction left or went into that aren't the row's,
+    on `sides`, as a note says them: "recorded into Cold Storage, not Wallet"."""
+    found = {"from": ("from", tx.from_account_id, proposal.from_account_id),
+             "to": ("into", tx.to_account_id, proposal.to_account_id)}
+    return [f"recorded {way} {_named(recorded, book)}, not {_named(sent, book)}"
+            for way, recorded, sent in (found[side] for side in sides) if recorded != sent]
+
+
+def _named(account_id: int | None, book: AccountBook) -> str:
+    return book.name(account_id) if account_id is not None else "no account"
 
 
 def is_duplicate(proposal: RiverProposal, tx: Transaction, rule: DuplicateRule, tz, book: AccountBook) -> bool:
@@ -765,7 +881,10 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
     used_tx_ids.add(best.id)
     proposal.matched_tx_id = best.id
     proposal.status = STATUS_DISCREPANCY
-    what = [_when_recorded(proposal, best, tz), *differences(proposal, best)]
+    # The other wallet the guessed side names (never External or another kind: a 1.x note stays as it was)
+    guessed = proposal.guessed in _other_accounts_alike(proposal, best, book)
+    what = [_when_recorded(proposal, best, tz), *(account_differences(proposal, best, book, (proposal.guessed,))
+                                                   if guessed else []), *differences(proposal, best)]
     proposal.discrepancy = (
         f"Same {'dollar' if _in_dollars(best, book) else 'BTC'} amount as tx #{best.id} "
         f"({_type_and_amount(best, book)}), "

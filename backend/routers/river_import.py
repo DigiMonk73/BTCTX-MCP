@@ -11,10 +11,9 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_NAME_TO_ID
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth, import_failure
 from backend.schemas.river_import import (
@@ -38,6 +37,7 @@ from backend.services.river_import import (
     annotate_duplicates,
     ledger_amount,
     parse_river_csv,
+    river_accounts,
     rows_in_file,
 )
 
@@ -115,10 +115,14 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
 def preview_river_import(
     request: Request,
     file: UploadFile = File(...),
+    exchange_account_id: int | None = Form(None),
+    wallet_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
 ):
     """
-    Parse a River bitcoin-activity CSV, map rows to proposed transactions,
+    Parse a River bitcoin-activity CSV, map rows to proposed transactions
+    into the exchange and the wallet the owner chose (an exchange's BTC
+    account and a wallet; by default the first of each not hidden, 5.11),
     autofill FMV basis for River's payouts, and mark rows that already
     exist in the ledger. Nothing is written to the database.
 
@@ -128,9 +132,10 @@ def preview_river_import(
     _require_auth(request)
 
     content = _read_validated_csv(file)
+    accounts = river_accounts(account_book(db), exchange_account_id, wallet_account_id)
 
     rows, errors = parse_river_csv(content)
-    proposals, adapt_errors, warnings = adapt_river_rows(rows)
+    proposals, adapt_errors, warnings = adapt_river_rows(rows, accounts)
     errors.extend(adapt_errors)
 
     if len(proposals) > MAX_ROWS:
@@ -298,7 +303,7 @@ def _ledger_amount(row: RiverExecuteRow, book: AccountBook) -> Decimal:
     fee the row check takes, each read as it reads them ("transfer", " btc");
     any other row keeps River's amount, so its error names its own column.
     """
-    sender = ACCOUNT_NAME_TO_ID.get(row.from_account.strip().lower())
+    sender = book.id_for(row.from_account)
     if row.type.strip().title() != "Transfer" or not book.is_btc(sender):
         return row.amount
     if not (_btc_number(row.amount) and row.amount > 0 and _btc_number(row.fee_amount) and row.fee_amount > 0):
@@ -313,7 +318,8 @@ def _btc_number(value: Decimal | None) -> bool:
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
     """A checked row in the shape the duplicate check reads: River's amount
-    and fee, as the preview's proposal had them."""
+    and fee, as the preview's proposal had them, and a buy's funding bank,
+    which River's file never names."""
     return RiverProposal(
         row_number=row_number,
         timestamp=tx_data["timestamp"],
@@ -326,4 +332,5 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         proceeds_usd=tx_data.get("proceeds_usd"),
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
+        unnamed_bank="from" if tx_data["type"] == "Buy" else None,
     )

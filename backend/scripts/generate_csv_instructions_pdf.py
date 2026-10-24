@@ -19,22 +19,22 @@ COLUMNS = [
     ["Column", "Required", "Description"],
     ["date", "Yes", "Date/time (ISO8601 preferred). Without a timezone it is in your tax timezone (Settings); a date alone means noon"],
     ["type", "Yes", "Transaction type: Deposit, Withdrawal, Transfer, Buy, Sell"],
-    ["amount", "Yes", "BTC (up to 8 decimals), or USD for Bank/Exchange USD rows. BTC Transfer: what left the account, fee included. USD Transfer (between Bank and Exchange USD): what arrived, fee on top. Withdrawal: what the recipient got, fee on top"],
-    ["from_account", "Yes", "Source account name"],
-    ["to_account", "Yes", "Destination account name"],
+    ["amount", "Yes", "BTC (up to 8 decimals), or USD for a dollar account's rows (a bank, an exchange's USD). BTC Transfer: what left the account, fee included. USD Transfer (between dollar accounts): what arrived, fee on top. Withdrawal: what the recipient got, fee on top"],
+    ["from_account", "Yes", "Source account: one of your accounts by its name in Settings, or External"],
+    ["to_account", "Yes", "Destination account: one of your accounts by its name in Settings, or External"],
     ["cost_basis_usd", "Conditional", "Buy: USD paid for the BTC, before the fee (the fee column is added to the basis). BTC Deposit: required (0 if unknown); Income/Interest/Reward/Rebate blank = that hour's value; Inherited: its value on the date of death, blank = that day's value"],
     ["proceeds_usd", "Conditional", "Sell: gross USD, before the fee (the fee is subtracted). Spent withdrawal: value received, before the network fee (the fee's value is subtracted); blank = that hour's value"],
     ["fee_amount", "No", "Fee amount (never also included in cost_basis_usd or proceeds_usd)"],
-    ["fee_currency", "No", "USD for Buy/Sell and moves out of Bank/Exchange USD; BTC for moves out of Wallet/Exchange BTC"],
+    ["fee_currency", "No", "USD or BTC. Blank = USD for a Buy or Sell, else the currency of the account it's paid from (a deposit's: the account it goes into), the only one it may be in"],
     ["source", "No", "For Deposits: N/A, MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate"],
-    ["purpose", "Conditional", "A BTC withdrawal (from Wallet or Exchange BTC): Spent, Gift, Donation or Lost. From Bank or Exchange USD: any short text on one line, or blank; Spent, Gift, Donation or Lost isn't kept there"],
+    ["purpose", "Conditional", "A BTC withdrawal (from a wallet or an exchange's BTC): Spent, Gift, Donation or Lost. From a bank or an exchange's USD: any short text on one line, or blank; Spent, Gift, Donation or Lost isn't kept there"],
     ["notes", "No", "Optional notes (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value when it left (shown in the tax report); blank = the BTC price when its hour began x the amount (that day's where there's no hourly price), or blank without a price"],
     ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
     ["fee_usd_typed", "No", "With fee_usd: yes (or blank) if you typed that value, no if it came from the price (the export writes it)"],
     ["cost_basis_typed", "No", "Income/Interest/Reward/Rebate/Inherited deposit with cost_basis_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
-    ["acquired_at", "Conditional", "MyBTC or Gift deposit into Wallet/Exchange BTC: when the coins were first acquired (by the giver, for a gift); blank = the deposit's date. Inherited: the date of death (required)"],
+    ["acquired_at", "Conditional", "MyBTC or Gift deposit into a wallet or an exchange's BTC: when the coins were first acquired (by the giver, for a gift); blank = the deposit's date. Inherited: the date of death (required)"],
     ["proceeds_typed", "No", "Spent withdrawal with proceeds_usd: yes (or blank) if you typed them, no if they came from the price (the export writes it)"],
     ["price_moment", "No", "With a value from the price: hour (the BTC price when its hour began, UTC) or day (that day's 00:00 UTC price). Blank = day (the export writes it)"],
     ["fmv_typed", "No", "Gift/Donation/Lost withdrawal with fmv_usd: yes (or blank) if you typed it, no if it came from the price (the export writes it)"],
@@ -42,19 +42,22 @@ COLUMNS = [
 
 TYPES = [
     ["Type", "Description"],
-    ["Deposit", "Money or BTC coming in from outside (BTC you held elsewhere, a gift received, income; dollars into Bank or Exchange USD)"],
-    ["Withdrawal", "Money or BTC leaving (BTC spent, given, donated or lost; dollars out of Bank or Exchange USD)"],
-    ["Transfer", "Moving money or BTC between your own accounts (not a sale; a BTC network fee is a small disposal). Wallet to Wallet: a consolidation, where only the fee is recorded"],
+    ["Deposit", "Money or BTC coming in from outside (BTC you held elsewhere, a gift received, income; dollars into a bank or an exchange's USD)"],
+    ["Withdrawal", "Money or BTC leaving (BTC spent, given, donated or lost; dollars out of a bank or an exchange's USD)"],
+    ["Transfer", "Moving money or BTC between your own accounts (not a sale; a BTC network fee is a small disposal). A wallet to itself: a consolidation, where only the fee is recorded"],
     ["Buy", "Purchasing BTC on an exchange with USD"],
     ["Sell", "Selling BTC on an exchange for USD"],
 ]
 
 ACCOUNTS = [
     ["Account", "Description"],
-    ["Bank", "Your fiat bank account (USD)"],
-    ["Wallet", "Your self-custody Bitcoin wallet"],
-    ["Exchange USD", "USD balance on an exchange"],
-    ["Exchange BTC", "BTC balance on an exchange"],
+    ["Your accounts", "Your banks, wallets and exchanges, each by its name in Settings (in any case). A bank holds "
+                      "USD, a wallet BTC; an exchange has two accounts, \"<name> USD\" and \"<name> BTC\". A hidden "
+                      "account still imports, with a warning"],
+    ["Bank", "Your first bank account (USD)"],
+    ["Wallet", "Your first self-custody Bitcoin wallet"],
+    ["Exchange USD", "Your first exchange's USD balance"],
+    ["Exchange BTC", "Your first exchange's BTC balance"],
     ["External", "Outside your portfolio (source for deposits, destination for withdrawals)"],
 ]
 
@@ -80,11 +83,11 @@ PURPOSES = [
 
 ACCOUNT_RULES = [
     ["Type", "From Account", "To Account", "Required Fields"],
-    ["Deposit", "External", "Bank, Wallet,\nExchange USD or\nExchange BTC", "Into Wallet or Exchange BTC:\ncost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that hour's value;\nInherited: acquired_at (date of death) required;\nblank = that day's value"],
-    ["Withdrawal", "Bank, Wallet,\nExchange USD or\nExchange BTC", "External", "From Wallet or Exchange BTC:\npurpose required;\nproceeds_usd for \"Spent\""],
-    ["Transfer", "Any account", "Another account,\nsame currency; or\nthe same Wallet or\nExchange BTC", "Fee in the sending account's currency;\nto the same account (a consolidation):\na BTC fee is required, and only it\nis recorded"],
-    ["Buy", "Bank or\nExchange USD", "Exchange BTC", "cost_basis_usd required;\nfee must be USD"],
-    ["Sell", "Exchange BTC", "Exchange USD", "proceeds_usd required;\nfee must be USD"],
+    ["Deposit", "External", "Any of your\naccounts", "Into a bitcoin account (a wallet, or an exchange's BTC):\ncost_basis_usd required (0 if unknown);\nIncome/Interest/Reward/Rebate: blank = that hour's value;\nInherited: acquired_at (date of death) required;\nblank = that day's value"],
+    ["Withdrawal", "Any of your\naccounts", "External", "From a bitcoin account (a wallet, or an exchange's BTC):\npurpose required;\nproceeds_usd for \"Spent\""],
+    ["Transfer", "One of your\naccounts", "Another of your\naccounts, in the\nsame currency; or\nthe same bitcoin\naccount", "Fee in the sending account's currency;\nto the same account (a consolidation):\na BTC fee is required, and only it\nis recorded"],
+    ["Buy", "A bank, or an\nexchange's USD", "An exchange's BTC\n(the same exchange's,\nwhen paid from its USD)", "cost_basis_usd required;\nfee must be USD"],
+    ["Sell", "An exchange's BTC", "The same\nexchange's USD", "proceeds_usd required;\nfee must be USD"],
 ]
 
 DATE_FORMATS = [
@@ -115,15 +118,16 @@ COMMON_ERRORS = [
     ["Error", "Solution"],
     ["\"Database has X existing transactions\"", "Delete all transactions from Settings before importing"],
     ["\"Invalid type '...'\"", "Use exactly: Deposit, Withdrawal, Transfer, Buy, or Sell"],
-    ["\"Invalid account '...'\"", "Use exactly: Bank, Wallet, Exchange USD, Exchange BTC, or External"],
+    ["\"Invalid account '...'\"", "Use one of your accounts by its name in Settings, or External (the error lists them). Bank, Wallet, Exchange USD and Exchange BTC always mean your first bank, wallet and exchange"],
+    ["\"... is hidden in Settings\" (a warning)", "The row imports; show the account again in Settings if you still use it"],
     ["\"cost_basis_usd is required for Buy transactions\"", "Add the USD paid for the BTC, before the fee"],
     ["\"proceeds_usd is required for Sell transactions\"", "Add the gross USD, before the fee"],
-    ["\"A BTC withdrawal needs a purpose\"", "From Wallet or Exchange BTC, add purpose: Spent, Gift, Donation, or Lost"],
-    ["\"A Buy is paid from a bank or from an exchange's USD account\"", "Buy must be: from Bank or Exchange USD, to Exchange BTC"],
-    ["\"A Sell is from an exchange's BTC account\"", "Sell must be: from Exchange BTC, to Exchange USD"],
-    ["\"A Deposit comes from External\"", "Deposit must be: from External, to Bank, Wallet, Exchange USD or Exchange BTC"],
-    ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only Wallet or Exchange BTC can send to itself (a consolidation); Bank and Exchange USD can't"],
-    ["\"A move within the same account records only its network fee\"", "A Wallet to Wallet (or Exchange BTC to Exchange BTC) transfer needs its fee_amount in BTC"],
+    ["\"A BTC withdrawal needs a purpose\"", "From a wallet or an exchange's BTC, add purpose: Spent, Gift, Donation, or Lost"],
+    ["\"A Buy is paid from a bank or from an exchange's USD account\"", "Buy must be: from a bank or an exchange's USD, to an exchange's BTC (the same exchange's, when paid from its USD)"],
+    ["\"A Sell is from an exchange's BTC account\"", "Sell must be: from an exchange's BTC, to the same exchange's USD"],
+    ["\"A Deposit comes from External\"", "Deposit must be: from External, to one of your accounts"],
+    ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only a wallet or an exchange's BTC can send to itself (a consolidation); a dollar account can't"],
+    ["\"A move within the same account records only its network fee\"", "A transfer from a wallet (or an exchange's BTC) to itself needs its fee_amount in BTC"],
 ]
 
 TABLE_STYLE = TableStyle([
@@ -263,6 +267,12 @@ class _Guide:
             Paragraph("Transaction Types", self.heading2),
             self.table(TYPES, [1.3, 5.4]),
             Paragraph("Account Names", self.heading2),
+            Paragraph(
+                "Bank, Wallet, Exchange USD and Exchange BTC always mean your first bank, wallet and exchange, "
+                "as in BitcoinTX 1.x's files, whatever they are called now. BTC Fees and USD Fees are the "
+                "ledger's own: no row names them.",
+                self.normal
+            ),
             self.table(ACCOUNTS, [1.5, 5.2]),
             Paragraph("Source Values (for Deposits)", self.heading2),
             self.table(SOURCES, [1.3, 5.4]),

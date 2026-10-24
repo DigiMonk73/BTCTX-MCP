@@ -33,6 +33,7 @@ from backend.main import app
 from backend.services.csv_import import parse_csv_file
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 from backend.services.reports.safe_text import csv_text
+from backend.tests.conftest import default_login
 
 CLIENT: TestClient = None
 BANK, WALLET, EXTERNAL = 1, 2, 99
@@ -145,6 +146,40 @@ def test_complete_tax_report_prints_markup_and_fetches_nothing(listener):
     # price note in the summary and in the holdings section
     assert shown.count("".join(evil.split())) == 3
     assert "<b>unclosed" in shown
+
+
+def test_account_names_typed_through_the_account_api_are_text(gate_open, fresh_app, listener):
+    """2.0 (spec 5.7, card B4 #349): the owner types the account names, and
+    the complete tax report shows them (each row's account, "Sales by
+    exchange", the year-end lots): printed as written, nothing fetched; in a
+    CSV a name can't start a formula."""
+    port, hits = listener
+    wallet = f'=<img src="http://127.0.0.1:{port}/w"/>'  # 40 characters at most
+    exchange = f'<img src="//127.0.0.1:{port}/x"/>'  # 36 at most: its accounts add " USD" and " BTC"
+    c = TestClient(app)
+    assert c.post("/api/login", json=default_login()).status_code == 200
+    made = [c.post("/api/accounts/", json={"kind": kind, "name": name}) for kind, name in
+            (("wallet", wallet), ("exchange", exchange))]
+    assert [r.status_code for r in made] == [201, 201], [r.text for r in made]
+    cold, (usd, btc) = made[0].json()[0]["id"], (a["id"] for a in made[1].json())
+    for body in (
+        {"type": "Buy", "from_account_id": BANK, "to_account_id": btc, "amount": "1", "cost_basis_usd": "40000"},
+        {"type": "Transfer", "from_account_id": btc, "to_account_id": cold, "amount": "0.5", "fee_currency": "BTC"},
+        {"type": "Withdrawal", "from_account_id": cold, "to_account_id": EXTERNAL, "amount": "0.1",
+         "purpose": "Spent", "proceeds_usd": "5000"},
+        {"type": "Sell", "from_account_id": btc, "to_account_id": usd, "amount": "0.2", "gross_proceeds_usd": "9000"},
+    ):
+        r = c.post("/api/transactions", json={"timestamp": "2024-03-01T12:00:00Z", "fee_amount": "0", **body})
+        assert r.status_code == 200, r.text
+    r = c.get("/api/reports/complete_tax_report", params={"year": 2024})
+    assert r.status_code == 200, r.text[:300]
+    assert hits == []
+    printed = pdf_text(r.content)
+    for name in (wallet, exchange, f"{exchange} BTC"):
+        assert "".join(name.split()) in printed, name
+    r = c.get("/api/reports/simple_transaction_history", params={"year": 2024, "format": "csv"})
+    header, *rows = parsed_rows(r.text)
+    assert f"'{wallet}" in {cell for row in rows for cell in row}
 
 
 def test_reportlab_trusts_no_url_even_for_unescaped_markup(listener, opened_or_fetched):

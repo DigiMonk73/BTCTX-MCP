@@ -72,6 +72,10 @@ AI_KEY_ROUTES = (
     ("GET", "/api/settings/tax-timezone", "get_portfolio, list_transactions, update_transaction"),
     ("GET", "/api/review", "review_ledger"),
     ("POST", "/api/backup/ai-copy", "backup_ledger"),
+    # The user's accounts by name (2.0 spec 5.12): read only; adding, hiding
+    # and deleting one stay the owner's (Q11)
+    ("GET", "/api/accounts/", "get_portfolio, preview_transactions, add_transactions, list_transactions, "
+                              "update_transaction"),
 )
 _ALLOWED = {(method, route) for method, route, _ in AI_KEY_ROUTES}
 

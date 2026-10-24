@@ -172,18 +172,44 @@ Each disposal gets one checkbox letter, from `_broker_reporting()` (is it on a
 
 | Disposal | 2024 and earlier | 2025 | 2026+ |
 |---|---|---|---|
-| Exchange **Sell** of a lot bought on the exchange on/after 2026-01-01 and never transferred out ("covered") | — | — | **G** / **J** (1099-DA, basis reported) |
-| Any other exchange Sell: lot bought before 2026, or BTC transferred in from elsewhere | C / F | **H** / **K** (1099-DA, proceeds only) | **H** / **K** |
-| Self-custody spends, network-fee disposals (no 1099; a spend's override can place its fee, below) | C / F | **I** / **L** | **I** / **L** |
+| Exchange **Sell** of a lot bought on that exchange on/after 2026-01-01 and never transferred out ("covered") | — | — | **G** / **J** (1099-DA, basis reported) |
+| Any other exchange Sell: lot bought before 2026, or BTC transferred in from elsewhere (another exchange included) | C / F | **H** / **K** (1099-DA, proceeds only) | **H** / **K** |
+| Self-custody spends, network-fee disposals, and Sells on an exchange whose 1099-DA switch is off (no 1099; a spend's override can place its fee, below) | C / F | **I** / **L** | **I** / **L** |
 
 (short / long). Details:
-- "Exchange Sell" means `type == "Sell"` from the Exchange BTC account. That is
-  what the broker (River) reports on Form 1099-DA, starting with 2025.
-- Covered means the lot was created by a Buy into Exchange BTC with
-  an acquisition date on or after `COVERED_DIGITAL_ASSET_START` (2026-01-01,
-  as a date in the tax timezone, the same date printed in column (b)). A lot created by a Transfer is never covered, because a transfer
-  breaks the broker's basis chain.
+- "Exchange Sell" means `type == "Sell"` from an exchange's BTC account whose
+  exchange has "This exchange sends me a Form 1099-DA" on
+  (`exchanges.sends_1099da`, on by default; 2.0 spec 5.7): what each US
+  exchange (River, say) reports on its Form 1099-DA, starting with 2025.
+  With the switch off (an exchange outside the US usually sends none), that
+  exchange's Sells are I/L, as a self-custody spend's are; the gain is the
+  same either way. In a 1.x ledger the only such account is Exchange BTC.
+- Covered means the lot was created by a Buy into the same account the Sell
+  is from, with an acquisition date on or after
+  `COVERED_DIGITAL_ASSET_START` (2026-01-01, as a date in the tax timezone,
+  the same date printed in column (b)). A lot created by a Transfer is never
+  covered, because a transfer breaks the broker's basis chain: coins moved
+  from one exchange to another arrive noncovered (no transfer statement is
+  required between brokers).
 - From 2025, Boxes C/F exclude digital assets, so self-custody BTC moves to I/L.
+
+**Per exchange in the complete tax report** (2.0 spec 5.7). Section 2 shows
+each disposal's account under its kind ("Sale", then "Kraken BTC"), and
+"Sales by exchange" follows it: for each exchange with Sells in the year,
+whether it sends a 1099-DA, its Sells' boxes and rows, and their proceeds,
+cost and gain, network fees left out, to set beside each exchange's
+1099-DA. It moves no figure: its totals are its Sells' rows. Each lot held
+when the year began names its account too, as the year-end lots do.
+Ledger Review's reminder `sale_may_differ_from_1099da` lists a Sell from
+2026, on an exchange that sends a 1099-DA (and whose Broker form doesn't
+say "none" or "proceeds"), for which the exchange's own lot order and
+BitcoinTX's take different coins bought there (whose basis it reports): an
+exchange without the purchase
+dates of coins moved in counts them from their arrival (Instructions for
+Form 1099-DA, lot selection). Once the two orders part, a later Sell can
+differ too. Where the form differs, the Form 8949 the owner files shows the
+exchange's figures with an adjustment (code B); BitcoinTX's forms leave
+columns (f) and (g) blank, so that is for whoever files the return.
 
 **Per-transaction override.** When a real 1099-DA (or, for 2024 and earlier,
 1099-B) disagrees with these rules, the user sets `broker_reporting` on that

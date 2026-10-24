@@ -49,8 +49,7 @@ from backend.services import hourly_prices, outbound, price_history
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
-    ACCOUNT_ID_TO_NAME,
-    ACCOUNT_NAME_TO_ID,
+    ACCOUNT_EXTERNAL,
     GIFT_LIKE_PURPOSES,
     BROKER_REPORTING_TYPES,
     BROKER_REPORTING_VALUES,
@@ -94,7 +93,12 @@ CSV_COLUMNS = [
 ]
 
 
-ACCOUNT_NAMES = "Bank, Wallet, Exchange USD, Exchange BTC, External"
+# A name the book doesn't know, or an account no file may name (a fee
+# account; until B7a's gate, an account added in 2.0): 5.11's words, with
+# the names a file may use as they are now
+UNKNOWN_ACCOUNT = "Invalid account '{name}'. Must be one of your accounts ({names}) or External."
+# A hidden account is still yours (5.5): its row imports, with this warning
+HIDDEN_ACCOUNT = "{name} is hidden in Settings."
 
 # A row with more fields than the header (the reader lists the extras under
 # None): every column after a stray comma has moved one place, so an unquoted
@@ -305,8 +309,8 @@ class _Rejected(Exception):
 
 @dataclass
 class _Row:
-    """A row's values once checked; account names as written, lower-cased,
-    and the book its accounts are asked of."""
+    """A row's values once checked; account names as written, and the book
+    its accounts are asked of."""
     number: int
     timestamp: datetime
     tx_type: str
@@ -368,10 +372,11 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
         warnings.append(_warning(row_number, "date", "Date is in the future."))
     tx_type = _required_type(row, row_number)
     amount = _required_amount(row, row_number)
-    from_name, from_id, to_name, to_id = _required_accounts(row, row_number)
+    from_name, from_id, to_name, to_id = _required_accounts(row, row_number, book)
     account_errors = _validate_accounts_for_type(tx_type, from_id, to_id, row_number, book)
     if account_errors:
         raise _Rejected(*account_errors)
+    warnings.extend(_hidden_accounts(from_id, to_id, row_number, book))
     _check_amount_limits(amount, tx_type, from_id, to_id, row_number, book)
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
@@ -494,20 +499,39 @@ def _check_amount_limits(amount: Decimal, tx_type: str, from_id: int, to_id: int
         raise _Rejected(_error(row_number, "amount", problem))
 
 
-def _required_accounts(row: dict[str, str], row_number: int) -> tuple[str, int, str, int]:
+def _required_accounts(row: dict[str, str], row_number: int, book: AccountBook) -> tuple[str, int, str, int]:
     """(from name, from id, to name, to id): both names given before either
-    is looked up."""
-    from_name = row.get("from_account", "").strip().lower()
-    to_name = row.get("to_account", "").strip().lower()
+    is looked up, each by the book (a reserved name, then a name now,
+    ignoring case: 5.11) and one of the accounts a file may name."""
+    from_name = row.get("from_account", "").strip()
+    to_name = row.get("to_account", "").strip()
     if not from_name:
         raise _Rejected(_error(row_number, "from_account", "From account is required."))
     if not to_name:
         raise _Rejected(_error(row_number, "to_account", "To account is required."))
+    ids = []
     for column, name in (("from_account", from_name), ("to_account", to_name)):
-        # The save's accounts: BTC Fees and USD Fees are the ledger's own (#266)
-        if ACCOUNT_NAME_TO_ID.get(name) not in USER_ACCOUNTS:
-            raise _Rejected(_error(row_number, column, f"Invalid account '{name}'. Must be one of: {ACCOUNT_NAMES}."))
-    return from_name, ACCOUNT_NAME_TO_ID[from_name], to_name, ACCOUNT_NAME_TO_ID[to_name]
+        account_id = book.id_for(name)
+        if account_id != ACCOUNT_EXTERNAL and account_id not in files_name(book):
+            names = ", ".join(book.name(i) for i in files_name(book))
+            raise _Rejected(_error(row_number, column, UNKNOWN_ACCOUNT.format(name=name, names=names)))
+        ids.append(account_id)
+    return from_name, ids[0], to_name, ids[1]
+
+
+def files_name(book: AccountBook) -> list[int]:
+    """Your accounts a file may name (External aside), in the book's order:
+    those the save takes, so never BTC Fees or USD Fees, the ledger's own
+    (#266), and until B7a's gate only 1 to 4 (USER_ACCOUNTS, 5.10)."""
+    return [i for i in book.yours() if i in USER_ACCOUNTS]
+
+
+def _hidden_accounts(from_id: int, to_id: int, row_number: int, book: AccountBook) -> list[CSVParseError]:
+    """A warning for each hidden account the row names (5.5): still yours,
+    so an old file imports again, but one the owner stopped using."""
+    sides = (("from_account", from_id), ("to_account", to_id)) if to_id != from_id else (("from_account", from_id),)
+    return [_warning(row_number, column, HIDDEN_ACCOUNT.format(name=book.name(account_id)))
+            for column, account_id in sides if book.is_hidden(account_id)]
 
 
 def _optional_amounts(row: dict[str, str], row_number: int) -> dict[str, Decimal | None]:
@@ -615,7 +639,7 @@ def _amount_fields(row: _Row) -> dict[str, Any]:
             fields["proceeds_from_price"] = True
     if row.fee_amount is not None:  # a 0 too: an export's zero fee comes back as it was saved
         fields["fee_amount"] = row.fee_amount
-        fields["fee_currency"] = row.fee_currency or _default_fee_currency(row)
+        fields["fee_currency"] = row.fee_currency or _fee_currency_used(row)
     return fields
 
 
@@ -652,7 +676,7 @@ def _amount_currency(tx_type: str, from_id: int, to_id: int, book: AccountBook) 
 
 
 def _preview(row: _Row) -> CSVRowPreview:
-    # The accounts' usual names, as the CSV export writes them ("Exchange
+    # The accounts' names now, as the CSV export writes them ("Exchange
     # USD", not the typed name in title case, #254)
     return CSVRowPreview(
         row_number=row.number,
@@ -660,8 +684,8 @@ def _preview(row: _Row) -> CSVRowPreview:
         type=row.tx_type,
         amount=row.amount,
         amount_currency=_amount_currency(row.tx_type, row.from_id, row.to_id, row.book),
-        from_account=ACCOUNT_ID_TO_NAME[row.from_id],
-        to_account=ACCOUNT_ID_TO_NAME[row.to_id],
+        from_account=row.book.name(row.from_id),
+        to_account=row.book.name(row.to_id),
         cost_basis_usd=row.cost_basis_usd,
         proceeds_usd=row.proceeds_usd,
         fee_amount=row.fee_amount,
@@ -823,10 +847,10 @@ def _validate_type_specific(row: _Row) -> tuple[list[CSVParseError], list[CSVPar
 def _fee_cents_rule(row: _Row):
     """A fee in dollars is in cents, in the currency the import sends (#298);
     a fee given in another currency than its type's gets that error alone."""
-    own = fee_currency_used(row.tx_type, None, row.book.currency(row.from_id), row.book.currency(row.to_id))
+    own = _fee_currency_used(row)
     if row.fee_currency and row.fee_currency != own:
         return
-    fee_cur = row.fee_currency or _default_fee_currency(row)
+    fee_cur = row.fee_currency or own
     yield from _problem(row, "fee_amount", fee_cents_problem(row.fee_amount or Decimal(0), fee_cur))
 
 
@@ -849,13 +873,10 @@ def _problem(row: _Row, column: str, problem: str | None):
 
 def _fee_currency_rules(row: _Row):
     """A deposit's or withdrawal's fee in its account's currency, as the save
-    sees it: the currency given, else the one the import fills in (#285)."""
-    fee_cur = row.fee_currency or _default_fee_currency(row)
+    sees it (#285): the currency given; a blank one is the account's (#303)."""
     problem = fee_currency_problem(
-        row.tx_type, row.fee_amount or Decimal(0), fee_cur, row.book.currency(row.from_id),
-        row.book.currency(row.to_id))
-    if problem and not row.fee_currency:
-        problem += f" (fee_currency is blank: the import uses {fee_cur})"
+        row.tx_type, row.fee_amount or Decimal(0), row.fee_currency or _fee_currency_used(row),
+        row.book.currency(row.from_id), row.book.currency(row.to_id))
     yield from _problem(row, "fee_currency", problem)
 
 
@@ -923,14 +944,12 @@ _TYPE_RULES = {
 }
 
 
-def _default_fee_currency(row: _Row) -> str:
-    """The fee currency when the row leaves it blank: USD for Buy/Sell and
-    for moves out of a dollar account, else BTC."""
-    if row.tx_type in ("Buy", "Sell"):
-        return "USD"
-    if row.book.currency(row.from_id) == "USD":
-        return "USD"
-    return "BTC"
+def _fee_currency_used(row: _Row) -> str | None:
+    """The fee currency when the row leaves it blank, as the save fills it
+    in (#303's fee_currency_used, 5.11): USD for a Buy or Sell, else the
+    currency of the account it's paid from, a deposit's of the account it
+    goes into."""
+    return fee_currency_used(row.tx_type, None, row.book.currency(row.from_id), row.book.currency(row.to_id))
 
 
 def check_database_empty(db: Session) -> tuple[bool, int]:

@@ -94,6 +94,11 @@ class AccountBook:
         never a fee account, External or an id with no account."""
         return self.kind(account_id) in YOUR_KINDS
 
+    def is_hidden(self, account_id: int | None) -> bool:
+        """Hidden in Settings: still yours, but one the owner stopped using (5.5)."""
+        account = self._accounts.get(account_id)
+        return account is not None and account.hidden
+
     def currency(self, account_id: int | None) -> str | None:
         """"USD" or "BTC"; None for External or an id with no account."""
         account = self._accounts.get(account_id)
@@ -119,6 +124,11 @@ class AccountBook:
         """Whether an exchange account's exchange sends a Form 1099-DA (5.7); no other account's does."""
         exchange = self.exchange_of(account_id)
         return exchange is not None and self._exchanges.get(exchange, ("", False))[1]
+
+    def exchange_name(self, account_id: int | None) -> str | None:
+        """An exchange account's exchange's name ("Kraken" for "Kraken BTC"); None for any other account."""
+        exchange = self.exchange_of(account_id)
+        return None if exchange is None else self._exchanges.get(exchange, (None, False))[0]
 
     def name(self, account_id: int | None) -> str:
         if account_id == ACCOUNT_EXTERNAL:

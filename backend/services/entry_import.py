@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -28,7 +28,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session, object_session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.database import is_busy, take_write_lock
 from backend.models.transaction import Transaction
 from backend.schemas.entry_import import (
@@ -54,6 +54,7 @@ from backend.services.river_import import (
     STATUS_NEW,
     DuplicateRule,
     RiverProposal,
+    account_differences,
     annotate_duplicates,
     is_duplicate,
     match_by_moving,
@@ -96,6 +97,8 @@ class PreparedRow:
     result: EntryResult = None
     day: date | None = None  # given as a date alone: its day in the tax timezone (#253)
     not_a_duplicate_of: int | None = None  # the user said it's another transaction than this one (#253, #378)
+    # The warnings about its accounts (a hidden one, 5.5), which the add passes on too
+    account_warnings: list[str] = field(default_factory=list)
 
 
 # Validation
@@ -135,15 +138,16 @@ def _date_only(raw: str) -> bool:
     return bool(raw) and len(raw) <= 10 and ":" not in raw
 
 
-def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
-    """Echo the validated row back in canonical form."""
+def normalized_view(tx_data: dict[str, Any], book: AccountBook) -> dict[str, str | None]:
+    """Echo the validated row back in canonical form, its accounts by their
+    names now (5.11)."""
     ts: datetime = tx_data["timestamp"]
     view = {
         "date": ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": tx_data["type"],
         "amount": _dec_str(tx_data["amount"]),
-        "from_account": ACCOUNT_ID_TO_NAME[tx_data["from_account_id"]],
-        "to_account": ACCOUNT_ID_TO_NAME[tx_data["to_account_id"]],
+        "from_account": book.name(tx_data["from_account_id"]),
+        "to_account": book.name(tx_data["to_account_id"]),
     }
     for key in ("cost_basis_usd", "proceeds_usd", "fee_amount", "fmv_usd", "fee_usd"):
         if tx_data.get(key) is not None:
@@ -210,6 +214,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | Non
             result=result,
             day=local_date(tx_data["timestamp"], tz) if tx_data and _date_only(row.date) else None,
             not_a_duplicate_of=row.not_a_duplicate_of,
+            account_warnings=[w.message for w in warnings if w.column in ("from_account", "to_account")],
         ))
     return prepared
 
@@ -331,7 +336,11 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
         return [f"recorded as a {tx.type}, not a {row.type}"]
     session = object_session(tx)  # a transaction built outside one (a test's): 1.x's accounts
     book = account_book(session) if session is not None else FIXED_BOOK
-    out = _account_differences(row, tx)
+    # The owner's rule (#522): a payout into Exchange BTC beside one recorded
+    # into Wallet isn't that payout, only similar, though it goes the same way
+    # (river_import._compatible: the same source account or the same
+    # destination, all River's rule asks)
+    out = account_differences(row, tx, book)
     out += [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
@@ -340,20 +349,6 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
         out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
     return out
-
-
-def _account_differences(row: RiverProposal, tx: Transaction) -> list[str]:
-    """The accounts the transaction left or went into that aren't the row's
-    (the owner's rule, #522): a payout into Exchange BTC beside one recorded
-    into Wallet isn't that payout, only similar, though it goes the same way
-    (river_import._compatible: the same source account or the same
-    destination, all River's rule asks)."""
-    sides = (("from", tx.from_account_id, row.from_account_id), ("into", tx.to_account_id, row.to_account_id))
-    return [
-        f"recorded {way} {ACCOUNT_ID_TO_NAME.get(recorded, 'no account')}, not {ACCOUNT_ID_TO_NAME[sent]}"
-        for way, recorded, sent in sides
-        if recorded != sent
-    ]
 
 
 ENTRY_RULE = DuplicateRule(amounts=(same_ledger_amount,), differences=_entry_differences)

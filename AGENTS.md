@@ -20,7 +20,7 @@ takes it once a day (see Branches).
 | macOS app | `desktop/` | PyInstaller + pywebview, fixed port `127.0.0.1:8765` (`BTCTX_DESKTOP_PORT`) |
 | Docker | `Dockerfile` | Python 3.13; data on `/data` (`DATABASE_FILE=/data/btctx.db`); runs as its own user `btctx` (uid 10001), never root (`docker-entrypoint.sh`, #202); image `ghcr.io/digimonk73/btctx-mcp` |
 | Landing page | DigiMonk73/btctx-site | <https://digimonk73.github.io/btctx-site/>, `index.html` with screenshots in `img/`, on GitHub Pages; the manifest's `marketingUrl` and the connector's Homepage. Its download links follow the latest release by themselves; its text and screenshots don't (Releasing, step 5) |
-| StartOS package | `startos/` | start-sdk 3.0.6 (StartOS 0.4.0.2 or later), self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
+| StartOS package | `startos/` | start-sdk 3.1.0 (StartOS 0.4.0.2 or later), self-contained (own `package.json`), mirrored to DigiMonk73/BTCTX-StartOS; read `startos/AGENTS.md` |
 
 ## What's at stake
 
@@ -129,6 +129,20 @@ carry its `Co-Authored-By` line.
   never move or delete a pin. Its branches are named `2.0-…` (git
   refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
   the steps and where they stand: #251.
+  `make catch-up-2.0` (`scripts/catch-up-2.0.sh`) does that `develop`
+  merge when it is clean (no 1.x migration, no change to the reference
+  test ledger or its figures, no conflict): GitHub makes the merge commit
+  on a branch of its own, `2.0-merge-develop-auto-…`, and its pull request
+  merges by itself once its own CI passes, with no review of its own (the
+  owner's decision 24, #251). Nothing is opened while a 2.0 step has
+  auto-merge on, and a step's pin is never taken while a catch-up has it
+  on, so each pin is `2.0`'s tip when its step lands. Anything else stops
+  for the build's lead. It also lists a new 1.x release (B1's
+  `reference_1x.db` made again from it) and `startos/` changes. The lead
+  runs it before every step and nightly at 22:30 (America/Chicago, a
+  scheduled task on the Mac mini), so 1.x's fixes reach `2.0` without
+  waiting. Never `gh pr update-branch` on a catch-up: its head is the
+  merge commit its CI tested.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
@@ -352,7 +366,18 @@ from the Transaction row alone.
   since its source, purpose, fee and type are the preview's or the
   owner's edits;
   of the accounts, a River row needs only to go the same way
-  (`_compatible`: the same source account or the same destination). The
+  (`_compatible`: the same source account or the same destination).
+  No row, River's or the AI's, is ever matched to a transaction naming on
+  the same side another account of the same kind and currency (two
+  wallets, two exchanges' BTC or USD accounts, two banks: the owner's
+  rule, 2026-10-15, #350); but River's wallet is the file's guess
+  (`guessed`), so a transaction typed into or from another wallet beside
+  River's send or receive (its other side the row's own or External,
+  never a move between two wallets) is only similar, marked Review,
+  ticked (the owner's decision, 2026-10-16); and River never names a
+  buy's funding bank (`unnamed_bank`), so another bank there still
+  matches exactly, as in 1.x (the build lead's call, 2026-10-23, #251's
+  decision 25). The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a
@@ -476,8 +501,11 @@ from the Transaction row alone.
   (the tax timezone, as `cli review` and the AI see them) and a price's
   hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
-  (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
-  2026-01-01 and never moved G/J; self-custody spends and fees I/L. A
+  (1099-DA without basis); 2026+ Sells of lots bought on that exchange (a Buy
+  into the account sold from) on/after 2026-01-01 and never moved G/J;
+  self-custody spends and fees I/L, and so are the Sells of an exchange whose
+  "This exchange sends me a Form 1099-DA" is off (`exchanges.sends_1099da`,
+  2.0, #349). A
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
   rules for that transaction, a spend's fee disposals included (#549).
   One sheet per box, line 2 totals that sheet's rows, Schedule D line per
@@ -668,7 +696,9 @@ from the Transaction row alone.
   any other route is 403. Every router is mounted with `main.include()`,
   which notes its routes' templates (a router mounted otherwise is closed
   to the key). A new MCP tool that needs a route adds it there on purpose
-  (a test checks the tools and the list agree). Never allow the
+  (a test checks the tools and the list agree). The key may read the
+  account list (`GET /api/accounts/`, the connector's names, 2.0's #350),
+  never add, hide or delete an account. Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
@@ -1004,6 +1034,8 @@ and the README's "Reporting problems"; keep them.
   - outside reports with no answer, here, on Start9's fork or on the
     mirror;
   - how many security advisories are waiting (never their details);
+  - open `start9` issues: what Start9 released or changed that the
+    StartOS package hasn't followed yet;
   - the latest Grok pass, as Claude recorded it on #41: how many of its
     findings Claude confirmed and how many it didn't, and the next
     monthly area (`docs/GROK-REVIEW.md`).
@@ -1261,7 +1293,10 @@ passed" that isn't a failure), and any "staging into develop" (`gh pr
 list --base staging`, `gh run list --branch staging --limit 10`, `gh pr
 list --base develop`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work, and run the
-daily cycle ("Branches", `develop`).
+daily cycle ("Branches", `develop`). Then what Start9 changed: the open
+`start9` issues, and, until `main` carries the daily `start9-watch.yml`
+(its schedule runs only from `main`), `scripts/start9-watch.sh` itself
+(startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
 down from GitHub and says whether anything exists only on this computer: work not
