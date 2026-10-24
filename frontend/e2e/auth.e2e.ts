@@ -387,13 +387,13 @@ test.describe("the Mac app", () => {
     await expect(page.getByLabel("Setup Code")).toBeVisible();
     // Where the code is on a Mac, not a server's log (#258)
     const hint = page.locator("#login-setup-code-hint");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("password");
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByRole("alert")).toContainText("enter the setup code");
-    await expect(page.getByRole("alert")).toContainText("Application Support/BitcoinTX");
+    await expect(page.getByRole("alert")).toContainText(`Application Support/${MAC_APP}`);
     await expect(page).toHaveURL(/\/login$/);
     const claim = await page.request.post("/api/users/reset-account", { data: { username: USER, password: PASSWORD } });
     expect(claim.status()).toBe(403);
@@ -403,7 +403,7 @@ test.describe("the Mac app", () => {
   test("in a browser, Create account says where the Mac app keeps the setup code", async ({ page }) => {
     await page.goto("/register");
     const hint = page.locator("#setup-code-hint");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
   });
 
@@ -415,7 +415,7 @@ test.describe("the Mac app", () => {
     await page.goto("/settings");
     await openSection(page, "Account");
     const hint = page.getByText("This is still the default login");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
   });
 

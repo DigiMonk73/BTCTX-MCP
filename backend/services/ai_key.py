@@ -109,8 +109,8 @@ def from_an_old_connector(method: str, route: str | None, connector: str | None,
     (5.12): its guide puts a second wallet's coins in Wallet, which the
     server can't tell from a real Wallet entry. Its reads, and its writes to
     a ledger of one of each, go on as in 1.x. Any version a 2.0 connector
-    sends counts (1.2.10 until 2.0's first pre-release bumps it, "unknown"
-    from a source tree, a pre-release's)."""
+    sends counts: a release's, a pre-release's (2.0.0a1), "unknown" from a
+    source tree."""
     if connector is not None or (method, route) not in WRITES:
         return False
     book = account_book(db)

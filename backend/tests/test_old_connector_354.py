@@ -106,8 +106,8 @@ def test_an_old_connectors_reads_still_work(ledger):
 
 @pytest.mark.parametrize("version", ["2.0.0", "2.0.0b1", "1.2.10", "unknown"])
 def test_a_2_0_connectors_writes_go_through(ledger, version):
-    """Any version a 2.0 connector says: 1.2.10 until B10a bumps it, unknown
-    from a source tree, a pre-release's (B5a's note on #350). A 1.x one says none."""
+    """Any version a 2.0 connector says: a release's, a pre-release's, unknown
+    from a source tree (B5a's note on #350). A 1.x one says none."""
     ledger.add("wallet", "Cold Storage")
     answers = ledger.writes({"X-BitcoinTX-Connector": version})
     assert [r.status_code for r in answers] == [200, 200, 204, 200], [r.text for r in answers]
