@@ -35,13 +35,14 @@ export function rowAccounts(tx: ITransaction, book: AccountBook): string {
 export function rowNote(tx: ITransaction, book: AccountBook): string {
   const { type } = tx;
   if (type === "Deposit" || type === "Withdrawal") return sourceOrPurpose(tx);
-  if (type === "Transfer" && tx.from_account_id === tx.to_account_id && isBtcAccount(book, tx.from_account_id)) {
+  const from = tx.from_account_id ?? undefined;
+  if (type === "Transfer" && from === tx.to_account_id && isBtcAccount(book, from)) {
     return "Consolidation";
   }
   return "";
 }
 
-const inDollars = (book: AccountBook, id: number | null) => accountCurrency(book, id) === "USD";
+const inDollars = (book: AccountBook, id: number | null) => accountCurrency(book, id ?? undefined) === "USD";
 
 /** The asset that moved (signed, as the account sees it) and its USD value. */
 export function rowAmounts(tx: ITransaction, book: AccountBook): { primary: string; secondary: string } {

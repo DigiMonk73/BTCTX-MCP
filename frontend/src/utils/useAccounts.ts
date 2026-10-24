@@ -1,9 +1,9 @@
-// The account book, loaded once per page (2.0 spec 5.4): every form and list
-// on the page shares one GET /api/accounts/.
-import { useCallback, useEffect, useState } from "react";
+// The account book, loaded once per page (2.0 spec 5.4): every form and
+// list on the page shares one GET /api/accounts/.
+import { useEffect, useState } from "react";
 import api from "../api";
 
-/** What a screen shows in place of its accounts when the book won't load. */
+/** What a screen shows in place of its account fields when the book won't load. */
 export const ACCOUNTS_FAILED = "Couldn't load your accounts: reload the page.";
 
 export interface AccountsState {
@@ -18,26 +18,23 @@ function loadAccounts(): Promise<AccountBook> {
   if (loading) return loading;
   const request = api.get<AccountBook>("/accounts/").then((res) => res.data);
   loading = request;
-  // A failure forgets only this request: a newer one forgetAccounts started stays
+  // Only while it is still the one kept: forgetAccounts may have started a newer one
   request.catch(() => {
     if (loading === request) loading = undefined;
   });
   return request;
 }
 
-/** The next useAccounts() asks the server again: Settings calls it after adding,
- * renaming, hiding or deleting an account, and tests between cases. */
+/** The next useAccounts() asks the server again: for Settings once it adds,
+ * hides or deletes an account, and for tests between cases. */
 export function forgetAccounts(): void {
   loading = undefined;
 }
 
-/** The page's book; `reload` asks the server again after a change Settings made. */
-export function useAccounts(): AccountsState & { reload: () => void } {
+export function useAccounts(): AccountsState {
   const [state, setState] = useState<AccountsState>({ failed: false });
-  const [asked, setAsked] = useState(0);
   useEffect(() => {
-    // A screen gone meanwhile sets no state
-    let live = true;
+    let live = true; // an unmounted screen sets no state
     loadAccounts().then(
       (book) => {
         if (live) setState({ book, failed: false });
@@ -49,10 +46,6 @@ export function useAccounts(): AccountsState & { reload: () => void } {
     return () => {
       live = false;
     };
-  }, [asked]);
-  const reload = useCallback(() => {
-    forgetAccounts();
-    setAsked((n) => n + 1);
   }, []);
-  return { ...state, reload };
+  return state;
 }
