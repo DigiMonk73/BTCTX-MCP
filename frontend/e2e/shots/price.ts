@@ -3,7 +3,7 @@
 // Throwaway data on the e2e server; not part of the test suite.
 import path from "node:path";
 import type { Page } from "@playwright/test";
-import { test, expect, createTx, REPO } from "../fixtures";
+import { test, expect, createTx, openSection, REPO } from "../fixtures";
 
 const OUT = process.env.PRICE_SHOTS_DIR ?? path.join(REPO, "frontend", "test-results", "price-shots");
 
@@ -15,7 +15,7 @@ async function shot(page: Page, name: string, full = false) {
 
 const settings = async (page: Page) => {
   await page.getByRole("link", { name: "Settings" }).click();
-  const net = page.getByRole("region", { name: "Privacy & network" });
+  const net = await openSection(page, "Privacy & Network");
   await net.scrollIntoViewIfNeeded();
   return net;
 };

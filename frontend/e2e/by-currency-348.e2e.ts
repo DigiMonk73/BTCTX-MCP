@@ -5,13 +5,14 @@
 // start keeps is the backend's (test_old_rows_348.py): here the database is written
 // as that start leaves it. Saving into a wallet added in Settings waits for the gate
 // (B7a) and Settings' accounts (B7b), whose own specs click it through.
-import { test, expect, createTx, figure, python, sendConfirmed } from "./fixtures";
+import { test, expect, createTx, figure, python, openSection, sendConfirmed } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 async function openReview(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   await review.getByRole("button", { name: "Check again" }).click();
   return review;

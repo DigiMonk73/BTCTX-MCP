@@ -231,8 +231,7 @@ const ConnectAiSetting: React.FC = () => {
   const input = useMemo(() => ({ url, version, keyMode }), [url, version, keyMode]);
 
   return (
-    <div className="settings-section" role="region" aria-label="Connect an AI Assistant">
-      <h3 className="section-title">Connect an AI Assistant</h3>
+    <>
       <p className="note note-warning ai-privacy-note" role="note">
         <strong>Your data goes to the AI&apos;s model.</strong> Whatever BitcoinTX hands the
         assistant (transactions, balances, gains) and whatever you paste into the chat is read by
@@ -306,7 +305,7 @@ const ConnectAiSetting: React.FC = () => {
           </details>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
