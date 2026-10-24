@@ -281,8 +281,7 @@ def _value_blank_gift(tx_data: dict, db: Session) -> bool:
     the BTC price when its hour began (that day's where there's no hourly
     price) x the amount, as a blank income value and a Spent's proceeds are.
     A typed value, $0 included, is kept. Returns True when it filled it."""
-    if not _is_gift_like(tx_data, account_book(db)) or tx_data.get("fmv_usd") is not None \
-            or Decimal(tx_data.get("amount") or 0) <= 0:
+    if not _gift_left_blank(tx_data, account_book(db)):
         return False
     found = _gift_value_at(tx_data["amount"], tx_data.get("timestamp") or datetime.now(timezone.utc), db)
     if found is None:
@@ -1072,12 +1071,13 @@ def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     """
     The row an edit makes, as find_prices_first reads a new one: its stored
     inputs with the edit's fields, as the save's first steps leave them
-    (_edit_as_saved), each value it holds from a price left blank where the
-    save prices it again (_blank_what_the_save_prices), at the moment the
-    save prices it (_moment_the_edit_prices_at), so the prices found are the
-    ones the save asks for (#646, #647): the form's unchanged echo of a
-    past-year row asked for one it never used, and a row priced at the day
-    for the day's where the save asks the hour's.
+    (_edit_as_saved, then the fee's currency filled), each value it holds
+    from a price left blank where the save prices it again
+    (_blank_what_the_save_prices), at the moment the save prices it
+    (_moment_the_edit_prices_at), so the prices found are the ones the save
+    asks for (#646, #647): the form's unchanged echo of a past-year row
+    asked for one it never used, and a row priced at the day for the day's
+    where the save asks the hour's.
     """
     book = account_book(db)
     stored = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment}
@@ -1121,10 +1121,10 @@ def _moment_the_edit_prices_at(row: dict, keeps_the_day: bool, db: Session, book
     value, an income's, a gift's, in apply_update's _priced_at_the_day); else
     the moment the row keeps, which a Spent's blank proceeds the replay
     prices take (_price_for). A Spent's proceeds take their moment from
-    _spent_proceeds_moment, which gives the hour where this gives the row's
-    own: the hour without a fee or with a typed one, and a priced fee kept
-    is a day kept above. An inheritance's value is always its date of
-    death's day."""
+    _spent_proceeds_moment: the hour without a fee or with a typed one, and
+    with a priced fee kept, the fee's moment, which is the one this gives
+    (the day above, or the row's own). An inheritance's value is always its
+    date of death's day."""
     if keeps_the_day:
         return "day"
     priced = {field for field, _when, _at in values_the_save_prices(row, db)}
