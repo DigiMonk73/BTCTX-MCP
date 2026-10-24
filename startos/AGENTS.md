@@ -26,5 +26,6 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
   the package is translated (the i18n dictionaries, the release notes in `versions/`,
   the store listing): the app is English-only, so a translated name points at a screen
   that doesn't exist.
-- **Checks:** `rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
-  (`make` type-checks, lints, format-checks and bundles).
+- **Checks:** `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
+  (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
+  instead of checking, so the format check comes first).

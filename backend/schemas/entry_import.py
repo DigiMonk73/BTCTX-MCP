@@ -131,6 +131,7 @@ class CreatedTransaction(BaseModel):
     realized_gain_usd: Decimal | None = None
     holding_period: str | None = None
     from_price: FromPrice | None = None
+    warnings: list[str] = []  # about its accounts: one hidden in Settings (2.0 spec 5.5)
 
     @field_serializer("amount", when_used="json")
     def amount_written_out(self, v: Decimal) -> str:

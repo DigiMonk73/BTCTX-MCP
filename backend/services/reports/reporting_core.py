@@ -108,7 +108,8 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     gains_dict        = _build_capital_gains_summary(disposals)
     income_dict       = _build_income_summary(txns, book)
     asset_list        = _build_asset_summary(db, start_dt, end_dt)
-    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals, year, get_tax_timezone(db))
+    cap_gain_txs_sum  = _build_capital_gains_transactions_summary(disposals, year, get_tax_timezone(db), book)
+    sales_by_exchange = _build_sales_by_exchange(disposals, cap_gain_txs_sum, book)
     cap_gain_txs_det  = _build_capital_gains_transactions_detailed(disposals)
     income_txs        = _build_income_transactions(txns, book)
     rebates           = _build_rebates(txns, book)
@@ -133,6 +134,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
         "capital_gains_transactions": cap_gain_txs_sum,
         "capital_gains_transactions_detailed": cap_gain_txs_det,
         "form_8949_boxes": _build_form_8949_boxes(db, year),
+        "sales_by_exchange": sales_by_exchange,
 
         "income_transactions": income_txs,
         "rebates": rebates,
@@ -154,6 +156,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]
     from_dt, _ = tax_year_bounds(year, get_tax_timezone(db))
     recalculate_all_transactions(db, until=from_dt)
     open_lots = db.query(BitcoinLot).filter(BitcoinLot.remaining_btc > 0).all()
+    account_names = {a.id: a.name for a in db.query(Account)}
 
     # The Jan 1 price, only if something was held (None: not priced)
     priced = _held_value_price(db, from_dt) if open_lots else None
@@ -170,6 +173,7 @@ def _build_start_of_year_balances(db: Session, year: int) -> list[dict[str, Any]
             float((lot.remaining_btc * january1_price).quantize(Decimal("0.01"), ROUND_HALF_DOWN))
 
         results.append({
+            "account": _lot_account(lot, account_names),
             "quantity": float(lot.remaining_btc),
             "avg_cost_basis": float(avg_basis),
             "value": cur_value,  # None: no Jan 1 price
@@ -295,11 +299,9 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
         cur_value = None if eoy_price is None else \
             (rem_btc * eoy_price).quantize(Decimal("0.01"), ROUND_HALF_DOWN)
 
-        origin = lot.created_transaction
         rows.append({
             "asset": "BTC (Bitcoin)",
-            # A lot belongs to the account it was created in (FIFO per account)
-            "account": account_names.get(origin.to_account_id, "") if origin else "",
+            "account": _lot_account(lot, account_names),
             "acquired": lot.acquired_date.isoformat() if lot.acquired_date else "",
             "quantity": float(rem_btc),
             "cost": float(partial_cost),
@@ -321,6 +323,12 @@ def _build_end_of_year_balances(db: Session, year: int) -> list[dict[str, Any]]:
         "description": "",
     })
     return rows
+
+
+def _lot_account(lot: BitcoinLot, account_names: dict[int, str]) -> str:
+    """The name of the account a lot is in: the one it was created in (FIFO per account)."""
+    origin = lot.created_transaction
+    return account_names.get(origin.to_account_id, "") if origin else ""
 
 
 def _disposal_kind(d: LotDisposal) -> str:
@@ -351,14 +359,44 @@ def _disposal_row(d: LotDisposal) -> dict[str, Any]:
     }
 
 
-def _build_capital_gains_transactions_summary(disposals: list[LotDisposal], year: int,
-                                              tz) -> list[dict[str, Any]]:
+def _build_capital_gains_transactions_summary(disposals: list[LotDisposal], year: int, tz,
+                                              book: AccountBook) -> list[dict[str, Any]]:
     """
     One line per Form 8949 disposal (a sale across lots gives one line per
     lot, each in its own holding period), including transfer fees, with
-    its kind and Form 8949 box.
+    its kind, the account it left (2.0 spec 5.7) and its Form 8949 box.
     """
-    return [{**_disposal_row(d), "kind": _disposal_kind(d), "box": disposal_box(d, year, tz)} for d in disposals]
+    return [{**_disposal_row(d), "account": book.name(d.transaction.from_account_id) if d.transaction else "",
+             "kind": _disposal_kind(d), "box": disposal_box(d, year, tz, book)} for d in disposals]
+
+
+def _build_sales_by_exchange(disposals: list[LotDisposal], rows: list[dict[str, Any]],
+                             book: AccountBook) -> list[dict[str, Any]]:
+    """
+    "Sales by exchange" (2.0 spec 5.7): each exchange with Sells in the
+    year, whether it sends a Form 1099-DA, its Sells' Form 8949 boxes and
+    rows, and their proceeds, cost and gain: to set beside the 1099-DA it
+    sends. Sells only, so no network fee (a Sell's fee is in dollars; a
+    BTC fee is a Transfer's or a Withdrawal's, on no 1099-DA by itself).
+    Every figure stays where it is: these are the totals of its Sells' rows
+    (`rows`, the capital-gains lines of `disposals`, in their order).
+    """
+    exchanges: dict[int, dict[str, Any]] = {}
+    for d, row in zip(disposals, rows):
+        tx = d.transaction
+        exchange = book.exchange_of(tx.from_account_id) if tx is not None and tx.type == "Sell" else None
+        if exchange is None:
+            continue
+        sales = exchanges.setdefault(exchange, {
+            "exchange": book.exchange_name(tx.from_account_id), "sends_1099da": book.sends_1099da(tx.from_account_id),
+            "boxes": set(), "rows": 0, "proceeds": Decimal(0), "cost": Decimal(0), "gain_loss": Decimal(0)})
+        sales["boxes"].add(row["box"])
+        sales["rows"] += 1
+        sales["proceeds"] += d.proceeds_usd_for_that_portion or 0
+        sales["cost"] += d.disposal_basis_usd or 0
+        sales["gain_loss"] += d.realized_gain_usd or 0
+    return [{**s, "boxes": sorted(s["boxes"]), **{k: float(s[k]) for k in ("proceeds", "cost", "gain_loss")}}
+            for _, s in sorted(exchanges.items())]
 
 
 def _build_form_8949_boxes(db: Session, year: int) -> list[dict[str, Any]]:

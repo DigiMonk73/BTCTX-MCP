@@ -202,8 +202,9 @@ def test_the_complete_report_says_inherited_and_explains_it():
     sell("2025-04-10", "0.01")
     pdf = CLIENT.get("/api/reports/complete_tax_report", params={"year": 2025}).content
     text = "\n".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(pdf)).pages)
-    # Section 2's row: sold, acquired (INHERITED on one line, review of #170), kind, box, term
-    assert re.search(r"04/10/2025\s+INHERITED\s+Sale\s+K\s+Long", text), text
+    # Section 2's row: sold, acquired (INHERITED on one line, review of #170), kind and its account (#349),
+    # box, term
+    assert re.search(r"04/10/2025\s+INHERITED\s+Sale\s+Exchange BTC\s+K\s+Long", text), text
     words = " ".join(text.split())
     assert "Inherited bitcoin (deposits with source Inherited) is long-term whenever it's sold" in words
     assert "Form 8971, Schedule A, as having increased the estate tax" in words

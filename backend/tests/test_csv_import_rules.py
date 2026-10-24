@@ -17,7 +17,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import sessionmaker
 
-from backend.constants import ACCOUNT_NAME_TO_ID
+from backend.services.account import FIXED_BOOK
 from backend.services.csv_import import parse_csv_file
 from backend.services.transaction import create_transaction_record
 
@@ -142,18 +142,17 @@ def test_the_preview_says_what_each_amount_is_in_and_names_the_accounts_as_usual
     ]
 
 
-FEE_ACCOUNT = "Invalid account '{}'. Must be one of: Bank, Wallet, Exchange USD, Exchange BTC, External."
+FEE_ACCOUNT = "Invalid account '{}'. Must be one of your accounts (Bank, Wallet, Exchange USD, Exchange BTC) or External."
 USD_CENTS = "A USD amount can have at most 2 decimal places."
 ONE_CURRENCY = "A Transfer stays in one currency: bitcoin between bitcoin accounts, dollars between dollar accounts."
 
-BLANK_FEE_CURRENCY = "A deposit fee must be in USD, the account's currency. (fee_currency is blank: the import uses BTC)"
 BTC_TRANSFER_FEE = "A transfer from this account pays its fee in BTC."
 
 # #266: rows the preview passed and the import then refused (the whole file)
 REFUSED_AT_IMPORT = [
-    ("2024-01-05,Deposit,1,External,BTC Fees,,,,,,,", FEE_ACCOUNT.format("btc fees")),
+    ("2024-01-05,Deposit,1,External,BTC Fees,,,,,,,", FEE_ACCOUNT.format("BTC Fees")),
     ("2024-01-05,Deposit,100,External,usd fees,,,,,,,", FEE_ACCOUNT.format("usd fees")),
-    ("2024-01-05,Withdrawal,0.1,BTC Fees,External,,,,,,,", FEE_ACCOUNT.format("btc fees")),  # no purpose asked
+    ("2024-01-05,Withdrawal,0.1,BTC Fees,External,,,,,,,", FEE_ACCOUNT.format("BTC Fees")),  # no purpose asked
     ("2024-01-05,Deposit,50000.125,External,Bank,,,,,,,", USD_CENTS),
     ("2024-01-05,Withdrawal,20.001,Exchange USD,External,,,,,,,", USD_CENTS),
     ("2024-01-05,Transfer,100.5,Bank,Exchange USD,,,,,,,", None),  # cents are fine
@@ -164,8 +163,9 @@ REFUSED_AT_IMPORT = [
     ("2024-01-05,Sell,0.1,Exchange BTC,Exchange USD,,10,10,USD,,,", None),  # a fee as large as the proceeds
     ("2024-01-05,Withdrawal,100,Bank,External,,,0.0001,BTC,,,", "A withdrawal fee must be in USD, the account's currency."),
     ("2024-01-05,Deposit,100,External,Bank,,,0.0001,BTC,,,", "A deposit fee must be in USD, the account's currency."),
-    # No fee currency: the import fills in BTC for any deposit, which a USD account refuses
-    ("2024-01-05,Deposit,100,External,Bank,,,1,,,,", BLANK_FEE_CURRENCY),
+    # No fee currency: the one the save fills in, a deposit's account's (#303's fee_currency_used, #350);
+    # before 2.0 the import filled in BTC for any deposit, which a USD account refused
+    ("2024-01-05,Deposit,100,External,Bank,,,1,,,,", None),
     ("2024-01-05,Deposit,100,External,Bank,,,1,USD,,,", None),
     ("2024-01-05,Deposit,0.1,External,Wallet,100,,1,USD,MyBTC,,", "A deposit fee must be in BTC, the account's currency."),
     ("2024-01-05,Transfer,0.0001,Wallet,Exchange BTC,,,0.001,BTC,,,",
@@ -214,10 +214,9 @@ def test_a_row_the_preview_passes_is_saved(auth_client, row, message):
 def _save_data(row: str) -> dict:
     """A refused row as the save would get it: its date (noon UTC), type,
     amount, accounts, proceeds (a Sell's are its gross), fee, source and
-    purpose. A fee with no currency is in BTC, as the import fills it in
-    for a deposit."""
+    purpose."""
     date, tx_type, amount, from_name, to_name, _basis, proceeds, fee, fee_cur, source, purpose = row.split(",")[:11]
-    from_id, to_id = (ACCOUNT_NAME_TO_ID[n.strip().lower()] for n in (from_name, to_name))
+    from_id, to_id = (FIXED_BOOK.id_for(n) for n in (from_name, to_name))
     data = {
         "type": tx_type, "timestamp": datetime.fromisoformat(date).replace(hour=12, tzinfo=timezone.utc),
         "amount": Decimal(amount), "from_account_id": from_id, "to_account_id": to_id,
@@ -230,9 +229,8 @@ def _save_data(row: str) -> dict:
 
 
 # What the save says for each of the preview's reasons
-SAVE_SAYS = {FEE_ACCOUNT.format("btc fees"): "Unknown account id 5.", FEE_ACCOUNT.format("usd fees"): "Unknown account id 6.",
+SAVE_SAYS = {FEE_ACCOUNT.format("BTC Fees"): "Unknown account id 5.", FEE_ACCOUNT.format("usd fees"): "Unknown account id 6.",
              USD_CENTS: USD_CENTS, ONE_CURRENCY: ONE_CURRENCY,
-             BLANK_FEE_CURRENCY: "A deposit fee must be in USD, the account's currency.",
              BTC_TRANSFER_FEE: "Transfer from BTC => fee must be BTC."}
 
 
