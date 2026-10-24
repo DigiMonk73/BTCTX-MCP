@@ -107,9 +107,20 @@ then, the IRS's draft of that year is a preview, marked DRAFT — DO NOT FILE.
 
 ## Imports
 
-- **River**: the CSV export from River. The preview leaves out rows already
-  in your ledger.
-- **Generic CSV**: into an empty ledger only.
+- **An exchange's file**: the CSV export of River, Coinbase, Kraken (its
+  ledger), Strike, Swan or Cash App, read as each writes it, or any other
+  exchange's once you've said which of its columns holds what (the date,
+  the kind of row, the bitcoin and dollar amounts, the fee) and what each
+  kind of row is; save that and it's in the list next time. Choose the
+  exchange and the wallet the file is for: the file never says which of
+  your wallets a send went to. It adds to a ledger in use: the preview
+  leaves out the rows already in it (the same kind, bitcoin amount and
+  minute), flags those that only look like one you recorded, and names
+  every row it didn't read and why (another coin, dollars alone, a row not
+  completed, a trade of bitcoin for another coin, which you add by hand).
+  A buy's cost and a sell's proceeds are recorded before the fee, with the
+  fee apart, whichever way the exchange writes them.
+- **Generic CSV** (BitcoinTX's own columns): into an empty ledger only.
 - **AI entry**: paste an exchange email or a wallet history into an AI
   assistant, or type "moved 0.05 BTC to my Coldcard yesterday, fee 2k
   sats". The assistant previews the rows (duplicate check, fair market

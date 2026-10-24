@@ -50,8 +50,9 @@ def _autofill_fmv_basis(
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
-    proposals (River's Interest, Income and Mining payouts) at the BTC
-    price of their hour (else their day: services/hourly_prices.py).
+    proposals (an exchange's payouts: River's Interest, Income and Mining,
+    for one) the file gave no value for, at the BTC price of their hour
+    (else their day: services/hourly_prices.py).
     Degrades gracefully: on lookup failure
     the basis stays blank and a warning tells the user to fill it in.
     """
@@ -137,9 +138,9 @@ def preview_river_import(
 
 def previewed(proposed: Proposed, db: Session) -> RiverPreviewResponse:
     """A file's preview, for River's and every exchange's (exchange_import):
-    its proposals with River's payouts valued at their hour's price and
-    those already in the ledger marked (#253), counted; 400 for more rows
-    than an import takes."""
+    its proposals with their payouts valued at their hour's price and those
+    already in the ledger marked (#253), counted; 400 for more rows than an
+    import takes."""
     proposals, errors, warnings = proposed.proposals, proposed.errors, proposed.warnings
     if len(proposals) > MAX_ROWS:
         raise HTTPException(

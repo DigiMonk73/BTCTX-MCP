@@ -48,6 +48,24 @@ All notable changes to BitcoinTX are documented in this file.
   delete one, and its add passes a hidden account's warning on. Saving
   into an added account still waits for a later step. No figure of a
   ledger moves.
+- **An importer for any exchange's file** (B5b, #567; the owner's decision
+  17, #338). Settings' River import reads the CSV export of River,
+  Coinbase, Kraken (its ledger), Strike, Swan and Cash App as each
+  exchange writes it, and any other exchange's once you've said which of
+  its columns holds what and what each kind of row is (a mapping you can
+  save, kept with your other settings, so a backup brings it back). A file
+  goes into the exchange and the wallet you choose, into a ledger already
+  in use: the preview leaves out what's already there (the same kind,
+  bitcoin amount and minute) and marks what only looks like it, by River's
+  rules above, since no exchange's file names your wallet or your bank;
+  and it names every row it didn't read, and why: another coin, dollars alone, a row not completed,
+  a repeated row, a trade of bitcoin for another coin (a disposal, IRS
+  Notice 2014-21, which you add by hand). A buy's cost basis and a sell's
+  proceeds are taken before the fee, the fee recorded apart, whichever way
+  the exchange writes its dollars (a total that includes the fee, or a
+  net received after it); a fee is bitcoin only when the file says so;
+  amounts are kept to the satoshi and the cent. River's file reads exactly
+  as before: its rows, figures and duplicate checks are unchanged.
 - **The transaction form names accounts by the account book** (B6a, #351).
   Editing a transaction keeps the accounts it was saved with: a Buy or a
   Sell stays on its exchange, a Transfer keeps its destination. Where more

@@ -14,6 +14,10 @@ Account model (spec 5.11, Q8): River is the exchange the owner chooses for
 the file (its USD and BTC accounts; by default the first exchange), its
 sends go to the wallet the owner chooses (by default the first wallet), a
 recurring buy is paid from the first bank, and External is everything else.
+
+Every other exchange's file (exchange_import, B5b) is read into the same
+FileRows River's are, so this adapter, duplicate check and save serve them
+all, with River's rules.
 """
 
 from __future__ import annotations
