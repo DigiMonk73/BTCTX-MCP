@@ -427,3 +427,69 @@ def test_into_wallet_it_would_be_a_consolidation_which_needs_a_fee(missing_accou
     client, _ = missing_account_row
     r = client.put("/api/transactions/970", json={"to_account_id": WALLET})
     assert (r.status_code, r.json()["detail"]) == (400, tx_service.SAME_ACCOUNT_NEEDS_FEE)
+
+
+# The server review's findings
+
+def test_an_income_change_asks(ledger):
+    """A deposit made income with its typed value kept: no stored figure,
+    lot or box moves, but the year's income does."""
+    client, rows = ledger
+    r = client.put(f"/api/transactions/{rows['deposit 2024']}", json={"source": "Income", "cost_basis_usd": "1000"})
+    assert r.status_code == 409, r.text
+    assert [i["change"] for i in r.json()["changes"]] == ["Income and rebates: none -> Income 1000.00."]
+
+
+def test_income_made_a_rebate_asks(ledger):
+    client, _ = ledger
+    body = {"type": "Deposit", "from_account_id": EXTERNAL, "to_account_id": WALLET, "amount": "0.01",
+            "timestamp": "2025-05-01T12:00:00Z", "source": "Income", "cost_basis_usd": "600", "fee_amount": "0"}
+    asked = client.post("/api/transactions", json=body)
+    income = client.post("/api/transactions", json=body, params={"confirm": asked.json()["confirm"]}).json()["id"]
+    r = client.put(f"/api/transactions/{income}", json={"source": "Rebate", "cost_basis_usd": "600"})
+    assert r.status_code == 409, r.text
+    assert "Income and rebates: Income 600.00 -> Rebate 600.00" in r.json()["changes"][0]["change"]
+
+
+def test_after_an_upgrade_the_first_confirm_saves(ledger):
+    """With recalculated_by unmatched and a fix pending on the row itself,
+    the dry run and the confirm both apply the write to the stored ledger,
+    so they give the same fingerprint."""
+    client, rows = ledger
+    _make_pending(client, rows["sale 2024"])
+    asked = client.delete(f"/api/transactions/{rows['sale 2024']}")
+    assert asked.status_code == 409, asked.text
+    r = client.delete(f"/api/transactions/{rows['sale 2024']}", params={"confirm": asked.json()["confirm"]})
+    assert r.status_code == 204, r.text
+
+
+def test_past_the_budget_a_dollar_row_still_saves_at_once(ledger, monkeypatch):
+    client, _ = ledger
+    monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
+    r = post(client, type="Deposit", from_account_id=EXTERNAL, to_account_id=BANK, amount="500",
+             timestamp="2024-03-01T12:00:00Z", source="N/A")
+    assert r.status_code == 200, r.text
+
+
+def test_past_the_budget_a_refused_input_is_still_refused_first(ledger, monkeypatch):
+    client, rows = ledger
+    monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
+    r = client.put(f"/api/transactions/{rows['deposit 2024']}", json={"timestamp": "2008-06-01T12:00:00Z"})
+    assert (r.status_code, r.json()["detail"]) == (422, tx_service.BEFORE_BITCOIN)
+
+
+def test_a_row_deleted_before_its_confirm_takes_the_lock_is_404(ledger, monkeypatch):
+    client, rows = ledger
+    asked = WRITES["edit"](client, rows).json()
+    take = past_years.take_write_lock
+
+    def deleted_meanwhile(db):
+        with client.Session() as other:
+            other.execute(text("DELETE FROM transactions WHERE id = :id"), {"id": rows["deposit 2024"]})
+            other.commit()
+        return take(db)
+
+    monkeypatch.setattr(past_years, "take_write_lock", deleted_meanwhile)
+    r = WRITES["edit"](client, rows, {"confirm": asked["confirm"]})
+    assert (r.status_code, r.json()["detail"]) == (404, "Transaction not found.")
+    assert copies(client, PRE_CHANGE_KIND) == []

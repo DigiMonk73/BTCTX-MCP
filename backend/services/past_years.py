@@ -22,6 +22,7 @@ import logging
 import sqlite3
 import time
 from collections.abc import Callable
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,7 +44,7 @@ from backend.migrate import (
     sqlite_file,
 )
 from backend.models.transaction import Transaction
-from backend.services import hourly_prices, price_history, recalculated_by, review, tax_time, year_changes
+from backend.services import hourly_prices, recalculated_by, review, tax_time, year_changes
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
 
@@ -67,10 +68,11 @@ TOO_SLOW = ("BitcoinTX couldn't work out exactly what changes quickly enough her
             "can reach.")
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
 NO_COPY = "Not saved: BitcoinTX couldn't make its copy of the database first."
-# The keys a save in hourly_prices.with_prices_found holds its price lookups
-# by: a replay on a scratch copy under the lock holds its lookups by them too
-PRICE_KEYS = (price_history.ASK_FIRST, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED,
-              hourly_prices.UNPRICED_HOURS, hourly_prices.RUN_AGAIN)
+# What a session's replay is held by, carried onto the scratch copy its
+# recalculation without the write runs on: the save's price lookups
+# (hourly_prices.with_prices_found: none sent under the lock) and the dry
+# run's time budget
+CARRIED = (*hourly_prices.SAVE_KEYS, tx_service.DEADLINE)
 
 
 @dataclass(frozen=True)
@@ -116,6 +118,21 @@ class Write:
         except tax_time.DateOutOfRange:
             return None
 
+    def dollars_only(self, db: Session) -> bool:
+        """Neither the row as stored nor as the write leaves it is a bitcoin
+        one (a Buy, a Sell, or a bitcoin account on a side): it moves no
+        figure of any year, and with a login nothing pending asks."""
+        book = account_book(db)
+        stored = db.get(Transaction, self.tx_id) if self.kind != ADD else None
+        rows = [(stored.type, stored.from_account_id, stored.to_account_id)] if stored is not None else []
+        if self.kind != DELETE:
+            def sent(key):
+                value = self.data.get(key, getattr(stored, key, None))
+                return getattr(value, "value", value)  # an enum's
+            rows.append((sent("type"), sent("from_account_id"), sent("to_account_id")))
+        return bool(rows) and all(kind not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)
+                                  for kind, *sides in rows)
+
     def appends(self, db: Session) -> bool:
         """An add dated at or after every row: it replays nothing, and so
         applies no pending change (transaction._is_backdated)."""
@@ -141,6 +158,7 @@ class Write:
         return {self.tx_id: review.row_item(db.get(Transaction, self.tx_id), tz, account_book(db), "", "")}
 
     def parts(self) -> list:
+        """What the fingerprint takes of it: the write as its request gives it."""
         return [self.kind, self.tx_id, self.data]
 
 
@@ -155,7 +173,7 @@ def save(write: Write, db: Session, confirm: str | None, by_ai: bool,
     this_year = tax_time.current_tax_year(tz)
     earliest = write.earliest_year(db, tz)
     nothing_pending = not by_ai or write.appends(db) or recalculated_by.matches(db)
-    if earliest is None or (earliest >= this_year and nothing_pending):
+    if earliest is None or (nothing_pending and (earliest >= this_year or write.dollars_only(db))):
         warning = None  # nothing earlier can move: no dry run
     elif confirm is not None:
         return _save_confirmed(write, db, confirm, by_ai)
@@ -185,55 +203,59 @@ def _dry_run(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict
     scratch copy, with the lock free, within DRY_RUN_SECONDS."""
     tx_service.find_prices_first(db, write.priced_rows(db))  # kept in the live database: the confirm needs them
     appended = write.appends(db)
-    without = None if appended or recalculated_by.matches(db) else _without_pass
     try:
         with scratch_copy(db) as scratch:
             scratch.info[tx_service.DEADLINE] = time.monotonic() + DRY_RUN_SECONDS
-            found = _compare(write, scratch, tz, without, appended)
+            found = _compare(write, scratch, tz, _needs_without(write, db), appended)
             return _warning(write, found, by_ai, this_year, scratch, tz)
     except tx_service.OutOfTime:
         return _by_date(write, db, by_ai, tz, this_year)
 
 
-def _compare(write: Write, db: Session, tz, without: Callable | None, appended: bool) -> _Found:
+def _needs_without(write: Write, db: Session) -> bool:
+    """Whether a recalculation without the write could change anything: not
+    for an add dated last (it applies nothing pending), nor while this
+    BitcoinTX last recalculated the ledger (nothing is pending)."""
+    return not write.appends(db) and not recalculated_by.matches(db)
+
+
+def _compare(write: Write, db: Session, tz, needs_without: bool, appended: bool) -> _Found:
     """
-    What the write changes on `db`: a recalculation without it (`without`,
-    run only when one could change anything: a pending change), compared
-    with the write and its own recalculation. A without pass that fails (a
-    ledger the replay can't pass as it is) is compared no further: the write
-    is compared with the stored figures, or the edit that repairs such a
-    ledger could never be saved. A failing write answers as its save would.
+    What the write changes on `db`, which holds the stored ledger: the write
+    and its own recalculation, then, when one could change anything (a
+    pending change), a recalculation without it on a copy taken first. The
+    dry run and the confirmed save both take this one path, so they give
+    one fingerprint; the write goes first, so a refusal of its own answers
+    as its save would before the time budget can run out on the other. A
+    without pass that fails (a ledger the replay can't pass as it is) is
+    compared no further: the write is compared with the stored figures, or
+    the edit that repairs such a ledger could never be saved.
     """
     stored = year_changes.figures(db, tz)
-    before, pending, recalc_error = (stored, {}, None) if without is None else without(db, tz, stored)
     gone = write.gone_item(db, tz)
-    result = write.apply(db)
-    db.flush()
-    after = year_changes.figures(db, tz)
+    with scratch_copy(db) if needs_without else nullcontext() as without:
+        result = write.apply(db)
+        db.flush()
+        after = year_changes.figures(db, tz)
+        if without is None:
+            before, pending, recalc_error = stored, {}, None
+        else:
+            without.info.update({key: db.info[key] for key in CARRIED if key in db.info})
+            before, pending, recalc_error = _without_pass(without, tz, stored)
     return _Found(year_changes.moved(before, after), pending, recalc_error, {**stored, **before, **after}, gone,
                   appended, result)
 
 
 def _without_pass(db: Session, tz, stored: dict) -> tuple[dict, dict, str | None]:
-    """The dry run's recalculation without the write, on its scratch copy
-    (undone if it fails): (its figures, what it changes, why it failed)."""
+    """The recalculation without the write, on a scratch copy of the stored
+    ledger: (its figures, what it changes, why it failed)."""
     try:
         tx_service.recalculate_all_transactions(db)
         db.flush()
     except HTTPException as e:
-        db.rollback()
         return stored, {}, e.detail
     before = year_changes.figures(db, tz)
     return before, year_changes.moved(stored, before), None
-
-
-def _without_pass_on_a_copy(db: Session, tz, stored: dict) -> tuple[dict, dict, str | None]:
-    """The confirmed save's recalculation without the write, on a scratch
-    copy of the ledger it has locked: a price it needs holds it up as the
-    save's own lookups are (hourly_prices.with_prices_found)."""
-    with scratch_copy(db) as scratch:
-        scratch.info.update({key: db.info[key] for key in PRICE_KEYS if key in db.info})
-        return _without_pass(scratch, tz, stored)
 
 
 def _warning(write: Write, found: _Found, by_ai: bool, this_year: int, db: Session, tz) -> dict | None:
@@ -263,7 +285,9 @@ def _by_date(write: Write, db: Session, by_ai: bool, tz, this_year: int) -> dict
     the write's date, or, with the AI key while a change a recalculation
     alone would make may be pending in any year, from the ledger's first."""
     start = own = write.earliest_year(db, tz)
-    if by_ai and not write.appends(db) and not recalculated_by.matches(db):
+    if start is None:  # a row gone meanwhile
+        return None
+    if by_ai and _needs_without(write, db):
         first = db.query(func.min(Transaction.timestamp)).scalar()
         start = min(start, tax_time.local_date(first, tz).year) if first is not None else start
     years = list(range(start, this_year))
@@ -315,6 +339,8 @@ def _confirmed(write: Write, db: Session, confirm: str, by_ai: bool):
         raise HTTPException(status_code=503, detail=BUSY)
     copy = None
     try:
+        if write.kind != ADD and db.get(Transaction, write.tx_id) is None:
+            raise HTTPException(status_code=404, detail="Transaction not found.")  # deleted meanwhile
         copy = _copy(db, by_ai)
         tz = tax_time.get_tax_timezone(db)
         this_year = tax_time.current_tax_year(tz)
@@ -346,9 +372,7 @@ def _checked_write(write: Write, db: Session, confirm: str, by_ai: bool, tz, thi
     by_date = _by_date(write, db, by_ai, tz, this_year)
     if by_date is not None and by_date["confirm"] == confirm:
         return write.apply(db), None
-    appended = write.appends(db)
-    without = None if appended or recalculated_by.matches(db) else _without_pass_on_a_copy
-    found = _compare(write, db, tz, without, appended)
+    found = _compare(write, db, tz, _needs_without(write, db), write.appends(db))
     return found.result, _warning(write, found, by_ai, this_year, db, tz)
 
 

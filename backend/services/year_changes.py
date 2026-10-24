@@ -12,6 +12,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
+from backend.constants import INCOME_SOURCES, REBATE_SOURCE, normalized
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import review
 from backend.services.account import AccountBook, account_book
@@ -19,8 +20,11 @@ from backend.services.reports.form_8949 import acquired_text, disposal_box
 from backend.services.tax_time import local_date
 
 # Compared beside Ledger Review's figures: each disposal's box and column
-# (b), in the order they were made
-COLUMNS = ("boxes", "acquired")
+# (b), in the order they were made, and what the year's report counts as
+# income or a rebate (the source and value: a deposit made income keeps its
+# basis, so no stored figure shows it)
+COLUMNS = ("boxes", "acquired", "received")
+RECEIVED = INCOME_SOURCES | {REBATE_SOURCE}
 # A row's figures, any one of which set makes it count (a dollar row never does)
 COUNTED = review.FIGURES + ("rows", "lots")
 # What an added or deleted row's text names, when it has them
@@ -31,19 +35,29 @@ PENDING = "Stored figures differ from what the current rules give."
 
 def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
     """Each transaction's stored figures (review.snapshot), its disposals'
-    Form 8949 boxes and column (b), its tax year (tax timezone), and whether
-    it's dollars only."""
+    Form 8949 boxes and column (b), what it brings as income or a rebate,
+    its tax year (tax timezone), and whether it's dollars only."""
     found = review.snapshot(db, tz)
     book = account_book(db)
-    for tx_id, when, kind, *sides in db.query(Transaction.id, Transaction.timestamp, Transaction.type,
-                                             Transaction.from_account_id, Transaction.to_account_id):
-        dollars = kind not in ("Buy", "Sell") and not any(book.is_btc(a) for a in sides)
-        found[tx_id].update(year=local_date(when, tz).year, dollars=dollars, boxes=[], acquired=[])
+    for t in db.query(Transaction):
+        dollars = t.type not in ("Buy", "Sell") and not any(book.is_btc(a) for a in (t.from_account_id, t.to_account_id))
+        found[t.id].update(year=local_date(t.timestamp, tz).year, dollars=dollars, boxes=[], acquired=[],
+                           received=_received(t, book))
     for disposal in _disposals(db):
         row = found[disposal.transaction_id]
         row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
         row["acquired"].append(acquired_text(disposal, tz))
     return found
+
+
+def _received(t: Transaction, book: AccountBook) -> tuple[str, str | None] | None:
+    """(its source, its value) for a deposit into a bitcoin account the
+    report counts as income (Income, Interest, Reward) or as a rebate; None
+    for any other row (reporting_core._build_income_summary, its rebates)."""
+    source = normalized(t.source)
+    if t.type != "Deposit" or source not in RECEIVED or not book.is_btc(t.to_account_id):
+        return None
+    return source.capitalize(), review.money(t.cost_basis_usd)
 
 
 def _disposals(db: Session) -> list[LotDisposal]:
@@ -136,10 +150,17 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         parts.append("Form 8949 box " + _moved_text(*diff["boxes"]))
     if "acquired" in diff:
         parts.append("Form 8949 column (b), date acquired " + _moved_text(*diff["acquired"]))
+    if "received" in diff:
+        parts.append("income and rebates: " + " -> ".join(_received_text(side) for side in diff["received"]))
     if "year" in diff:
         parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
     text = "; ".join(parts) + "."
     return text[:1].upper() + text[1:] if not money else text
+
+
+def _received_text(received: tuple[str, str | None] | None) -> str:
+    """ "Income 1000.00", "Rebate 6.00", or "none"."""
+    return "none" if received is None else f"{received[0]} {received[1] or 'none'}"
 
 
 def _moved_text(old: list[str], new: list[str]) -> str:
