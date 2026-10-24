@@ -39,10 +39,12 @@ test("converter, auto mode: live price", async ({ authedPage: page }) => {
   await expect(page.getByLabel("Sats", { exact: true })).toHaveValue("50000000");
 });
 
-test("the calculator stays put in every converter mode and ends level with the cards", async ({ authedPage: page }) => {
-  // Owner's request 2026-09-29: the calculator looked scrunched and ended
-  // short of the Realized Gains/Losses card; it also jumped when the
-  // converter's mode changed (Auto's price line is shorter than Manual's field).
+test("the calculator stays put in every converter mode", async ({ authedPage: page }) => {
+  // Owner's request 2026-09-29: the calculator looked scrunched and jumped
+  // when the converter's mode changed (Auto's price line is shorter than
+  // Manual's field). It no longer ends level with a row of cards: 2.0's cards
+  // by kind have no fixed height (#356, the build's lead under the owner's
+  // decision 25, 2026-10-23).
   await page.setViewportSize({ width: 1440, height: 900 });
   const calculator = page.getByRole("status", { name: "Calculator display" }).locator("xpath=..");
   const edges = async () => {
@@ -57,14 +59,6 @@ test("the calculator stays put in every converter mode and ends level with the c
   await page.getByLabel("Select Date").fill("2024-03-01");
   await expect(page.getByText(/\$50,000\.00/)).toBeVisible();
   expect(await edges()).toEqual(auto);
-
-  const realized = page.locator(".card, section, div").filter({
-    has: page.getByRole("heading", { name: "Realized Gains/Losses (FIFO)", exact: true }),
-  }).last();
-  const card = (await realized.boundingBox())!;
-  // The cards' height follows the page width (the Income & Fees card's text
-  // wraps), so level to within a couple of pixels
-  expect(Math.abs(auto[1] - Math.round(card.y + card.height))).toBeLessThanOrEqual(3);
 });
 
 test("converter with prices off says so, never $0.00", async ({ authedPage: page }) => {

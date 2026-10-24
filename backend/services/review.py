@@ -785,7 +785,7 @@ def format_text(review: dict[str, Any]) -> str:
     for check in review["checks"]:
         lines.append(f"{check['title']}: {check['count']}")
         for item in check["items"]:
-            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_amount(item)}  {item['issue']}")
+            lines.append(f"  #{item['id']}  {item['date']}  {_kind(item)}  {_names(item)}{_amount(item)}  {item['issue']}")
         lines.extend(f"  {year_line(y)}" for y in check.get("years", []))
         if check["count"]:
             lines.extend(f"  {paragraph}" for paragraph in check["explanation"])
@@ -798,6 +798,12 @@ def _kind(item: dict[str, Any]) -> str:
     transfer has no source or purpose, and some rows saved none."""
     detail = item["source"] if item["type"] == "Deposit" else item["purpose"] if item["type"] == "Withdrawal" else None
     return f"{item['type']} ({detail})" if detail else item["type"]
+
+
+def _names(item: dict[str, Any]) -> str:
+    """"Bank → Credit Union  ": its accounts, from then to, before its amount; "" with none named."""
+    names = " → ".join(item.get("accounts") or [])
+    return f"{names}  " if names else ""
 
 
 def _amount(item: dict[str, Any]) -> str:

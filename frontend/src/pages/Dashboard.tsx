@@ -4,27 +4,17 @@ import AccountCards from "../components/dashboard/AccountCards";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
 import HistoryQuestionCard from "../components/dashboard/HistoryQuestionCard";
 import IncomeFeesCard from "../components/dashboard/IncomeFeesCard";
+import LoadingCard from "../components/dashboard/LoadingCard";
 import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
+import { CARD_TITLES, NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
 import { useLivePrice } from "../components/dashboard/useLivePrice";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
-const KIND_TITLES = ["Bank", "Exchange", "Wallet"];
-const CARD_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"];
-
-/** A card while its figures load: its title and a spinner, at its size, so nothing jumps. */
-const LoadingCard: React.FC<{ title: string; className?: string }> = ({ title, className = "" }) => (
-  <div className={`card ${className}`}>
-    <h3 className="card-title">{title}</h3>
-    <div className="loading-row">
-      <div className="spinner" /> Loading…
-    </div>
-  </div>
-);
+const GRID_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"];
 
 const Dashboard: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[] | null>(null);
@@ -132,10 +122,10 @@ const Dashboard: React.FC = () => {
     return (
       <div className="dashboard" aria-busy="true">
         <div className="account-cards">
-          {KIND_TITLES.map((title) => <LoadingCard key={title} title={title} className="account-card" />)}
+          {CARD_TITLES.map((title) => <LoadingCard key={title} title={title} className="account-card" />)}
         </div>
         <div className="dashboard-grid">
-          {CARD_TITLES.map((title) => <LoadingCard key={title} title={title} className="dashboard-card-loading" />)}
+          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} className="dashboard-card-loading" />)}
         </div>
       </div>
     );

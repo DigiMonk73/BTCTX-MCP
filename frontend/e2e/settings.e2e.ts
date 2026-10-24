@@ -453,7 +453,7 @@ test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: 
   const list = review.getByRole("list", { name: "Spent withdrawals saved with $0 proceeds" });
   await expect(list.getByRole("listitem")).toHaveCount(1);
   await expect(list).toContainText(`#${spend.id} · `);
-  await expect(list).toContainText("Withdrawal (Spent) · 0.01000000 BTC");
+  await expect(list).toContainText("Withdrawal (Spent) · Wallet · 0.01000000 BTC"); // its account named (#356)
   expect(await listTx(page.request)).toEqual(before);
 });
 
@@ -473,7 +473,7 @@ test("ledger review: a My BTC deposit without its original date is a folded remi
   await expect(list).toHaveCount(0);
   await review.getByRole("button", { name: "Show the 1 deposit" }).click();
   await expect(list).toContainText(`#${mine.id} · `);
-  await expect(list).toContainText("Deposit (MyBTC) · 0.01000000 BTC");
+  await expect(list).toContainText("Deposit (MyBTC) · Wallet · 0.01000000 BTC"); // its account named (#356)
   await review.getByRole("button", { name: "Hide the list" }).click();
   await expect(list).toHaveCount(0);
 });

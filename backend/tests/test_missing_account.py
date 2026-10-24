@@ -120,7 +120,8 @@ def test_both_missing_accounts_are_named_and_dollars_shown_as_dollars(auth_clien
     assert (items[983]["amount"], items[983]["unit"]) == ("500.00", "USD")
     assert (items[982]["amount"], items[982]["unit"]) == ("0.10000000", "BTC")
     text_out = format_text(review)
-    assert "  Transfer  $500.00  " in text_out and "(None)" not in text_out
+    # Its accounts between its type and its amount, as the screen has them (#356)
+    assert "  Transfer  Bank \u2192 account 999 (missing)  $500.00  " in text_out and "(None)" not in text_out
 
 
 def test_an_account_transactions_name_cant_be_deleted(auth_client, test_engine, empty):

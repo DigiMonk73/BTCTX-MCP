@@ -36,14 +36,16 @@ const TransactionsBody: React.FC<TransactionsBodyProps> = (props) => {
         onEdit={props.onEdit}
       />
 
-      <Pagination
-        page={page}
-        totalPages={totalPages}
-        pageSize={pageSize}
-        onPrev={() => page > 1 && onPage(page - 1)}
-        onNext={() => page < totalPages && onPage(page + 1)}
-        onPageSizeChange={(e) => props.onPageSize(Number(e.target.value))}
-      />
+      {kept.length > 0 && (
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          onPrev={() => page > 1 && onPage(page - 1)}
+          onNext={() => page < totalPages && onPage(page + 1)}
+          onPageSizeChange={(e) => props.onPageSize(Number(e.target.value))}
+        />
+      )}
     </>
   );
 };

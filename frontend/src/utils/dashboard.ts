@@ -126,6 +126,9 @@ export interface KindCard {
 
 const CARDS: [CardKind, KindCard["title"]][] = [["bank", "Bank"], ["exchange", "Exchange"], ["wallet", "Wallet"]];
 
+/** The cards' titles, in their order: a loading dashboard shows them too. */
+export const CARD_TITLES = CARDS.map(([, title]) => title);
+
 /** The rows of one kind: an exchange's two accounts as one row, in the
  * balances' order (by id); a hidden one holding nothing left out (5.13). */
 function cardRows(kind: CardKind, balances: { account: AccountBalance; balance: number }[]): CardRow[] {

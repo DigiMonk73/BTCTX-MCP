@@ -16,6 +16,7 @@ from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from backend.database import seed_defaults
 from backend.main import app
@@ -216,6 +217,17 @@ def test_another_exchange_cant_take_the_first_exchanges_names_once_free(client):
     assert (r.status_code, r.json()["detail"]) == (
         400, "'Exchange USD' always means your first exchange in files (CSV, River, BitcoinTX 1.x): "
              "choose another name.")
+
+
+def test_an_exchange_account_whose_exchange_row_is_gone_is_renamed_alone(client):
+    """No foreign key keeps an exchange's row (a hand-edited database): its
+    account is renamed as a bank's or a wallet's is, never a 200 that renames nothing."""
+    with client.sessions() as db:
+        db.execute(text("DELETE FROM exchanges WHERE id = 2"))
+        db.commit()
+    r = rename(client, KRAKEN_USD, "Kraken dollars")
+    assert r.status_code == 200, r.text
+    assert (names(client)[KRAKEN_USD], names(client)[KRAKEN_BTC]) == ("Kraken dollars", "Kraken BTC")
 
 
 @pytest.mark.parametrize("body", [{}, {"kind": "bank"}, {"currency": "USD"}, {"name": None, "hidden": None}])

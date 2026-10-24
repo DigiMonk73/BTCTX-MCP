@@ -307,15 +307,16 @@ def _exchange(db: Session, name: str) -> list[Account]:
 
 def _rename(db: Session, account: Account, name: str) -> None:
     """A bank's or a wallet's new name, or an exchange's and so its two
-    accounts'; the same name again changes nothing."""
-    if account.exchange_id is None:
+    accounts'; the same name again changes nothing. An exchange's account
+    whose exchange row is gone (no foreign key keeps it) is renamed alone."""
+    exchange = db.get(Exchange, account.exchange_id) if account.exchange_id is not None else None
+    if exchange is None:
         if name != account.name:
             _one_line(name, LONGEST_NAME)
             _free(db, name, own=(account.id,))
             account.name = name
         return
-    exchange = db.get(Exchange, account.exchange_id)
-    if exchange is None or name == exchange.name:
+    if name == exchange.name:
         return
     _one_line(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name, own=exchange.id)

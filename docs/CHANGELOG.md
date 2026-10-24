@@ -11,14 +11,16 @@ All notable changes to BitcoinTX are documented in this file.
   than one account gets "Show accounts (n)", which lists them (each
   exchange as one line, its dollars and bitcoin side by side; a hidden
   account holding nothing left out), and the cards left open are
-  remembered in that browser. With one account of each kind there's no
-  toggle. The Portfolio Overview keeps Total BTC, the average cost and
+  remembered in that browser (the Mac app, which keeps nothing between
+  starts, opens them closed). With one account of each kind there's no
+  toggle. The sidebar's calculator no longer ends level with the cards:
+  their height now varies. The Portfolio Overview keeps Total BTC, the average cost and
   the unrealized gains. The Transactions list names each row's accounts
   as you named them (a Buy's or a Sell's exchange by its name), shows an
   amount in its account's currency, calls any bitcoin account sent to
   itself a "Consolidation" (an exchange's too, which was "Between
   exchanges"), and gets an account filter grouped by kind. Ledger Review
-  names each item's accounts. Any account but the fee accounts can be
+  (and `cli review`) names each item's accounts. Any account but the fee accounts can be
   renamed through the account API (an exchange renames both of its
   accounts), and your first bank, wallet and exchange can take back their
   old names. No figure changes.
