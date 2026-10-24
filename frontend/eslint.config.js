@@ -64,8 +64,9 @@ export default defineConfig(
     },
   },
   {
-    // A test scenario can be long, and its account books are numbered.
-    files: ['src/**/*.test.ts'],
+    // A test scenario can be long, and so can a stub that answers each of its
+    // requests; their account books are numbered.
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: { complexity: 'off', 'max-lines': 'off', 'no-restricted-syntax': 'off' },
   },
   {

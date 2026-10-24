@@ -1,7 +1,12 @@
 // vite.config.ts
 
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// The version every request names (src/api.ts) is the repository's VERSION.
+// A build without it fails here, rather than make a page the server refuses.
+const VERSION = readFileSync(new URL('../VERSION', import.meta.url), 'utf8').trim()
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,10 +28,5 @@ export default defineConfig({
       },
     },
   },
-  // (Optional) If you use Vitest for unit tests:
-  // test: {
-  //   environment: 'jsdom',
-  //   setupFiles: './src/setupTests.ts',
-  //   globals: true
-  // },
+  define: { __BTCTX_VERSION__: JSON.stringify(VERSION) },
 });

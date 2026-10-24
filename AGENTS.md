@@ -589,7 +589,13 @@ from the Transaction row alone.
   default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
-  `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
+  `CORS_ALLOW_ORIGINS` is set. A logged-in change a browser sent without
+  the page's `X-BitcoinTX-Page` (every request of `frontend/src/api.ts`
+  names the build's VERSION), or from another major version, is a 409,
+  "BitcoinTX was updated: reload the page." (`PageVersionMiddleware`, 2.0
+  spec 5.13): a 1.x page left open over the upgrade would save a Buy or
+  Sell into the first exchange. Scripts, the connector and the tests'
+  clients send no browser header and pass. The Mac app answers only requests addressed
   to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
   `security_headers.LocalAddressOnlyMiddleware`). No server of ours, the
   Mac app's, the Docker image's or StartOS's (which runs the image's
