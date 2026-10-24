@@ -5,8 +5,9 @@
 // (backend/services/past_years.py).
 import axios from "axios";
 
-/** What the owner is asked about: the warning differs only in its words. */
-export type PastYearKind = "add" | "edit" | "delete";
+/** What the owner is asked about: the warning differs only in its words.
+ * An import (River's file) and a setting (the tax timezone) ask as an edit does. */
+export type PastYearKind = "add" | "edit" | "delete" | "import" | "setting";
 
 /** Why a write is asked about again: the ledger changed after the owner's
  * confirm, or after the page's own (an add to a year kept quiet). */
@@ -74,6 +75,16 @@ export function yearsInWords(years: readonly number[]): string {
   const words = [...new Set(years)].sort((a, b) => a - b).map(String);
   if (words.length < 2) return words.join("");
   return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}
+
+/** What an import's preview says of its rows dated in earlier tax years
+ * (River's past_years); null for none. */
+export function importNote(years: readonly number[] | undefined): string | null {
+  if (!years || years.length === 0) return null;
+  const several = new Set(years).size > 1;
+  return `Rows dated in ${several ? "tax years" : "tax year"} ${yearsInWords(years)} can change ` +
+    `${several ? "those years'" : "that year's"} figures, which you may already have filed: BitcoinTX shows ` +
+    "what changes, and asks, before it imports them.";
 }
 
 /** "Tax year 2025", "Tax years 2024 and 2025"; "" for none. */

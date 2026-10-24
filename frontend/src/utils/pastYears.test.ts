@@ -1,12 +1,14 @@
-// The past-year warning's pure part (2.0 spec 5.8, #352): which 409 is the
-// warning, its years in words, its changes under their years, and the years
-// the page keeps quiet for adds.
+// The past-year warning's pure part (2.0 spec 5.8, #352, #353): which 409 is
+// the warning, its years in words, its changes under their years, the years
+// the page keeps quiet for adds, and what an import's preview says of its
+// rows dated in earlier years.
 import { AxiosError, type AxiosResponse } from "axios";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   addsQuietFor,
   byTaxYears,
   forgetQuietYears,
+  importNote,
   keepAddsQuiet,
   pastYearWarning,
   taxYearsLabel,
@@ -117,5 +119,19 @@ describe("the years kept quiet for adds", () => {
     keepAddsQuiet([2024, 2025]);
     forgetQuietYears();
     expect(addsQuietFor([2025])).toBe(false);
+  });
+});
+
+describe("importNote", () => {
+  it("names the earlier tax years an import's rows are dated in, before it asks", () => {
+    expect(importNote([2025])).toBe("Rows dated in tax year 2025 can change that year's figures, which you may " +
+      "already have filed: BitcoinTX shows what changes, and asks, before it imports them.");
+    expect(importNote([2025, 2024])).toBe("Rows dated in tax years 2024 and 2025 can change those years' figures, " +
+      "which you may already have filed: BitcoinTX shows what changes, and asks, before it imports them.");
+  });
+
+  it("says nothing for rows of this year, or a preview from before 2.0", () => {
+    expect(importNote([])).toBeNull();
+    expect(importNote(undefined)).toBeNull();
   });
 });
