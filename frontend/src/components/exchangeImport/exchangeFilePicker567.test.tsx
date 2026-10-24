@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import ExchangeFilePicker, { MATCH_COLUMNS } from "./ExchangeFilePicker";
 
 const MAPPINGS: ExchangeMapping[] = [
-  { id: "river", name: "River", ready_made: true, help: "river.com → Taxes & Documents → Bitcoin activity (CSV)." },
-  { id: "kraken", name: "Kraken", ready_made: true, help: "kraken.com → Documents → Export → Ledgers." },
-  { id: "own-1", name: "Example Exchange", ready_made: false, help: "" },
+  { id: "river", name: "River", ready_made: true, help: "river.com → Taxes & Documents → Bitcoin activity (CSV).", checked: true },
+  { id: "kraken", name: "Kraken", ready_made: true, help: "kraken.com → Documents → Export → Ledgers.", checked: false },
+  { id: "own-1", name: "Example Exchange", ready_made: false, help: "", checked: true },
 ];
 
 describe("ExchangeFilePicker", () => {
@@ -24,6 +24,13 @@ describe("ExchangeFilePicker", () => {
     expect(screen.getByText("kraken.com → Documents → Export → Ledgers.")).toBeTruthy();
     view.rerender(<ExchangeFilePicker mappings={MAPPINGS} value={MATCH_COLUMNS} disabled={false} onChange={() => {}} />);
     expect(screen.getByText(/then say which of its columns holds what/)).toBeTruthy();
+  });
+
+  it("says to check the preview of a mapping no real export has been checked against", () => {
+    const view = render(<ExchangeFilePicker mappings={MAPPINGS} value="kraken" disabled={false} onChange={() => {}} />);
+    expect(screen.getByText(/not yet checked against a real one/)).toBeTruthy();
+    view.rerender(<ExchangeFilePicker mappings={MAPPINGS} value="river" disabled={false} onChange={() => {}} />);
+    expect(screen.queryByText(/not yet checked against a real one/)).toBeNull();
   });
 
   it("tells which one was chosen", () => {

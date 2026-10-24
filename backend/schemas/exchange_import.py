@@ -85,11 +85,13 @@ class OwnMapping(BaseModel):
 
 class MappingOut(BaseModel):
     """A mapping the screen lists: a ready-made one with where to download
-    its file, or the owner's own with what it holds, to edit."""
+    its file, and whether a real export has been checked against it yet,
+    or the owner's own with what it holds, to edit."""
     id: str
     name: str
     ready_made: bool
     help: str = ""
+    checked: bool = True
     mapping: OwnMapping | None = None
 
 

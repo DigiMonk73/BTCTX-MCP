@@ -49,7 +49,8 @@ UNSAVED = "unsaved"
 def list_mappings(request: Request, db: Session = Depends(get_db)):
     """The ready-made mappings, River first, then the owner's own in the order saved."""
     _require_auth(request)
-    ready = [MappingOut(id=m.id, name=m.name, ready_made=True, help=m.help) for m in READY_MADE.values()]
+    ready = [MappingOut(id=m.id, name=m.name, ready_made=True, help=m.help, checked=m.checked)
+             for m in READY_MADE.values()]
     own = [MappingOut(id=i, name=m.name, ready_made=False, mapping=m) for i, m in saved_mappings(db).items()]
     return MappingsResponse(mappings=[*ready, *own])
 

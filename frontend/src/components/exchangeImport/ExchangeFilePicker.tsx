@@ -4,7 +4,7 @@ import React from "react";
 export const MATCH_COLUMNS = "match";
 
 // Until the list is read: River, whose file the import always read
-const RIVER_ONLY: ExchangeMapping[] = [{ id: "river", name: "River", ready_made: true, help: "" }];
+const RIVER_ONLY: ExchangeMapping[] = [{ id: "river", name: "River", ready_made: true, help: "", checked: true }];
 
 interface ExchangeFilePickerProps {
   mappings: ExchangeMapping[] | undefined;
@@ -23,6 +23,7 @@ const ExchangeFilePicker: React.FC<ExchangeFilePickerProps> = ({ mappings, value
   const hint = value === MATCH_COLUMNS
     ? "Choose the file, then say which of its columns holds what: you can save it for next time."
     : chosen?.ready_made ? chosen.help : "Your own mapping. Choose the file to preview it, or to change the mapping.";
+  const unchecked = chosen?.ready_made && !chosen.checked;
   return (
     <div className="field">
       <label htmlFor="exchange-file">Exchange file</label>
@@ -37,6 +38,12 @@ const ExchangeFilePicker: React.FC<ExchangeFilePickerProps> = ({ mappings, value
         {mappings && <option value={MATCH_COLUMNS}>Another exchange: match its columns</option>}
       </select>
       {hint && <p id="exchange-file-hint" className="field-hint">{hint}</p>}
+      {unchecked && (
+        <p className="field-warning">
+          Read as {chosen.name} publishes its file, not yet checked against a real one: check the preview's
+          rows against your file before you import them.
+        </p>
+      )}
     </div>
   );
 };

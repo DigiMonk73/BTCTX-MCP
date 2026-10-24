@@ -90,7 +90,11 @@ class Mapping:
     zone are in `zone`. A row whose status is in `not_done` (in part), or
     outside `done` when it's given, is left out; `optional` names the roles
     some versions of the file lack. With `merge_same_id`, rows sharing an id
-    are one event (Strike's pieces of one order).
+    are one event (Strike's pieces of one order). `notes` names a column
+    whose text says a convert's assets, so a convert into bitcoin, its row
+    another coin's, is said to involve bitcoin. `checked` is False for a
+    mapping built from its exchange's published columns that no real
+    export has been checked against yet.
     """
     id: str
     name: str
@@ -109,8 +113,10 @@ class Mapping:
     optional: frozenset[str] = frozenset()
     leave_out: tuple[LeaveOut, ...] = ()
     merge_same_id: bool = False
+    notes: tuple[str, ...] = ()
     funding: str = "exchange"
     help: str = ""
+    checked: bool = True
 
 
 RIVER = Mapping(
@@ -118,8 +124,33 @@ RIVER = Mapping(
     help="river.com → Taxes & Documents → Bitcoin activity (CSV).",
 )
 
+# Coinbase's "Transaction history" (2021 to 2023, and from 2024 with an ID
+# column first), several lines above its header. Subtotal is what the coins
+# cost or brought before the fee, "Fees and/or Spread" the fee in dollars
+# (Total is Subtotal plus it on a buy, less on a sell); a send's network fee
+# isn't in the file in bitcoin. Built from Coinbase's published columns:
+# check against a real export.
+COINBASE = Mapping(
+    id="coinbase", name="Coinbase",
+    columns=Columns(
+        date=("Timestamp",), kind=("Transaction Type",), btc=("Quantity Transacted",),
+        usd=("Subtotal", "USD Subtotal"), fee_usd=("Fees and/or Spread", "USD Fees"), asset=("Asset",),
+        row_id=("ID",),
+    ),
+    kinds={"buy": BUY, "advanced trade buy": BUY, "sell": SELL, "advanced trade sell": SELL,
+           "send": SEND, "receive": RECEIVE, "rewards income": "reward", "staking income": "reward",
+           "inflation reward": "reward", "coinbase earn": "income", "learning reward": "income",
+           "convert": CONVERT, "deposit": DOLLARS, "withdrawal": DOLLARS,
+           "pro withdrawal": LEAVE_OUT, "pro deposit": LEAVE_OUT, "exchange deposit": LEAVE_OUT,
+           "exchange withdrawal": LEAVE_OUT, "retail staking transfer": LEAVE_OUT,
+           "retail unstaking transfer": LEAVE_OUT},
+    optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
+    help="coinbase.com → Profile → Reports → Generate report → Transaction history (CSV).",
+)
+
 KRAKEN = Mapping(
     id="kraken", name="Kraken", reader=KRAKEN_LEDGER,
+    checked=False,
     help="kraken.com → Documents → Export → Ledgers (CSV), unzipped: ledgers.csv.",
 )
 
@@ -138,6 +169,7 @@ STRIKE = Mapping(
            "deposit": DOLLARS, "withdrawal": DOLLARS},
     after_fee=frozenset({BUY, SELL}), done=frozenset({"completed"}), optional=frozenset({"status"}),
     merge_same_id=True,
+    checked=False,
     help="Strike → Documents → Account statements → Export as CSV, or Activity → Generate report.",
 )
 
@@ -156,6 +188,7 @@ SWAN = Mapping(
     leave_out=(LeaveOut("Address Label", "custodial transfer",
                         "are Swan moving coins between its custodians: they never left Swan"),),
     funding="bank",
+    checked=False,
     help="Swan → Profile → Documents → Export account data: Deposits and purchases (CSV).",
 )
 
@@ -166,6 +199,7 @@ SWAN_WITHDRAWALS = Mapping(
     columns=Columns(date=("Executed At",), btc=("Bitcoin Amount",), row_id=("Transaction ID",)),
     leave_out=(LeaveOut("Canceled At", "", "were canceled"),
                LeaveOut("Executed At", None, "haven't been sent (no Executed At)")),
+    checked=False,
     help="Swan → Profile → Documents → Export account data: Withdrawals (CSV).",
 )
 
@@ -183,10 +217,12 @@ CASH_APP = Mapping(
            "bitcoin withdrawal": SEND, "bitcoin lightning withdrawal": SEND, "bitcoin deposit": RECEIVE,
            "bitcoin lightning deposit": RECEIVE, "bitcoin boost": "rebate"},
     not_done=("fail", "revers", "cancel", "pending", "refund", "declin"), optional=frozenset({"status"}),
+    checked=False,
     help="Cash App → Profile → Documents → Bitcoin → Transactions CSV, or Activity → Statements → Export CSV.",
 )
 
-READY_MADE: dict[str, Mapping] = {m.id: m for m in (RIVER, KRAKEN, STRIKE, SWAN, SWAN_WITHDRAWALS, CASH_APP)}
+READY_MADE: dict[str, Mapping] = {
+    m.id: m for m in (RIVER, COINBASE, KRAKEN, STRIKE, SWAN, SWAN_WITHDRAWALS, CASH_APP)}
 
 
 def mapping_by_id(db: Session, mapping_id: str) -> Mapping:

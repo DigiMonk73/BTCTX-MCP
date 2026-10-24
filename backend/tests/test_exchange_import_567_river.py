@@ -75,5 +75,9 @@ def test_the_river_mapping_is_listed_first_with_where_to_download_it(auth_client
     r = auth_client.get("/api/import/exchange/mappings")
     assert r.status_code == 200, r.text
     first = r.json()["mappings"][0]
-    assert (first["id"], first["name"], first["ready_made"]) == ("river", "River", True)
+    assert (first["id"], first["name"], first["ready_made"], first["checked"]) == ("river", "River", True, True)
     assert "river.com" in first["help"]
+    # The others come from their exchanges' published formats: the screen says to check their previews
+    assert {m["id"]: m["checked"] for m in r.json()["mappings"][1:] if m["ready_made"]} == {
+        "coinbase": False, "kraken": False, "strike": False, "swan": False, "swan-withdrawals": False,
+        "cash-app": False}

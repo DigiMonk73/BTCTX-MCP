@@ -13,6 +13,7 @@ a trade for another asset, a repeat) gives one warning naming its rows.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -188,8 +189,12 @@ def _kind_if_read(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None
     bitcoin moving. Else None, the row left out with its reason."""
     columns = mapping.columns
     asset = row.get(columns.asset)
+    word = kind_word(row, mapping)
+    if mapping.kinds.get(word.lower()) == CONVERT and _mentions_bitcoin(row, mapping):
+        left_out.add(_convert(word), row.number)
+        return None
     if row.header.place(columns.asset) is not None and asset.lower() not in mapping.btc_assets:
-        left_out.add(_not_bitcoin(asset, kind_word(row, mapping)), row.number)
+        left_out.add(_not_bitcoin(asset, word), row.number)
         return None
     status = _unfinished(row, mapping)
     if status is not None:
@@ -205,6 +210,20 @@ def _kind_if_read(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None
         left_out.add(f"move dollars, not bitcoin (“{kind_word(row, mapping)}”)", row.number)
         return None
     return kind
+
+
+def _mentions_bitcoin(row: Cells, mapping: Mapping) -> bool:
+    """Whether a convert's row is bitcoin's, or its notes name bitcoin (a
+    convert into bitcoin, its row the other coin's)."""
+    return (row.get(mapping.columns.asset).lower() in mapping.btc_assets
+            or re.search(r"\bBTC\b", row.get(mapping.notes), re.IGNORECASE) is not None)
+
+
+def _convert(word: str) -> str:
+    """Why a trade of bitcoin for another coin is left out, and how to add it."""
+    return (f"trade bitcoin for another asset (“{word}”): add each by hand, bitcoin given up as a Withdrawal, "
+            "purpose Spent, with its dollar value as proceeds (a disposal: IRS Notice 2014-21), bitcoin "
+            "received as a Deposit with its dollar value as cost basis")
 
 
 def _not_bitcoin(asset: str, word: str) -> str:
@@ -241,9 +260,7 @@ def _kind(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None:
     if kind == DOLLARS:
         left_out.add(f"move dollars, not bitcoin (“{word}”)", row.number)
     elif kind == CONVERT:
-        left_out.add(f"trade bitcoin for another asset (“{word}”): add each by hand, bitcoin given up as a "
-                     "Withdrawal, purpose Spent, with its dollar value as proceeds (a disposal: IRS Notice "
-                     "2014-21), bitcoin received as a Deposit with its dollar value as cost basis", row.number)
+        left_out.add(_convert(word), row.number)
     elif kind == LEAVE_OUT:
         left_out.add(f"are “{word}”, which this mapping leaves out", row.number)
     else:

@@ -123,6 +123,9 @@ declare global {
     name: string;
     ready_made: boolean;
     help: string;
+    // False for a mapping built from its exchange's published format that
+    // no real export has been checked against yet
+    checked: boolean;
     mapping?: OwnMapping | null;
   }
 

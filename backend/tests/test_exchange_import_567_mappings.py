@@ -73,6 +73,36 @@ def warned(answer: dict) -> str:
     return "\n".join(w["message"] for w in answer["warnings"])
 
 
+def test_coinbase_transaction_history(client):
+    """Built from Coinbase's published columns, not yet checked against a real export."""
+    answer = preview(client, "coinbase", "coinbase_2024.csv")
+    assert rows(answer) == [
+        # Subtotal bought the coins; "Fees and/or Spread" apart (Total = 98.00 + 1.99)
+        row(4, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 15, 14, 23, 11), cost="98.00", fee="1.99"),
+        # Subtotal is the gross; 49.70 arrived after the 0.30 fee
+        row(5, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 2, 1, 10), proceeds="50.00", fee="0.30"),
+        row(6, "Transfer", EX_BTC, WALLET, "0.0003", at(2025, 2, 2, 10)),
+        row(7, "Transfer", WALLET, EX_BTC, "0.0002", at(2025, 2, 3, 10)),
+        # Rewards at Coinbase's value at receipt (its 1099-MISC's)
+        row(8, "Deposit", EXTERNAL, EX_BTC, "0.000003", at(2025, 2, 4, 10), cost="0.30", source="Reward"),
+        row(9, "Deposit", EXTERNAL, EX_BTC, "0.00001", at(2025, 2, 5, 10), cost="1.00", source="Income"),
+    ]
+    assert answer["total_rows"] == 11 and answer["errors"] == []
+    said = warned(answer)
+    for expected in ("Rows 10 and 11 trade bitcoin for another asset (“Convert”)", "Row 12 are ETH, not bitcoin",
+                     "Row 13 move dollars, not bitcoin (“Deposit”)", "Row 14 are “Pro Withdrawal”, which this mapping "
+                     "leaves out"):
+        assert expected in said, (expected, said)
+
+
+def test_coinbase_transaction_history_before_2024(client):
+    answer = preview(client, "coinbase", "coinbase_2022.csv")
+    assert rows(answer) == [
+        row(7, "Buy", EX_USD, EX_BTC, "0.002", at(2022, 3, 1, 15), cost="86.00", fee="1.99"),
+        row(8, "Sell", EX_BTC, EX_USD, "0.001", at(2022, 4, 1, 15), proceeds="45.00", fee="0.67"),
+    ]
+
+
 def test_kraken_ledger(client):
     answer = preview(client, "kraken", "kraken_ledgers.csv")
     assert rows(answer) == [
@@ -194,7 +224,7 @@ def test_another_exchanges_file_is_said_to_be_one(client, mapping_id, name):
 
 
 @pytest.mark.parametrize("name, expected", [
-    ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
+    ("coinbase_2024.csv", "coinbase"), ("coinbase_2022.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
     ("swan_deposits_and_purchases.csv", "swan"), ("swan_withdrawals.csv", "swan-withdrawals"),
     ("cash_app_bitcoin.csv", "cash-app"), ("cash_app_activity.csv", "cash-app"),
 ])
