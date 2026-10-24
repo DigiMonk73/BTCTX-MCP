@@ -474,11 +474,12 @@ test("River with two exchanges and two wallets saves into the ones picked", asyn
   await expect(imported).toBeVisible();
   expect(dialogs).toEqual(["Import 2 transaction(s) from River into your ledger?"]);
 
-  // The buy paid from Kraken's dollars, into Kraken's bitcoin; the send from Kraken to Coldcard
+  // The buy into Kraken's bitcoin, paid from the bank: no sale before it left Kraken's dollars
+  // to pay it (#655); the send from Kraken to Coldcard
   const fromRiver = (await listTx(page.request)).filter((t) => t.timestamp && String(t.timestamp).startsWith("2026-02"))
     .map((t) => [t.type, t.from_account_id, t.to_account_id]);
   expect(fromRiver).toEqual(expect.arrayContaining([
-    ["Buy", id("Kraken USD"), id("Kraken BTC")], ["Transfer", id("Kraken BTC"), id("Coldcard")],
+    ["Buy", id("Bank"), id("Kraken BTC")], ["Transfer", id("Kraken BTC"), id("Coldcard")],
   ]));
   expect(fromRiver).toHaveLength(2);
 });
