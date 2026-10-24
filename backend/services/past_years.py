@@ -1,11 +1,12 @@
 """
 The past-year warning (2.0 spec 5.8; the owner's Q4, widened on
 2026-10-15): a write that would change the figures of a tax year before this
-one (its gains, Form 8949 boxes, dates acquired or income) is saved only
-once confirmed, after a copy of the database. Adds, edits and deletes are
-the Write here; the imports, the tax timezone, an exchange's 1099-DA switch
-and the AI's Recalculate Ledger are writes of their own
-(services/past_year_writes.py), through the same save.
+one (its gains, Form 8949 boxes, the dates a return prints, income and
+rebates, gifts, donations and lost coins) is saved only once confirmed,
+after a copy of the database. Adds, edits and deletes are the Write here;
+the imports, the tax timezone, an exchange's 1099-DA switch and the AI's
+Recalculate Ledger are writes of their own (services/past_year_writes.py),
+through the same save.
 
 Unconfirmed, the write is worked out on a scratch copy with the lock free
 (the dry run): when nothing earlier moves it saves as it always has, else a
@@ -57,8 +58,10 @@ logger = logging.getLogger(__name__)
 # the write's date instead (the lead's decision of 2026-10-18, 5 s by
 # default). Set from the StartOS test VM's measurement (#352, 2026-10-24):
 # one replay takes 4.7 s there at 1,000 rows and 17.6 s at 3,000, so 10 s
-# gives the exact list up to about 1,800 rows on it (6,000 on a Mac), and
-# no one waits longer than that at the form before being asked.
+# gives the exact list up to about 1,800 rows on it (about half that the
+# first time after an upgrade, two passes; about 6,000 on the M6 Mac mini),
+# and the form waits about that long at most before asking (the copy and
+# the comparisons run outside the replays it times).
 DRY_RUN_SECONDS = 10
 ADD, EDIT, DELETE = "add", "edit", "delete"
 COPY_LABEL = "past-year"
