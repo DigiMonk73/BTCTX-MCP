@@ -94,8 +94,7 @@ CSV_COLUMNS = [
 
 
 # A name the book doesn't know, or an account no file may name (a fee
-# account; until B7a's gate, an account added in 2.0): 5.11's words, with
-# the names a file may use as they are now
+# account): 5.11's words, with the names a file may use as they are now
 UNKNOWN_ACCOUNT = "Invalid account '{name}'. Must be one of your accounts ({names}) or External."
 # A hidden account is still yours (5.5): its row imports, with this warning
 HIDDEN_ACCOUNT = "{name} is hidden in Settings."
