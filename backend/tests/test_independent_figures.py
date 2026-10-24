@@ -32,9 +32,9 @@ def test_an_independent_calculation_gives_the_apps_figures():
     # docstring): a lot's cost and a disposal's proceeds shared as running
     # totals (#100, #297), and an exact half cent rounded up. With those,
     # every Form 8949 row, Schedule D line, box total, gains summary, income
-    # figure, rebate, gift and year-end lot of every year must be the same.
-    transactions = json.loads(independent.LEDGER.read_text())["transactions"]
-    ledger = independent.replay(transactions, independent.ROUNDING["half-up"])
+    # figure, rebate, gift and year-end lot of every year must be the same,
+    # in the ledger's accounts (its accounts list adds 2.0's, #354).
+    ledger = independent.replay_ledger(json.loads(independent.LEDGER.read_text()), independent.ROUNDING["half-up"])
     saved = json.loads(independent.FIGURES.read_text())["years"]
     found = [f"{year}: {line}" for year, figures in saved.items()
              for line in independent.differences(independent.year_figures(ledger, int(year)), figures)]

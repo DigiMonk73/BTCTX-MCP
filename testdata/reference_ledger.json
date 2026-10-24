@@ -1,5 +1,71 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind (scripts/seed_ledger.py makes them through the account API first, with these ids), and the rows marked 'since': '2.0' use them, in 2026 only, so no earlier year's figures move; the one that names Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row or an account is for; it isn't sent.",
+ "accounts": [
+  {
+   "id": 100,
+   "name": "Coldcard",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A second wallet: Wallet's coins that were really on a Coldcard come to it by the split row."
+  },
+  {
+   "id": 101,
+   "name": "Jade",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A third wallet, so a wallet sends to a wallet."
+  },
+  {
+   "id": 102,
+   "name": "Kraken USD",
+   "kind": "exchange",
+   "currency": "USD",
+   "exchange_id": 2,
+   "sends_1099da": true,
+   "why": "A second exchange's dollars."
+  },
+  {
+   "id": 103,
+   "name": "Kraken BTC",
+   "kind": "exchange",
+   "currency": "BTC",
+   "exchange_id": 2,
+   "sends_1099da": true,
+   "why": "A second exchange's bitcoin, on a Form 1099-DA: G for coins bought there in 2026, H for coins moved in."
+  },
+  {
+   "id": 104,
+   "name": "Overseas USD",
+   "kind": "exchange",
+   "currency": "USD",
+   "exchange_id": 3,
+   "sends_1099da": false,
+   "why": "An exchange outside the US: its 1099-DA switch is off."
+  },
+  {
+   "id": 105,
+   "name": "Overseas BTC",
+   "kind": "exchange",
+   "currency": "BTC",
+   "exchange_id": 3,
+   "sends_1099da": false,
+   "why": "Its sales are on no broker form: I or L."
+  },
+  {
+   "id": 106,
+   "name": "Credit union",
+   "kind": "bank",
+   "currency": "USD",
+   "why": "A second bank."
+  },
+  {
+   "id": 107,
+   "name": "Savings",
+   "kind": "bank",
+   "currency": "USD",
+   "why": "A third bank, so a bank sends to a bank."
+  }
+ ],
  "transactions": [
   {
    "type": "Deposit",
@@ -991,6 +1057,40 @@
    "source": "N/A"
   },
   {
+   "type": "Deposit",
+   "timestamp": "2026-01-06T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 106,
+   "amount": "30000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "source": "N/A",
+   "since": "2.0",
+   "why": "Dollars into a second bank, the credit union."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-01-08T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 107,
+   "amount": "5000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Bank to bank: the credit union to savings."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-01-12T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 102,
+   "amount": "15000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "The credit union to Kraken's dollars."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-01-15T12:00:00Z",
    "from_account_id": 4,
@@ -1000,6 +1100,19 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "30400.00",
    "why": "Exchange BTC starts 2026 with 0.8848 BTC: 0.0348 (2024-10-01) and 0.35 (2024-12-01), then 0.15 (2025-02-15), 0.05, 0.12, 0.10 and 0.08 from later in 2025; FIFO sells the oldest first. This sale: 2024 BTC, long-term, not covered: Box K."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-01-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 100,
+   "amount": "0.2",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "28000.00",
+   "since": "2.0",
+   "why": "The user's own coins into the Coldcard, bought elsewhere that day: short-term all of 2026."
   },
   {
    "type": "Sell",
@@ -1014,6 +1127,18 @@
    "why": "The rest of the 2024 BTC, and the 1099-DA showed its basis: Box J."
   },
   {
+   "type": "Buy",
+   "timestamp": "2026-02-03T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 103,
+   "amount": "0.05",
+   "fee_amount": "10",
+   "fee_currency": "USD",
+   "cost_basis_usd": "7000.00",
+   "since": "2.0",
+   "why": "A Buy on Kraken paid from the credit union."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-02-09T12:00:00Z",
    "from_account_id": 4,
@@ -1025,6 +1150,18 @@
    "why": "Bought 2025-02-15, held a year or less, before 2026 (not covered): Box H."
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-02-16T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.05",
+   "fee_amount": "11",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "7300.00",
+   "since": "2.0",
+   "why": "Coins bought on Kraken in 2026 and never moved, sold there: covered, Box G."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2026-02-20T12:00:00Z",
    "from_account_id": 1,
@@ -1032,6 +1169,30 @@
    "amount": "10000",
    "fee_amount": "0",
    "fee_currency": "USD"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-03-02T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 103,
+   "amount": "0.03001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.40",
+   "since": "2.0",
+   "why": "The Coldcard to Kraken: 0.03 arrives, keeping its 2026-01-20 date; the fee is Box I."
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2026-03-05T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 103,
+   "amount": "0.04",
+   "fee_amount": "8",
+   "fee_currency": "USD",
+   "cost_basis_usd": "5600.00",
+   "since": "2.0",
+   "why": "A Buy on Kraken paid from Kraken's dollars."
   },
   {
    "type": "Transfer",
@@ -1055,6 +1216,41 @@
    "cost_basis_usd": "35052.50"
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-03-23T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.03",
+   "fee_amount": "6.50",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "4350.00",
+   "since": "2.0",
+   "why": "FIFO takes the coins moved in from the Coldcard (2026-01-20) before the 03-05 Buy: not covered, Box H."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-06T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 105,
+   "amount": "0.02001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "since": "2.0",
+   "why": "Kraken to Overseas: one exchange's bitcoin to another's; the fee is Box I."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-08T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 104,
+   "amount": "2000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Kraken's dollars to Overseas' dollars."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-04-10T12:00:00Z",
    "from_account_id": 99,
@@ -1064,6 +1260,18 @@
    "fee_currency": "BTC",
    "source": "MyBTC",
    "cost_basis_usd": "4140.00"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-20T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 105,
+   "amount": "0.02",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "since": "2.0",
+   "why": "A consolidation at Overseas: only its fee, Box I."
   },
   {
    "type": "Sell",
@@ -1077,6 +1285,18 @@
    "why": "Covered, short-term: Box G."
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-05-11T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.01",
+   "fee_amount": "3",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1400.00",
+   "since": "2.0",
+   "why": "A sale on Overseas, whose 1099-DA switch is off: on no broker form, Box I."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-05-15T12:00:00Z",
    "from_account_id": 99,
@@ -1086,6 +1306,19 @@
    "fee_currency": "BTC",
    "source": "Gift",
    "cost_basis_usd": "300.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 100,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "280.00",
+   "since": "2.0",
+   "why": "Income into the Coldcard: 2026's income grows by its value."
   },
   {
    "type": "Withdrawal",
@@ -1099,6 +1332,30 @@
    "purpose": "Spent",
    "gross_proceeds_usd": "2840.00",
    "why": "Spent straight from the exchange account: no 1099-DA, short-term: Box I (its fee too)."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-06-03T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 100,
+   "amount": "0.1",
+   "fee_amount": "0.00002",
+   "fee_currency": "BTC",
+   "fee_usd": "2.80",
+   "since": "2.0",
+   "why": "A consolidation in the Coldcard: only its fee, Box I."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-06-10T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 101,
+   "amount": "0.05001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.40",
+   "since": "2.0",
+   "why": "The Coldcard to the Jade: a wallet to a wallet; the fee is Box I."
   },
   {
    "type": "Deposit",
@@ -1123,6 +1380,18 @@
    "cost_basis_usd": "142.00"
   },
   {
+   "type": "Transfer",
+   "timestamp": "2026-06-24T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 100,
+   "amount": "0.00501",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "since": "2.0",
+   "why": "Kraken back to the Coldcard; the fee is Box I."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-07-01T12:00:00Z",
    "from_account_id": 2,
@@ -1136,6 +1405,20 @@
    "why": "Self-custody spend of the wallet's oldest BTC (the 2019 My BTC first, by its date originally acquired, then 2023 BTC): Box L (its fee too)."
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2026-07-07T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 99,
+   "amount": "0.01",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "fmv_usd": "1450.00",
+   "purpose": "Gift",
+   "since": "2.0",
+   "why": "A gift from the Coldcard: not a sale, its network fee is (Box I)."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-07-15T12:00:00Z",
    "from_account_id": 99,
@@ -1147,6 +1430,20 @@
    "cost_basis_usd": "290.00"
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2026-07-21T13:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.02",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "gross_proceeds_usd": "2900.00",
+   "purpose": "Spent",
+   "since": "2.0",
+   "why": "Spent from the Jade, with its fee: Box I."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-08-03T12:00:00Z",
    "from_account_id": 4,
@@ -1156,6 +1453,28 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "7500.00",
    "why": "Covered, short-term again: Box G."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-04T13:00:00Z",
+   "from_account_id": 107,
+   "to_account_id": 99,
+   "amount": "1000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Cash from savings."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-11T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 99,
+   "amount": "500",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Dollars withdrawn from Kraken."
   },
   {
    "type": "Deposit",
@@ -1318,6 +1637,17 @@
    "fee_amount": "0",
    "fee_currency": "USD",
    "why": "Dollars withdrawn straight from the exchange."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-09-20T13:00:00Z",
+   "from_account_id": 2,
+   "to_account_id": 100,
+   "amount": "1",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "since": "2.0",
+   "why": "The split of a pooled wallet (C3): Wallet's coins that were really on the Coldcard go to it, with no fee (a fee would be a Form 8949 row and move 2026's totals). The ledger's last row, after every row that takes coins from Wallet or the Coldcard, so it moves only their year-end lots and balances (test_reference_split_354.py)."
   }
  ]
 }

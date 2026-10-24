@@ -17,17 +17,19 @@ setup-code.txt in its data folder) as --user with that password (12+
 characters), as scripts/smoke_test.py does. --ca trusts a root certificate,
 e.g. your StartOS server's.
 
-The ledger is testdata/reference_ledger.json (111 transactions, 2023-2026),
-BitcoinTX's one reference test ledger: every year has every kind of
-transaction (each deposit source and withdrawal purpose, transfers both
-ways, cash moves, buys and sells), every report has entries in each part,
-every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L) included, in any tax
-timezone, with rebates and dates originally acquired;
-backend/tests/test_seed_ledger.py checks it and its figures
-(testdata/reference_figures.json). Every USD value a price lookup would fill
-is given (network fees, gift and donation values), so it loads with the
-price source Off and contacts nothing but the server. Settings are left as
-they are. A test tool: it lives in scripts/, which no build ships.
+The ledger is testdata/reference_ledger.json (2023-2026), BitcoinTX's one
+reference test ledger: every year has every kind of transaction (each
+deposit source and withdrawal purpose, transfers both ways, cash moves, buys
+and sells), every report has entries in each part, every Form 8949 box of
+2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone, with rebates
+and dates originally acquired; and from 2.0 multiple wallets, exchanges or
+accounts: its `accounts` list, which the account API makes first (the ids
+must come out as listed, so on a fresh install), and the rows that use them
+("since": "2.0"). backend/tests/test_seed_ledger.py checks it and its
+figures (testdata/reference_figures.json). Every USD value a price lookup
+would fill is given (network fees, gift and donation values), so it loads
+with the price source Off and contacts nothing but the server. Settings are
+left as they are. A test tool: it lives in scripts/, which no build ships.
 """
 
 from __future__ import annotations
@@ -50,6 +52,8 @@ MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
 # A row's notes, never sent to the server
 NOTES = ("why", "since")
+# The account API's kinds, by the ledger's (an exchange is added once, as its two accounts)
+ADDED_AS = ("bank", "wallet", "exchange")
 
 
 class SeedError(Exception):
@@ -64,6 +68,32 @@ def ledger_rows() -> list[dict]:
     with open(LEDGER) as f:
         rows = json.load(f)["transactions"]
     return [{k: v for k, v in row.items() if k not in NOTES} for row in rows]
+
+
+def ledger_accounts() -> list[dict]:
+    """The accounts the ledger adds to the fixed ones (its `accounts` list,
+    2.0 spec 5.15), as the account API adds them: a bank or a wallet by its
+    name, an exchange by its own (its accounts "<name> USD" and "<name> BTC"),
+    each with the ids it must get and, for an exchange, its 1099-DA switch."""
+    with open(LEDGER) as f:
+        listed = json.load(f).get("accounts", [])
+    added, exchanges = [], {}
+    for account in listed:
+        if account["kind"] not in ADDED_AS:
+            raise SeedError(f"account {account['id']} is a {account['kind']!r} account, which the API doesn't add")
+        if account["kind"] != "exchange":
+            added.append({"kind": account["kind"], "name": account["name"], "ids": [account["id"]]})
+            continue
+        pair = exchanges.setdefault(account["exchange_id"], {})
+        pair[account["currency"]] = account
+    for exchange_id, pair in exchanges.items():
+        usd, btc = pair.get("USD"), pair.get("BTC")
+        name = usd["name"].removesuffix(" USD") if usd else None
+        if not (usd and btc and btc["name"] == f"{name} BTC"):
+            raise SeedError(f"exchange {exchange_id} needs a '<name> USD' and a '<name> BTC' account")
+        added.append({"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]],
+                      "sends_1099da": usd.get("sends_1099da", True)})
+    return sorted(added, key=lambda a: a["ids"][0])
 
 
 # The server
@@ -112,21 +142,53 @@ def log_in(c: httpx.Client, user: str, password: str, setup_code: str | None) ->
         raise SeedError(f"login failed: {r.status_code} {r.text[:300]}")
 
 
-def seed(c: httpx.Client, rows: list[dict] | None = None) -> int:
-    """Create every row on a logged-in client; refuses a ledger that isn't
-    empty. Returns how many were created."""
+def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] | None = None) -> int:
+    """Create every row on a logged-in client, after the accounts they use:
+    the reference ledger's rows and accounts when no rows are given; given
+    rows (a 1.x release's, make_reference_1x_db.py) need only the accounts
+    given, and none calls the account API, which a 1.x release lacks.
+    Refuses a ledger that isn't empty. Returns how many rows were created."""
     r = c.get("/api/transactions")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the ledger: {r.status_code} {r.text[:300]}")
     if r.json():
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
-    rows = ledger_rows() if rows is None else rows
+    if rows is None:
+        rows, accounts = ledger_rows(), ledger_accounts()
+    for account in accounts or []:
+        make_account(c, account)
     for n, row in enumerate(rows, start=1):
         r = send_confirmed(c, "POST", "/api/transactions", row)
         if r.status_code != 200:
             raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
                             f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
     return len(rows)
+
+
+def make_account(c: httpx.Client, account: dict) -> None:
+    """One of ledger_accounts() through the account API, with the ids it
+    lists: one a Delete All left (same name and kind) is used again, and
+    an id that comes out otherwise stops the seed, since every row names
+    accounts by id. Then its exchange's 1099-DA switch, when it's off."""
+    r = c.get("/api/accounts/")
+    if r.status_code != 200:
+        raise SeedError(f"couldn't read the accounts: {r.status_code} {r.text[:300]}")
+    names = ([f"{account['name']} {currency}" for currency in ("USD", "BTC")] if account["kind"] == "exchange"
+             else [account["name"]])
+    found = [a for name in names for a in r.json() if a["name"].casefold() == name.casefold()]
+    if not found:
+        r = c.post("/api/accounts/", json={"kind": account["kind"], "name": account["name"]})
+        if r.status_code != 201:
+            raise SeedError(f"adding {account['name']} failed: {r.status_code} {r.text[:300]}")
+        found = r.json()
+    if [(a["kind"], a["id"]) for a in found] != [(account["kind"], i) for i in account["ids"]]:
+        raise SeedError(f"{account['name']} is account {', '.join(str(a['id']) for a in found)} here, a "
+                        f"{found[0]['kind']}, not the ledger's {account['kind']} {', '.join(map(str, account['ids']))}: "
+                        "seed only a fresh test install")
+    if account.get("sends_1099da") is False:
+        r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": False})
+        if r.status_code != 200:
+            raise SeedError(f"turning off {account['name']}'s 1099-DA failed: {r.status_code} {r.text[:300]}")
 
 
 def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:
