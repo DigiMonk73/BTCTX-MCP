@@ -1072,37 +1072,58 @@ def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     The row an edit makes, as find_prices_first reads a new one: its stored
     inputs with the edit's fields, as the save's first steps leave them
     (_edit_as_saved), each value it holds from a price left blank where the
-    save prices it again (_blank_what_the_save_prices), so the prices found
-    are the ones the save asks for (#646): the form's unchanged echo of a
-    past-year row asked for one it never used. A row priced at the day is
-    still looked up at the day where the save may price at the hour (#647).
+    save prices it again (_blank_what_the_save_prices), at the moment the
+    save prices it (_moment_the_edit_prices_at), so the prices found are the
+    ones the save asks for (#646, #647): the form's unchanged echo of a
+    past-year row asked for one it never used, and a row priced at the day
+    for the day's where the save asks the hour's.
     """
     book = account_book(db)
     stored = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment}
-    edit = _edit_as_saved(tx, tx_data, stored, db, book)
+    edit, keeps_the_day = _edit_as_saved(tx, tx_data, stored, db, book)
     fee_again = _fee_priced_again(tx, edit)
     # A fee kept keeps its mark, so a Spent priced again takes its moment (_spent_proceeds_moment)
     row = {**stored, "fee_usd": None if fee_again else tx.fee_usd,
            "fee_usd_from_price": "fee_usd" not in edit and not fee_again and tx.fee_usd is not None
            and not tx.fee_usd_manual, **edit}
     _blank_what_the_save_prices(row, tx, edit, db, book)
+    row["price_moment"] = _moment_the_edit_prices_at(row, keeps_the_day, db, book)
     return row
 
 
-def _edit_as_saved(tx: Transaction, tx_data: dict, stored: dict, db: Session, book: AccountBook) -> dict:
+def _edit_as_saved(tx: Transaction, tx_data: dict, stored: dict, db: Session,
+                   book: AccountBook) -> tuple[dict, bool]:
     """A copy of the edit as apply_update's first steps leave it: a type
     change's fields dropped, a dollar deposit's basis, a gift's $0 proceeds,
     an old withdrawal's gross sent, and a fee's currency filled as _check_edit
-    fills it before the fee is priced. They change only the copy."""
+    fills it before the fee is priced. They change only the copy. And
+    whether its values keep the day's price (_keeps_a_day_price), asked
+    where apply_update asks it: before that currency is filled (#649)."""
     edit = dict(tx_data)
     _drop_dollar_deposit_basis(tx, edit, book)
     _drop_fields_of_old_type(tx, edit)
     _drop_proceeds_it_never_had(tx, edit, book)
     _send_gross_of_an_old_withdrawal_sold(tx, edit)
+    keeps_the_day = _keeps_a_day_price(tx, edit, book)
     merged = {**stored, **edit}
     if _fill_fee_currency(merged, db):
         edit["fee_currency"] = merged["fee_currency"]
-    return edit
+    return edit, keeps_the_day
+
+
+def _moment_the_edit_prices_at(row: dict, keeps_the_day: bool, db: Session, book: AccountBook) -> str | None:
+    """The moment the edit's save prices the row's values at, as
+    values_the_save_prices and _moments_priced read it: the day while they
+    keep the day's price, else the hour for those it prices itself (a fee's
+    value, an income's, a gift's, a Spent's proceeds priced again, in
+    apply_update's _priced_at_the_day); a Spent's blank proceeds the replay
+    prices, alone, at the moment the row keeps (_price_for). An
+    inheritance's value is always its date of death's day."""
+    if keeps_the_day:
+        return "day"
+    priced = {field for field, _when, _at in values_the_save_prices(row, db)}
+    gift = _is_gift_like(row, book) and row.get("fmv_usd") is None and Decimal(row.get("amount") or 0) > 0
+    return "hour" if gift or priced - {"proceeds_usd"} else row["price_moment"]
 
 
 def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
