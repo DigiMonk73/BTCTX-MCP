@@ -43,7 +43,7 @@ feeling.
 |---|---|---|
 | ~3,200 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
-| Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River and CSV imports, every report download, Settings, widgets |
+| Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River's, other exchanges' and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
 | Packaging | `ci.yml` | Docker image, StartOS package checks and an x86_64 `.s9pk`, macOS app build and launch |
 
@@ -151,8 +151,8 @@ asking. Edits and deletes always ask; a reload asks again. Each confirmed
 save leaves a copy, `btctx-pre-change-past-year-….db`, in the data folder's
 `backups`. The other writes that can change an earlier year ask the same
 way (#353): the Tax Timezone's **Save** (Settings, **Account**), an
-exchange's 1099-DA switch (MLT-4), River's import (one question for the
-file), and, with the AI key, `add_transactions`, `update_transaction`,
+exchange's 1099-DA switch (MLT-4), an exchange file's import (River's or
+another's: one question for the file), and, with the AI key, `add_transactions`, `update_transaction`,
 `delete_transaction` and `recalculate_ledger`, whose answer is then
 `saved: false` with the years, the changes and a `confirm` to call the
 tool again with (`update_transaction`'s is `confirm_move`). PYW checks the
@@ -546,9 +546,8 @@ exchanges and banks** reads its name, its kind and its balance.
 - **ACC-1** Settings. Expect the nine sections in the order of
   "Settings, one section at a time" above, all closed but **Ledger Review**,
   which REV-4 left open (Settings remembers the section last open in this
-  browser); close it. Expect
-  "Settings, one section at a time" above, the summary under **Wallets,
-  exchanges and banks** reading "1 wallet · 1 exchange · 1 bank". Open it.
+  browser); close it. Expect the summary under **Wallets, exchanges and
+  banks** to read "1 wallet · 1 exchange · 1 bank". Open it.
   Expect three groups, Wallets, Exchanges and Banks, each with its button
   (**Add a wallet**, **Add an exchange**, **Add a bank**) and one row:
   `Wallet` Wallet 0.39970000 BTC, `Exchange` Exchange $37,990.00 ·
@@ -1160,8 +1159,9 @@ Set `KEY` to the key from AI-3, and use
   says "Rows dated in tax year 2026 can change the figures of that year
   and later ones…" and the import asks in the past-year dialog: **Save
   anyway**, #353). Expect "Imported 3 transaction(s)." The Sell shows
-  Gain +$5.00 (net proceeds $55.00 = River's $55.00 received, which is after River's $0.55 fee; basis 0.0005 × $100,000
-  from lot C). Preview the same file again. Expect: "3 already in ledger" and
+  Gain +$5.00 (net proceeds $55.00 = River's $55.00 received, which is
+  after River's $0.55 fee; basis 0.0005 × $100,000 from lot C). Preview
+  the same file again. Expect: "3 already in ledger" and
   "0 new". Click **Show 3 already-imported row(s)**. Expect each row's
   Import box unticked but clickable, and "Tick one to import it anyway, if
   it's another transaction." (#253). Leave them unticked and **Cancel**.
@@ -1195,12 +1195,129 @@ Set `KEY` to the key from AI-3, and use
   0.00030000 BTC; **Filter transactions** `Coldcard` shows only the
   Transfer. Preview the file again with the same choices: "3 already in
   ledger", "0 new"; **Cancel**.
-- **IMP-5** Preview a CSV that isn't a River export, for example
-  `date,type,amount` plus one row. Expect "This does not look like a River
-  bitcoin-activity CSV. Missing columns: …".
-- **BAK-4** Restore BAK-2's backup again, which removes the River rows of
-  IMP-4 and IMP-4b. Expect every golden figure, and Coldcard and Kraken at
-  $0.00 and 0.00000000 BTC.
+- **IMP-5** (from 2.0) A second exchange's file through the importer for
+  any exchange, into a ledger with rows: Kraken's made-up sample
+  `testdata/exchange_files/kraken_ledgers.csv` (the tested commit's: 20
+  rows of 2025 in Kraken's published "ledgers" format; times in UTC). In
+  **Import from an exchange**, **Exchange file** `Kraken`. Expect the hint
+  "kraken.com → Documents → Export → Ledgers (CSV), unzipped:
+  ledgers.csv.", the warning "Read as Kraken publishes its file, not yet
+  checked against a real one: check the preview's rows against your file
+  before you import them.", and the file's field "Kraken CSV file". Choose
+  **Exchange** `Kraken` and **Wallet for sends and receives** `Coldcard`,
+  the file, then **Preview**. Expect "6 new", "0 already in ledger", "20
+  rows in file"; the note "Rows dated in tax year 2025 can change the
+  figures of that year and later ones you may already have filed:
+  BitcoinTX shows what changes, and asks, before it imports them." (none,
+  and no dialog below, if the walk runs in 2025); and "Warnings (7):":
+  - "Row 9 are Kraken's pending copies of a deposit or withdrawal (no
+    txid), whose completed row is read: left out."
+  - "Rows 2 and 21 move dollars, not bitcoin: left out."
+  - "Rows 12 and 13 move coins between Kraken's own balances (spot,
+    staking, earn): left out."
+  - "Rows 15 and 16 are ETH, not bitcoin (BitcoinTX tracks bitcoin only):
+    left out."
+  - "Rows 17 and 18 trade bitcoin for ETH: add each by hand (bitcoin given
+    up as a Withdrawal, purpose Spent, at its dollar value: a disposal,
+    IRS Notice 2014-21): left out."
+  - "Rows 19 and 20 are a withdrawal Kraken sent back (they add up to
+    nothing): left out."
+  - "Row 14: 0.0000012345 BTC is rounded to 0.00000123 BTC: BitcoinTX
+    counts whole satoshis."
+
+  The six rows: two Buys (rows 4 and 8) "→ Kraken BTC", each with the
+  **Bank** / **Kraken USD** toggle, Kraken USD pressed; a Sell (row 5)
+  "Kraken BTC → Kraken USD"; two Transfers, "Kraken BTC → Coldcard" (row
+  10) and "Coldcard → Kraken BTC" (row 11); a Reward Deposit (row 14)
+  "External → Kraken BTC". Leave them as they are. **Import 6
+  Transaction(s)**: the confirm "Import 6 transaction(s) from Kraken into
+  your ledger?", then the past-year dialog, "This changes the figures of
+  tax year 2025, which you may already have filed. Confirm to save it: a
+  copy of your ledger is made first.", with these lines:
+  - `2025-01-03 05:15 · Buy · 0.00500000 BTC — Added: basis 500.00; cost
+    of the lots it made 501.30.`
+  - `2025-02-10 03:00 · Sell · 0.00200000 BTC — Added: proceeds 209.45;
+    basis 200.52; gain 8.93; taxable gain incl. network fees 8.93.`
+  - `2025-02-15 07:30 · Buy · 0.00098000 BTC — Added: basis 100.00; cost
+    of the lots it made 101.49.`
+  - `2025-03-01 04:05 · Transfer · 0.00201500 BTC — Added: taxable gain
+    incl. network fees <F − 1.50>; cost of the lots it made 200.52.`, where
+    F is the 0.000015 BTC fee's value: 0.000015 × the price
+    `GET $API/bitcoin/price/history?at=2025-03-01T09:00:00Z` answers, to
+    the cent;
+  - `2025-03-05 13:45 · Transfer · 0.00100000 BTC — Added: cost of the
+    lots it made 100.26.`
+  - `2025-03-12 20:00 · Deposit (Reward) · 0.00000123 BTC — Added: basis
+    <V>; cost of the lots it made <V>.`, V being 0.00000123 × the price at
+    `2025-03-13T00:00:00Z`, to the cent.
+
+  (From 2027 the dialog names tax years 2025 and 2026, and lists IMP-4b's
+  Sell too.) **Save anyway (a copy is made first)**. Expect "Imported 6
+  transaction(s)." On Transactions, **Filter transactions** `Kraken`: "9 of
+  26 transactions", the six with IMP-4b's three. The rows: the 0.005 BTC
+  Buy, Kraken USD → Kraken BTC, at a cost of $500.00 and a fee of $1.30
+  (its **Edit**: Amount USD 500, Fee (USD) 1.30); the Sell, Gain +$8.93
+  ($209.45 net of its $0.55 fee, less $200.52, the cost of 0.002 of Kraken's own 0.005 BTC, bought for
+  $500.00 plus its $1.30 fee); the 0.00098 BTC Buy, $100.00 and a $1.49
+  fee; the Transfer of 0.002015 BTC, Kraken BTC → Coldcard, its fee
+  0.000015 BTC; the Transfer of 0.001 BTC, Coldcard → Kraken BTC; and the
+  Reward of 0.00000123 BTC into Kraken BTC. IMP-4b's 2026 Sell now shows
+  Gain +$4.87, not +$13.33: Kraken's oldest coins are now the 2025 buy's,
+  and 0.0005 of them cost $50.13 (lots per exchange, first in, first out).
+  Dashboard: the Exchange card's `Kraken` −$338.34 and 0.00326623 BTC (the
+  file's dollar deposit, row 2, isn't read, so its buys leave Kraken USD
+  below zero), and the Wallet card's `Coldcard` 0.00200000 BTC. Preview the
+  file again with the same choices: "6 already in ledger", "0 new";
+  **Cancel**.
+- **IMP-6** (from 2.0) Another exchange's file, its columns matched by
+  hand. Save this file as `example.csv` (B5b's click-through test's):
+
+  ```csv
+  Exported by Example Exchange
+  When,Type,Coins,Dollars,Charge,Charge In,Ref,State
+  2025-04-01 09:00,Bought,0.01000000,"1,010.00",10.00,USD,r-1,done
+  2025-04-03 09:00,Withdrew,0.00200000,,0.00001000,BTC,r-3,done
+  2025-04-04 09:00,Bought,0.01000000,"1,010.00",10.00,USD,r-4,waiting
+  ```
+
+  **Exchange file** `Another exchange: match its columns`, with the hint
+  "Choose the file, then say which of its columns holds what: you can save
+  it for next time."; choose the file ("Exchange CSV file"). Expect the
+  table "The file's first rows" with its three rows, captioned "Row 2 of
+  the file names its columns."; **Kind of row** `Type`, **Status (if
+  any)** `State` and **Row id (if any)** `Ref` already chosen from their
+  names, and "“Bought” is" already `Buy`; "Still to match: Date, Bitcoin
+  amount."; and **Preview** off. Choose **Date** `When`, **Bitcoin
+  amount** `Coins`, **Dollar amount (if any)** `Dollars`, **Fee (if any)**
+  `Charge` and **Fee currency (if any)** `Charge In`; "“Withdrew” is"
+  `Send out`; under "A completed row's status" tick
+  `done`; tick "A buy's dollars include its fee (the total paid)". Expect
+  the "Still to match" line gone. With **Exchange** `Kraken` and **Wallet
+  for sends and receives** `Coldcard`, **Preview**: "3 rows in file", "2
+  new", the warning "Row 5 are waiting, not completed: left out.", a Buy
+  of 0.01 BTC "→ Kraken BTC" and a Transfer of 0.002 BTC "Kraken BTC →
+  Coldcard". **Mapping's name** `Example Exchange`, **Save this mapping**:
+  the toast "Saved “Example Exchange”." and **Exchange file** showing it,
+  under "Your mappings". **Preview**, then **Import 2 Transaction(s)**:
+  the confirm "Import 2 transaction(s) from Example Exchange into your
+  ledger?", then the past-year dialog's lines `2025-04-01 05:00 · Buy ·
+  0.01000000 BTC — Added: basis 1000.00; cost of the lots it made
+  1010.00.` and `2025-04-03 05:00 · Transfer · 0.00201000 BTC — Added:
+  taxable gain incl. network fees <F − 1.01>; cost of the lots it made
+  200.60.` (F: 0.00001 × the price at `2025-04-03T09:00:00Z`). **Save
+  anyway**: "Imported 2 transaction(s).", the Buy's cost basis $1,000.00
+  and its fee $10.00 (the $1,010.00 paid held the fee). Reload: **Exchange
+  file** still lists `Example Exchange` under "Your mappings".
+- **IMP-7** Preview a CSV that isn't the chosen exchange's, for example
+  `date,type,amount` plus one row. With **Exchange file** `River`, expect
+  "This does not look like a River bitcoin-activity CSV. Missing columns:
+  …"; with `Kraken`, "Row 1: This does not look like Kraken's file. Missing
+  columns: txid, refid, time, asset, fee". Nothing is saved.
+- **BAK-4** Restore BAK-2's backup again, which removes the rows IMP-4 to
+  IMP-6 imported. Expect every golden figure, Coldcard and Kraken at $0.00
+  and 0.00000000 BTC, and **Exchange file** without `Example Exchange`: a
+  restore takes the backup's mappings with its data (it had none), as it
+  does the backup's rows.
 
 ### SEC: the live install from outside
 
@@ -1802,6 +1919,48 @@ page's pictures".
 
   `migrate` again: "Database schema is up to date (0100)."
 
+## MAP: the ready-made mappings against real exports (a tester, at 2.0)
+
+Not part of an agent's walk. B5b built every ready-made mapping but
+River's (Coinbase, Kraken, Strike, Swan's two, Cash App) from its
+exchange's published format, never from a real export, and the screen
+says so ("… not yet checked against a real one: check the preview's rows
+against your file before you import them."). Before 2.0's release, anyone
+who holds a real export of one of them runs MAP-1 for it, on a test
+install only (the beta app through `desktop/run-test-build.sh`, a
+throwaway Docker container or the VM), never on their own ledger. The
+export stays on their machine: never committed, attached to an issue,
+pasted anywhere or given to an AI, and no figure from it is written down.
+
+- **MAP-1** For each mapping a tester can check: Settings, open **Import
+  from an exchange**, **Exchange file** that exchange, the file,
+  **Preview**. Expect:
+  - "N rows in file" equal to the file's data rows, and every row either
+    in the preview or named in a warning with its reason ("Row … : left
+    out.");
+  - each previewed row as the file means it: its date and time (Kraken's,
+    Strike's and Swan's in UTC, Cash App's in the zone each date names),
+    its type (a buy, a sale, a send as a Transfer or Withdrawal, a receive
+    as a Transfer or Deposit, a reward or bitcoin back as a Deposit of its
+    source), its bitcoin amount, a buy's dollars before its fee and the
+    fee, a sale's dollars and fee, a send's network fee;
+  - the unknowns B5b left, each settled one way or the other: Kraken's
+    `sale`, `reward` and `conversion` ledger types (left out today, as
+    "Kraken's “…” rows, which BitcoinTX doesn't read"); Cash App's
+    "Bitcoin Payment" (left out today as a kind the mapping doesn't read);
+    Strike's labels for rewards or bitcoin back; whether Swan's and Cash
+    App's transaction ids are unique per row (a repeated id is left out:
+    "have the id of an earlier row … only the first is read"); the event
+    Swan's file names a sale; and whether Coinbase's 2024 file signs
+    Quantity Transacted, so that a sale's or a send's bitcoin reads as
+    leaving.
+
+  Record each mapping PASS, or FAIL with what differed in words only
+  (which kind of row, which column, what was expected). A FAIL becomes a
+  public issue labelled `bug` that describes the file's shape, never its
+  rows or figures; its fix comes with a made-up row in
+  `testdata/exchange_files/` that shows it.
+
 ---
 
 ## Report
@@ -1811,7 +1970,7 @@ One file per run, `agent-test-report-X.Y.Z.md`:
 ```markdown
 # BitcoinTX X.Y.Z agent test report
 Commit: <SHA> · Date: <date> · Agent: <name/model> · StartOS: <version> · VM arch: x86_64
-Tracks run: A, B, C, WAY, BETA, REF (say which were skipped and why)
+Tracks run: A, B, C, WAY, BETA, REF, MAP (say which were skipped and why)
 
 ## Summary
 PASS n · FAIL n · KNOWN n · BLOCKED n
