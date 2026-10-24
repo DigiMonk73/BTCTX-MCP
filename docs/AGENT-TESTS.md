@@ -1226,7 +1226,9 @@ Set `KEY` to the key from AI-3, and use
     counts whole satoshis."
 
   The six rows: two Buys (rows 4 and 8) "→ Kraken BTC", each with the
-  **Bank** / **Kraken USD** toggle, Kraken USD pressed; a Sell (row 5)
+  **Bank** / **Kraken USD** toggle: row 4 **Bank** pressed (no earlier sale
+  has left Kraken dollars to pay it, #655), row 8 **Kraken USD** pressed (the
+  row-5 sale covers it); a Sell (row 5)
   "Kraken BTC → Kraken USD"; two Transfers, "Kraken BTC → Coldcard" (row
   10) and "Coldcard → Kraken BTC" (row 11); a Reward Deposit (row 14)
   "External → Kraken BTC". Leave them as they are. **Import 6
@@ -1258,7 +1260,7 @@ Set `KEY` to the key from AI-3, and use
   100.26).) **Save anyway (a copy is made first)**. Expect "Imported 6
   transaction(s)." On Transactions, **Filter transactions** `Kraken`: "9 of 26
   transactions", the six with IMP-4b's three. The rows: the 0.005 BTC Buy,
-  Kraken USD → Kraken BTC, at a cost of $500.00 and a fee of $1.30 (its
+  Bank → Kraken BTC, at a cost of $500.00 and a fee of $1.30 (its
   **Edit**: Amount USD 500, Fee (USD) 1.30); the Sell, Gain +$8.93 ($209.45
   net of its $0.55 fee, less $200.52, the cost of 0.002 of Kraken's own 0.005
   BTC, bought for $500.00 plus its $1.30 fee); the 0.00098 BTC Buy, $100.00
@@ -1269,9 +1271,7 @@ Set `KEY` to the key from AI-3, and use
   0.0005 of them cost $50.13 (lots per exchange, first in, first out).
   Dashboard: the Exchange card's `Kraken` with no exchange's dollars below
   zero, and 0.00326623 BTC, and the Wallet card's `Coldcard` 0.00200000 BTC.
-  (KNOWN until #655 is fixed: the file's dollar deposit, row 2, isn't read, so
-  its buys leave Kraken at −$338.34.) Preview the file again with the same
-  choices: "6 already in ledger", "0 new"; **Cancel**.
+  Preview the file again with the same choices: "6 already in ledger", "0 new"; **Cancel**.
 - **IMP-6** (from 2.0) Another exchange's file, its columns matched by
   hand. Save this file as `example.csv` (B5b's click-through test's):
 
@@ -2016,8 +2016,4 @@ Open bugs a run may meet (the release's CHANGELOG lists them under Known
 issues). Report these as KNOWN. Delete a line when its fix is merged into
 `develop`, since release candidates are built from it.
 
-None known for 1.2.10. For 2.0:
-
-- #655: an exchange file's buys are paid from that exchange's dollars by
-  default, though Kraken's mapping leaves the file's dollar deposits out,
-  so its dollars go below zero (IMP-5).
+None known for 1.2.10 or 2.0.
