@@ -159,7 +159,7 @@ test("Logout with unsaved changes asks Discard changes? first, and sends nothing
   await expect(question(page)).toBeVisible();
   await page.getByRole("button", { name: "Go back" }).click();
   await expect(question(page)).toHaveCount(0);
-  await expect(page.getByLabel("Account", { exact: true })).toHaveValue("Bank");
+  await expect(page.getByLabel("Account", { exact: true }).locator("option:checked")).toHaveText("Bank");
   expect(await loggedIn(page)).toBe(true);
   expect(logouts()).toBe(0);
 
