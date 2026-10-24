@@ -186,10 +186,34 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
+- The before-and-after check (`scripts/equivalence_check.py`) reuses a
+  release's snapshot only while today's date is the same in each of its
+  ledgers' tax timezones (UTC, New York, Chicago, Tokyo: the date the
+  current year's Complete Tax Report says it was made on). Kept by the
+  computer's own date, a snapshot was reused across a midnight in another
+  zone (in Chicago, in summer: Tokyo's at 10:00, UTC's at 19:00, New
+  York's at 23:00), and that date showed as a difference no change made
+  (#630).
 - **setuptools 84.2.0** in the Mac app's build tools and the AI connector's
   release tools (GHSA-xmj3-9gf7-h52w, low: a path escape in legacy wheel
   installs on Windows; neither runs there, but CI's dependency audit
   refused 84.0.0). Nothing BitcoinTX ships changes.
+- `make catch-up-2.0` (`scripts/catch-up-2.0.sh`): `develop` into the 2.0
+  build. A clean merge is made as a commit of its own and merges once its
+  own CI passes (the owner's decision 24, #251); a 1.x migration, a change
+  to the reference test ledger or a conflict stops for the build's lead.
+  Run before every 2.0 step and nightly.
+- **Start9 watched daily** (the owner, 2026-10-23: "we have to be aware
+  when they push updates"). The weekly SDK check missed start-sdk 3.1.0
+  and start-cli 2.4.2 by hours on 2026-10-19 and looked for nothing else.
+  `start9-watch.yml` (was `startos-sdk-check.yml`) now runs
+  `scripts/start9-watch.sh` daily: one `start9` issue for each newer
+  start-sdk or start-cli than `develop` pins, each StartOS and
+  start-registry release, each day Start9's packaging guide or shared
+  package workflows change, a failed build on the mirror or Start9's fork,
+  and changes on their fork not taken back; `--dry-run` shows the same
+  without opening anything. The schedule runs from `main`, so it starts at
+  the next release; until then each session runs the script.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes
@@ -203,6 +227,16 @@ All notable changes to BitcoinTX are documented in this file.
   its own five transactions (each one checked) and empties it again
   afterwards; a new test leaves another module's transaction in first. Tests
   only: nothing in the app changes.
+- **start-cli 2.5.0** (from 2.4.1) packs `btctx.s9pk` in CI and the
+  release, as Start9's own builds do with the newest (`START_CLI_VERSION`,
+  `START_CLI_SHA256`; startos/UPDATING.md, "Bumping the SDK", step 3). It
+  signs requests and registry entries with an updated scheme and manages
+  only servers on StartOS 0.4.0.3 or later; a package it packs still
+  installs and runs on StartOS 0.4.0.2 (the lab VM, 2026-10-23, packed with
+  2.5.0's Linux build: its macOS build doesn't start on macOS 27). On the
+  lab that day, start-cli 2.4.1 and 2.4.2 failed on `registry package
+  install` against Start9's new start-registry 1.2.0, though Start9's notes
+  say older start-clis keep working; CI reads no registry.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
@@ -528,6 +562,20 @@ withdrawal, can't be matched on Form 8949 yet (#551).
   Ledger once, and dropping the password the store kept) moves to its own
   file (`versions/v1.2.9_0.ts`), so an install on 1.2.8:0 or earlier still
   runs it on the way.
+- **start-sdk 3.1.0** (from 3.0.6), on Start9's review of 1.2.10:0
+  (Start9-Community/BTCTX-StartOS#8; their publishing checklist asks for the
+  current SDK). Under the same package version, 1.2.10:0, since the
+  community registry doesn't serve it yet (Start9's `versions.md`): Start9's
+  build of 1.2.10:0 uses 3.1.0, and the `btctx.s9pk` on the v1.2.10 GitHub
+  release was packed with 3.0.6, the same app and package otherwise. Its
+  fixes (daemon readiness and health-check polling) change nothing in how
+  BitcoinTX's service starts or is checked; zod 4.6.7 replaces
+  `zod-deep-partial`, and its `make` now formats `startos/` instead of
+  rejecting unformatted source, so CI and the pre-push hook run
+  `npm run format:check` first.
+  Its minimum StartOS stays 0.4.0.2, and the bundled sibling packages
+  (Mempool's, Tor's) are unchanged. The release notes say so in five
+  languages.
 
 ### Development
 - **Tools updated for security advisories:** uv 0.13.5 (from 0.13.0), which

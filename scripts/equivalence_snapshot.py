@@ -46,7 +46,6 @@ from equivalence_ledgers_1x import GOLDEN_LEDGER, SeededDraws, draw_ledger, refe
 # This checkout's, for both sides: a release's worktree may have no testdata/
 REFERENCE_LEDGER = Path(__file__).resolve().parents[1] / "testdata" / "reference_ledger.json"
 RANDOM_LEDGERS = 40
-RANDOM_ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
 BENCH_TRANSACTIONS = 2000
 BENCH_RUNS = 9
 
@@ -172,17 +171,19 @@ def _no_hourly_prices() -> None:
 
 def _ledgers():
     """(name, tax timezone, API payloads) for each ledger in the snapshot."""
-    yield "golden", "America/New_York", GOLDEN_LEDGER
+    yield "golden", inputs.GOLDEN_ZONE, GOLDEN_LEDGER
     yield "reference", "UTC", reference_rows_1x(REFERENCE_LEDGER)
     for seed in range(RANDOM_LEDGERS):
         txs, _ = draw_ledger(SeededDraws(seed), max_ops=25)
-        yield f"random_{seed:02d}", RANDOM_ZONES[seed % len(RANDOM_ZONES)], txs
+        yield f"random_{seed:02d}", inputs.RANDOM_ZONES[seed % len(inputs.RANDOM_ZONES)], txs
 
 
 class Instance:
     """The app on a fresh database of its own, logged in."""
 
     def __init__(self, work: Path, name: str, zone: str = "UTC"):
+        # The baseline is kept by today's date in these zones only (#630)
+        assert zone in inputs.ZONES, f"{zone} isn't in equivalence_inputs.ZONES"
         self.path = work / f"{name}.db"
         self.engine = create_engine(f"sqlite:///{self.path}", connect_args={"check_same_thread": False})
         init_test_db(self.engine)
@@ -467,7 +468,7 @@ async def _mcp_call(client, name: str, args: dict) -> list:
 
 # Bad inputs
 def _bad_input_snapshot(work: Path) -> dict:
-    instance = Instance(work, "bad_inputs", "America/New_York")
+    instance = Instance(work, "bad_inputs", inputs.GOLDEN_ZONE)
     instance.enter(GOLDEN_LEDGER)
     snap = {
         "create": _api_trials(instance, "POST"),
