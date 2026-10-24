@@ -102,6 +102,23 @@ describe("with more accounts", () => {
     expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
   });
 
+  it("never fills a consolidation, even when it's the only To that fits", async () => {
+    const exchangeHidden = ONE_OF_EACH.map((a) => (a.id === 4 ? { ...a, hidden: true } : a));
+    const form = await renderForm({ book: exchangeHidden });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Wallet");
+    expect(screen.getByLabelText("To Account").tagName).toBe("SELECT");
+    expect([shown("To Account"), ...offered("To Account")]).toEqual(["Select To Account", WITHIN_WALLET]);
+    await form.user.type(screen.getByLabelText("Amount (From)"), "0.5");
+    await form.user.type(screen.getByLabelText("Amount (To)"), "0.4999");
+    await form.save();
+    expect(form.sent()).toBeUndefined();
+    await form.choose("To Account", WITHIN_WALLET); // chosen, it is one, and stays a choice
+    expect(screen.getByLabelText("To Account").tagName).toBe("SELECT");
+    await form.save();
+    expect(form.sent()).toMatchObject({ from_account_id: 2, to_account_id: 2 });
+  });
+
   it("buys on a chosen exchange, paid from its dollars or a bank (Q15)", async () => {
     const form = await renderForm({ book: MANY });
     await form.pickType("Buy");

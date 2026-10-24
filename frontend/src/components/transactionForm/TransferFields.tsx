@@ -38,6 +38,7 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
       placeholder="Select To Account"
       requiredMessage="To Account is required"
       optionLabel={(id) => (id === fromId && kind ? WITHIN_LABEL[kind]?.(book, id) : undefined) ?? accountName(book, id)}
+      fillable={(id) => id !== fromId} // a consolidation records only a fee: chosen, never filled in
       deps={["amountTo"]}
     >
       {within && <small className="field-hint">{WITHIN_HINT}</small>}
