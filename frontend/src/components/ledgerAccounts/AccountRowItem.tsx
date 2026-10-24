@@ -1,6 +1,6 @@
 import React from "react";
-import { ChevronDown } from "lucide-react";
 import { KIND_LABEL, canDelete, ledgerIds, sends1099da, type AccountRow } from "../../utils/ledgerAccounts";
+import Chevron from "../Chevron";
 import ExchangeSwitch from "./ExchangeSwitch";
 import RenameAccount from "./RenameAccount";
 
@@ -38,7 +38,7 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({
       <button
         type="button"
         id={ledgerIds.rowToggle(row.key)}
-        className="ledger-account-toggle"
+        className="ledger-account-toggle chevron-toggle"
         aria-expanded={open}
         aria-controls={open ? details : undefined}
         onClick={() => onToggle(row)}
@@ -51,7 +51,7 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({
           </span>
         </span>{" "}
         <span className="ledger-account-balance">{balance}</span>
-        <ChevronDown className="ledger-account-chevron" size={18} aria-hidden="true" />
+        <Chevron />
       </button>
       {open && (
         <div id={details} className="ledger-account-details" role="region" aria-label={row.name}>

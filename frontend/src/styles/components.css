@@ -206,9 +206,10 @@ input[type="radio"] {
 .segmented > button[aria-pressed="true"] { background: var(--color-raised); color: var(--color-text); }
 
 /* ---------- Chevron of a button that opens what's under it ---------- */
-/* Settings' sections and the dashboard's lines (#674): the button carries
-   .chevron-toggle and aria-expanded; the chevron is muted, brighter on
-   hover, turned over while open. */
+/* The app's one chevron (#674, Chevron.tsx): Settings' sections and account
+   rows, the dashboard's lines. The button carries .chevron-toggle and
+   aria-expanded; the chevron is muted, brighter on hover, turned over while
+   open. */
 .chevron { flex-shrink: 0; color: var(--color-text-muted); }
 .chevron-toggle:hover .chevron { color: var(--color-text-secondary); }
 .chevron-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }

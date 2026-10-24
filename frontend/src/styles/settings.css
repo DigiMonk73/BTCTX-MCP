@@ -163,8 +163,6 @@
 .ledger-account-name { font-weight: var(--font-medium); overflow-wrap: anywhere; }
 .ledger-account-kind { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
 .ledger-account-balance { color: var(--color-text-secondary); font-variant-numeric: tabular-nums; text-align: right; }
-.ledger-account-chevron { flex-shrink: 0; color: var(--color-text-muted); }
-.ledger-account-toggle[aria-expanded="true"] .ledger-account-chevron { transform: rotate(180deg); }
 .ledger-account-details {
   display: flex;
   flex-direction: column;
