@@ -288,7 +288,7 @@ def test_auto_merge_refused_is_cant_tell(repos, tmp_path, monkeypatch):
 def test_a_new_release_and_startos_changes_are_to_dos_beside_the_pull_request(repos, tmp_path):
     proj, seed = repos
     commit_on(seed, "develop", {"startos/manifest.ts": "sdk 3.1.0\n"}, "start-sdk 3.1.0")
-    for tag in ("v1.2.10", "v1.2.10-1", "v2.0.0-beta.1"):  # a revision and a pre-release: no release of their own
+    for tag in ("v1.2.10", "v1.2.10-1", "v2.0.0-alpha.1", "v2.0.0-beta.1"):  # a revision, pre-releases: none of their own
         git(seed, "tag", tag)
     git(seed, "push", "-q", "origin", "--tags")
     r = run(proj)
