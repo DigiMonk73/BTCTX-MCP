@@ -11,7 +11,7 @@ const RIVER_CSV = [
 ].join("\n") + "\n";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 function riverRow(page: Page, n: number) {
@@ -22,7 +22,7 @@ test("River: a refused cost basis is said in words, and the preview keeps every 
   await seedFunds(page.request); // the send's bitcoin
   const before = (await listTx(page.request)).length;
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),

@@ -88,7 +88,7 @@ for (const size of SIZES) {
     await scrollTo(page, /Privacy/);
     await shot("settings-privacy");
 
-    const river = await openSection(page, "Import from River");
+    const river = await openSection(page, "Import from an exchange");
     await river.getByLabel("River CSV file").setInputFiles({
       name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
     });

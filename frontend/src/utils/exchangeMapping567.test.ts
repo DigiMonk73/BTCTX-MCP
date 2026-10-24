@@ -65,7 +65,7 @@ describe("mappingFrom", () => {
 describe("missingRoles", () => {
   it("names the columns a mapping needs before it can read a file", () => {
     expect(missingRoles(emptyDraft()).map((r) => r.label)).toEqual(["Date", "Kind of row", "Bitcoin amount"]);
-    const draft = { ...emptyDraft(), columns: { date: "When", kind: "Type", btc: "Coins" }, kinds: { Bought: "buy" } };
+    const draft: Draft = { ...emptyDraft(), columns: { date: "When", kind: "Type", btc: "Coins" }, kinds: { Bought: "buy" } };
     expect(missingRoles(draft)).toEqual([]);
   });
 
