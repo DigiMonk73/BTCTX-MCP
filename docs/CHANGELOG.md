@@ -39,7 +39,10 @@ All notable changes to BitcoinTX are documented in this file.
   by its own backup is recorded on #357 once tried), and 1.2.10 refuses a
   2.0 backup in plain words. The Complete Tax Report's notes say that
   coins you identified, or an exchange's own order of coins, can give
-  other figures. The README's pictures show a second wallet
+  other figures. The README, `instructions.md` and the CSV guide name
+  the importer for any exchange's file (Settings › Import from an
+  exchange) beside BitcoinTX's own CSV, and the CSV template's My BTC row
+  reads "My own BTC from a wallet BitcoinTX doesn't track". The README's pictures show a second wallet
   (`testdata/showcase_ledger.json`). `docs/AGENT-TESTS.md` gains 2.0's
   release tests. No figure changes.
 - **The dashboard by kind, Transactions by name, and renames** (B8, #356).

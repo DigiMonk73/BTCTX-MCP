@@ -39,8 +39,10 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   sale, record that on the transaction and the right Form 8949 box follows. Each year's final IRS forms come in an update
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
-- **Imports**: River CSV export, generic CSV (into an empty ledger), and the
-  AI route below
+- **Imports**: an exchange's own CSV export into a ledger in use, ready-made
+  for River, Coinbase, Kraken, Strike, Swan and Cash App, or any other once
+  you match its columns (the preview leaves out what's already recorded);
+  BitcoinTX's own CSV (into an empty ledger); and the AI route below
 - **AI entry (MCP)**: paste an exchange email or a wallet history, or type
   "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
   previews the rows (duplicate check, fair market value, resulting gains) and

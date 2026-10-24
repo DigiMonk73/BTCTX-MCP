@@ -23,7 +23,7 @@ on StartOS, follow this page.
 3. Start the service and open the **Web UI**. Log in with those credentials.
 4. In **Settings > Account**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
 5. In **Settings > Wallets, exchanges and banks**, add each wallet, exchange and bank you use: BitcoinTX starts with one of each (**Bank**, **Wallet**, and **Exchange** with its **Exchange USD** and **Exchange BTC**). A wallet is one set of keys; a backup of the same keys isn't a second wallet. For an exchange that sends no Form 1099-DA (usually one outside the US), turn off **This exchange sends me a Form 1099-DA**.
-6. Add your transactions by hand, import a River CSV or a generic CSV (a generic CSV only into an empty ledger), or connect an AI assistant (below).
+6. Add your transactions by hand, import an exchange's CSV export in **Settings > Import from an exchange** (ready-made for River, Coinbase, Kraken, Strike, Swan and Cash App; any other exchange's once you match its columns), import BitcoinTX's own CSV (only into an empty ledger), or connect an AI assistant (below).
 
 You can change the username and password inside BitcoinTX (**Settings > Account > Reset Username & Password**).
 

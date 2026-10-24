@@ -17,7 +17,7 @@ from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, 
 
 COLUMNS = [
     ["Column", "Required", "Description"],
-    ["date", "Yes", "Date/time (ISO8601 preferred). Without a timezone it is in your tax timezone (Settings); a date alone means noon"],
+    ["date", "Yes", "Date/time (ISO8601 preferred). Without a timezone it is in your tax timezone (Settings → Account); a date alone means noon"],
     ["type", "Yes", "Transaction type: Deposit, Withdrawal, Transfer, Buy, Sell"],
     ["amount", "Yes", "BTC (up to 8 decimals), or USD for a dollar account's rows (a bank, an exchange's USD). BTC Transfer: what left the account, fee included. USD Transfer (between dollar accounts): what arrived, fee on top. Withdrawal: what the recipient got, fee on top"],
     ["from_account", "Yes", "Source account: one of your accounts by its name in Settings, or External"],
@@ -229,7 +229,8 @@ class _Guide:
             Paragraph(
                 "<b>Important:</b> The database must be empty before importing. "
                 "This ensures clean FIFO cost basis calculations. If you have existing "
-                "transactions, delete them first from the Settings page.",
+                "transactions, delete them first from the Settings page. To add an exchange's "
+                "own CSV export to a ledger in use, use Settings → Import from an exchange instead.",
                 self.warning
             ),
         ]
@@ -296,7 +297,7 @@ class _Guide:
             Paragraph("Supported Date Formats", self.heading1),
             Paragraph(
                 "The following date formats are accepted. ISO8601 with timezone is recommended. "
-                "A date or time without a timezone is read in your tax timezone (Settings), and a "
+                "A date or time without a timezone is read in your tax timezone (Settings → Account), and a "
                 "date alone means noon that day, so it stays in the right tax year:",
                 self.normal
             ),
