@@ -14,11 +14,12 @@ All notable changes to BitcoinTX are documented in this file.
   opened or upgraded. It refuses the installed app's folder however that
   is spelled (another case, a link), with a message, and a second launch
   brings forward the copy that's open by its bundle id, never "BitcoinTX"
-  by name (which would bring up the installed app on its ledger). Its
-  Settings → Connect an AI Assistant pins the beta's own connector
-  (`btctx-mcp==2.0.0bN`), links its tag's `AI_SETUP.md` and names the
-  server `bitcointx-beta`, beside the tester's own `bitcointx`, which it
-  never replaces; the beta connector's Mac key file is BitcoinTX Beta's,
+  by name (which would bring up the installed app on its ledger). Every
+  beta's Settings → Connect an AI Assistant (on a Mac, StartOS or Docker)
+  pins the beta's own connector (`btctx-mcp==2.0.0bN`), links its tag's
+  `AI_SETUP.md` and names the server `bitcointx-beta`, beside the tester's
+  own `bitcointx`, which it never changes unless that one reaches this same
+  BitcoinTX (StartOS, updated in place); the beta connector's Mac key file is BitcoinTX Beta's,
   and its version notice reads a beta on both sides (the connector's
   2.0.0bN is BitcoinTX's 2.0.0-beta.N). The StartOS package's checks take
   `2.0.0-beta.N:0`, on `2.0` only. 2.0.0 itself builds the ordinary app,

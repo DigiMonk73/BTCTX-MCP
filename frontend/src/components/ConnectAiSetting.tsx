@@ -13,6 +13,7 @@ import {
   claudeDesktopConfig,
   grokCommand,
   needsCaBundle,
+  serverName,
   serverPackage,
 } from "../utils/aiSetup";
 
@@ -212,14 +213,16 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
 };
 
 const ConnectAiSetting: React.FC = () => {
-  const [version, setVersion] = useState<string | undefined>();
+  // This page's own version until the server answers, and if it doesn't:
+  // never an unpinned connector, which a beta's setup must not hand out (B10a)
+  const [version, setVersion] = useState<string | undefined>(__BTCTX_VERSION__);
   const [access, setAccess] = useState<AiAccess | null>(null);
   const url = window.location.origin;
 
   useEffect(() => {
     api
       .get<{ version?: string }>("/health")
-      .then((res) => setVersion(res.data.version))
+      .then((res) => setVersion(res.data.version ?? __BTCTX_VERSION__))
       .catch(() => undefined);
     api
       .get<AiAccess>("/settings/ai-access")
@@ -264,8 +267,8 @@ const ConnectAiSetting: React.FC = () => {
           {serverPackage(version) !== "btctx-mcp" && (
             <p className="settings-option-subtitle">
               Set up with an older version? Change <code>btctx-mcp==</code> in your AI app&apos;s
-              settings to <code>{serverPackage(version)}</code>, then restart the AI app. No new key
-              needed.
+              settings for <code>{serverName(version)}</code> to <code>{serverPackage(version)}</code>,
+              then restart the AI app. No new key needed.
             </p>
           )}
 

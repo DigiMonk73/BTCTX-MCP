@@ -11,6 +11,7 @@ import {
   serverPackage,
   setupGuideUrl,
 } from "./aiSetup";
+import { betaParts } from "./betaVersion";
 
 // The AI setup a 2.0 pre-release hands out (2.0 plan 7.4, B10a, point 2;
 // #532): unpinned, `uvx btctx-mcp` would run the latest 1.x connector, whose
@@ -49,6 +50,11 @@ describe("a beta's AI setup", () => {
       expect(buildAiPrompt(input)).toContain("/blob/v2.0.0-beta.3/mcp_server/AI_SETUP.md");
       expect(JSON.parse(claudeDesktopConfig(input)).mcpServers).toHaveProperty([BETA_SERVER_NAME]);
     }
+  });
+
+  it("reads a beta's release and beta numbers, and nothing else", () => {
+    expect(betaParts("2.0.0-beta.12")).toEqual({ release: "2.0.0", beta: "12" });
+    for (const v of ["2.0.0", "2.0.0-beta.0", "2.0.0b1", undefined]) expect(betaParts(v)).toBeNull();
   });
 
   it("leaves a release's setup as it was", () => {

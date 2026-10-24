@@ -268,10 +268,10 @@ class BtctxClient:
 
         token, url, pid = data.get("token"), data.get("url"), data.get("pid")
         if not token or not url:
-            looked.append(f"{path}: incomplete (no key or URL); reopen BitcoinTX")
+            looked.append(f"{path}: incomplete (no key or URL); reopen {mac_app()}")
             raise BtctxError(self._not_found(looked))
         if not _pid_alive(pid):
-            looked.append(f"{path}: written by BitcoinTX (pid {pid}), which is no longer running")
+            looked.append(f"{path}: written by {mac_app()} (pid {pid}), which is no longer running")
             # Or the app is open but couldn't write this run's key, leaving the earlier one (#238)
             raise BtctxError(self._not_found(looked, reset_key=True))
         url = normalize_base_url(url)

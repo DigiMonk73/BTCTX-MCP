@@ -12,6 +12,7 @@ desktop/run-test-build.sh sets its own folder and port, so a run through it
 can't show these defaults: these tests do (7.4's "Done when").
 """
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -199,14 +200,41 @@ def test_a_test_run_takes_the_one_app_built_and_refuses_either_installed_folder(
     assert '"$HOME/Library/Application Support/BitcoinTX Beta"' in script
 
 
-def test_the_entry_point_refuses_before_it_opens_anything():
-    entry = (DESKTOP / "entrypoint.py").read_text()
-    main = entry[entry.index("def main():"):]
-    refused = main.index("except InstalledAppsFolder as exc:")
-    assert main.index("app_support = data_dir()") < refused < main.index('os.environ["DATABASE_FILE"]')
-    assert "tell_refused(str(exc))" in main[refused:refused + 200]
-    logging = entry[entry.index("def setup_logging"):entry.index("def get_resource_path")]
-    assert "except (OSError, InstalledAppsFolder)" in logging
+# The entry point, run in a process of its own: a stand-in for pywebview, a
+# test home, VERSION read as a beta's, and the dialog written down instead of
+# shown. It imports nothing of the backend before it refuses.
+ENTRY = """
+import os, sys
+sys.path[:0] = [{root!r}, {desktop!r}]
+import backend.version
+backend.version.app_version = lambda: "2.0.0-beta.1"
+sys.modules["webview"] = type(sys)("webview")
+import entrypoint
+told = []
+entrypoint.tell_refused = told.append
+entrypoint.main()
+print("TOLD", told)
+print("DATABASE_FILE" in os.environ, any(m.startswith("backend.main") for m in sys.modules))
+"""
+
+
+@pytest.mark.parametrize("given", ["Application Support/BitcoinTX", "Application Support/BitcoinTX/sub"])
+def test_the_beta_given_the_installed_apps_folder_says_so_and_opens_nothing(tmp_path, given):
+    """Its log too would be in that folder: the log is left out, the app
+    starts no further, and the dialog says why (a crash at import said nothing)."""
+    import subprocess
+
+    home = tmp_path / "home"
+    installed = home / "Library" / "Application Support" / "BitcoinTX"
+    installed.mkdir(parents=True)
+    script = ENTRY.format(root=str(DESKTOP.parent), desktop=str(DESKTOP))
+    made = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, timeout=60, env={
+        **os.environ, "HOME": str(home), desktop_paths.DATA_DIR_ENV: str(home / "Library" / given)})
+    assert made.returncode == 0, made.stderr
+    told, opened = made.stdout.strip().splitlines()[-2:]
+    assert "BitcoinTX Beta won't use" in told and "the installed BitcoinTX's" in told
+    assert opened == "False False"  # no database named, no backend imported
+    assert list(installed.iterdir()) == []
 
 
 def test_the_desktop_modules_stay_importable_without_pywebview():

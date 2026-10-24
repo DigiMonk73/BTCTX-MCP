@@ -177,9 +177,10 @@ def test_desktop_info_endpoint(auth_client, monkeypatch):
 
 @pytest.mark.parametrize("bring_forward, activates", [(True, True), (False, False)])
 def test_a_test_run_never_activates_bitcointx_by_name(monkeypatch, bring_forward, activates):
-    """AppleScript finds "BitcoinTX" by name: during a test run on a throwaway
-    data folder it could bring forward, or start, the installed app on its
-    real ledger, so a test run only says it's already open."""
+    """AppleScript finds the app by its bundle id, the installed app's for a
+    release build: during a test run on a throwaway data folder it could
+    bring forward, or start, the installed app on its real ledger, so a test
+    run only says it's already open."""
     scripts = []
     monkeypatch.setattr(desktop_ports.sys, "platform", "darwin")
     monkeypatch.setattr(desktop_ports, "_osascript", lambda script: scripts.append(script))

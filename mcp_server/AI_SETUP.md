@@ -41,9 +41,16 @@ software or editing any file, and keep every other server already in a
 configuration file intact.
 
 **A BitcoinTX 2.0 beta** (its prompt names the server `bitcointx-beta` and
-the connector `btctx-mcp==2.0.0bN`): add it under that name, beside any
-`bitcointx` server, which stays exactly as it is, since it belongs to the
-user's own BitcoinTX.
+the connector `btctx-mcp==2.0.0bN`):
+- a `bitcointx-beta` server already there: change only the version in its
+  arguments, as below;
+- a `bitcointx` server with the same `BTCTX_URL` as the prompt's is this
+  same BitcoinTX (on StartOS the beta updated the user's BitcoinTX in
+  place): change its version instead of adding another server;
+- otherwise add it as `bitcointx-beta`, and leave any `bitcointx` server
+  exactly as it is: it reaches the user's own BitcoinTX (another address,
+  or, with no `BTCTX_URL`, the BitcoinTX Mac app; on a Mac the beta is a
+  separate app, BitcoinTX Beta, and its prompt has no address either).
 
 **Already set up?** If their AI app already has a `bitcointx` server, don't
 add it again: change only the version in its arguments to

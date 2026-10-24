@@ -1,6 +1,8 @@
 // Login rules the server enforces (backend/schemas/user.py,
 // backend/services/first_run.py), said the same way on every form.
 
+import { betaParts } from "./betaVersion";
+
 export const MIN_PASSWORD_LENGTH = 12;
 export const PASSWORD_RULE = `At least ${MIN_PASSWORD_LENGTH} characters.`;
 
@@ -27,7 +29,7 @@ const SERVER_SETUP_CODE_HINT =
 /** The Mac app this page belongs to: BitcoinTX, or BitcoinTX Beta for a 2.0
  * pre-release (X.Y.Z-beta.N, 2.0 plan 7.4, B10a), with a folder of its own. */
 export function macApp(version: string): string {
-  return /^\d+\.\d+\.\d+-beta\.[1-9]\d*$/.test(version) ? "BitcoinTX Beta" : "BitcoinTX";
+  return betaParts(version) ? "BitcoinTX Beta" : "BitcoinTX";
 }
 
 // The Mac app never logs it (backend/services/first_run.py)

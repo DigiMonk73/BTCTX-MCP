@@ -152,9 +152,9 @@ a link), and says so. It starts empty: to try your records, download a
 backup in BitcoinTX and restore it in BitcoinTX Beta's Settings, which
 copies the data and leaves BitcoinTX's file as it is. Its names, folders
 and port come from `desktop/desktop_paths.py` and `desktop_ports.py`
-(`is_beta()`, from `VERSION`), which `BitcoinTX.spec` reads too. On this
-Mac, run a beta build only through `desktop/run-test-build.sh --app`, as any
-build.
+(`is_beta()`, from `VERSION`), which `BitcoinTX.spec` reads too. To test a
+beta build on a Mac where BitcoinTX is installed, run it only through
+`desktop/run-test-build.sh`, as any build ("Testing a build").
 
 ## Building
 
@@ -181,7 +181,9 @@ The script:
 6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
    (`brew install create-dmg`)
 
-Output: `desktop/dist/BitcoinTX.app`.
+Output: `desktop/dist/BitcoinTX.app`, or `BitcoinTX Beta.app` (and
+`BitcoinTX-Beta.dmg`) for a 2.0 pre-release. The build empties
+`desktop/dist` first, so it holds only the app just built.
 
 ### Testing a build
 
@@ -191,7 +193,7 @@ run its binary by itself:** either opens the real ledger in
 the installed app out). Run it with the script instead, for every launch:
 
 ```bash
-desktop/run-test-build.sh                    # desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh                    # the one app in desktop/dist
 desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
 desktop/run-test-build.sh --fresh            # start again from an empty folder
 desktop/run-test-build.sh --background       # detached (for an agent's shell)
@@ -201,8 +203,8 @@ It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`btctx-test-build` in the
 user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
 8766, the same on every launch from any shell, so a reopen or a second
 launch finds the same data. It uses only a folder that is empty or that it
-marked as its own (`.btctx-test-folder`), never the installed app's folder
-however it is spelled; `--fresh` is refused while a test run answers on
+marked as its own (`.btctx-test-folder`), never an installed app's folder
+(BitcoinTX's, or BitcoinTX Beta's) however it is spelled; `--fresh` is refused while a test run answers on
 8766. That folder holds everything the app would keep in Application
 Support (`btctx.db`, the session key, `mcp.json`, `setup-code.txt`,
 `btc-prices/`, `backups/`) and its log

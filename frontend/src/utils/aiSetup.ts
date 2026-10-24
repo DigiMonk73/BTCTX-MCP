@@ -19,6 +19,8 @@
  * for the tester's own BitcoinTX would be replaced.
  */
 
+import { betaParts } from "./betaVersion";
+
 export const REPO_URL = "https://github.com/DigiMonk73/BTCTX-MCP";
 export const SERVER_NAME = "bitcointx";
 export const BETA_SERVER_NAME = "bitcointx-beta";
@@ -35,16 +37,15 @@ export interface AiSetupInput {
 }
 
 const RELEASE = /^\d+\.\d+\.\d+$/;
-const BETA = /^(\d+\.\d+\.\d+)-beta\.([1-9]\d*)$/;
 
 /** The release (or pre-release) tag matching this app, or main when the version is unknown. */
 export function gitRef(version?: string): string {
-  return version && (RELEASE.test(version) || BETA.test(version)) ? `v${version}` : "main";
+  return version && (RELEASE.test(version) || betaParts(version)) ? `v${version}` : "main";
 }
 
 /** The name the AI app knows this BitcoinTX by: a beta's apart from the tester's own. */
 export function serverName(version?: string): string {
-  return version && BETA.test(version) ? BETA_SERVER_NAME : SERVER_NAME;
+  return betaParts(version) ? BETA_SERVER_NAME : SERVER_NAME;
 }
 
 /**
@@ -54,8 +55,8 @@ export function serverName(version?: string): string {
  * replies say which version to set.
  */
 export function serverPackage(version?: string): string {
-  const beta = version ? BETA.exec(version) : null;
-  if (beta) return `btctx-mcp==${beta[1]}b${beta[2]}`;
+  const beta = betaParts(version);
+  if (beta) return `btctx-mcp==${beta.release}b${beta.beta}`;
   return version && RELEASE.test(version) ? `btctx-mcp==${version}` : "btctx-mcp";
 }
 

@@ -1831,8 +1831,9 @@ FAIL to report, not a step to skip.
 - **BETA-4** (with BETA-3's app) The AI setup the beta hands out.
   Settings, open **Connect an AI Assistant**. Expect the Setup prompt and
   every command shown (Claude Desktop, Claude Code, Grok Build) to run
-  `btctx-mcp==2.0.0bN`, never an unpinned `btctx-mcp` nor 1.x's, and the
-  prompt to link `v2.0.0-beta.N`'s `AI_SETUP.md`. Tick **Let AI assistants
+  `btctx-mcp==2.0.0bN`, never an unpinned `btctx-mcp` nor 1.x's, under the
+  server name `bitcointx-beta` (never `bitcointx`, the installed app's), and
+  the prompt to link `v2.0.0-beta.N`'s `AI_SETUP.md`. Tick **Let AI assistants
   use BitcoinTX** and run that connector as MAC-4 does, with
   `MCP="uvx btctx-mcp==2.0.0bN"` and `-e BTCTX_MCP_FILE=DATA/mcp.json`.
   Expect 11 tools, `get_portfolio` matching the dashboard, and no notice

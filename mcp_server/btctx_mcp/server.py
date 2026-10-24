@@ -10,7 +10,8 @@ reads the app's AI key file):
   BTCTX_URL          BitcoinTX base URL (default http://localhost:80)
   BTCTX_AI_KEY       the AI key created in BitcoinTX Settings (Docker, StartOS)
   BTCTX_MCP_FILE     the Mac app's key file, if not in the default place
-                     (~/Library/Application Support/BitcoinTX/mcp.json)
+                     (~/Library/Application Support/BitcoinTX/mcp.json; a
+                     2.0 pre-release connector's: BitcoinTX Beta's)
   BTCTX_VERIFY_TLS   "false" to accept a self-signed certificate
   BTCTX_CA_BUNDLE    path to a CA bundle for a private certificate
 BTCTX_PASSWORD is no longer used: while it is set, every tool says to replace

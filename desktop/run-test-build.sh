@@ -123,6 +123,7 @@ fi
 
 if [ -z "$APP" ]; then
   APPS=("$ROOT"/desktop/dist/*.app)
+  [ -d "${APPS[0]}" ] || fail "no app in desktop/dist (build one with desktop/build-mac.sh, or give --app)"
   [ "${#APPS[@]}" = 1 ] || fail "desktop/dist holds more than one app: give --app"
   APP="${APPS[0]}"
 fi

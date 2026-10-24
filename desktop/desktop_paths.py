@@ -67,7 +67,7 @@ def app_name() -> str:
 def data_dir() -> Path:
     """The folder for btctx.db, the session key, mcp.json and backups/ (created)."""
     folder = data_dir_override() or Path.home() / "Library" / "Application Support" / own_name()
-    _refuse_installed_folder(folder, Path.home() / "Library" / "Application Support" / APP_NAME)
+    _refuse_installed_folder(folder, Path.home() / "Library" / "Application Support" / APP_NAME, "data folder")
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 
@@ -76,19 +76,20 @@ def log_dir() -> Path:
     """The log folder: ~/Library/Logs/<own name>, or logs/ in a test data folder."""
     override = data_dir_override()
     if override is not None:
-        _refuse_installed_folder(override, Path.home() / "Library" / "Application Support" / APP_NAME)
+        _refuse_installed_folder(override, Path.home() / "Library" / "Application Support" / APP_NAME, "data folder")
         return override / "logs"
     folder = Path.home() / "Library" / "Logs" / own_name()
-    _refuse_installed_folder(folder, Path.home() / "Library" / "Logs" / APP_NAME)
+    _refuse_installed_folder(folder, Path.home() / "Library" / "Logs" / APP_NAME, "log folder")
     return folder
 
 
-def _refuse_installed_folder(folder: Path, installed: Path) -> None:
+def _refuse_installed_folder(folder: Path, installed: Path, what: str) -> None:
     """The beta never uses the installed app's folder, nor one inside it."""
     if is_beta() and _is_or_inside(folder, installed):
+        holds = ", which holds its ledger" if what == "data folder" else ""
         raise InstalledAppsFolder(
-            f"{BETA_APP_NAME} won't use {folder}: it is the installed BitcoinTX's folder, "
-            "with its own ledger. Give BitcoinTX Beta a folder of its own."
+            f"{BETA_APP_NAME} won't use {folder}: it is, or is inside, the installed BitcoinTX's "
+            f"{what}{holds}. Give BitcoinTX Beta a folder of its own."
         )
 
 

@@ -33,8 +33,8 @@ def setup_logging() -> None:
     """
     handlers: list[logging.Handler] = [logging.StreamHandler()]
     if sys.platform == "darwin":
-        folder = log_dir()
         try:
+            folder = log_dir()
             folder.mkdir(parents=True, exist_ok=True)
             handlers.append(logging.handlers.RotatingFileHandler(
                 folder / "BitcoinTX.log", maxBytes=1_000_000, backupCount=3, encoding="utf-8"

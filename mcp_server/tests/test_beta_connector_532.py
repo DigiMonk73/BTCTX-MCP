@@ -34,6 +34,17 @@ def test_a_beta_connectors_key_file_is_the_beta_apps(home, version, app):
     assert client.default_key_file(version) == home / SUPPORT / app / "mcp.json"
 
 
+def test_the_connector_takes_its_own_version(home, monkeypatch):
+    """With no version given, the installed connector's own: the path
+    from_env takes when no key is configured (the Mac app's key file)."""
+    monkeypatch.delenv("BTCTX_AI_KEY", raising=False)
+    monkeypatch.delenv("BTCTX_PASSWORD", raising=False)
+    for version, app in (("2.0.0b1", "BitcoinTX Beta"), ("1.2.10", "BitcoinTX")):
+        monkeypatch.setattr(client, "__version__", version)
+        assert client.default_key_file() == home / SUPPORT / app / "mcp.json"
+        assert client.BtctxClient.from_env()._key_file == home / SUPPORT / app / "mcp.json"
+
+
 def test_btctx_mcp_file_still_wins(home, monkeypatch):
     monkeypatch.setenv("BTCTX_MCP_FILE", str(home / "elsewhere.json"))
     assert client.default_key_file("2.0.0b1") == home / "elsewhere.json"
@@ -72,5 +83,4 @@ def test_one_x_versions_read_as_before():
     assert server.mismatch_notice("1.2.10", "1.2.9").endswith(
         "Update BitcoinTX, or set the connector back to v1.2.9 in your AI app's settings.")
     # a version that's neither: the notice still names it, unchanged
-    assert "to btctx-mcp=dev," not in server.mismatch_notice("1.2.10", "dev")
     assert "to btctx-mcp==dev," in server.mismatch_notice("1.2.10", "dev")
