@@ -202,6 +202,17 @@ All notable changes to BitcoinTX are documented in this file.
   upgraded and recalculated, and the before-and-after check
   (`scripts/equivalence_check.py`) compares ledgers frozen at 1.x's.
 
+### Fixed
+- **The past-year warning asks for no price the save won't use** (#646).
+  Before an edit of a transaction dated in an earlier tax year was checked,
+  BitcoinTX looked up the price of every value the transaction holds from
+  a price (a network fee's, a spend's proceeds, an income's or a gift's
+  value), though the save prices one again only when the edit changes what
+  it depends on: the form's unchanged edit asked for one too. With a price
+  source on, that could send a request, or wait for a year's price file to
+  download. Now only the values the save prices again are looked up. No
+  figure changes.
+
 ## [Unreleased]
 
 ### Changed
