@@ -77,6 +77,20 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
 
 
 def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
+    new_tx = apply_create(tx_data, db)
+    if auto_commit:
+        db.commit()
+        db.refresh(new_tx)
+    return new_tx
+
+
+def apply_create(tx_data: dict, db: Session) -> Transaction:
+    """
+    A new transaction with its ledger lines and lots, uncommitted, the whole
+    ledger recalculated when it's dated before the latest: the save's own
+    path, which the past-year warning's dry run takes too (2.0 spec 5.8).
+    tx_data is completed in place (prices filled, values marked).
+    """
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
 
@@ -93,10 +107,6 @@ def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
         _recalculate_with(new_tx, db)
     else:
         _post_lots(new_tx, tx_data, db)
-
-    if auto_commit:
-        db.commit()
-        db.refresh(new_tx)
     return new_tx
 
 
@@ -457,6 +467,20 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
 
 def _update(transaction_id: int, tx_data: dict, db: Session):
+    tx = apply_update(transaction_id, tx_data, db)
+    if tx is not None:
+        db.commit()
+        db.refresh(tx)
+    return tx
+
+
+def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction | None:
+    """
+    The edit and the whole ledger recalculated, uncommitted: the save's own
+    path, which the past-year warning's dry run takes too (2.0 spec 5.8).
+    tx_data is completed in place (re-priced values, marks), so each pass
+    takes its own copy of the request. None when it doesn't exist.
+    """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
@@ -489,9 +513,6 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
         f"Running scorched earth re-lot."
     )
     _recalculate_past(tx, past, db)
-
-    db.commit()
-    db.refresh(tx)
     return tx
 
 
@@ -1106,6 +1127,23 @@ def delete_transaction_record(transaction_id: int, db: Session):
 
 
 def _delete(transaction_id: int, db: Session) -> bool:
+    try:
+        if not apply_delete(transaction_id, db):
+            return False
+    except Exception:
+        db.rollback()
+        raise
+    db.commit()
+    return True
+
+
+def apply_delete(transaction_id: int, db: Session) -> bool:
+    """
+    The transaction deleted and the whole ledger recalculated without it,
+    uncommitted: the delete's own path, which the past-year warning's dry
+    run takes too (2.0 spec 5.8). False when it doesn't exist; refused
+    (400) when later transactions need its BTC, for the caller to roll back.
+    """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
@@ -1119,15 +1157,10 @@ def _delete(transaction_id: int, db: Session) -> bool:
     try:
         recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
-        db.rollback()
         if isinstance(e, AccountMissing):
             raise
         why = _why_short(past, db) if e.status_code == 400 else ""
-        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
-    except Exception:
-        db.rollback()
-        raise
-    db.commit()
+        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}") from e
     return True
 
 
