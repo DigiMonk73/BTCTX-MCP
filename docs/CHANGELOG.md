@@ -131,11 +131,14 @@ All notable changes to BitcoinTX are documented in this file.
   into an added account still waits for a later step. No figure of a
   ledger moves.
 - **An importer for any exchange's file** (B5b, #567; the owner's decision
-  17, #338). Settings' River import reads the CSV export of River,
-  Coinbase, Kraken (its ledger), Strike, Swan and Cash App as each
-  exchange writes it, and any other exchange's once you've said which of
+  17, #338). Settings' "Import from an exchange" (River's import before)
+  reads the CSV export of River, Coinbase, Kraken (its ledger), Strike,
+  Swan and Cash App as each exchange writes it, and any other exchange's once you've said which of
   its columns holds what and what each kind of row is (a mapping you can
-  save, kept with your other settings, so a backup brings it back). A file
+  save, kept with your other settings, so a backup brings it back). Every
+  ready-made mapping but River's follows its exchange's published format
+  and hasn't been checked against a real export yet: the screen asks you to
+  check the preview against your file. A file
   goes into the exchange and the wallet you choose, into a ledger already
   in use: the preview leaves out what's already there (the same kind,
   bitcoin amount and minute) and marks what only looks like it, by River's

@@ -107,8 +107,11 @@ then, the IRS's draft of that year is a preview, marked DRAFT — DO NOT FILE.
 
 ## Imports
 
-- **An exchange's file**: the CSV export of River, Coinbase, Kraken (its
-  ledger), Strike, Swan or Cash App, read as each writes it, or any other
+- **An exchange's file** (Settings → Import from an exchange): the CSV
+  export of River, Coinbase, Kraken (its ledger), Strike, Swan or Cash App,
+  read as each writes it (all but River's from the exchange's published
+  format, not yet checked against a real export: check the preview against
+  your file), or any other
   exchange's once you've said which of its columns holds what (the date,
   the kind of row, the bitcoin and dollar amounts, the fee) and what each
   kind of row is; save that and it's in the list next time. Choose the
