@@ -13,15 +13,15 @@ each wallet, exchange and bank you use, each wallet and exchange with its own
 cost-basis lots; fills Form 8949 and the tax report per exchange, with each
 exchange's own Form 1099-DA setting; imports any exchange's CSV file; asks
 before a change moves an earlier tax year's figures; and upgrades a 1.x
-ledger without moving a figure, keeping a copy of the 1.x database to go
-back to (except a ledger started before 0.9.2: its rows in an account made
-through the old account API now count by that account's currency, and
-Ledger Review lists them, to check before running Recalculate Ledger).
+ledger without moving a figure (except in a ledger started before 0.9.2:
+its rows in an account made through the old account API now count by that
+account's currency, and Ledger Review lists them, to check before running
+Recalculate Ledger), keeping a copy of the 1.x database to go back to.
 On a Mac it is a separate app, BitcoinTX Preview, beside BitcoinTX; on
 StartOS it updates BitcoinTX in place, after a StartOS backup; on Docker,
 start it on a new volume. Every 1.x change up to 1.2.10, and those since,
-are in it too: coming from 1.2.9, read 1.2.10's notes first, four of whose
-fixes can change a tax figure. The AI connector is `btctx-mcp==2.0.0a1`.
+are in it too: coming from 1.2.9, read [1.2.10's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10)
+first, four of whose fixes can change a tax figure. The AI connector is `btctx-mcp==2.0.0a1`.
 
 ### Added
 - **The pre-releases' own builds** (B10a, #532; the owner's decision 28 on

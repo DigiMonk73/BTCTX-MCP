@@ -29,7 +29,7 @@ Uninstall BitcoinTX (which deletes the alpha's data, the copy below included) an
 
 - **Update your AI connector**: in your AI app's configuration, change the version after btctx-mcp== to 2.0.0a1 and restart the AI app. Once your ledger has a second wallet or exchange, an older connector can still read it, but BitcoinTX refuses its changes. A ledger with an extra bitcoin account made through 1.x's account API has two wallets as soon as it's updated.
 - **Reload BitcoinTX's page** in your browser.
-- **Your figures don't change**, except a very old ledger's rows (below). Every transaction keeps its account: your bank, wallet and exchange are 2.0's first bank, wallet and exchange. Before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so its data takes about twice its space, once; it never deletes that copy.
+- **Your figures don't change**, except a very old ledger's rows (below). Every transaction keeps its account: your bank, wallet and exchange are 2.0's first bank, wallet and exchange. Before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so BitcoinTX's data takes about twice the space (one copy, made once); it never deletes that copy.
 
 **What's new in 2.0**
 
@@ -56,7 +56,7 @@ Desinstala BitcoinTX (lo que borra los datos de la alfa, incluida la copia de ab
 
 - **Actualiza tu conector de IA**: en la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 2.0.0a1 y reinicia la aplicación de IA. Cuando tu libro contable tenga un segundo monedero o exchange, un conector anterior aún puede leerlo, pero BitcoinTX rechaza sus cambios. Un libro contable con una cuenta de bitcoin adicional creada mediante la API de cuentas de la 1.x tiene dos monederos en cuanto se actualiza.
 - **Vuelve a cargar la página de BitcoinTX** en tu navegador.
-- **Tus cifras no cambian**, salvo las filas de un libro contable muy antiguo (abajo). Cada transacción conserva su cuenta: tu banco, tu monedero y tu exchange son el primer banco, monedero y exchange de la 2.0. Antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos ocupan una vez el doble de espacio; nunca borra esa copia.
+- **Tus cifras no cambian**, salvo las filas de un libro contable muy antiguo (abajo). Cada transacción conserva su cuenta: tu banco, tu monedero y tu exchange son el primer banco, monedero y exchange de la 2.0. Antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos pasan a ocupar más o menos el doble (una sola copia); nunca borra esa copia.
 
 **Novedades de la 2.0**
 
@@ -64,7 +64,7 @@ Desinstala BitcoinTX (lo que borra los datos de la alfa, incluida la copia de ab
 - **El formulario 8949 y el informe fiscal por exchange**, con el ajuste del formulario 1099-DA de cada exchange.
 - **Un importador para el archivo CSV de cualquier exchange**, con correspondencias ya hechas.
 - **Un cambio que movería las cifras de un año fiscal anterior pregunta antes.**
-- **Un libro contable empezado antes de la 0.9.2**: una transacción guardada entonces en una cuenta creada con la antigua API de cuentas de BitcoinTX ahora se cuenta según la moneda de esa cuenta, así que sus ingresos, reembolsos y regalos pueden moverse, y, una vez recalculado el libro contable, la comisión de red de un gasto en ella reduce los ingresos y la ganancia de ese gasto. Ledger Review muestra estas filas ("Transactions in an account made through BitcoinTX's old account API"): revisa cada una y después ejecuta Recalculate Ledger.
+- **Un libro contable empezado antes de la 0.9.2**: una transacción guardada entonces en una cuenta creada con la antigua API de cuentas de BitcoinTX ahora se cuenta según la moneda de esa cuenta, así que sus ingresos, rebates y regalos recibidos pueden cambiar, y, una vez recalculado el libro contable, la comisión de red de un gasto desde esa cuenta reduce el importe recibido y la ganancia de ese gasto. Ledger Review muestra estas filas ("Transactions in an account made through BitcoinTX's old account API"): revisa cada una y después ejecuta Recalculate Ledger.
 
 [Todo lo de la 2.0.0-alpha.1](${CHANGELOG})`,
     de_DE: `**Dies ist die erste Alpha von BitcoinTX 2.0: eine Vorabversion, um 2.0 vor der Veröffentlichung auszuprobieren. Bewahre darin nicht deine echten Daten auf.** Niemand bekommt sie als Update: Du installierst sie selbst per Sideload, sie kann Fehler haben, und Start9s Store bleibt bei BitcoinTX 1.x.
@@ -91,7 +91,7 @@ Deinstalliere BitcoinTX (das löscht die Daten der Alpha, die Kopie unten einges
 - **Formular 8949 und der Steuerbericht pro Börse**, mit der eigenen Einstellung jeder Börse zum Formular 1099-DA.
 - **Ein Import für die CSV-Datei jeder Börse**, mit fertigen Zuordnungen.
 - **Eine Änderung, die die Zahlen eines früheren Steuerjahres verschieben würde, fragt vorher.**
-- **Ein Journal, das vor 0.9.2 begonnen wurde**: Eine Transaktion, die damals in einem über die alte Konten-API von BitcoinTX angelegten Konto gespeichert wurde, zählt jetzt nach der Währung dieses Kontos. Ihre Einkünfte, Rückvergütungen und Geschenke können sich dadurch verschieben, und nach einer Neuberechnung des Journals senkt die Netzwerkgebühr einer Ausgabe daraus deren Erlös und Gewinn. Ledger Review listet diese Zeilen auf ("Transactions in an account made through BitcoinTX's old account API"): Prüfe jede, dann führe Recalculate Ledger aus.
+- **Ein Journal, das vor 0.9.2 begonnen wurde**: Eine Transaktion, die damals in einem über die alte Konten-API von BitcoinTX angelegten Konto gespeichert wurde, zählt jetzt nach der Währung dieses Kontos. Deren Einkünfte, Rebates und erhaltene Geschenke können sich dadurch verschieben, und nach einer Neuberechnung des Journals senkt die Netzwerkgebühr einer Ausgabe daraus deren Erlös und Gewinn. Ledger Review listet diese Zeilen auf ("Transactions in an account made through BitcoinTX's old account API"): Prüfe jede, dann führe Recalculate Ledger aus.
 
 [Alles in 2.0.0-alpha.1](${CHANGELOG})`,
     pl_PL: `**To pierwsza alfa BitcoinTX 2.0: wersja wstępna do wypróbowania 2.0 przed jej wydaniem. Nie trzymaj w niej swoich prawdziwych danych.** Nikt nie dostaje jej jako aktualizacji: instalujesz ją sam przez Sideload, może zawierać błędy, a sklep Start9 pozostaje przy BitcoinTX 1.x.
@@ -118,7 +118,7 @@ Odinstaluj BitcoinTX (co usuwa dane alfy, łącznie z kopią opisaną niżej) i 
 - **Formularz 8949 i raport podatkowy dla każdej giełdy**, z własnym ustawieniem formularza 1099-DA każdej giełdy.
 - **Import pliku CSV z dowolnej giełdy**, z gotowymi dopasowaniami.
 - **Zmiana, która przesunęłaby wyniki wcześniejszego roku podatkowego, najpierw pyta.**
-- **Księga założona przed 0.9.2**: transakcja zapisana wtedy na koncie utworzonym przez dawne API kont BitcoinTX liczy się teraz według waluty tego konta, więc jej przychody, zwroty i darowizny mogą się zmienić, a po przeliczeniu księgi opłata sieciowa wydatku z tego konta obniża przychód i zysk z tego wydatku. Ledger Review wymienia te wiersze ("Transactions in an account made through BitcoinTX's old account API"): sprawdź każdy, a potem uruchom Recalculate Ledger.
+- **Księga założona przed 0.9.2**: transakcja zapisana wtedy na koncie utworzonym przez dawne API kont BitcoinTX liczy się teraz według waluty tego konta, więc dochody, rebate i otrzymane prezenty z tego konta mogą się zmienić, a po przeliczeniu księgi opłata sieciowa wydatku z tego konta obniża przychód i zysk z tego wydatku. Ledger Review wymienia te wiersze ("Transactions in an account made through BitcoinTX's old account API"): sprawdź każdy, a potem uruchom Recalculate Ledger.
 
 [Wszystko w 2.0.0-alpha.1](${CHANGELOG})`,
     fr_FR: `**Voici la première alpha de BitcoinTX 2.0 : une préversion pour essayer la 2.0 avant sa sortie. N’y gardez pas vos vrais registres.** Personne ne la reçoit en mise à jour : vous l’installez vous-même par Sideload, elle peut contenir des bugs, et la boutique de Start9 reste sur BitcoinTX 1.x.
@@ -137,7 +137,7 @@ Désinstallez BitcoinTX (ce qui efface les données de l’alpha, y compris la c
 
 - **Mettez à jour votre connecteur IA** : dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 2.0.0a1 et redémarrez l’application d’IA. Dès que votre registre a un deuxième portefeuille ou une deuxième plateforme, un connecteur plus ancien peut encore le lire, mais BitcoinTX refuse ses modifications. Un registre avec un compte bitcoin supplémentaire créé via l’API des comptes de la 1.x a deux portefeuilles dès la mise à jour.
 - **Rechargez la page de BitcoinTX** dans votre navigateur.
-- **Vos chiffres ne changent pas**, sauf les lignes d’un registre très ancien (ci-dessous). Chaque transaction garde son compte : votre banque, votre portefeuille et votre plateforme sont la première banque, le premier portefeuille et la première plateforme de la 2.0. Avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc une fois environ deux fois plus de place ; BitcoinTX ne supprime jamais cette copie.
+- **Vos chiffres ne changent pas**, sauf les lignes d’un registre très ancien (ci-dessous). Chaque transaction garde son compte : votre banque, votre portefeuille et votre plateforme sont la première banque, le premier portefeuille et la première plateforme de la 2.0. Avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc environ deux fois plus de place (une seule copie) ; BitcoinTX ne supprime jamais cette copie.
 
 **Nouveautés de la 2.0**
 
@@ -145,7 +145,7 @@ Désinstallez BitcoinTX (ce qui efface les données de l’alpha, y compris la c
 - **Le formulaire 8949 et le rapport fiscal par plateforme**, avec le réglage du formulaire 1099-DA propre à chaque plateforme.
 - **Un import pour le fichier CSV de n’importe quelle plateforme**, avec des correspondances toutes prêtes.
 - **Une modification qui déplacerait les chiffres d’une année fiscale antérieure demande d’abord.**
-- **Un registre commencé avant la 0.9.2** : une transaction enregistrée alors dans un compte créé par l’ancienne API des comptes de BitcoinTX compte désormais selon la devise de ce compte : ses revenus, remboursements et dons reçus peuvent bouger, et une fois le registre recalculé, les frais de réseau d’une dépense qui en vient réduisent le produit et le gain de cette dépense. Ledger Review liste ces lignes ("Transactions in an account made through BitcoinTX's old account API") : vérifiez chacune, puis lancez Recalculate Ledger.
+- **Un registre commencé avant la 0.9.2** : une transaction enregistrée alors dans un compte créé par l’ancienne API des comptes de BitcoinTX compte désormais selon la devise de ce compte : ses revenus, rebates et dons reçus peuvent changer, et une fois le registre recalculé, les frais de réseau d’une dépense faite depuis ce compte réduisent le produit et le gain de cette dépense. Ledger Review liste ces lignes ("Transactions in an account made through BitcoinTX's old account API") : vérifiez chacune, puis lancez Recalculate Ledger.
 
 [Tout ce que contient la 2.0.0-alpha.1](${CHANGELOG})`,
   },
