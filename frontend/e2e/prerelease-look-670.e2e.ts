@@ -3,12 +3,8 @@
 // (#670). The build's VERSION decides: an alpha or a beta on `2.0`, so the
 // banner shows; at 2.0.0 none does.
 import type { Page } from "@playwright/test";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { test, expect, REPO, setupCode } from "./fixtures";
+import { test, expect, PRERELEASE, VERSION, setupCode } from "./fixtures";
 
-const VERSION = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
-const PRERELEASE = /^\d+\.\d+\.\d+-(alpha|beta)\.[1-9]\d*$/.test(VERSION);
 const banner = (page: Page) => page.getByRole("note").filter({ hasText: "a test version" });
 
 /** The page fills the window under the banner, with nothing to scroll. */
@@ -82,5 +78,7 @@ test.describe("BitcoinTX Preview, the Mac app", () => {
       "BitcoinTX Preview is a separate test app: it starts empty, and BitcoinTX and its ledger are still there, as they were.",
     );
     await expect(banner(page)).toHaveText(`BitcoinTX Preview · ${VERSION}: a test version, apart from your BitcoinTX`);
+    // The default login is the Preview's, never the tester's BitcoinTX's
+    await expect(page.getByText("BitcoinTX Preview still has the login it comes with (admin / password)")).toBeVisible();
   });
 });

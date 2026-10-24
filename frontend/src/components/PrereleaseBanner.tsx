@@ -5,41 +5,25 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
 import type { SetupStatus } from "../utils/credentials";
-import { prereleaseBanner } from "../utils/prereleaseVersion";
-
-interface NoticeProps {
-  version: string;
-  /** The Mac app (its window, or its address in a browser); unknown until the server answers. */
-  desktop?: boolean;
-}
-
-/** The banner for a version and an install, or nothing for a release. */
-export const PrereleaseNotice: React.FC<NoticeProps> = ({ version, desktop }) => {
-  const banner = prereleaseBanner(version, desktop);
-  if (!banner) return null;
-  return (
-    <p className="prerelease-banner" role="note">
-      <strong>{banner.title}</strong>: {banner.note}
-    </p>
-  );
-};
+import { prereleaseParts } from "../utils/prereleaseVersion";
+import PrereleaseNotice from "./PrereleaseNotice";
 
 const PrereleaseBanner: React.FC = () => {
-  const prerelease = prereleaseBanner(__BTCTX_VERSION__) !== null;
-  // Shown once the server has said which install this is, so the Mac's
-  // name never replaces a server's on screen; unanswered, it claims neither
-  const [answered, setAnswered] = useState<{ desktop?: boolean } | null>(null);
+  const prerelease = prereleaseParts(__BTCTX_VERSION__) !== null;
+  // Unknown until the server answers: the banner shows at once, claiming
+  // neither install, so the page never moves down under the user's pointer
+  // when it arrives (a server reached over Tor answers slowly)
+  const [desktop, setDesktop] = useState<boolean | undefined>(undefined);
 
   useEffect(() => {
     if (!prerelease) return;
     api
       .get<SetupStatus>("/users/setup-status")
-      .then((res) => setAnswered({ desktop: Boolean(res.data.desktop) }))
-      .catch(() => setAnswered({}));
+      .then((res) => setDesktop(Boolean(res.data.desktop)))
+      .catch(() => undefined);
   }, [prerelease]);
 
-  if (!answered) return null;
-  return <PrereleaseNotice version={__BTCTX_VERSION__} desktop={answered.desktop} />;
+  return <PrereleaseNotice version={__BTCTX_VERSION__} desktop={desktop} />;
 };
 
 export default PrereleaseBanner;

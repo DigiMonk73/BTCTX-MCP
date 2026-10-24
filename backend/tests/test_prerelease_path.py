@@ -276,7 +276,7 @@ http.server.HTTPServer(("127.0.0.1", 0), Api).serve_forever()
 PLIST = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>BitcoinTX</string>
+<key>CFBundleExecutable</key><string>BitcoinTX Preview</string>
 <key>CFBundleIdentifier</key><string>org.bitcointx.desktop.preview</string>
 </dict></plist>
 """
@@ -291,8 +291,9 @@ def fake_preview(tmp_path: Path) -> tuple[Path, dict]:
     app = root / "desktop/dist/BitcoinTX Preview.app/Contents"
     (app / "MacOS").mkdir(parents=True)
     (app / "Info.plist").write_text(PLIST)
-    (app / "MacOS/BitcoinTX").write_text(FAKE_APP.format(python=sys.executable))
-    (app / "MacOS/BitcoinTX").chmod(0o755)
+    # named after the app, as the spec names the Preview's executable (#670)
+    (app / "MacOS/BitcoinTX Preview").write_text(FAKE_APP.format(python=sys.executable))
+    (app / "MacOS/BitcoinTX Preview").chmod(0o755)
     (tmp_path / "home").mkdir()
     return root, {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted", "HOME": str(tmp_path / "home")}
 

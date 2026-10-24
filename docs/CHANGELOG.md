@@ -15,7 +15,8 @@ All notable changes to BitcoinTX are documented in this file.
   test version, apart from your BitcoinTX" on a Mac, and "BitcoinTX ·
   2.0.0-alpha.N: a test version, not a release" on StartOS and Docker,
   where the pre-release is BitcoinTX itself. The Preview's first page says
-  it starts empty and BitcoinTX and its ledger are still there. Its
+  it starts empty and BitcoinTX and its ledger are still there, and that
+  the default login (admin / password) is BitcoinTX Preview's. Its
   executable is named `BitcoinTX Preview` too, the name crash reports,
   Console and `ps` show (the Dock, Activity Monitor and Force Quit
   already showed the app's); `desktop/run-test-build.sh` runs the

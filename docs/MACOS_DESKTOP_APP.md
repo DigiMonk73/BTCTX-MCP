@@ -163,9 +163,9 @@ StartOS and Docker, where the pre-release is BitcoinTX itself, "a test
 version, not a release"), and its first page says that it starts empty and
 BitcoinTX and its ledger are still there. Its names, icon, folders and port
 come from `desktop/desktop_paths.py` and `desktop_ports.py` (`is_preview()`,
-from `VERSION`), which `BitcoinTX.spec` reads too. To test a pre-release build on a Mac where BitcoinTX is
-installed, run it only through `desktop/run-test-build.sh`, as any build
-("Testing a build").
+from `VERSION`), which `BitcoinTX.spec` reads too. To test a pre-release
+build on a Mac where BitcoinTX is installed, run it only through
+`desktop/run-test-build.sh`, as any build ("Testing a build").
 
 ## Building
 

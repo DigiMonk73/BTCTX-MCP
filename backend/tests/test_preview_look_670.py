@@ -1,16 +1,16 @@
 """
-BitcoinTX Preview looks like a test version, not like BitcoinTX (#670).
+BitcoinTX Preview looks like a test version, never like BitcoinTX (#670).
 
 BitcoinTX Preview, the Mac app of 2.0's pre-releases, runs beside BitcoinTX
-with its own folders and port, but it had BitcoinTX's icon byte for byte and
-its process was named "BitcoinTX". Now its icon is BitcoinTX's with a
-"PREVIEW" band (desktop/resources/icon-preview.icns, made by
-scripts/preview_icon.py), and its executable takes the app's own name, which
-crash reports, Console and ps show. A release keeps BitcoinTX's icon and
-executable. The banner on every page and the Preview's first-page line are
-the frontend's (PrereleaseBanner.tsx, ChooseOwnLogin.tsx).
+with its own folders and port. Its icon is BitcoinTX's with a "PREVIEW" band
+(desktop/resources/icon-preview.icns, made by scripts/preview_icon.py), and
+its executable takes the app's own name, which crash reports, Console and ps
+show. A release keeps BitcoinTX's icon and executable. The banner on every
+page and the Preview's first-page line are the frontend's
+(PrereleaseBanner.tsx, ChooseOwnLogin.tsx).
 """
 
+import importlib.util
 import io
 import os
 import re
@@ -26,10 +26,14 @@ DESKTOP = ROOT / "desktop"
 sys.path.insert(0, str(DESKTOP))
 import desktop_paths  # noqa: E402
 
+# The band scripts/preview_icon.py draws: where, and its red
+_spec = importlib.util.spec_from_file_location("preview_icon", ROOT / "scripts" / "preview_icon.py")
+preview_icon = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(preview_icon)
+BAND, RED = preview_icon.BAND, preview_icon.RED
+
 RESOURCES = DESKTOP / "resources"
 SPEC = (DESKTOP / "BitcoinTX.spec").read_text()
-BAND = (0.66, 0.86)  # scripts/preview_icon.py's
-RED = (217, 45, 32)
 
 
 def version(monkeypatch, value: str) -> None:
@@ -71,6 +75,10 @@ def test_the_preview_icon_is_bitcointxs_with_a_red_band():
     for x in (12, 1011):  # the band's ends, left and right of the word
         assert preview.getpixel((x, middle)) == RED
     assert plain.getpixel((12, middle)) != RED
+    # The lower corners, painted white, reach into the band's ends: they stay white
+    for x in (0, 1023):
+        assert min(plain.getpixel((x, 870))) > 240
+        assert preview.getpixel((x, 870)) == plain.getpixel((x, 870))
 
 
 # Every image macOS picks from: 16 and 32 pixels (Finder's list view), up to 1024
@@ -134,12 +142,8 @@ def _app(tmp_path: Path, executable: str, plist: bool) -> Path:
 
 
 def _run(tmp_path: Path, app: Path) -> subprocess.CompletedProcess:
-    fake_bin = tmp_path / "fake-bin"
-    fake_bin.mkdir()
-    (fake_bin / "curl").write_text("#!/bin/sh\nexit 7\n")  # no test build answers: the real port is never asked
-    (fake_bin / "curl").chmod(0o755)
-    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path / "tmp"), "RAN": str(tmp_path / "ran"),
-           "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+    """The script in a test home; without --fresh it asks no port."""
+    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path / "tmp"), "RAN": str(tmp_path / "ran")}
     env.pop("BTCTX_TEST_DATA_DIR", None)
     return subprocess.run(["bash", str(DESKTOP / "run-test-build.sh"), "--app", str(app)], env=env,
                           capture_output=True, text=True, timeout=60)

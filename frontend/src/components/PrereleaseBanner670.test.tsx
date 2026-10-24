@@ -3,12 +3,13 @@
 // on its first page (#670). The build's own version decides: on `2.0` an
 // alpha or a beta, at 2.0.0 none, so these hold for either.
 import "../test/setup";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import api from "../api";
-import { prereleaseBanner, previewFirstPageLine } from "../utils/prereleaseVersion";
+import { macApp, prereleaseBanner, previewFirstPageLine } from "../utils/prereleaseVersion";
 import ChooseOwnLogin from "./ChooseOwnLogin";
-import PrereleaseBanner, { PrereleaseNotice } from "./PrereleaseBanner";
+import PrereleaseBanner from "./PrereleaseBanner";
+import PrereleaseNotice from "./PrereleaseNotice";
 
 const banner = () => document.querySelector(".prerelease-banner");
 
@@ -27,33 +28,46 @@ describe("PrereleaseNotice", () => {
 });
 
 describe("PrereleaseBanner", () => {
-  it("asks the server whether it is the Mac app, then says this build's version", async () => {
-    const get = vi.spyOn(api, "get").mockResolvedValue({ data: { desktop: false } });
+  it("shows at once, claiming neither install, then what the server says it is", async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    const get = vi.spyOn(api, "get").mockReturnValue(new Promise((ok) => (answer = ok)));
     render(<PrereleaseBanner />);
-    const expected = prereleaseBanner(__BTCTX_VERSION__, false);
-    if (expected) {
-      expect((await screen.findByRole("note")).textContent).toBe(`${expected.title}: ${expected.note}`);
-      expect(get).toHaveBeenCalledWith("/users/setup-status");
-    } else {
+    const before = prereleaseBanner(__BTCTX_VERSION__, undefined);
+    const after = prereleaseBanner(__BTCTX_VERSION__, false);
+    if (!before || !after) {
       expect(banner()).toBeNull();
       expect(get).not.toHaveBeenCalled();
+      return;
     }
+    expect(screen.getByRole("note").textContent).toBe(`${before.title}: ${before.note}`);
+    expect(get).toHaveBeenCalledWith("/users/setup-status");
+    answer({ data: { desktop: false } });
+    await waitFor(() => expect(screen.getByRole("note").textContent).toBe(`${after.title}: ${after.note}`));
   });
 
   it("claims nothing when the server doesn't answer", async () => {
     vi.spyOn(api, "get").mockRejectedValue(new Error("offline"));
     render(<PrereleaseBanner />);
     const expected = prereleaseBanner(__BTCTX_VERSION__, undefined);
-    if (expected) expect((await screen.findByRole("note")).textContent).toBe(`${expected.title}: ${expected.note}`);
+    await new Promise((ok) => setTimeout(ok, 0));
+    if (expected) expect(screen.getByRole("note").textContent).toBe(`${expected.title}: ${expected.note}`);
     else expect(banner()).toBeNull();
   });
 });
 
 describe("ChooseOwnLogin", () => {
-  it("on BitcoinTX Preview's first page, says it starts empty and BitcoinTX is still there", () => {
+  const mount = () =>
     render(<ChooseOwnLogin windowApi={{} as PyWebViewAPI} onDone={async () => undefined} onNoCode={() => undefined} />);
+
+  it("on BitcoinTX Preview's first page, says it starts empty and BitcoinTX is still there", () => {
+    mount();
     const line = previewFirstPageLine(__BTCTX_VERSION__);
     if (line) expect(screen.getByText(line).tagName).toBe("P");
     else expect(screen.queryByText(/separate test app/)).toBeNull();
+  });
+
+  it("says which app still has the default login: the Preview, never the tester's BitcoinTX", () => {
+    const { container } = mount();
+    expect(container.textContent).toContain(`${macApp(__BTCTX_VERSION__)} still has the login it comes with (admin / password)`);
   });
 });

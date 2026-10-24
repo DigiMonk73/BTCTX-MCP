@@ -23,13 +23,15 @@ RESOURCES = Path(__file__).resolve().parents[1] / "desktop" / "resources"
 FONT = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"
 WORD = "PREVIEW"
 # The band's top and bottom, as fractions of the icon's height: across the
-# coin's lower half, clear of the rounded corners
+# coin's lower half
 BAND = (0.66, 0.86)
 RED = (217, 45, 32)  # white on it: 4.8 to 1
 # Each image iconutil packs, and its size in pixels
 SIZES = {"16x16": 16, "16x16@2x": 32, "32x32": 32, "32x32@2x": 64, "128x128": 128, "128x128@2x": 256,
          "256x256": 256, "256x256@2x": 512, "512x512": 512, "512x512@2x": 1024}
 SMALLEST_WITH_WORD = 64
+# How far in from each side, at 1024 pixels, a corner can reach the band
+CORNER_COLUMNS = 24
 
 
 def main() -> None:
@@ -58,9 +60,23 @@ def banded(icon: Image.Image, word: bool) -> Image.Image:
     draw.rectangle([0, top, size, bottom], fill=RED)
     draw.rectangle([0, top, size, top + edge], fill=shade)
     draw.rectangle([0, bottom - edge, size, bottom], fill=shade)
+    _keep_the_corners(out, icon, top, bottom)
     if word:
         _write_word(draw, size, top, bottom)
     return out
+
+
+def _keep_the_corners(out: Image.Image, icon: Image.Image, top: int, bottom: int) -> None:
+    """The icon's rounded corners are painted white, and the band's ends
+    reach into the lower two: there the white shows through, so the band
+    stays inside the icon's shape."""
+    for x in [*range(CORNER_COLUMNS), *range(out.width - CORNER_COLUMNS, out.width)]:
+        for y in range(top, bottom + 1):
+            original = icon.getpixel((x, y))
+            white = min(1.0, max(0.0, (min(original[:3]) - 120) / 120))
+            if white:
+                band = out.getpixel((x, y))
+                out.putpixel((x, y), tuple(round(b + (o - b) * white) for b, o in zip(band, original, strict=True)))
 
 
 def _write_word(draw: ImageDraw.ImageDraw, size: int, top: int, bottom: int) -> None:
