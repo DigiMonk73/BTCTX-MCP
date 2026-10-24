@@ -374,8 +374,11 @@ def test_settings_names_every_site_public_prices_may_contact():
             continue
         for text in _code_strings(path):
             # #161 (owner, 2026-10-12): never asked again, for their terms; not
-            # even by an address built from parts
-            assert not re.search("coinbase|coingecko", text, re.IGNORECASE), where
+            # even by an address built from parts. Only the importer's
+            # mappings (B5b) may name Coinbase, the exchange whose own file
+            # the owner uploads, which asks Coinbase nothing: never in an address
+            named_file = where.as_posix() == "services/exchange_mappings.py" and not WEB_HOST.search(text)
+            assert not re.search("coingecko" if named_file else "coinbase|coingecko", text, re.IGNORECASE), where
             for host in WEB_HOST.findall(text):
                 found.setdefault(host.lower(), set()).add(where.as_posix())
     assert found.pop("www.irs.gov", set()) <= OWN_REQUESTS_ALLOWED
