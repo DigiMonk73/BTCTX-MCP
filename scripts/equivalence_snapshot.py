@@ -55,9 +55,10 @@ VOLATILE_KEYS = {"created_at", "updated_at", "password_hash"}
 VOLATILE_MCP_KEYS = {"file", "created"}
 # Hashes of the AI key, and of the login sessions each run opens anew.
 VOLATILE_SETTINGS = ("key_sha256", "open_sessions")
-# The rows from before 0.9.2 (5.13, from 2.0): a ledger a 1.x start never
-# wrote it in.
-UNCOMPARED_SETTINGS = ("accounts_old_rows",)
+# The rows from before 0.9.2 (5.13, from 2.0), and which BitcoinTX last
+# recalculated the ledger (5.8, from 2.0's B6b): a ledger 1.x never wrote
+# them in.
+UNCOMPARED_SETTINGS = ("accounts_old_rows", "recalculated_by")
 # "This tax year" as backend/tests/conftest.py pins it (its PINNED_TAX_YEAR,
 # which the side compared with may lack)
 TESTS_TAX_YEAR = 2009

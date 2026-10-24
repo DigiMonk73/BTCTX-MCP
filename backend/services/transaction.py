@@ -9,6 +9,7 @@ so everything derived must follow from the saved transactions alone.
 """
 
 import logging
+import time
 import unicodedata
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -21,7 +22,7 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
-from backend.services import hourly_prices, old_rows, price_history
+from backend.services import hourly_prices, old_rows, price_history, recalculated_by
 from backend.services.account import AccountBook, account_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -73,6 +74,20 @@ def create_transaction_record(tx_data: dict, db: Session, auto_commit: bool = Tr
 
 
 def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
+    new_tx = apply_create(tx_data, db)
+    if auto_commit:
+        db.commit()
+        db.refresh(new_tx)
+    return new_tx
+
+
+def apply_create(tx_data: dict, db: Session) -> Transaction:
+    """
+    A new transaction with its ledger lines and lots, uncommitted, the whole
+    ledger recalculated when it's dated before the latest: the save's own
+    path, which the past-year warning's dry run takes too (2.0 spec 5.8).
+    tx_data is completed in place (prices filled, values marked).
+    """
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
 
@@ -89,10 +104,6 @@ def _create(tx_data: dict, db: Session, auto_commit: bool) -> Transaction:
         _recalculate_with(new_tx, db)
     else:
         _post_lots(new_tx, tx_data, db)
-
-    if auto_commit:
-        db.commit()
-        db.refresh(new_tx)
     return new_tx
 
 
@@ -453,6 +464,20 @@ def update_transaction_record(transaction_id: int, tx_data: dict, db: Session):
 
 
 def _update(transaction_id: int, tx_data: dict, db: Session):
+    tx = apply_update(transaction_id, tx_data, db)
+    if tx is not None:
+        db.commit()
+        db.refresh(tx)
+    return tx
+
+
+def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction | None:
+    """
+    The edit and the whole ledger recalculated, uncommitted: the save's own
+    path, which the past-year warning's dry run takes too (2.0 spec 5.8).
+    tx_data is completed in place (re-priced values, marks), so each pass
+    takes its own copy of the request. None when it doesn't exist.
+    """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return None
@@ -485,9 +510,6 @@ def _update(transaction_id: int, tx_data: dict, db: Session):
         f"Running scorched earth re-lot."
     )
     _recalculate_past(tx, past, db)
-
-    db.commit()
-    db.refresh(tx)
     return tx
 
 
@@ -1029,6 +1051,24 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
         db.info[hourly_prices.WARMING] = False
 
 
+def edited_inputs(tx: Transaction, tx_data: dict) -> dict:
+    """
+    The row an edit makes, as find_prices_first reads a new one: its stored
+    inputs with the edit's fields, each value it holds from a price left
+    blank unless the edit sends it, since the edit may price it again (its
+    hour or amount moved). At worst a price it won't need is found too.
+    """
+    row = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment,
+           "fee_usd": tx.fee_usd if tx.fee_usd_manual else None}
+    if tx.cost_basis_from_price:
+        row["cost_basis_usd"] = None
+    if tx.proceeds_from_price:
+        row["proceeds_usd"] = row["gross_proceeds_usd"] = None
+    if tx.fmv_from_price:
+        row["fmv_usd"] = None
+    return {**row, **tx_data}
+
+
 def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
     """When the rows' values filled from a price are priced, as (the moment,
     whether at the day): those a save won't do without
@@ -1102,6 +1142,23 @@ def delete_transaction_record(transaction_id: int, db: Session):
 
 
 def _delete(transaction_id: int, db: Session) -> bool:
+    try:
+        if not apply_delete(transaction_id, db):
+            return False
+    except Exception:
+        db.rollback()
+        raise
+    db.commit()
+    return True
+
+
+def apply_delete(transaction_id: int, db: Session) -> bool:
+    """
+    The transaction deleted and the whole ledger recalculated without it,
+    uncommitted: the delete's own path, which the past-year warning's dry
+    run takes too (2.0 spec 5.8). False when it doesn't exist; refused
+    (400) when later transactions need its BTC, for the caller to roll back.
+    """
     tx = get_transaction_by_id(db, transaction_id)
     if not tx:
         return False
@@ -1115,15 +1172,10 @@ def _delete(transaction_id: int, db: Session) -> bool:
     try:
         recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
-        db.rollback()
         if isinstance(e, AccountMissing):
             raise
         why = _why_short(past, db) if e.status_code == 400 else ""
-        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}")
-    except Exception:
-        db.rollback()
-        raise
-    db.commit()
+        raise HTTPException(status_code=e.status_code, detail=f"Not deleted: {why}{e.detail}") from e
     return True
 
 
@@ -2001,6 +2053,17 @@ def recalculate_ledger(db: Session) -> None:
     hourly_prices.with_prices_found(db, save)
 
 
+# Session.info key: the time.monotonic() a replay stops at, given only to
+# the past-year warning's dry run on a scratch copy (its time budget, 2.0
+# spec 5.8): past it, the replay raises OutOfTime
+DEADLINE = "btctx_replay_deadline"
+
+
+class OutOfTime(Exception):
+    """A replay ran past its session's DEADLINE: what it left is thrown away
+    with the scratch copy it ran on."""
+
+
 def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
                                  past_missing: list[Transaction] | None = None):
     """
@@ -2025,8 +2088,13 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
         query = query.filter(Transaction.timestamp < until)
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
+    deadline = db.info.get(DEADLINE)
     for rec_tx in all_txs:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise OutOfTime
         _replay(rec_tx, db, known, past_missing)
+    if until is None and not past_missing:  # the whole ledger, every row through its own checks
+        recalculated_by.note(db)
 
     db.flush()
 

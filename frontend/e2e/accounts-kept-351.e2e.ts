@@ -52,7 +52,7 @@ for (const c of KEPT) {
     await expect(row).toContainText(c.tx.type as string);
     await row.getByRole("button", { name: "Edit" }).click();
     await expect(page.getByRole("heading", { name: "Edit Transaction" })).toBeVisible();
-    await saveForm(page, "Update Transaction");
+    await saveForm(page, "Update Transaction", { warning: false }); // unchanged: it doesn't ask
 
     const after = (await listTx(page.request)).find((t) => t.id === created.id)!;
     expect([after.from_account_id, after.to_account_id]).toEqual([c.tx.from_account_id, c.tx.to_account_id]);

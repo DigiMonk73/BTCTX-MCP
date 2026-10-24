@@ -10,6 +10,7 @@ import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -18,6 +19,7 @@ from backend.schemas.transaction import (
     TransactionUpdate,
     TransactionRead
 )
+from backend.services import past_years
 from backend.services import transaction as tx_service
 from backend.services import wipe
 from backend.services.account import account_book
@@ -88,13 +90,19 @@ def get_transaction(tx_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=TransactionRead)
-def create_transaction(tx: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(tx: TransactionCreate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Save a new transaction with its ledger lines and its lots or lot
-    disposals; one dated before others recalculates the ledger.
+    disposals; one dated before others recalculates the ledger. One that
+    changes the figures of an earlier tax year answers 409 with the years,
+    what changes and a fingerprint, and saves nothing until sent again with
+    ?confirm=<fingerprint>; a copy of the database comes first.
     """
-    tx_data = tx.model_dump()
-    new_tx = tx_service.create_transaction_record(tx_data, db)
+    write = past_years.Write(past_years.ADD, tx.model_dump())
+    new_tx = past_years.save(write, db, confirm, by_ai=_by_ai(request))
+    if isinstance(new_tx, JSONResponse):
+        return new_tx  # the warning
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
     return _attach_utc_and_build_read_model(new_tx, db)
@@ -109,7 +117,7 @@ def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
     With the AI key, its first change in an hour comes after an AI copy of
     the database: a recalculation can move stored figures (#336).
     """
-    if not request.session.get("user_id"):  # the AI key
+    if _by_ai(request):
         _copy_before_ai_changes(db, "Not recalculated")
     try:
         tx_service.recalculate_ledger(db)
@@ -121,19 +129,24 @@ def recalculate_ledger(request: Request, db: Session = Depends(get_db)):
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, db: Session = Depends(get_db)):
+def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
-    transaction doesn't exist. With the AI key, its first change in an hour
+    transaction doesn't exist. One that changes the figures of an earlier
+    tax year answers 409 with the years, what changes and a fingerprint, and
+    saves nothing until sent again with ?confirm=<fingerprint>; a copy of
+    the database comes first. With the AI key, its first change in an hour
     (an edit, a deletion, a recalculation, or an import that recalculates)
     comes after an AI copy of the database.
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
-        _copy_before_ai_changes(db, "Not changed")
-    tx_data = tx.model_dump(exclude_unset=True)
-    updated_tx = tx_service.update_transaction_record(transaction_id, tx_data, db)
+    by_ai = _by_ai(request)
+    write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
+    updated_tx = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not changed"))
+    if isinstance(updated_tx, JSONResponse):
+        return updated_tx  # the warning
     if not updated_tx:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return _attach_utc_and_build_read_model(updated_tx, db)
@@ -159,22 +172,38 @@ def delete_all_transactions_endpoint(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_transaction(transaction_id: int, request: Request, confirm: str | None = None,
+                       db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
     exist; refused, changing nothing, when later transactions need its BTC.
+    One that changes the figures of an earlier tax year answers 409 with the
+    years, what changes and a fingerprint, and deletes nothing until sent
+    again with ?confirm=<fingerprint>; a copy of the database comes first.
     With the AI key, its first change in an hour (an edit, a deletion, a
     recalculation, or an import that recalculates) comes after an AI copy of
     the database (in the backups folder).
     """
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
-    if not request.session.get("user_id"):  # the AI key
-        _copy_before_ai_changes(db, "Not deleted")
-    success = tx_service.delete_transaction_record(transaction_id, db)
+    by_ai = _by_ai(request)
+    write = past_years.Write(past_years.DELETE, tx_id=transaction_id)
+    success = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not deleted"))
+    if isinstance(success, JSONResponse):
+        return success  # the warning
     if not success:
         raise HTTPException(status_code=404, detail="Transaction not found.")
     return
+
+
+def _by_ai(request: Request) -> bool:
+    return not request.session.get("user_id")  # else the AI key: a route on AI_KEY_ROUTES
+
+
+def _ai_copy_first(db: Session, by_ai: bool, refused: str):
+    """What a save made as it always was runs first: with the AI key, its
+    hourly copy (_copy_before_ai_changes). A confirmed save makes its own."""
+    return (lambda: _copy_before_ai_changes(db, refused)) if by_ai else (lambda: None)
 
 
 def _made_this_hour_today(made: float) -> bool:

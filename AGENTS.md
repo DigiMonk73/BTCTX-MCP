@@ -228,6 +228,31 @@ lots and disposals are rebuilt in timestamp order (a create dated last only
 adds its own lines and lots, #172). So derived values must be recomputable
 from the Transaction row alone.
 
+**The past-year warning** (2.0, #352; `services/past_years.py`): an add,
+edit or delete on `/api/transactions` that would change the figures of a
+tax year before this one (Ledger Review's snapshot, each disposal's Form
+8949 box and column (b), what the report counts as income or a rebate and
+as a gift, donation or lost coins, each row's date and tax year:
+`services/year_changes.py`)
+answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
+`exact`, `confirm`) and saves nothing. Sent again with
+`?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
+"pre-change" one, the newest 5 and the first of each day for a week; a
+fresh AI copy with the key), the fingerprint checked again before the
+commit, in `hourly_prices.with_prices_found`. The check runs on
+`database.scratch_copy` with the lock free, its prices found first; a write
+dated in this tax year (`tax_time.current_tax_year`, pinned to 2009 in the
+tests) or one moving only dollars saves at once, and past
+`past_years.DRY_RUN_SECONDS` (10 s, from the StartOS VM's measurement) the
+years come from the write's date. With a login, changes a recalculation
+alone would make never ask (the owner's "Don't warn for fixes"); with the
+AI key, those in an earlier year do.
+`recalculated_by` (`app_settings`) names the BitcoinTX that last
+recalculated the whole live ledger (every full replay writes it, a scratch
+copy's or a partial one's never): while it matches, nothing is pending. The
+scripts and the click-through specs confirm the 409 (`send_confirmed`,
+`sendConfirmed`, `saveForm`).
+
 ## Tax invariants (each has regression tests; don't break them)
 
 - **Withdrawal fee**: a BTC network fee on a withdrawal is on top of `amount`
@@ -526,6 +551,7 @@ from the Transaction row alone.
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
+| `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
@@ -712,7 +738,8 @@ from the Transaction row alone.
   counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and,
   for a week (today and the 6 UTC days before), the oldest and the first
   copy of each day made before the AI changed anything that day
-  (`migrate._ai_copies_held`): at most 11.
+  (`migrate._ai_copies_held`): at most 11. A confirmed past-year write
+  with the key makes a fresh one first, whatever the hour (2.0, #352).
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. An add's
   duplicate check and its writes hold it as one (`entry_import.write_rows`;

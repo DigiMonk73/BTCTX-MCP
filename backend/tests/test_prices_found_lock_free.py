@@ -481,3 +481,31 @@ def test_an_imports_rows_find_a_price_its_warm_up_missed_with_the_lock_free(auth
                        key=lambda t: t["timestamp"])
     assert [Decimal(t["fee_usd"]) for t in transfers] == [Decimal("3.00"), Decimal("8.00")]
     assert all(t["values_from_price"] == ["fee_usd"] for t in transfers)
+
+
+def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
+                                                                 tax_year):
+    """2.0's past-year warning (spec 5.8, card B6b #352): its dry run prices
+    the old row on a scratch copy, which keeps nothing; the confirmed save,
+    under the lock, rolls back for that price, finds it with the lock free
+    and runs again, its first run's copy removed with it."""
+    from backend.migrate import PRE_CHANGE_KIND, backup_copies
+
+    tax_year(2026)  # every row of 2019 is in an earlier tax year
+
+    def edit(params=None):
+        return auth_client.put(f"/api/transactions/{unvalued_fee['buy']}", json={"cost_basis_usd": "1100"},
+                               params=params)
+
+    asked = edit()
+    assert asked.status_code == 409, asked.text
+    assert get(auth_client, unvalued_fee["transfer"])["fee_usd"] is None  # the dry run kept nothing
+    sites.requests.clear()
+    copies = backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)
+    r = edit({"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+    sites.all_with_the_lock_free()
+    _fee_valued(auth_client, unvalued_fee)
+    made = set(backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)) - set(copies)
+    assert len(made) == 1
+    made.pop().unlink()
