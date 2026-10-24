@@ -126,6 +126,19 @@ export function accountsSummary(book: AccountBook | undefined): string {
   return [...parts, ...(hidden > 0 ? [`${hidden} hidden`] : [])].join(" · ");
 }
 
+// 5.9's words for each exchange's switch, exactly
+export const SWITCH_LABEL = "This exchange sends me a Form 1099-DA";
+export const SWITCH_HELP =
+  "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
+  "It decides the Form 8949 box, not the gain.";
+
+/** An exchange's switch: on (the default, the owner's decision of 2026-10-15)
+ * unless its accounts say off; null for a bank's or a wallet's row. */
+export function sends1099da(row: AccountRow): boolean | null {
+  if (row.kind !== "exchange") return null;
+  return !row.accounts.some((a) => a.sends_1099da === false);
+}
+
 // 5.1's, 5.9's and 5.8's words (Q5's note with P6's sentence, #569), exactly: never reworded
 export const WALLET_HELP =
   "A wallet is one set of keys: every address it makes is part of it. A backup of the same keys (a seed phrase, " +

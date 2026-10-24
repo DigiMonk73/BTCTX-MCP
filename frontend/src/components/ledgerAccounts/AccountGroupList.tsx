@@ -13,6 +13,7 @@ interface AccountGroupListProps {
   onToggleRow: (row: AccountRow) => void;
   onHide: (row: AccountRow, hidden: boolean) => void;
   onDelete: (row: AccountRow) => void;
+  onSwitch1099da: (row: AccountRow, on: boolean) => void;
   onAdd: (kind: YourKind, name: string) => Promise<boolean>;
   /** The add form closed: a refusal it got is no longer news. */
   onAddClosed: () => void;
@@ -21,7 +22,7 @@ interface AccountGroupListProps {
 /** One kind's accounts (Wallets, Exchanges or Banks): its Add button and
  * form, its rows, and the hidden ones under "Show hidden (n)". */
 const AccountGroupList: React.FC<AccountGroupListProps> = ({
-  group, book, balances, busy, openRow, onToggleRow, onHide, onDelete, onAdd, onAddClosed,
+  group, book, balances, busy, openRow, onToggleRow, onHide, onDelete, onSwitch1099da, onAdd, onAddClosed,
 }) => {
   const [adding, setAdding] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
@@ -46,7 +47,7 @@ const AccountGroupList: React.FC<AccountGroupListProps> = ({
   }, [refocus, busy]);
   const item = (row: AccountRow) => (
     <AccountRowItem key={row.key} row={row} balance={balanceText(row, balances)} open={openRow === row.key}
-      busy={busy} onToggle={onToggleRow} onHide={onHide} onDelete={onDelete} />
+      busy={busy} onToggle={onToggleRow} onHide={onHide} onDelete={onDelete} onSwitch1099da={onSwitch1099da} />
   );
 
   return (

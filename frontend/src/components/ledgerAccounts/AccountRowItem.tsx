@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
-import { KIND_LABEL, canDelete, ledgerIds, type AccountRow } from "../../utils/ledgerAccounts";
+import { KIND_LABEL, canDelete, ledgerIds, sends1099da, type AccountRow } from "../../utils/ledgerAccounts";
+import ExchangeSwitch from "./ExchangeSwitch";
 
 interface AccountRowItemProps {
   row: AccountRow;
@@ -10,6 +11,8 @@ interface AccountRowItemProps {
   onToggle: (row: AccountRow) => void;
   onHide: (row: AccountRow, hidden: boolean) => void;
   onDelete: (row: AccountRow) => void;
+  /** An exchange's 1099-DA switch turned on or off. */
+  onSwitch1099da: (row: AccountRow, on: boolean) => void;
 }
 
 // The API's own words for what it refuses (services/account.py), said before it's asked
@@ -17,10 +20,14 @@ const IN_USE = "This account has transactions, so it can't be deleted. Hide it i
 const FIRST_OF_EACH = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use.";
 
 /** One of your accounts (an exchange: its two) as a row: its name, kind and
- * balance; its details, Hide or Show and Delete while unused, open below it. */
-const AccountRowItem: React.FC<AccountRowItemProps> = ({ row, balance, open, busy, onToggle, onHide, onDelete }) => {
+ * balance; its details, an exchange's 1099-DA switch, Hide or Show and Delete
+ * while unused, open below it. */
+const AccountRowItem: React.FC<AccountRowItemProps> = ({
+  row, balance, open, busy, onToggle, onHide, onDelete, onSwitch1099da,
+}) => {
   const details = ledgerIds.rowDetails(row.key);
   const deletable = canDelete(row);
+  const sends = sends1099da(row);
   return (
     <li className="ledger-account">
       <button
@@ -43,6 +50,9 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({ row, balance, open, bus
       </button>
       {open && (
         <div id={details} className="ledger-account-details" role="region" aria-label={row.name}>
+          {sends !== null && (
+            <ExchangeSwitch rowKey={row.key} on={sends} busy={busy} onChange={(on) => onSwitch1099da(row, on)} />
+          )}
           <div className="ledger-account-actions">
             <button type="button" className="btn btn-secondary btn-sm" disabled={busy}
               onClick={() => onHide(row, !row.hidden)}>

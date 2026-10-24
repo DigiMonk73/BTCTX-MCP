@@ -3,7 +3,7 @@
 // button or the keyboard, the open one remembered by this browser; your accounts by
 // kind, Add with its help text and Q5's note, Hide, Show and Delete. Saving
 // into a new account waits for the gate (B7a), whose rows this spec gains then.
-import { test, expect, openSection, seedKnownLedger } from "./fixtures";
+import { test, expect, createTx, openSection, seedFunds, seedKnownLedger, SAVE_ANYWAY } from "./fixtures";
 import type { Locator, Page } from "@playwright/test";
 
 const SECTIONS = [
@@ -37,7 +37,9 @@ const row = (section: Locator, name: string) => section.getByRole("button", { na
 async function listed(page: Page) {
   const r = await page.request.get("/api/accounts/");
   expect(r.ok()).toBeTruthy();
-  return (await r.json()) as { id: number; name: string; kind: string; currency: string; hidden: boolean }[];
+  return (await r.json()) as {
+    id: number; name: string; kind: string; currency: string; hidden: boolean; sends_1099da: boolean | null;
+  }[];
 }
 
 test("sections start closed, open one at a time by their buttons and the keyboard, and the open one stays open for this browser", async ({
@@ -324,4 +326,46 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   await expect.poll(() => sentForms(page)).toHaveLength(3);
   await expect(page.getByText("Down for a moment.")).toBeVisible();
   await expect(wallet).toHaveValue("2");
+});
+
+test("an exchange's 1099-DA switch: in 5.9's words, and past years' boxes move only once the owner says so", async ({
+  authedPage: page,
+}) => {
+  // A 2025 sale on the exchange: the switch decides its Form 8949 box (5.7), in a year before this one
+  await seedFunds(page.request);
+  await createTx(page.request, {
+    type: "Sell", timestamp: "2025-03-03T15:00:00Z", from_account_id: 4, to_account_id: 3,
+    amount: "0.1", gross_proceeds_usd: "9000", fee_amount: "0", fee_currency: "USD",
+  });
+  const switchOf = async (id: number) => (await listed(page)).find((a) => a.id === id)?.sends_1099da;
+  const section = await openAccounts(page);
+  await row(group(section, "Exchanges"), "Exchange").click();
+  const details = section.getByRole("region", { name: "Exchange" });
+  const box = details.getByLabel("This exchange sends me a Form 1099-DA");
+  await expect(box).toBeChecked(); // on by default (the owner's decision, 2026-10-15)
+  await expect(box).toHaveAccessibleDescription(
+    "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
+    "It decides the Form 8949 box, not the gain.",
+  );
+  // A bank or a wallet has none
+  await row(group(section, "Wallets"), "Wallet").click();
+  await expect(section.getByRole("region", { name: "Wallet" }).getByRole("checkbox")).toHaveCount(0);
+  await row(group(section, "Exchanges"), "Exchange").click();
+
+  // Off: asked first, and Cancel saves nothing
+  await box.click();
+  const dialog = page.getByRole("dialog", { name: "Change an earlier tax year?" });
+  await expect(dialog).toContainText("2025");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(box).toBeChecked();
+  await expect(box).toBeFocused();
+  expect(await switchOf(4)).toBe(true);
+
+  // Saved anyway: off, for both of the exchange's accounts
+  await box.click();
+  await dialog.getByRole("button", { name: SAVE_ANYWAY }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(box).not.toBeChecked();
+  expect([await switchOf(3), await switchOf(4)]).toEqual([false, false]);
 });

@@ -4,6 +4,8 @@ import { extractErrorMessage } from "../utils/apiError";
 import { accountGroups, ledgerIds, type AccountRow, type YourKind } from "../utils/ledgerAccounts";
 import { ACCOUNTS_FAILED, type AccountsState } from "../utils/useAccounts";
 import AccountGroupList from "./ledgerAccounts/AccountGroupList";
+import PastYearDialog from "./PastYearDialog";
+import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 
 interface LedgerAccountsProps extends AccountsState {
   /** Ask the server for the book again, after a change made here; settles once it's there. */
@@ -24,6 +26,8 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
   const [openRow, setOpenRow] = useState<string | null>(null);
   // The row a change was made from: the keyboard goes back to it once the list is new
   const [refocus, setRefocus] = useState<AccountRow | null>(null);
+  // The 1099-DA switch moves past years' Form 8949 boxes: asked first (5.8)
+  const pastYears = usePastYearWarning();
   const asked = useRef(0);
 
   // Two changes in a row: only the last answer counts
@@ -79,6 +83,25 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
 
   const add = (kind: YourKind, name: string) => change(null, () => api.post("/accounts/", { kind, name }));
 
+  // Either of an exchange's accounts turns the exchange's switch; cancelled, nothing is saved and the box
+  // shows the saved setting. Never disabled meanwhile: the dialog gives the keyboard back to it as it closes,
+  // which a disabled box can't take; one change at a time all the same.
+  const switching = useRef(false);
+  const switch1099da = async (row: AccountRow, on: boolean) => {
+    if (switching.current) return;
+    switching.current = true;
+    setRefusal("");
+    try {
+      const saved = await pastYears.attempt("setting", (confirm) =>
+        api.put(`/accounts/${row.id}`, { sends_1099da: on }, confirm ? { params: { confirm } } : undefined));
+      if (saved !== null) await reload();
+    } catch (error) {
+      setRefusal(extractErrorMessage(error));
+    } finally {
+      switching.current = false;
+    }
+  };
+
   if (failed) return <p className="note note-error" role="alert">{ACCOUNTS_FAILED}</p>;
   if (!book) return <p className="loading-row">Loading your accounts…</p>;
   return (
@@ -86,9 +109,11 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload })
       {accountGroups(book).map((group) => (
         <AccountGroupList key={group.kind} group={group} book={book} balances={balances} busy={busy}
           openRow={openRow} onToggleRow={(row) => setOpenRow(openRow === row.key ? null : row.key)}
-          onHide={hide} onDelete={remove} onAdd={add} onAddClosed={() => setRefusal("")} />
+          onHide={hide} onDelete={remove} onSwitch1099da={(row, on) => void switch1099da(row, on)} onAdd={add}
+          onAddClosed={() => setRefusal("")} />
       ))}
       {refusal && <p className="note note-error" role="alert">{refusal}</p>}
+      {pastYears.question && <PastYearDialog {...pastYears.question} />}
       <p className="settings-note">
         An account with transactions can be hidden, never deleted: its history stays on your tax forms.
       </p>

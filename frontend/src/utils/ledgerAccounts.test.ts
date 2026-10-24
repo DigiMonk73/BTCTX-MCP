@@ -3,8 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../test/books";
 import {
-  ADD_LABEL, EXCHANGE_HELP, POOLED_NOTE, WALLET_HELP, accountGroups, accountsSummary, addHelp, balanceText,
-  canDelete, pooledNote,
+  ADD_LABEL, EXCHANGE_HELP, POOLED_NOTE, SWITCH_HELP, SWITCH_LABEL, WALLET_HELP, accountGroups, accountsSummary,
+  addHelp, balanceText, canDelete, pooledNote, sends1099da,
 } from "./ledgerAccounts";
 
 /** These accounts named by a transaction or a ledger line (the test books name none). */
@@ -149,5 +149,23 @@ describe("adding an account (5.1, 5.8, 5.9: their words, exactly)", () => {
     // Only the exchange's own accounts count, never a bank's dollars
     const bankUsed = fresh.map((a) => (a.id === 1 ? { ...a, in_use: true } : a));
     expect(pooledNote(bankUsed, "exchange")).toBeNull();
+  });
+});
+
+describe("an exchange's 1099-DA switch (5.9)", () => {
+  it("is in 5.9's words", () => {
+    expect(SWITCH_LABEL).toBe("This exchange sends me a Form 1099-DA");
+    expect(SWITCH_HELP).toBe(
+      "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
+      "It decides the Form 8949 box, not the gain.",
+    );
+  });
+
+  it("is on unless the exchange's accounts say off, and is only an exchange's", () => {
+    const [wallets, exchanges] = accountGroups(MANY);
+    expect(sends1099da(exchanges.shown[0])).toBe(true); // a book from before the switch: on, the default
+    const off = MANY.map((a) => (a.exchange_id === 2 ? { ...a, sends_1099da: false } : { ...a, sends_1099da: true }));
+    expect(accountGroups(off)[1].shown.map((r) => [r.name, sends1099da(r)])).toEqual([["River", true], ["Kraken", false]]);
+    expect(sends1099da(wallets.shown[0])).toBeNull();
   });
 });
