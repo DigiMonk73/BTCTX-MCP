@@ -9,6 +9,7 @@ so everything derived must follow from the saved transactions alone.
 """
 
 import logging
+import time
 import unicodedata
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
@@ -1054,6 +1055,24 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
         db.info[hourly_prices.WARMING] = False
 
 
+def edited_inputs(tx: Transaction, tx_data: dict) -> dict:
+    """
+    The row an edit makes, as find_prices_first reads a new one: its stored
+    inputs with the edit's fields, each value it holds from a price left
+    blank unless the edit sends it, since the edit may price it again (its
+    hour or amount moved). At worst a price it won't need is found too.
+    """
+    row = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment,
+           "fee_usd": tx.fee_usd if tx.fee_usd_manual else None}
+    if tx.cost_basis_from_price:
+        row["cost_basis_usd"] = None
+    if tx.proceeds_from_price:
+        row["proceeds_usd"] = row["gross_proceeds_usd"] = None
+    if tx.fmv_from_price:
+        row["fmv_usd"] = None
+    return {**row, **tx_data}
+
+
 def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]:
     """When the rows' values filled from a price are priced, as (the moment,
     whether at the day): those a save won't do without
@@ -2038,6 +2057,17 @@ def recalculate_ledger(db: Session) -> None:
     hourly_prices.with_prices_found(db, save)
 
 
+# Session.info key: the time.monotonic() a replay stops at, given only to
+# the past-year warning's dry run on a scratch copy (its time budget, 2.0
+# spec 5.8): past it, the replay raises OutOfTime
+DEADLINE = "btctx_replay_deadline"
+
+
+class OutOfTime(Exception):
+    """A replay ran past its session's DEADLINE: what it left is thrown away
+    with the scratch copy it ran on."""
+
+
 def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
                                  past_missing: list[Transaction] | None = None):
     """
@@ -2062,7 +2092,10 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
         query = query.filter(Transaction.timestamp < until)
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
+    deadline = db.info.get(DEADLINE)
     for rec_tx in all_txs:
+        if deadline is not None and time.monotonic() >= deadline:
+            raise OutOfTime
         _replay(rec_tx, db, known, past_missing)
     if until is None and not past_missing:  # the whole ledger, every row through its own checks
         recalculated_by.note(db)
