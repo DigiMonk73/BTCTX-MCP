@@ -1,0 +1,44 @@
+import React from "react";
+
+/** The choice that opens the column matcher for another exchange's file. */
+export const MATCH_COLUMNS = "match";
+
+// Until the list is read: River, whose file the import always read
+const RIVER_ONLY: ExchangeMapping[] = [{ id: "river", name: "River", ready_made: true, help: "" }];
+
+interface ExchangeFilePickerProps {
+  mappings: ExchangeMapping[] | undefined;
+  value: string;
+  disabled: boolean;
+  onChange: (id: string) => void;
+}
+
+/** Which exchange's file it is (B5b, #567): a ready-made mapping, one of
+ * the owner's own, or another exchange's, whose columns they match. */
+const ExchangeFilePicker: React.FC<ExchangeFilePickerProps> = ({ mappings, value, disabled, onChange }) => {
+  const listed = mappings ?? RIVER_ONLY;
+  const ready = listed.filter((m) => m.ready_made);
+  const own = listed.filter((m) => !m.ready_made);
+  const chosen = listed.find((m) => m.id === value);
+  const hint = value === MATCH_COLUMNS
+    ? "Choose the file, then say which of its columns holds what: you can save it for next time."
+    : chosen?.ready_made ? chosen.help : "Your own mapping. Choose the file to preview it, or to change the mapping.";
+  return (
+    <div className="field">
+      <label htmlFor="exchange-file">Exchange file</label>
+      <select id="exchange-file" className="input" value={value} disabled={disabled}
+        aria-describedby="exchange-file-hint" onChange={(e) => onChange(e.target.value)}>
+        {ready.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+        {own.length > 0 && (
+          <optgroup label="Your mappings">
+            {own.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+          </optgroup>
+        )}
+        {mappings && <option value={MATCH_COLUMNS}>Another exchange: match its columns</option>}
+      </select>
+      {hint && <p id="exchange-file-hint" className="field-hint">{hint}</p>}
+    </div>
+  );
+};
+
+export default ExchangeFilePicker;

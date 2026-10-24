@@ -85,6 +85,58 @@ declare global {
     skipped_existing: number;
     message: string;
   }
+
+  // The importer for any exchange's file (B5b, /api/import/exchange): its
+  // preview and import are River's shapes above.
+  type MappingKind = "buy" | "sell" | "send" | "receive" | "income" | "interest" | "reward" | "rebate"
+    | "dollars" | "convert" | "leave out";
+
+  interface OwnColumns {
+    date: string;
+    kind: string;
+    btc: string;
+    time?: string;
+    usd?: string;
+    fee?: string;
+    fee_currency?: string;
+    fee_btc?: string;
+    asset?: string;
+    status?: string;
+    row_id?: string;
+  }
+
+  interface OwnMapping {
+    name: string;
+    columns: OwnColumns;
+    kinds: Record<string, MappingKind>;
+    zone: string;
+    dollars_after_fee: ("buy" | "sell")[];
+    send_fee_included: boolean;
+    decimal_comma: boolean;
+    day_first: boolean;
+    btc_assets: string[];
+    done: string[];
+  }
+
+  interface ExchangeMapping {
+    id: string;
+    name: string;
+    ready_made: boolean;
+    help: string;
+    mapping?: OwnMapping | null;
+  }
+
+  interface MappingsResponse {
+    mappings: ExchangeMapping[];
+  }
+
+  interface FileColumnsResponse {
+    header_row: number;
+    columns: string[];
+    samples: string[][];
+    values: Record<string, string[]>;
+    looks_like?: string | null;
+  }
 }
 
 export {};
