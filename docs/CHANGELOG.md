@@ -20,15 +20,26 @@ All notable changes to BitcoinTX are documented in this file.
   of each that isn't hidden), its recurring buys paid from your first bank
   that isn't hidden. The River and AI imports' duplicate checks never take
   a transaction in another wallet, another exchange or another bank for a
-  row's copy; River's file doesn't say which wallet a send went to, so one
-  already typed into another wallet is marked Review, imported unless you
-  untick it, nor which bank paid a buy, so a buy recorded as paid from
-  another bank is still found. The AI connector takes any of your accounts by name, refuses
-  one you haven't added before it sends anything (and a renamed account's
-  old name, saying its new one), lists your accounts in get_portfolio, and
-  tells BitcoinTX it is a 2.0 connector; the AI key may read the account
-  list, never add, hide or delete one. Saving into an added account still
-  waits for a later step. No figure of a ledger moves.
+  row's copy, with two exceptions for River, whose file names neither the
+  wallet nor the bank: a transaction typed with another wallet is marked
+  Review and imported unless you untick it, and a buy recorded as paid
+  from another bank is still found. The AI connector takes any of your
+  accounts by name, refuses one you haven't added before it sends
+  anything (and a renamed account's old name, saying its new one), lists
+  your accounts in get_portfolio, and tells BitcoinTX it is a 2.0
+  connector; the AI key may read the account list, never add, hide or
+  delete one, and its add passes a hidden account's warning on. Saving
+  into an added account still waits for a later step. No figure of a
+  ledger moves.
+- **The past-year warning's groundwork** (B6p, #568; tests and scripts
+  only, nothing the app does changes). One clock for "this tax year", in
+  the tax timezone (`tax_time.current_tax_year`), which the warning before
+  a save that changes an earlier tax year will read: the tests pin it to
+  2009, so the suite never changes on its own on 1 January, while every
+  other date check keeps the computer's clock. What loads transactions
+  into a running server (`scripts/seed_ledger.py`, the transactions
+  `scripts/smoke_test.py` creates, the click-through tests' `createTx`)
+  confirms the warning when it asks, with the fingerprint it gives.
 - **"Is it a bitcoin account?" by currency, and one copy of the account
   rules** (B3, #348). Every check that asked whether an account holds
   bitcoin now asks the account book instead of the ids of Wallet and
