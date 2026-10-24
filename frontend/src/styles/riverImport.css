@@ -1,4 +1,4 @@
-/* Import from River: file row, summary badges, and the preview table. */
+/* Import from an exchange (River's card): file row, summary badges, and the preview table. */
 
 .river-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .river-input-row input[type="file"] { flex: 1 1 240px; }

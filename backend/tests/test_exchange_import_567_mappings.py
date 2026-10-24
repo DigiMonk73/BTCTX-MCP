@@ -1,0 +1,234 @@
+"""
+Each ready-made mapping's sample file (B5b, #567): made-up rows in its
+exchange's published format (testdata/exchange_files/), read into the rows
+worked out here by hand from each format's rules:
+
+- a Buy's cost basis is the dollars before the fee, its fee apart in
+  dollars (the engine adds it to the basis, Treas. Reg. §1.1012-1(h)(1));
+- a Sell's proceeds are the dollars before the fee, its fee apart in dollars
+  (the engine subtracts it, §1.1001-7(b)(2));
+- a send is a Transfer of the coins that arrived, its network fee in
+  bitcoin on top (River's rule); a receive a Transfer from the wallet;
+- a payout a Deposit, valued at the file's value or the hour's price.
+
+The file goes into the first exchange and wallet (1.x's 3, 4 and 2). Every
+row not read is named by a warning; total_rows counts every row of data.
+"""
+
+import io
+from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from backend.tests.conftest import stub_daily_prices
+
+FILES = Path(__file__).resolve().parents[2] / "testdata" / "exchange_files"
+PRICE = 100000.0
+EX_USD, EX_BTC, WALLET, BANK, EXTERNAL = "Exchange USD", "Exchange BTC", "Wallet", "Bank", "External"
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    stub_daily_prices(monkeypatch, lambda day: PRICE)
+
+
+@pytest.fixture
+def client(auth_client):
+    r = auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
+    assert r.status_code in (200, 204)
+    return auth_client
+
+
+def preview(client, mapping_id: str, name: str) -> dict:
+    content = (FILES / name).read_bytes()
+    r = client.post("/api/import/exchange/preview", data={"mapping_id": mapping_id},
+                    files={"file": (name, io.BytesIO(content), "text/csv")})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def at(*parts: int) -> datetime:
+    return datetime(*parts, tzinfo=timezone.utc)
+
+
+def row(number, kind, from_, to, amount, when, cost=None, proceeds=None, fee=None, source=None):
+    """A proposal as the test reads it: its figures as Decimals, its time in UTC."""
+    currency = None if fee is None else "USD" if kind in ("Buy", "Sell") else "BTC"
+    figures = (Decimal(amount), *(Decimal(v) if v is not None else None for v in (cost, proceeds, fee)))
+    return (number, kind, from_, to, *figures, currency, source, when)
+
+
+def rows(answer: dict) -> list:
+    def number(v):
+        return Decimal(v) if v is not None else None
+    return [(p["row_number"], p["type"], p["from_account"], p["to_account"], number(p["amount"]),
+             number(p["cost_basis_usd"]), number(p["proceeds_usd"]), number(p["fee_amount"]),
+             p["fee_currency"], p["source"], datetime.fromisoformat(p["date"]).astimezone(timezone.utc))
+            for p in answer["proposals"]]
+
+
+def warned(answer: dict) -> str:
+    return "\n".join(w["message"] for w in answer["warnings"])
+
+
+def test_coinbase_transaction_history(client):
+    """Built from Coinbase's published columns, not yet checked against a real export."""
+    answer = preview(client, "coinbase", "coinbase_2024.csv")
+    assert rows(answer) == [
+        # Subtotal bought the coins; "Fees and/or Spread" apart (Total = 98.00 + 1.99)
+        row(4, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 15, 14, 23, 11), cost="98.00", fee="1.99"),
+        # Subtotal is the gross; 49.70 arrived after the 0.30 fee
+        row(5, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 2, 1, 10), proceeds="50.00", fee="0.30"),
+        row(6, "Transfer", EX_BTC, WALLET, "0.0003", at(2025, 2, 2, 10)),
+        row(7, "Transfer", WALLET, EX_BTC, "0.0002", at(2025, 2, 3, 10)),
+        # Rewards at Coinbase's value at receipt (its 1099-MISC's)
+        row(8, "Deposit", EXTERNAL, EX_BTC, "0.000003", at(2025, 2, 4, 10), cost="0.30", source="Reward"),
+        row(9, "Deposit", EXTERNAL, EX_BTC, "0.00001", at(2025, 2, 5, 10), cost="1.00", source="Income"),
+    ]
+    assert answer["total_rows"] == 11 and answer["errors"] == []
+    said = warned(answer)
+    for expected in ("Rows 10 and 11 trade bitcoin for another asset (“Convert”)", "Row 12 are ETH, not bitcoin",
+                     "Row 13 move dollars, not bitcoin (“Deposit”)", "Row 14 are “Pro Withdrawal”, which this mapping "
+                     "leaves out"):
+        assert expected in said, (expected, said)
+
+
+def test_coinbase_transaction_history_before_2024(client):
+    answer = preview(client, "coinbase", "coinbase_2022.csv")
+    assert rows(answer) == [
+        row(7, "Buy", EX_USD, EX_BTC, "0.002", at(2022, 3, 1, 15), cost="86.00", fee="1.99"),
+        row(8, "Sell", EX_BTC, EX_USD, "0.001", at(2022, 4, 1, 15), proceeds="45.00", fee="0.67"),
+    ]
+
+
+def test_kraken_ledger(client):
+    answer = preview(client, "kraken", "kraken_ledgers.csv")
+    assert rows(answer) == [
+        # A trade's two lines: 500 dollars and their 1.30 fee for 0.005 BTC
+        row(4, "Buy", EX_USD, EX_BTC, "0.005", at(2025, 1, 3, 10, 15, 30), cost="500.00", fee="1.30"),
+        # 0.002 BTC sold for 210 dollars, its 0.55 fee taken from them
+        row(5, "Sell", EX_BTC, EX_USD, "0.002", at(2025, 2, 10, 8), proceeds="210.00", fee="0.55"),
+        # Buy Crypto's spend and receive
+        row(8, "Buy", EX_USD, EX_BTC, "0.00098", at(2025, 2, 15, 12, 30), cost="100.00", fee="1.49"),
+        # A withdrawal: the amount sent, its fee on top (the pending copy above it left out)
+        row(10, "Transfer", EX_BTC, WALLET, "0.002", at(2025, 3, 1, 9, 5), fee="0.000015"),
+        row(11, "Transfer", WALLET, EX_BTC, "0.001", at(2025, 3, 5, 18, 45)),
+        # An earn reward, to the satoshi, valued at the hour's price: 0.00000123 × 100,000
+        row(14, "Deposit", EXTERNAL, EX_BTC, "0.00000123", at(2025, 3, 13), cost="0.12", source="Reward"),
+    ]
+    assert answer["total_rows"] == 20 and answer["errors"] == []
+    said = warned(answer)
+    for expected in ("Rows 2 and 21 move dollars", "Row 9 are Kraken's pending copies",
+                     "Rows 12 and 13 move coins between Kraken's own balances",
+                     "0.0000012345 BTC is rounded to 0.00000123 BTC", "Rows 15 and 16 are ETH, not bitcoin",
+                     "Rows 17 and 18 trade bitcoin for ETH", "Rows 19 and 20 are a withdrawal Kraken sent back"):
+        assert expected in said, (expected, said)
+
+
+def test_strike_statement(client):
+    answer = preview(client, "strike", "strike_statement.csv")
+    assert rows(answer) == [
+        # 101 dollars debited, the 1.00 fee in them: 100.00 bought the coins
+        row(3, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 6, 15, 30), cost="100.00", fee="1.00"),
+        # 49.50 arrived after the 0.50 fee: proceeds of 50.00
+        row(4, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 2, 11, 9, 10, 11), proceeds="50.00", fee="0.50"),
+        row(5, "Transfer", EX_BTC, WALLET, "0.0003", at(2025, 2, 12, 10), fee="0.000005"),
+        row(6, "Transfer", WALLET, EX_BTC, "0.0002", at(2025, 2, 13, 10)),
+        # A target order's two pieces, one id: 200 dollars (2.00 fee in them) at
+        # 08:00, the coins at 08:05, one buy dated by its coins
+        row(8, "Buy", EX_USD, EX_BTC, "0.00198", at(2025, 3, 1, 8, 5), cost="198.00", fee="2.00"),
+    ]
+    assert answer["total_rows"] == 11 and answer["errors"] == []
+    said = warned(answer)
+    for expected in ("Row 2 move dollars, not bitcoin (“Deposit”)", "Rows 9 and 10 were reversed or cancelled",
+                     "Row 11 move dollars, not bitcoin (“Withdrawal”)",
+                     "Row 12 are “Bitcoin Back”, a kind of row this mapping doesn't read"):
+        assert expected in said, (expected, said)
+
+
+def test_strike_activity_report(client):
+    answer = preview(client, "strike", "strike_activity.csv")
+    assert rows(answer) == [row(2, "Buy", EX_USD, EX_BTC, "0.00025", at(2025, 4, 1, 16, 20), cost="25.00", fee="0.25")]
+    said = warned(answer)
+    assert "Row 3 are Pending, not completed" in said and "Row 4 are Reversed, not completed" in said
+
+
+def test_swan_deposits_and_purchases(client):
+    answer = preview(client, "swan", "swan_deposits_and_purchases.csv")
+    assert rows(answer) == [
+        # Swan pulls a buy's dollars from the bank; Transaction USD bought the coins, the fee apart
+        row(5, "Buy", BANK, EX_BTC, "0.0011", at(2025, 3, 3, 14, 5, 10), cost="99.00", fee="1.00"),
+        row(6, "Buy", BANK, EX_BTC, "0.00055", at(2025, 3, 10, 14, 5, 10), cost="50.00"),
+        row(9, "Transfer", WALLET, EX_BTC, "0.002", at(2025, 3, 19, 9)),
+    ]
+    assert answer["total_rows"] == 7 and answer["errors"] == []
+    said = warned(answer)
+    for expected in ("Row 4 move dollars, not bitcoin (“deposit”)", "Row 7 are pending, not completed",
+                     "Row 8 are Swan moving coins between its custodians", "Row 10 move dollars"):
+        assert expected in said, (expected, said)
+
+
+def test_swan_withdrawals(client):
+    answer = preview(client, "swan-withdrawals", "swan_withdrawals.csv")
+    # Swan's custodian pays the network fee: what left is what arrived
+    assert rows(answer) == [row(4, "Transfer", EX_BTC, WALLET, "0.0015", at(2025, 3, 20, 10, 30))]
+    said = warned(answer)
+    assert "Row 5 were canceled" in said and "Row 6 haven't been sent" in said
+
+
+def test_cash_app_bitcoin_transactions(client):
+    answer = preview(client, "cash-app", "cash_app_bitcoin.csv")
+    assert rows(answer) == [
+        # Each date in the account's US zone: 09:15 EST is 14:15 UTC
+        row(2, "Buy", EX_USD, EX_BTC, "0.001", at(2025, 1, 10, 14, 15), cost="98.15", fee="2.00"),
+        row(3, "Buy", EX_USD, EX_BTC, "0.0001", at(2025, 2, 1, 14, 15), cost="9.80", fee="0.20"),
+        # 12:00 PDT is 19:00 UTC; the Amount is the gross, the fee apart
+        row(4, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 7, 4, 19), proceeds="50.00", fee="1.49"),
+        # Its fee was in dollars: a send's fee is bitcoin, so it isn't read
+        row(5, "Transfer", EX_BTC, WALLET, "0.0002", at(2025, 7, 5, 15)),
+        # A Boost: card cash-back in bitcoin, a rebate at the value Cash App gives it
+        row(6, "Deposit", EXTERNAL, EX_BTC, "0.000005", at(2025, 7, 6, 15), cost="0.50", source="Rebate"),
+        row(7, "Transfer", WALLET, EX_BTC, "0.0001", at(2025, 7, 7, 15)),
+    ]
+    assert answer["total_rows"] == 7 and answer["errors"] == []
+    said = warned(answer)
+    assert "This send's fee is $2.00: BitcoinTX records a send's fee in BTC, so it isn't read" in said
+    assert "Row 8 are “Bitcoin Payment”, a kind of row this mapping doesn't read" in said
+
+
+def test_cash_app_activity(client):
+    answer = preview(client, "cash-app", "cash_app_activity.csv")
+    assert rows(answer) == [
+        row(2, "Buy", EX_USD, EX_BTC, "0.01", at(2025, 8, 1, 15), cost="1000.00", fee="10.00"),
+    ]
+    said = warned(answer)
+    assert "Row 3 are FAILED, not completed" in said and "Row 4 aren't bitcoin (their asset is blank)" in said
+
+
+def test_a_boosts_value_is_kept_as_typed_and_a_payout_without_one_is_priced(client):
+    """A file's own value at receipt is the exchange's (on its 1099-MISC);
+    without one, the hour's price fills it, marked as from the price."""
+    boost = next(p for p in preview(client, "cash-app", "cash_app_bitcoin.csv")["proposals"] if p["source"] == "Rebate")
+    reward = next(p for p in preview(client, "kraken", "kraken_ledgers.csv")["proposals"] if p["source"] == "Reward")
+    assert (boost["basis_autofilled"], reward["basis_autofilled"]) == (False, True)
+
+
+@pytest.mark.parametrize("mapping_id, name", [
+    ("kraken", "strike_statement.csv"), ("strike", "kraken_ledgers.csv"), ("cash-app", "swan_withdrawals.csv"),
+])
+def test_another_exchanges_file_is_said_to_be_one(client, mapping_id, name):
+    answer = preview(client, mapping_id, name)
+    assert answer["proposals"] == [] and "This does not look like" in answer["errors"][0]["message"]
+
+
+@pytest.mark.parametrize("name, expected", [
+    ("coinbase_2024.csv", "coinbase"), ("coinbase_2022.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
+    ("swan_deposits_and_purchases.csv", "swan"), ("swan_withdrawals.csv", "swan-withdrawals"),
+    ("cash_app_bitcoin.csv", "cash-app"), ("cash_app_activity.csv", "cash-app"),
+])
+def test_the_columns_route_says_which_exchanges_file_it_is(client, name, expected):
+    r = client.post("/api/import/exchange/columns", files={"file": (name, (FILES / name).read_bytes(), "text/csv")})
+    assert r.status_code == 200, r.text
+    assert r.json()["looks_like"] == expected

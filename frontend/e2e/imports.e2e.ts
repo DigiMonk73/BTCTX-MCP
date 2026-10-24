@@ -18,7 +18,7 @@ const RIVER_ROWS = [
 const RIVER_CSV = [RIVER_HEADER, ...RIVER_ROWS].join("\n") + "\n";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 function riverRow(page: Page, n: number) {
@@ -41,7 +41,7 @@ async function importRiver(page: Page, count: number) {
 
 async function previewRiver(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
@@ -136,7 +136,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
 
 test("River import rejects a file that isn't a River export", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "other.csv", mimeType: "text/csv", buffer: Buffer.from("date,type,amount\n2026-01-01,Buy,1\n"),

@@ -1,7 +1,9 @@
-// River's bitcoin-activity CSV: upload, an editable preview, then one import
-// of every ticked row. Unlike the onboarding CSV import (empty ledger only),
-// this adds to a ledger in use: rows already in it come back from the server
-// matched, and are left out unless the owner ticks them (#253).
+// An exchange's CSV (River's, another ready-made mapping's, or any other
+// exchange's once its columns are matched, B5b): upload, an editable
+// preview, then one import of every ticked row. Unlike the onboarding CSV
+// import (empty ledger only), this adds to a ledger in use: rows already in
+// it come back from the server matched, and are left out unless the owner
+// ticks them (#253).
 
 import React, { useEffect, useState } from "react";
 import api from "../api";
@@ -16,6 +18,9 @@ import PastYearDialog from "./PastYearDialog";
 import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 import RiverPreview from "./riverImport/RiverPreview";
 import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
+import ExchangeFileChoice from "./exchangeImport/ExchangeFileChoice";
+import ExchangeFileRow from "./exchangeImport/ExchangeFileRow";
+import { useExchangeFile } from "../utils/useExchangeFile";
 import "../styles/riverImport.css";
 
 interface RiverImportProps {
@@ -29,6 +34,8 @@ interface RiverImportProps {
 const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const toast = useToast();
   const pastYears = usePastYearWarning();
+  const exchange = useExchangeFile(toast);
+  const isRiver = exchange.chosenId === "river";
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<RiverPreviewResponse | null>(null);
@@ -56,13 +63,19 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
     setOutOfDate(true);
   }
 
-  const reset = () => {
-    setFile(null);
+  // A preview made with another mapping, or a draft since changed, reads the file another way
+  const dropPreview = () => {
     setPreview(null);
     setPreviewPick(null);
-    setOutOfDate(false);
     setRows([]);
     setShowMatched(false);
+  };
+
+  const reset = () => {
+    setFile(null);
+    dropPreview();
+    setOutOfDate(false);
+    void exchange.fileChosen(null);
     const input = document.getElementById("river-csv-input") as HTMLInputElement;
     if (input) input.value = "";
   };
@@ -76,7 +89,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       // Before the book is read none is sent, and the server takes your first exchange and wallet
       if (pick.exchange !== undefined) formData.append("exchange_account_id", String(pick.exchange));
       if (pick.wallet !== undefined) formData.append("wallet_account_id", String(pick.wallet));
-      const res = await api.post<RiverPreviewResponse>("/import/river/preview", formData);
+      exchange.addMapping(formData);
+      const res = await api.post<RiverPreviewResponse>(exchange.urls.preview, formData);
       const accounts = riverAccountNames(book, pick);
       setPreview(res.data);
       setRows(res.data.proposals.map((p) => toEditableRow(p, accounts)));
@@ -86,7 +100,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       setPreviewPick(pick);
       setOutOfDate(false);
     } catch (err) {
-      toast.error(detailOr(err, "Failed to preview River CSV."));
+      toast.error(detailOr(err, `Failed to preview ${exchange.name} CSV.`));
     } finally {
       setLoading(false);
       setPending(null);
@@ -112,7 +126,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const handleExecute = async () => {
     const toImport = importableRows(rows);
     if (toImport.length === 0) return;
-    if (!window.confirm(`Import ${toImport.length} transaction(s) from River into your ledger?`)) {
+    if (!window.confirm(`Import ${toImport.length} transaction(s) from ${exchange.name} into your ledger?`)) {
       return;
     }
     const sent = importRequestRows(rows);
@@ -120,7 +134,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
     try {
       // Rows that change an earlier tax year are imported only once the owner confirms it (2.0 spec 5.8)
       const res = await pastYears.attempt("import", (confirm) =>
-        api.post<RiverImportResponse>("/import/river/execute", { rows: sent }, confirm ? { params: { confirm } } : undefined));
+        api.post<RiverImportResponse>(exchange.urls.execute, { rows: sent }, confirm ? { params: { confirm } } : undefined));
       if (res === null) return; // cancelled: nothing imported, the preview stays as it was
       toast.success(res.data.message);
       reset();
@@ -132,37 +146,23 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   };
 
   const pastYearsNote = preview && importNote(preview.past_years_dated);
+  // A preview, an import or a mapping's save on its way: another file or mapping waits
+  const busy = loading || exchange.saving;
 
   return (
     <>
 
-      <div className="settings-option">
-        <div className="option-info">
-          <span className="settings-option-title">River Bitcoin Activity CSV</span>
-          <p className="settings-option-subtitle">
-            Download your bitcoin activity CSV from river.com → Taxes &amp; Documents,
-            then upload it here. Transactions already in your ledger are found and
-            left out, so overlapping date ranges can be imported again.
-          </p>
-        </div>
-        <div className="river-input-row">
-          <input
-            type="file"
-            id="river-csv-input"
-            aria-label="River CSV file"
-            accept=".csv"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="csv-file-input"
-          />
-          <button
-            onClick={() => void handlePreview()}
-            disabled={loading || !file || unchosen}
-            className="btn btn-secondary"
-          >
-            {loading && !preview ? "Processing..." : "Preview"}
-          </button>
-        </div>
-      </div>
+      <ExchangeFileChoice exchange={exchange} file={file} disabled={busy} onMappingChanged={dropPreview} />
+
+      <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={busy}
+        canPreview={!loading && file !== null && !unchosen && exchange.ready}
+        onFile={(chosen) => {
+          // Another file: the preview on screen is the last one's
+          setFile(chosen);
+          dropPreview();
+          void exchange.fileChosen(chosen);
+        }}
+        onPreview={() => void handlePreview()} />
 
       <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
         onChange={choose} />

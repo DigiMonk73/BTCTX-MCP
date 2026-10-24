@@ -93,8 +93,8 @@ const Settings: React.FC = () => {
           summary="Delete all transactions, or import a CSV file into an empty ledger">
           <DataManagement {...section} />
         </SettingsSection>
-        <SettingsSection {...props("river")} title="Import from River"
-          summary="River's bitcoin activity file, with a preview before anything is saved">
+        <SettingsSection {...props("river")} title="Import from an exchange"
+          summary="River's, Coinbase's, Kraken's, Strike's, Swan's, Cash App's or another exchange's file, with a preview before anything is saved">
           <RiverImport onPreviewShown={setWide} book={accounts.book} />
         </SettingsSection>
         <SettingsSection {...props("backup")} title="Backup & Restore"

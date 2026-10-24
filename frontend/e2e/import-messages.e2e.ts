@@ -11,7 +11,7 @@ const CSV_HEADER =
   "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 function data(page: Page) {
@@ -20,7 +20,7 @@ function data(page: Page) {
 
 async function previewRiver(page: Page, lines: string[]) {
   await page.getByRole("link", { name: "Settings" }).click();
-  await openSection(page, "Import from River");
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(lines.join("\n") + "\n"),
