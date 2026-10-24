@@ -212,8 +212,17 @@ Transaction (user input)
   → LotDisposal (FIFO consumption, with basis/proceeds/gain per lot)
 ```
 
-Fixed account IDs: Bank 1, Wallet 2, Exchange USD 3, Exchange BTC 4,
-BTC Fees 5, USD Fees 6, External 99.
+Accounts (2.0, #251; the account book, `services/account.py`, read once
+per request): your banks, wallets and exchanges, each exchange two
+accounts, "*name* USD" and "*name* BTC", of a row of `exchanges` with its
+1099-DA switch; the fee accounts BTC Fees 5 and USD Fees 6 (internal: no
+transaction names them); External 99 (no row). A new install's first of
+each keep their ids forever: Bank 1, Wallet 2, Exchange USD 3, Exchange
+BTC 4 (exchange 1, "Exchange"). New accounts take ids from 100, never one
+given before (`accounts_last_id`). In a file, the reserved names (Bank,
+Wallet, Exchange USD, Exchange BTC, BTC Fees, USD Fees, External) always
+mean 1–6 and 99. Whether an account is bitcoin is its currency
+(`book.is_btc`), never its id.
 
 Schema: Alembic migrations in `backend/migrations/versions/` (0001 = the
 v0.7.0 schema). `backend/migrate.py` runs them at every start and on restored
@@ -290,10 +299,11 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
-  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
-  between pooled wallets, #159) needs a fee and records only it: no lot moves.
-  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  date and its share of basis ("Lot cost"). The fee is a disposal. A bitcoin account to itself
+  (a wallet, or an exchange's BTC account: a consolidation; in a 1.x ledger
+  also a move between wallets or exchanges it kept together, #159) needs a
+  fee and records only it: no lot moves. A dollar transfer (a bank ↔ an
+  exchange's USD account) is the other way round, like a
   withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
   #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
@@ -349,7 +359,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
   Never part of a gain.
 - **Dollar withdrawals** (#449): only bitcoin leaving is spent, given,
-  donated or lost. A withdrawal from Bank or Exchange USD keeps no such
+  donated or lost. A withdrawal from a bank or an exchange's USD account keeps no such
   purpose and no proceeds or FMV: the save drops them
   (`_drop_btc_withdrawal_fields`; other text stays, a label such as
   "Rent"), the import previews leave them out with a warning, and every
@@ -569,6 +579,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
+| `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page; Settings' "Wallets, exchanges and banks" |
 | `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
@@ -742,7 +753,11 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   to the key). A new MCP tool that needs a route adds it there on purpose
   (a test checks the tools and the list agree). The key may read the
   account list (`GET /api/accounts/`, the connector's names, 2.0's #350),
-  never add, hide or delete an account. Never allow the
+  never add, hide or delete an account. A write from a connector older
+  than 2.0 (no `X-BitcoinTX-Connector` header) to a ledger with more than
+  one wallet or more than one exchange, hidden ones counted, is refused,
+  409 (`ai_key.from_an_old_connector`, #354): its guide put a second
+  wallet's coins in Wallet. Its reads go on. Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
   export, file imports (CSV, River), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or

@@ -810,10 +810,11 @@ class _TaxReport:
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
             "Print single-sided: otherwise Schedule D can start on the back of the last Form 8949 page.",
-            "BitcoinTX tracks one self-custody wallet and one exchange account, each with its own lots, first in, "
-            "first out. Since 2025 IRS rules require cost basis to be figured wallet by wallet and account by "
-            "account (Treas. Reg. §1.1012-1(j); Rev. Proc. 2024-28): multiple wallets or exchange accounts are "
-            "pooled here and need separate records.",
+            # 5.14's one wording of the rule, then what BitcoinTX does and doesn't record (3.7)
+            "From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins "
+            "you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). "
+            "BitcoinTX uses first in, first out in each wallet and exchange account, and records no Rev. Proc. "
+            "2024-28 allocation.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",

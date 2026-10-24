@@ -1,7 +1,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { accountCurrency, accountKind, chosenId, visibleAccounts } from "../../utils/accounts";
-import { ONE_WALLET_HINT } from "../../utils/disclaimer";
+import { WALLET_HINT } from "../../utils/disclaimer";
 import AccountPicker from "./AccountPicker";
 
 /**
@@ -25,7 +25,7 @@ const AccountAmountFields: React.FC<{ book: AccountBook; field: "fromAccountId" 
         placeholder="Select Account"
         requiredMessage="Please select an account"
       >
-        {accountKind(book, chosen) === "wallet" && <small className="field-hint">{ONE_WALLET_HINT}</small>}
+        {accountKind(book, chosen) === "wallet" && <small className="field-hint">{WALLET_HINT}</small>}
       </AccountPicker>
 
       <div className="field">

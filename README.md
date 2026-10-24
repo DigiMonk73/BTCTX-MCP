@@ -1,8 +1,9 @@
 # BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
 A minimalist, self-hosted Bitcoin portfolio tracker and tax report generator
-for **one self-custody wallet and one exchange account** (see [One wallet, one
-exchange](#one-wallet-one-exchange)), with an **MCP server** so an AI
+for **your self-custody wallets, exchange accounts and banks**, each wallet
+and exchange with its own cost-basis lots (see [Wallets, exchanges and
+banks](#wallets-exchanges-and-banks)), with an **MCP server** so an AI
 assistant can enter transactions for you. What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
@@ -20,17 +21,20 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 ## Features
 
-- **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
+- **Dashboard**: your banks, exchanges and wallets on three cards (each
+  opens to show its accounts), BTC holdings, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   or deletion, and every entry dated before your latest one, recalculates
   the whole ledger, so backdated entries come out right.
-- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
-  a consolidation (Wallet to Wallet, or between exchanges BitcoinTX counts as
-  one) records only its network fee
+- **FIFO lots per wallet and per exchange**: a transfer between your
+  accounts keeps each lot's acquisition date and basis; a consolidation (a
+  wallet to itself) records only its network fee
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
-  tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
-  says something different for a sale, record that on the transaction and the
-  right Form 8949 box follows. Each year's final IRS forms come in an update
+  tax report, and transaction history (PDF/CSV). Each exchange's sales go in
+  the boxes its own 1099-DA uses (an exchange you mark as sending none, in
+  the boxes for no broker form), and the report adds up its sales beside
+  each 1099-DA. When your broker's 1099-DA says something different for a
+  sale, record that on the transaction and the right Form 8949 box follows. Each year's final IRS forms come in an update
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
 - **Imports**: River CSV export, generic CSV (into an empty ledger), and the
@@ -75,27 +79,45 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 How each part works, the same wherever BitcoinTX runs:
 [docs/USING.md](docs/USING.md).
 
-## One wallet, one exchange
+## Wallets, exchanges and banks
 
 > [!IMPORTANT]
-> BitcoinTX tracks one self-custody wallet and one exchange account. Since
-> 2025, IRS rules require cost basis to be figured wallet by wallet and
-> account by account, so if you use multiple wallets or exchange accounts,
-> BitcoinTX's gains can differ from what the rules give: keep separate
-> records for each, or ask your tax preparer.
+> Add each wallet, exchange and bank you use in Settings, under Wallets,
+> exchanges and banks. From 2025, cost basis is figured wallet by wallet and
+> account by account; unless you identify the coins you sell, first in,
+> first out within each, by the date first acquired (Treas. Reg.
+> §1.1012-1(j)). BitcoinTX keeps each wallet's and each exchange's own lots
+> and always sells them first in, first out. If you kept multiple wallets or
+> exchanges together in BitcoinTX 1.x, years before you added them were
+> figured together: ask a tax professional whether an earlier return needs
+> a change.
 
-BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
-**Exchange** (USD and BTC) and one **Bank**. The two bitcoin accounts, Wallet
-and Exchange, each keep their own FIFO lots. That fits someone who keeps their
-bitcoin in one wallet and buys and sells through one exchange.
+A new BitcoinTX starts with a **Bank**, a **Wallet** and an **Exchange**
+(its dollars, **Exchange USD**, and its bitcoin, **Exchange BTC**). Add more in Settings, under Wallets, exchanges and banks, and
+rename, hide or delete them there:
 
-Multiple wallets or exchanges all go into those two accounts. The rule is
-Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
-coins held on that date. With multiple wallets, BitcoinTX may figure a sale
-from one wallet with the cost and purchase date of coins that were in
-another. Multiple wallets and exchanges, each with its own lots, are planned
-for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
-see [Versions](#versions)).
+- **A wallet** is one set of keys: every address it makes is part of it. A
+  backup of the same keys (a seed phrase, or another device with the same
+  keys) isn't a second wallet.
+- **An exchange** keeps its dollars and its bitcoin as two accounts,
+  "*name* USD" and "*name* BTC". Each has its own "This exchange sends me a
+  Form 1099-DA" switch, on by default: turn it off for an exchange that
+  sends none (usually one outside the US), and its sales go in the Form
+  8949 boxes for no broker form.
+- **External** is everything outside BitcoinTX: other people, merchants,
+  an account you don't track.
+
+Coins move between your accounts by a Transfer, which keeps each lot's date
+and cost. A new account starts empty: move coins into it with a Transfer
+dated when they really moved (BitcoinTX moves the oldest coins first). A
+save that would change an earlier tax year's figures, one you may already
+have filed, shows which years and what changes, and asks before it saves.
+
+BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
+cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
+nor record an allocation you made: its figures from 2025 on follow its own
+history. Your 2024 Complete Tax Report lists each account's lots at the end
+of 2024, for a tax professional to compare with yours.
 
 ## Versions
 

@@ -9,7 +9,7 @@ import subprocess
 from pathlib import Path
 
 from backend.migrate import PRE_2_0_KIND, copy_for
-from backend.tests.test_disclaimer import BETWEEN_WORDS, TEXT, ts_constant, unreleased
+from backend.tests.test_disclaimer import BETWEEN_WORDS, TEXT, ts_constant
 from backend.tests.test_test_files import needs_a_checkout
 
 ROOT = Path(__file__).parents[2]
@@ -40,13 +40,13 @@ def flat(text: str) -> str:
 
 def shipped_texts() -> dict[str, str]:
     """Every tracked text that ships or tells users how BitcoinTX works, as
-    words. Left out: history (the CHANGELOG's released versions, the
-    package's released notes, migrations, the plan in docs/temp) and tests,
-    which may quote old words to check they're gone."""
+    words. Left out: history (the CHANGELOG, which says what changed from
+    what, the package's released notes, migrations, the plan in docs/temp)
+    and tests, which may quote old words to check they're gone."""
     tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    history = ("docs/temp/", "backend/migrations/", "startos/startos/versions/")
+    history = ("docs/CHANGELOG.md", "docs/temp/", "backend/migrations/", "startos/startos/versions/")
     tests = ("backend/tests/", "mcp_server/tests/", "frontend/e2e/", "frontend/src/test/")
-    return {path: flat(unreleased(path, (ROOT / path).read_text()))
+    return {path: flat((ROOT / path).read_text())
             for path in tracked.splitlines()
             if path.endswith(TEXT) and not path.startswith(history + tests)
             and not re.search(r"\.test\.tsx?$", path)}
@@ -72,7 +72,11 @@ def test_no_other_wording_of_the_rule():
 
 @needs_a_checkout
 def test_nothing_left_of_one_wallet_and_one_exchange():
-    found = [f"{path}: {hit.group(0)}" for path, text in shipped_texts().items() for hit in ONE_WALLET.finditer(text)]
+    """A sentence that names 1.x is about 1.x (the ROADMAP's 2.0 item, until
+    the release clears it), and keeps its words."""
+    found = [f"{path}: {hit.group(0)}" for path, text in shipped_texts().items()
+             for sentence in re.split(r"(?<=[.!?]) ", text) if "1.x" not in sentence
+             for hit in ONE_WALLET.finditer(sentence)]
     assert not found, found
 
 

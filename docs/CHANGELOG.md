@@ -5,6 +5,40 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **2.0's texts, and the way back to 1.x** (B9, #357). Every text that
+  said BitcoinTX tracks one wallet and one exchange now describes your
+  wallets, exchanges and banks, with one wording of the IRS rule
+  everywhere it's stated: "From 2025, cost basis is figured wallet by
+  wallet and account by account; unless you identify the coins you sell,
+  first in, first out within each, by the date first acquired (Treas. Reg.
+  §1.1012-1(j))." The README's and `docs/USING.md`'s "One wallet, one
+  exchange" became "Wallets, exchanges and banks" (adding, renaming,
+  hiding and deleting accounts, each exchange's 1099-DA switch, what
+  BitcoinTX doesn't do: choose coins, or allocate basis under Rev. Proc.
+  2024-28), and About BitcoinTX's notice, "Important: add each wallet and
+  exchange.", is the README's box word for word. In the transaction form,
+  the hint under a wallet points to Settings' Wallets, exchanges and
+  banks; an exchange's bitcoin account sent to itself reads "*name*:
+  consolidate within the same exchange" (it was "move between exchanges
+  BitcoinTX counts as one"), with a hint to choose the other exchange's
+  account for a move between exchanges; and a Sell's exchange is labelled
+  "Exchange", as a Buy's is. The Complete Tax Report's "Using these forms"
+  states the rule and that BitcoinTX uses first in, first out in each
+  wallet and exchange account. The AI connector's guide takes your
+  accounts' names from `get_portfolio`, asks which account when more than
+  one fits, has you add a wallet or exchange it doesn't know in Settings
+  (never pooled into another, never External), and explains `saved:
+  false` and the confirms; its tools' descriptions and README no longer
+  name the fixed accounts. The StartOS package: the store descriptions in
+  five languages, `instructions.md` (setting up your accounts; the
+  one-wallet limitation gone) and its README (2.0's copies in
+  `backups`); Recalculate Ledger is under Settings › Account in the
+  action's text. `docs/MAINTENANCE.md` gains "Going back to 1.x" for
+  Docker and the Mac app; every way back was tried with 1.2.10 (StartOS
+  by BitcoinTX's own backup, Docker, the Mac app), and 1.2.10 refuses a
+  2.0 backup in plain words. The README's pictures show a second wallet
+  (`testdata/showcase_ledger.json`). `docs/AGENT-TESTS.md` gains 2.0's
+  release tests. No figure changes.
 - **The dashboard by kind, Transactions by name, and renames** (B8, #356).
   The dashboard shows three cards, Bank, Exchange and Wallet, each with
   its total (an exchange's dollars, then its bitcoin); a card with more

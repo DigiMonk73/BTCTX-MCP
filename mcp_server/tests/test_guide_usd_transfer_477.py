@@ -24,7 +24,7 @@ FLAT = " ".join(LEDGER_GUIDE.split())
 DOLLAR_EXAMPLE = re.compile(
     r"\$([\d,]+) left the bank and \$([\d,]+) arrived at the exchange \(a \$([\d,]+) fee\) -> "
     r"amount ([\d,]+), fee_amount ([\d,]+), fee_currency USD: "
-    r"Bank goes down \$([\d,]+), Exchange USD up \$([\d,]+)\.")
+    r"the bank goes down \$([\d,]+), the exchange's USD account up \$([\d,]+)\.")
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def dollars(figure: str) -> Decimal:
 
 def test_the_guide_says_a_dollar_transfers_amount_is_what_arrived():
     assert "Bitcoin: amount = total that LEFT the source, network fee INCLUDED" in FLAT
-    assert ("Dollars (Bank <-> Exchange USD) are the other way round, as for a Withdrawal: "
+    assert ("Dollars (a bank <-> an exchange's USD account) are the other way round, as for a Withdrawal: "
             "amount = what ARRIVED, and the fee (fee_currency USD) is ON TOP") in FLAT
     # The old words, for every transfer
     assert "Bank <-> Exchange USD. amount = total that LEFT" not in FLAT
@@ -48,7 +48,7 @@ async def test_the_connector_describes_a_dollar_transfers_amount(mcp_client):  #
     """The tools' own description of `amount`, which the AI reads too."""
     tools = {t.name: json.dumps(t.input_schema) for t in (await mcp_client.list_tools()).tools}
     for name in ("preview_transactions", "add_transactions"):
-        assert "USD Transfer (Bank <-> Exchange USD): what arrived; the fee is on top." in tools[name]
+        assert "USD Transfer (a bank <-> an exchange's USD account): what arrived; the fee is on top." in tools[name]
         assert "BTC Transfer: total that left the source INCLUDING the network fee" in tools[name]
 
 

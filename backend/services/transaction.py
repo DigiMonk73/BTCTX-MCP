@@ -2565,7 +2565,7 @@ def original_date_problem(tx_type: str | None, source: str | None, into_btc: boo
     """
     if not (tx_type == "Deposit" and into_btc and normalized(source) in ORIGINAL_DATE_SOURCES):
         return ("A date originally acquired is only for a My BTC or Gift deposit, or an Inherited one's date of "
-                "death, into Wallet or Exchange BTC.")
+                "death, into a wallet or an exchange's BTC account.")
     what = original_date_name(source)
     if acquired < GENESIS.date():
         return f"{what} is before Bitcoin existed (3 January 2009)."

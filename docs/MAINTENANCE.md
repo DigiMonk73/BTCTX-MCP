@@ -378,6 +378,46 @@ more for restores.
   through the 1.x migration too, which must run on 2.0's schema. #251 says
   which applies now.
 
+## Going back to 1.x
+
+Going back from 2.0 loses what was entered in 2.0: BitcoinTX 1.x can't read
+a 2.0 database, and refuses a backup made by 2.0 ("This backup can't be
+restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, or
+restore a backup made with this version."). 2.0's first start keeps a copy
+of the 1.x database in the data folder,
+`backups/btctx-pre-2.0-from-<revision>-<time>.db`, and never removes it.
+Each way back below was tried with 1.2.10 on 2026-10-24 (#357).
+
+- **StartOS:** uninstall BitcoinTX (which deletes its data, that copy
+  included), then restore the StartOS backup made before the update: it
+  brings back the 1.x package itself, with its data. Without that backup,
+  sideload 1.x from its GitHub release and restore, in its Settings, a
+  BitcoinTX backup downloaded under 1.x. 2.0's release notes give the
+  steps.
+- **Docker:**
+  1. Stop the container.
+  2. Copy the pre-2.0 copy over `btctx.db` and remove the files SQLite
+     keeps beside it, through the 1.x image, which runs the command as
+     BitcoinTX's own user, `btctx` (uid 10001). With the volume of the
+     README's command, `btctx-data`:
+     ```bash
+     docker run --rm -v btctx-data:/data ghcr.io/digimonk73/btctx-mcp:v1.2.10 sh -c 'cp /data/backups/btctx-pre-2.0-from-<revision>-<time>.db /data/btctx.db && rm -f /data/btctx.db-journal /data/btctx.db-wal /data/btctx.db-shm'
+     ```
+     Use the 1.x version the copy came from, or a later 1.x: an older one
+     refuses the copy's schema.
+  3. Start that 1.x image on the volume, by its version tag (never
+     `:latest` or `:main` once they are 2.0).
+
+  A copy made another way as root still works with a normal start, which
+  gives `/data` back to `btctx`. Started with `--user`, the image leaves
+  `/data` as it is, so a file root made there stops it ("unable to open
+  database file"): give it to uid 10001 first (`chown 10001:10001`).
+- **The Mac app:** quit BitcoinTX and install that 1.x app (or a later
+  1.x) from its GitHub release. Put the copy in place of
+  `~/Library/Application Support/BitcoinTX/btctx.db` and remove any
+  `btctx.db-journal`, `btctx.db-wal` or `btctx.db-shm` beside it, then open
+  the 1.x app.
+
 ## Deprecations
 
 Check for new deprecation warnings after any update:

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import api from "../api";
 import { REPO_URL } from "../utils/aiSetup";
-import { DISCLAIMER, ONE_WALLET_NOTICE } from "../utils/disclaimer";
+import { ACCOUNTS_NOTICE, DISCLAIMER } from "../utils/disclaimer";
 
 /** The project's pages this section links to (SECURITY.md, README "Reporting problems"). */
 const ABOUT_LINKS = {
@@ -32,7 +32,7 @@ function useAppVersion(): string | null | undefined {
 }
 
 /**
- * About BitcoinTX: the one-wallet notice and the disclaimer, then the version
+ * About BitcoinTX: the notice on wallets and exchanges and the disclaimer, then the version
  * a bug report asks for and where to report a problem. Links only: nothing is
  * sent anywhere until the owner clicks one.
  */
@@ -42,7 +42,7 @@ const AboutSetting: React.FC = () => {
   return (
     <>
       <p className="note note-warning" role="note">
-        <strong>Important: one wallet, one exchange.</strong> {ONE_WALLET_NOTICE}
+        <strong>Important: add each wallet and exchange.</strong> {ACCOUNTS_NOTICE}
       </p>
       <p className="settings-option-subtitle">{DISCLAIMER}</p>
       <p className="settings-option-subtitle">

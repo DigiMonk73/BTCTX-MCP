@@ -12,10 +12,11 @@ const OUT = process.env.SITE_SHOTS_DIR ?? path.join(REPO, "docs", "images");
 
 // testdata/showcase_ledger.json: a typical portfolio, not the reference test ledger,
 // whose latest entries (built to cover every tax case) would show no sales.
-const LEDGER: TxPayload[] = (
-  JSON.parse(readFileSync(path.join(REPO, "testdata", "showcase_ledger.json"), "utf8"))
-    .transactions as Record<string, string | number | null>[]
-);
+const SHOWCASE = JSON.parse(readFileSync(path.join(REPO, "testdata", "showcase_ledger.json"), "utf8")) as {
+  accounts: { id: number; name: string; kind: string }[];
+  transactions: TxPayload[];
+};
+const LEDGER = SHOWCASE.transactions;
 
 test.use({
   viewport: { width: 1470, height: 867 },
@@ -30,12 +31,20 @@ async function shot(page: Page, name: string) {
 }
 
 test("dashboard, transactions and reports", async ({ authedPage: page }) => {
+  // Its accounts beyond the first of each (2.0), made through the account API before the rows that name them
+  for (const account of SHOWCASE.accounts) {
+    const r = await page.request.post("/api/accounts/", { data: { kind: account.kind, name: account.name } });
+    expect(r.status(), await r.text()).toBe(201);
+    expect((await r.json()).map((a: { id: number }) => a.id)).toEqual([account.id]);
+  }
   for (const tx of LEDGER) await createTx(page.request, tx);
 
   await page.goto("/dashboard");
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
   await expect(page.locator(".btc-price-value")).toContainText("60,000");
   await expect(page.getByText("Rebates (received)")).toBeVisible();
+  // The Wallet card open on its two wallets: 2.0's accounts, as the README describes them
+  await page.getByRole("region", { name: "Wallet", exact: true }).getByRole("button", { name: "Show accounts (2)" }).click();
   await shot(page, "dashboard");
 
   await page.getByRole("link", { name: "Transactions" }).click();

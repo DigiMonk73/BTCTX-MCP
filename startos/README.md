@@ -66,7 +66,7 @@ Two volumes: the app's data, and this package's own state, which the app never s
 | `btctx.db`              | The SQLite ledger                                                                          |
 | `.btctx_secret_key`     | Session-cookie signing key, generated on first start (mode 600)                            |
 | `btc-prices/`           | The hourly BTC price history (one `YYYY.csv` per year, about 3 MB; how it's downloaded: [Network Access and Interfaces](#network-access-and-interfaces)); deleting it only means it's downloaded again |
-| `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-…`, newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
+| `backups/`              | The app's copies of `btctx.db`: before a schema upgrade or an in-app restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-…`, newest 5 kept, apart), and the AI copies: those the AI key asks for, and one before its first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day), the copy before each change of an earlier tax year the owner confirms (`btctx-pre-change-…`, newest 5 kept, plus, for a week, the first of each day), and the copy of a 1.x database made before 2.0's upgrade (`btctx-pre-2.0-from-<revision>-…`, never removed: the way back to 1.x) |
 
 ## File Models
 
@@ -142,7 +142,7 @@ Returns the MCP API's https addresses (`.local` first), the StartOS root CA (fro
 
 ### Recalculate Ledger
 
-Runs `python -m backend.cli recalculate` (migrates the schema first if needed): rebuilds every ledger entry, lot and disposal from the transactions, exactly like the app's Settings > Recalculate Ledger. Transactions are not modified. Takes seconds to a minute on large ledgers and may look up historical BTC prices for unpriced spends. Safe to repeat. Sets `recalculateLedger` to `false`. Resolves gains or lots that look wrong after an update with calculation fixes.
+Runs `python -m backend.cli recalculate` (migrates the schema first if needed): rebuilds every ledger entry, lot and disposal from the transactions, exactly like the app's Settings > Account > Recalculate Ledger. Transactions are not modified. Takes seconds to a minute on large ledgers and may look up historical BTC prices for unpriced spends. Safe to repeat. Sets `recalculateLedger` to `false`. Resolves gains or lots that look wrong after an update with calculation fixes.
 
 ## Tasks
 

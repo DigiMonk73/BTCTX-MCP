@@ -21,16 +21,17 @@ on StartOS, follow this page.
 1. Run **Set Login Credentials** when prompted. It shows the username and password once: keep them somewhere safe.
 2. Run **Price Source & Privacy** when prompted. BitcoinTX starts once you've chosen who it asks for newer Bitcoin prices: **My Mempool on this server** if you run Mempool here (or install it), **Public price sites** (optionally through Tor), **Nobody**, or **Decide in BitcoinTX instead** to choose in the app. See Privacy below.
 3. Start the service and open the **Web UI**. Log in with those credentials.
-4. In **Settings**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
-5. Add your transactions by hand, import a River CSV or a generic CSV (a generic CSV only into an empty ledger), or connect an AI assistant (below).
+4. In **Settings > Account**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
+5. In **Settings > Wallets, exchanges and banks**, add each wallet, exchange and bank you use: BitcoinTX starts with one of each (**Bank**, **Wallet**, and **Exchange** with its **Exchange USD** and **Exchange BTC**). A wallet is one set of keys; a backup of the same keys isn't a second wallet. For an exchange that sends no Form 1099-DA (usually one outside the US), turn off **This exchange sends me a Form 1099-DA**.
+6. Add your transactions by hand, import a River CSV or a generic CSV (a generic CSV only into an empty ledger), or connect an AI assistant (below).
 
-You can change the username and password inside BitcoinTX (**Settings > Reset Username & Password**).
+You can change the username and password inside BitcoinTX (**Settings > Account > Reset Username & Password**).
 
 ## Using BitcoinTX
 
 ### Web interface
 
-Record deposits, withdrawals, transfers, buys and sells. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
+Record deposits, withdrawals, transfers, buys and sells in each of your wallets, exchanges and banks. Each wallet and each exchange keeps its own lots, first in, first out, and a transfer between them keeps each lot's date and cost. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. A change that would alter the figures of an earlier tax year, one you may already have filed, shows which years and what changes, and asks first; BitcoinTX makes a copy of your ledger before it saves. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, each exchange's sales go into the boxes its own Form 1099-DA uses; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
 
 BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 
@@ -72,12 +73,11 @@ The connector's version, after `btctx-mcp==` in your AI app's configuration, sho
 
 - **Price Source & Privacy**: where BitcoinTX gets Bitcoin prices, as above. BitcoinTX restarts to apply it.
 - **Connect an AI Assistant**: everything an AI client needs, as above.
-- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When an update changes how BitcoinTX calculates some gains, StartOS asks for it under **Tasks** on BitcoinTX's page, once (and again after a restore, until you have run it). If you recalculated in the app instead, dismiss the task there: its trash icon, then **Dismiss**.
+- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Account > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When an update changes how BitcoinTX calculates some gains, StartOS asks for it under **Tasks** on BitcoinTX's page, once (and again after a restore, until you have run it). If you recalculated in the app instead, dismiss the task there: its trash icon, then **Dismiss**.
 - **Set Login Credentials**: if you are locked out, stop BitcoinTX and run it: it sets the username back to `admin` with a new random password. Your transactions are not touched.
 
 ## Limitations
 
 BitcoinTX is in English and produces US (IRS) tax forms. Beyond that:
 
-- **One wallet and one exchange.** BitcoinTX tracks one self-custody Wallet and one Exchange. Since 2025, IRS rules require cost basis to be figured wallet by wallet and account by account, so if you use multiple wallets or exchange accounts, BitcoinTX's gains can differ from what the rules give. Keep separate records for each, or ask your tax preparer.
 - **BitcoinTX cannot be downgraded.** Each update may upgrade the database, and older versions refuse a newer database. BitcoinTX keeps copies of the database from before its last few upgrades in its `backups` folder. To go back, uninstall BitcoinTX, which deletes its data (those copies too), then restore a StartOS backup made before the update. Anything you entered after that backup is lost.

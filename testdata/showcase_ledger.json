@@ -1,5 +1,14 @@
 {
- "about": "A small made-up portfolio for the landing page's screenshots only (frontend/e2e/shots/site.ts): buys, sales with their gains, income, interest and a rebate, as a typical user's ledger looks. Not for testing: the tests use reference_ledger.json, which covers every case.",
+ "about": "A small made-up portfolio for the landing page's screenshots only (frontend/e2e/shots/site.ts): buys, sales with their gains, income, interest and a rebate, and a second wallet the first one moves coins to, as a typical user's ledger looks. Not for testing: the tests use reference_ledger.json, which covers every case.",
+ "accounts": [
+  {
+   "id": 100,
+   "name": "Coldcard",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A second wallet (2.0): the dashboard's Wallet card lists two."
+  }
+ ],
  "transactions": [
   {
    "type": "Deposit",
@@ -122,6 +131,15 @@
    "fee_currency": "BTC",
    "source": "Rebate",
    "cost_basis_usd": "24"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2025-08-01T16:00:00Z",
+   "from_account_id": 2,
+   "to_account_id": 100,
+   "amount": "0.3",
+   "fee_amount": "0.00003",
+   "fee_currency": "BTC"
   }
  ]
 }

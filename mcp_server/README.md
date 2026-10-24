@@ -7,9 +7,9 @@ describe it ("moved 0.05 BTC from River to my Coldcard yesterday, fee was 2k
 sats"). The assistant turns it into transactions, shows you a dry-run preview
 with dedup and the resulting gain/loss, and saves them once you confirm.
 
-BitcoinTX itself is a minimalist tracker for one self-custody wallet and one
-exchange account: see [One wallet, one
-exchange](https://github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange).
+BitcoinTX itself is a minimalist tracker for your wallets, exchanges and
+banks, each with its own lots: see [Wallets, exchanges and
+banks](https://github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks).
 
 The server runs **on your computer** and talks to your BitcoinTX instance
 over its normal API with an **AI key**, never your password. The Mac app
@@ -36,13 +36,26 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `add_transactions` | Save rows, all-or-nothing; duplicates are skipped unless you say one is another transaction. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list |
 | `list_transactions` | Search by date range, type and account; a value BitcoinTX filled from a price says which price, as in the preview |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale, or a spend and its network fee, goes in), `fee_usd`, and a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death) |
-| `get_portfolio` | Account balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
+| `get_portfolio` | Your accounts (each wallet, exchange and bank, by name), their balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now, and where it came from |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |
 | `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (one a minute). Restoring one is up to you |
 
 There is deliberately no bulk delete.
+
+**A change to an earlier tax year asks first.** An add, an edit, a delete
+or Recalculate Ledger that would change the figures of a tax year you may
+already have filed saves nothing at first: the tool answers with the years
+and what changes, and the AI calls it again only once you say yes. A copy
+of your ledger is made first. The preview shows the same before anything
+is added.
+
+**Keep the connector up to date with BitcoinTX.** Once your ledger has
+multiple wallets or exchanges, BitcoinTX refuses changes from a connector
+older than 2.0, which can't tell them apart: "This AI connector is older
+than BitcoinTX 2.0 and can't tell your wallets or exchanges apart. Update
+it (btctx-mcp 2.0 or later), then try again." It still reads your ledger.
 
 ## Requirements
 
