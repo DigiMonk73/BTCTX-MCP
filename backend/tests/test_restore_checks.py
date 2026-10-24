@@ -14,7 +14,7 @@ temp folder. The genuine ones (v0.7.0, revision 0007, current) are compared
 table by table with what starting the app on the same file gives.
 """
 
-import json
+import importlib.util
 import shutil
 import sqlite3
 from contextlib import closing
@@ -33,10 +33,13 @@ import backend.migrate
 from backend.database import get_db, seed_defaults
 from backend.main import app
 from backend.migrate import alembic_config, upgrade_database
+from backend.models.account import Account
+from backend.models.exchange import Exchange
 from backend.models.user import User
 from backend import session_auth
 from backend.routers import backup as backup_router
 from backend.schemas.transaction import TransactionCreate
+from backend.services import account as account_service
 from backend.services import ai_key, backup, outbound
 from backend.services.transaction import create_transaction_record
 from backend.tests.conftest import init_test_db
@@ -51,6 +54,16 @@ V0_7_0 = Path(__file__).parent / "fixtures" / "v0_7_0.db"
 STOPPED = "Restore failed: This install's login, AI key and price settings couldn't be kept in the " \
           "restored backup, so the restore stopped. Your database is unchanged."
 DAMAGED = "Restore failed: This file isn't a BitcoinTX backup, or it's damaged."
+
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+seed_ledger = _script("seed_ledger")  # the reference ledger's rows and accounts, as it seeds them
 
 
 def _engine(path):
@@ -686,16 +699,16 @@ def test_the_notice_shows_a_long_name_cut_short(live, tmp_path, monkeypatch):
 @pytest.fixture(scope="module")
 def reference_db(tmp_path_factory):
     """The reference test ledger (testdata/reference_ledger.json: every kind
-    of transaction, with its lots, disposals and ledger lines), stored daily
-    and hourly prices, and settings of its own, at the current schema."""
+    of transaction, with its lots, disposals and ledger lines, and 2.0's
+    multiple wallets, exchanges or accounts), stored daily and hourly
+    prices, and settings of its own, at the current schema."""
     path = tmp_path_factory.mktemp("reference") / "btctx.db"
     engine = _engine(path)
     init_test_db(engine)
-    rows = json.loads((REPO / "testdata" / "reference_ledger.json").read_text())["transactions"]
     with sessionmaker(bind=engine)() as db:
-        for row in rows:
-            data = TransactionCreate(**{k: v for k, v in row.items() if k != "why"}).model_dump()
-            create_transaction_record(data, db)
+        _add_the_ledgers_accounts(db)
+        for row in seed_ledger.ledger_rows():
+            create_transaction_record(TransactionCreate(**row).model_dump(), db)
     with engine.begin() as conn:
         for day, usd in (("2023-01-15", "21000.00"), ("2024-06-01", "67000.50"), ("2025-03-03", "86000.25")):
             conn.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES (:d, :u, 'bitstamp')"),
@@ -707,6 +720,18 @@ def reference_db(tmp_path_factory):
                        outbound.FALLBACK_KEY: "off", ai_key.ACCESS_KEY: "on", ai_key.HASH_KEY: "0" * 64})
     engine.dispose()
     return path
+
+
+def _add_the_ledgers_accounts(db) -> None:
+    """Its accounts list, with the ids it gives them (1.x's exchange is
+    there already), and each exchange's 1099-DA switch as it has it."""
+    for account in seed_ledger.ledger_accounts():
+        there = [db.get(Account, i) for i in account["ids"]]
+        made = there if all(there) else account_service.add_account(db, account["kind"], account["name"])
+        assert [a.id for a in made] == account["ids"], account
+        if account["kind"] == "exchange":
+            db.get(Exchange, made[0].exchange_id).sends_1099da = account["sends_1099da"]
+            db.commit()
 
 
 def _at_revision(source: Path, dest: Path, revision: str) -> Path:

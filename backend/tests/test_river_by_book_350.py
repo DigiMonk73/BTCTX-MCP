@@ -5,9 +5,8 @@ account) and `wallet_account_id` (a wallet); without them, the first
 exchange and the first wallet, as 1.x had them, never a hidden one. Its
 proposals use that exchange's two accounts and that wallet; a recurring buy
 is paid from the first bank not hidden, and may be paid from any bank not
-hidden or that exchange's dollars. Every name is the book's. Until B7a's
-gate the save takes only 1 to 4, so a file into an added exchange or wallet
-imports with the gate opened as B7a will (gate_open).
+hidden or that exchange's dollars. Every name is the book's, and a file
+into an added exchange or wallet imports (B7a's gate, #354).
 """
 
 import pytest
@@ -149,7 +148,7 @@ def import_rows(answer: dict) -> list[dict]:
              "price_moment": p["price_moment"]} for p in answer["proposals"]]
 
 
-def test_a_river_file_round_trip_into_kraken_and_cold_storage(gate_open, client):
+def test_a_river_file_round_trip_into_kraken_and_cold_storage(client):
     """The save goes through the CSV import's checks by name; a send from
     Kraken BTC carries its network fee in its amount (Sent + Fee, #39)."""
     add_them(client)

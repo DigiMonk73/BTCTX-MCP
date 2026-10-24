@@ -410,6 +410,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not ai_key.key_may_use(request.method, route):
         logger.info("AI key refused: %s %s isn't open to it", request.method, route or request.scope["path"])
         raise HTTPException(status_code=403, detail=ai_key.NOT_ALLOWED)
+    # A 1.x connector can't tell a second wallet or exchange from the first (2.0 spec 5.12)
+    if ai_key.from_an_old_connector(request.method, route, request.headers.get(ai_key.CONNECTOR_HEADER), db):
+        logger.info("AI key refused: %s %s from a connector older than 2.0", request.method, route)
+        raise HTTPException(status_code=409, detail=ai_key.OLD_CONNECTOR)
     return "ai_key"
 
 

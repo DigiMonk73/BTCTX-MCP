@@ -3,9 +3,8 @@ The AI import by the book (spec 5.11, 5.12; card B5a #350): the AI's rows
 name accounts as a CSV does (a reserved name, then a name now, ignoring
 case), the preview writes each account's name now, its duplicate notes
 too, and a hidden account's warning is passed on (5.5). A 1.x connector's
-names (the reserved ones) work as they always did. Until B7a's gate the
-save takes only 1 to 4, so rows into added accounts are saved with the gate
-opened as B7a will (gate_open).
+names (the reserved ones) work as they always did, and rows into added
+accounts are saved (B7a's gate, #354).
 """
 
 import pytest
@@ -79,7 +78,7 @@ def test_a_hidden_account_is_passed_on_as_a_warning(client):
     assert [c["warnings"] for c in r.json()["created"]] == [["Wallet is hidden in Settings."], []]
 
 
-def test_the_ais_rows_into_added_accounts_and_back(gate_open, client):
+def test_the_ais_rows_into_added_accounts_and_back(client):
     add_them(client)
     rows = [dict(PAYOUT, to_account="cold storage"),
             {"date": "2025-03-21T10:00:00Z", "type": "Transfer", "amount": "0.001", "from_account": "Cold Storage",

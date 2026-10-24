@@ -40,6 +40,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from backend.services.account import account_book
 from backend.services.desktop import desktop_info, is_desktop
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,37 @@ def key_may_use(method: str, route: str | None) -> bool:
     request matched, never its URL: a URL's path is re-parsed from the decoded
     one, where a %3F cuts it short (#204)."""
     return (method, route) in _ALLOWED
+
+
+# A 2.0 connector says so on every request, with its version; a 1.x one
+# sends no such header (2.0 spec 5.12). It tells the server which client it
+# is talking to: it isn't a security check, since any client can send it.
+CONNECTOR_HEADER = "x-bitcointx-connector"
+OLD_CONNECTOR = ("This AI connector is older than BitcoinTX 2.0 and can't tell your wallets or exchanges apart. "
+                 "Update it (btctx-mcp 2.0 or later), then try again.")
+# The AI key's writes: an import, an edit, a delete, Recalculate Ledger
+WRITES = {
+    ("POST", "/api/import/entries/execute"),
+    ("PUT", "/api/transactions/{transaction_id}"),
+    ("DELETE", "/api/transactions/{transaction_id}"),
+    ("POST", "/api/transactions/recalculate"),
+}
+
+
+def from_an_old_connector(method: str, route: str | None, connector: str | None, db: Session) -> bool:
+    """A write a 1.x connector sent (no connector header) to a ledger with
+    more than one wallet or more than one exchange, hidden ones counted
+    (5.12): its guide puts a second wallet's coins in Wallet, which the
+    server can't tell from a real Wallet entry. Its reads, and its writes to
+    a ledger of one of each, go on as in 1.x. Any version a 2.0 connector
+    sends counts (1.2.10 until 2.0's first pre-release bumps it, "unknown"
+    from a source tree, a beta's)."""
+    if connector is not None or (method, route) not in WRITES:
+        return False
+    book = account_book(db)
+    wallets = [i for i in book.yours() if book.kind(i) == "wallet"]
+    exchanges = {book.exchange_of(i) for i in book.yours() if book.kind(i) == "exchange"}
+    return len(wallets) > 1 or len(exchanges) > 1
 
 
 # Mode and storage

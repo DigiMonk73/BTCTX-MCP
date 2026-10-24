@@ -1,11 +1,11 @@
 """
-No account is asked about by its number (spec 5.4, card B3 #348): outside
-constants.py, the migrations and the tests, backend code never names
-BTC_ACCOUNTS (gone), and names 1.x's account constants or name maps only
-where a later card still changes them, listed below with that card. The
-list is exact, so a new check by number fails, and so does a place a card
-has fixed until its line goes; B7a empties it. External (ACCOUNT_EXTERNAL)
-and the fee accounts stay fixed ids everywhere (5.4).
+No account is asked about by its number (spec 5.4, cards B3 #348 and B7a
+#354): outside constants.py, the migrations and the tests, backend code
+never names BTC_ACCOUNTS or the name maps (gone), nor 1.x's first bank,
+wallet or exchange by its constant: the book answers. A place that would is
+listed below with the card that changes it; since B7a's gate, none is.
+External (ACCOUNT_EXTERNAL) and the fee accounts stay fixed ids everywhere
+(5.4).
 """
 
 import ast
@@ -21,13 +21,7 @@ NAMES = {"BTC_ACCOUNTS", "ACCOUNT_ID_TO_NAME", "ACCOUNT_NAME_TO_ID",
          "ACCOUNT_BANK", "ACCOUNT_WALLET", "ACCOUNT_EXCHANGE_USD", "ACCOUNT_EXCHANGE_BTC"}
 
 # (file, name): how many times, and the card that changes them
-STILL_BY_NUMBER = {
-    # B7a: the gate (5.10: USER_ACCOUNTS, 1 to 4 and 99, until the book's yours())
-    ("services/transaction.py", "ACCOUNT_BANK"): 1,
-    ("services/transaction.py", "ACCOUNT_WALLET"): 1,
-    ("services/transaction.py", "ACCOUNT_EXCHANGE_USD"): 1,
-    ("services/transaction.py", "ACCOUNT_EXCHANGE_BTC"): 1,
-}
+STILL_BY_NUMBER: dict[tuple[str, str], int] = {}
 
 
 def _uses() -> Counter:

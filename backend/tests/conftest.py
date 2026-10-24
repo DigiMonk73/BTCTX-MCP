@@ -410,17 +410,3 @@ def test_db(test_engine):
     db.close()
 
 
-@pytest.fixture
-def gate_open(monkeypatch):
-    """
-    The gate (5.10) opened for the accounts 1.x's account API made (7 to 98)
-    and those 2.0's adds (from 100), as B7a will open it for all of yours: so
-    B3's tests save into a second wallet, bank or exchange through the API,
-    and the engine's rules by the book are what they meet (5.15's "by
-    currency", until B7a's own tests take over).
-    """
-    from backend.services import csv_import, transaction
-
-    opened = frozenset(transaction.USER_ACCOUNTS) | frozenset(range(7, 99)) | frozenset(range(100, 1000))
-    monkeypatch.setattr(transaction, "USER_ACCOUNTS", opened)
-    monkeypatch.setattr(csv_import, "USER_ACCOUNTS", opened)

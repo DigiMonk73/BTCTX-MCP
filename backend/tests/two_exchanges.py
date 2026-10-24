@@ -1,7 +1,6 @@
 """
 A fresh ledger with two more exchanges, Kraken and Overseas, made through
-the account API, and the gate opened for them as B7a will open it
-(conftest's gate_open): card B4's tests (#349) save Buys, Sells and
+the account API: card B4's tests (#349) save Buys, Sells and
 Transfers on them through the transactions API, and read Form 8949, the
 complete tax report and Ledger Review. Every row the ledger saves is kept
 in the shape scripts/independent_figures.py reads, so each case is also
@@ -84,7 +83,7 @@ class Ledger:
 
 
 @pytest.fixture
-def ledger(gate_open, fresh_app) -> Ledger:
+def ledger(fresh_app) -> Ledger:
     client = TestClient(app)
     assert client.post("/api/login", json=default_login()).status_code == 200
     for name in ("Kraken", "Overseas"):
