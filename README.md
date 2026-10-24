@@ -1,8 +1,8 @@
 # BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
-A minimalist, self-hosted Bitcoin portfolio tracker and tax report generator
-for **your self-custody wallets, exchange accounts and banks**, each wallet
-and exchange with its own cost-basis lots (see [Wallets, exchanges and
+A self-hosted Bitcoin portfolio tracker and tax report generator for **your
+self-custody wallets, exchange accounts and banks**, each wallet and
+exchange with its own cost-basis lots (see [Wallets, exchanges and
 banks](#wallets-exchanges-and-banks)), with an **MCP server** so an AI
 assistant can enter transactions for you. What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
