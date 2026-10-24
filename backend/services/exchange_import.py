@@ -302,7 +302,8 @@ def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError])
         return None
     fee = abs(fee)
     if currency != wanted:
-        shown = f"${fee:,.2f}" if currency == "USD" else f"{fee} {currency}"
+        cents = currency == "USD" and fee == to_cents(fee)
+        shown = f"${fee:,.2f}" if cents else f"{fee.normalize():f} {currency}"
         warnings.append(CSVParseError(
             row_number=row.number, column=None, severity="warning",
             message=(f"This {kind}'s fee is {shown}: BitcoinTX records a {kind}'s fee in {wanted}, so it isn't "
@@ -313,15 +314,16 @@ def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError])
 
 def _given_fee(row: Cells, wanted: str, mapping: Mapping) -> tuple[Decimal | None, str | None]:
     """The fee the row gives, and its currency: from the wanted currency's
-    own column, else the fee column (in its currency column's currency,
-    else the wanted one), else the other currency's column."""
+    own column, else the fee column, in dollars unless its currency column
+    says bitcoin (a fee is never taken for bitcoin without the file saying
+    so), else the other currency's column."""
     columns = mapping.columns
     own, other = (columns.fee_usd, columns.fee_btc) if wanted == "USD" else (columns.fee_btc, columns.fee_usd)
     if (fee := _signed(row, own, mapping)) is not None:
         return fee, wanted
     if (fee := _signed(row, columns.fee, mapping)) is not None:
         said = row.get(columns.fee_currency).upper() if columns.fee_currency else ""
-        return fee, {"XBT": "BTC", "XXBT": "BTC", "$": "USD"}.get(said, said) or wanted
+        return fee, {"XBT": "BTC", "XXBT": "BTC", "$": "USD"}.get(said, said) or "USD"
     return _signed(row, other, mapping), "BTC" if wanted == "USD" else "USD"
 
 

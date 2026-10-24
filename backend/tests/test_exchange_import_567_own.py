@@ -106,6 +106,19 @@ def test_a_mapping_previewed_unsaved_reads_the_file(client):
     assert answer["total_rows"] == 6
 
 
+def test_a_fee_is_bitcoin_only_when_the_file_says_so(client):
+    """Without a currency column, a fee is dollars: a send's isn't read (a
+    dollar fee read as bitcoin would be a fortune), and the warning says so."""
+    mapping = {**MAPPING, "columns": {k: v for k, v in MAPPING["columns"].items() if k != "fee_currency"}}
+    r = client.post("/api/import/exchange/preview", data={"mapping": json.dumps(mapping)}, files=upload())
+    send = next(p for p in r.json()["proposals"] if p["type"] == "Transfer")
+    assert send["fee_amount"] is None
+    assert "This send's fee is 0.00001 USD: BitcoinTX records a send's fee in BTC" in "\n".join(
+        w["message"] for w in r.json()["warnings"])
+    buy = next(p for p in r.json()["proposals"] if p["type"] == "Buy")
+    assert (buy["cost_basis_usd"], buy["fee_amount"]) == ("1000.00", "10.00")
+
+
 def test_a_mapping_saved_is_listed_used_replaced_and_deleted(client):
     r = client.post("/api/import/exchange/mappings", json=MAPPING)
     assert r.status_code == 200, r.text
