@@ -70,10 +70,13 @@ def test_the_duplicate_note_names_the_accounts_as_they_are_called_now(fresh_app,
 
 
 def test_a_hidden_account_is_passed_on_as_a_warning(client):
+    """By the preview and by the add (5.5)."""
     assert client.put("/api/accounts/2", json={"hidden": True}).status_code == 200
     [result] = results(client, PAYOUT)
     assert result["status"] == "ready"
     assert "Wallet is hidden in Settings." in result["warnings"]
+    r = client.post("/api/import/entries/execute", json={"rows": [PAYOUT, dict(PAYOUT, to_account="Exchange BTC")]})
+    assert [c["warnings"] for c in r.json()["created"]] == [["Wallet is hidden in Settings."], []]
 
 
 def test_the_ais_rows_into_added_accounts_and_back(gate_open, client):

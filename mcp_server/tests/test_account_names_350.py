@@ -198,6 +198,22 @@ async def test_get_portfolio_lists_the_accounts(backend_db, seen):  # noqa: F811
     ]
 
 
+@pytest.mark.parametrize("tool, args", [
+    ("delete_transaction", {}), ("update_transaction", {"amount": "0.02"}),
+])
+async def test_the_names_are_read_before_a_write_never_after(seen, monkeypatch, tool, args):
+    """A list that can't be read stops the tool before it changes anything,
+    never after a write it then reports as failed (the review's finding)."""
+    await call(seen.mcp, "add_transactions", {"transactions": [DEPOSIT]})
+    tx = (await call(seen.mcp, "list_transactions"))["transactions"][0]
+    monkeypatch.setattr(server, "_accounts", {"names": None})  # a new run
+    seen.answers["/api/accounts/"] = (500, "down")
+    await call(seen.mcp, tool, {"transaction_id": tx["id"], **args}, expect_error=True)
+    assert [m for m, path, _ in seen.seen if path == f"/api/transactions/{tx['id']}" and m != "GET"] == []
+    del seen.answers["/api/accounts/"]
+    assert (await call(seen.mcp, "list_transactions"))["transactions"][0]["amount"] == tx["amount"]
+
+
 async def test_every_request_says_it_is_a_2_0_connectors(seen):
     await call(seen.mcp, "get_portfolio")
     await call(seen.mcp, "preview_transactions", {"transactions": [DEPOSIT]})
@@ -215,7 +231,8 @@ async def test_a_1x_server_gets_1xs_five_names(backend_db, status):  # noqa: F81
             assert preview["ready_count"] == 2
             text = await call(client, "preview_transactions", {"transactions": [dict(DEPOSIT, to_account="Jade")]},
                               expect_error=True)
-            assert text.endswith(UNKNOWN.format("Jade", FIRST))
+            assert text.endswith("Unknown account 'Jade'. This BitcoinTX is older than 2.0 and has only these "
+                                 "accounts: Bank, Wallet, Exchange USD, Exchange BTC, and External.")
             portfolio = await call(client, "get_portfolio")
             assert [(a["id"], a["name"]) for a in portfolio["accounts"]] == [
                 (1, "Bank"), (2, "Wallet"), (3, "Exchange USD"), (4, "Exchange BTC")]

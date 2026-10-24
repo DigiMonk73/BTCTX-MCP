@@ -190,6 +190,7 @@ def _created_answers(created: list[tuple[PreparedRow, Transaction]], db: Session
             realized_gain_usd=tx.realized_gain_usd,
             holding_period=tx.holding_period,
             from_price=from_price(tx, db, years),
+            warnings=p.account_warnings,
         )
         for p, tx in sorted(created, key=lambda c: c[0].row)
     ]

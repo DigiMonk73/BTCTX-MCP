@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
@@ -97,6 +97,8 @@ class PreparedRow:
     result: EntryResult = None
     day: date | None = None  # given as a date alone: its day in the tax timezone (#253)
     not_a_duplicate_of: int | None = None  # the user said it's another transaction than this one (#253, #378)
+    # The warnings about its accounts (a hidden one, 5.5), which the add passes on too
+    account_warnings: list[str] = field(default_factory=list)
 
 
 # Validation
@@ -212,6 +214,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | Non
             result=result,
             day=local_date(tx_data["timestamp"], tz) if tx_data and _date_only(row.date) else None,
             not_a_duplicate_of=row.not_a_duplicate_of,
+            account_warnings=[w.message for w in warnings if w.column in ("from_account", "to_account")],
         ))
     return prepared
 

@@ -99,6 +99,23 @@ def test_a_receive_typed_from_the_other_wallet_is_marked_review(client):
     assert "recorded from Cold Storage, not Wallet" in receive["discrepancy"]
 
 
+def test_a_deposit_typed_into_the_other_wallet_is_marked_review(client):
+    """The deposit the owner typed for those coins, into the wallet the file
+    didn't guess: linked to the send only by that wallet (the review's
+    finding: no candidate at all before)."""
+    tx = record(client, "Deposit", 99, COLD, "0.001", source="MyBTC", cost_basis_usd="100")
+    [send] = river(client, SEND)
+    assert found(send) == ("discrepancy", tx, False)
+    assert "recorded into Cold Storage, not Wallet" in send["discrepancy"]
+
+
+def test_a_withdrawal_typed_from_the_other_wallet_is_marked_review(client):
+    tx = record(client, "Withdrawal", COLD, 99, "0.0006", purpose="Spent", proceeds_usd="60")
+    [receive] = river(client, RECEIVE)
+    assert found(receive) == ("discrepancy", tx, False)
+    assert "recorded from Cold Storage, not Wallet" in receive["discrepancy"]
+
+
 def test_the_other_wallets_send_of_a_near_amount_isnt_offered(client):
     """Never in the rough pass, whose Review rows start unticked."""
     record(client, "Transfer", EXCHANGE_BTC, COLD, "0.0011", fee_amount="0.000005", fee_currency="BTC")
@@ -118,6 +135,7 @@ def test_the_wallet_chosen_for_the_file_is_the_one_compared(client):
     r = client.post("/api/import/river/preview", files={"file": ("river.csv", content, "text/csv")},
                     data={"wallet_account_id": str(COLD)})
     [send] = r.json()["proposals"]
+    assert send["to_account"] == "Cold Storage"
     assert found(send) == ("matched", tx, False)
 
 
@@ -151,3 +169,19 @@ def test_an_ai_row_into_another_kind_of_account_is_still_only_similar(client):
     result = ai_preview(client)
     assert (result["status"], result["matched_transaction_id"]) == ("possible_duplicate", tx)
     assert "recorded into Exchange BTC, not Wallet" in " ".join(result["warnings"])
+
+
+def test_a_1x_ledgers_notes_are_as_they_were(fresh_app, monkeypatch):
+    """One wallet: the guessed side never names another one, so a note says
+    nothing of it (the review's finding: it said "recorded into External,
+    not Wallet" beside a withdrawal)."""
+    stub_daily_prices(monkeypatch, lambda day: 100000.0)
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    record(client, "Deposit", 99, EXCHANGE_BTC, "1", at="2026-01-01T12:00:00Z", source="MyBTC", cost_basis_usd="1")
+    tx = record(client, "Withdrawal", EXCHANGE_BTC, 99, "0.001", at="2026-02-15T07:00:00Z", purpose="Spent",
+                proceeds_usd="100")
+    [send] = river(client, SEND)
+    assert (found(send), send["discrepancy"]) == (("discrepancy", tx, False), (
+        f"Same BTC amount as tx #{tx} (Withdrawal 0.00100000 BTC), recorded 3 hours earlier: it may be the same "
+        "transaction"))

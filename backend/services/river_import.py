@@ -709,13 +709,17 @@ def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, gue
     wallets, two exchanges' BTC or USD accounts, two banks: the owner's
     rule, 2026-10-15), so exchange B's send to a wallet is never exchange
     A's. With `guess` (the similar pass), a River row's guessed side may
-    name another wallet: the file chose its wallet, River didn't (the
-    owner's decision, 2026-10-16)."""
+    name another wallet, and then counts as going the same way: the file
+    chose its wallet, River didn't (the owner's decision, 2026-10-16), so a
+    deposit typed into the other wallet is offered too."""
+    alike = _other_accounts_alike(proposal, tx, book)
+    guessed = guess and proposal.guessed in alike
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
-        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id)
+        and (tx.from_account_id == proposal.from_account_id or tx.to_account_id == proposal.to_account_id
+             or guessed)
         and _in_dollars(tx, book) == _in_dollars(proposal, book)
-        and all(guess and side == proposal.guessed for side in _other_accounts_alike(proposal, tx, book))
+        and all(guessed and side == proposal.guessed for side in alike)
     )
 
 
@@ -853,8 +857,10 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
     used_tx_ids.add(best.id)
     proposal.matched_tx_id = best.id
     proposal.status = STATUS_DISCREPANCY
-    guessed = account_differences(proposal, best, book, (proposal.guessed,)) if proposal.guessed else []
-    what = [_when_recorded(proposal, best, tz), *guessed, *differences(proposal, best)]
+    # The other wallet the guessed side names (never External or another kind: a 1.x note stays as it was)
+    guessed = proposal.guessed in _other_accounts_alike(proposal, best, book)
+    what = [_when_recorded(proposal, best, tz), *(account_differences(proposal, best, book, (proposal.guessed,))
+                                                   if guessed else []), *differences(proposal, best)]
     proposal.discrepancy = (
         f"Same {'dollar' if _in_dollars(best, book) else 'BTC'} amount as tx #{best.id} "
         f"({_type_and_amount(best, book)}), "

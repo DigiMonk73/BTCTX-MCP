@@ -34,6 +34,8 @@ UNKNOWN = ("Unknown account '{name}'. The user's accounts: {names}, and External
            "they haven't added, ask them to add it in BitcoinTX (Settings, Wallets, exchanges and banks); never "
            "put it in another account.")
 RENAMED = "'{name}' is now called '{now}'. Use that name."
+# A BitcoinTX before 2.0 can't add an account: no point asking the user to
+UNKNOWN_1X = "Unknown account '{name}'. This BitcoinTX is older than 2.0 and has only these accounts: {names}, and External."
 
 # Characters nothing shows, left out when names are compared: BitcoinTX's
 # own list (backend/services/account.py INVISIBLE; a test checks the two agree)
@@ -67,6 +69,7 @@ class AccountNames:
     def __init__(self, listed: list[dict[str, Any]] | None):
         """`listed`: the account list's answer; None from a BitcoinTX before
         2.0 (its four accounts)."""
+        self.before_2_0 = listed is None
         listed = ACCOUNTS_1X if listed is None else listed
         self.yours = [{key: account.get(key) for key in SHOWN} for account in listed
                       if account.get("kind") in YOUR_KINDS]
@@ -90,4 +93,5 @@ class AccountNames:
         now = self._names.get(RESERVED_KEYS.get(name_key(name)))
         if now is not None:
             return RENAMED.format(name=name, now=now)
-        return UNKNOWN.format(name=name, names=", ".join(account["name"] for account in self.yours))
+        names = ", ".join(account["name"] for account in self.yours)
+        return (UNKNOWN_1X if self.before_2_0 else UNKNOWN).format(name=name, names=names)

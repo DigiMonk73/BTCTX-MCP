@@ -588,8 +588,9 @@ async def update_transaction(
         raise ToolError("No changes given.")
 
     await _complete_for_server_rules(transaction_id, changes, proceeds_given=proceeds_usd is not None)
+    names = await _account_names()  # before the write: a failure after it would report a saved edit as failed
     updated = await _call("PUT", f"/api/transactions/{transaction_id}", json=changes)
-    return _compact(updated, await _account_names())
+    return _compact(updated, names)
 
 
 def _text(value: Decimal | None) -> str | None:
@@ -654,8 +655,9 @@ async def delete_transaction(transaction_id: int) -> ToolResult:
     """Permanently delete one transaction. The ledger is
     recalculated afterward. Confirm with the user first and tell them what you're deleting."""
     current = await _call("GET", f"/api/transactions/{transaction_id}")
+    names = await _account_names()  # before the write, as update_transaction's
     await _call("DELETE", f"/api/transactions/{transaction_id}")
-    return {"deleted": _compact(current, await _account_names())}
+    return {"deleted": _compact(current, names)}
 
 
 @mcp.tool(annotations=ToolAnnotations(
