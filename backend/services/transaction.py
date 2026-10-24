@@ -281,8 +281,7 @@ def _value_blank_gift(tx_data: dict, db: Session) -> bool:
     the BTC price when its hour began (that day's where there's no hourly
     price) x the amount, as a blank income value and a Spent's proceeds are.
     A typed value, $0 included, is kept. Returns True when it filled it."""
-    if not _is_gift_like(tx_data, account_book(db)) or tx_data.get("fmv_usd") is not None \
-            or Decimal(tx_data.get("amount") or 0) <= 0:
+    if not _gift_left_blank(tx_data, account_book(db)):
         return False
     found = _gift_value_at(tx_data["amount"], tx_data.get("timestamp") or datetime.now(timezone.utc), db)
     if found is None:
@@ -492,6 +491,7 @@ def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction
     _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
+    # Asked before _check_edit fills a fee's currency (#649); edited_inputs asks it in the same place
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data, book)):
         _check_edit(tx, tx_data, type_changed, db)
         _revalue_btc_fee(tx, tx_data, db)
@@ -1071,38 +1071,69 @@ def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     """
     The row an edit makes, as find_prices_first reads a new one: its stored
     inputs with the edit's fields, as the save's first steps leave them
-    (_edit_as_saved), each value it holds from a price left blank where the
-    save prices it again (_blank_what_the_save_prices), so the prices found
-    are the ones the save asks for (#646): the form's unchanged echo of a
-    past-year row asked for one it never used. A row priced at the day is
-    still looked up at the day where the save may price at the hour (#647).
+    (_edit_as_saved, then the fee's currency filled), each value it holds
+    from a price left blank where the save prices it again
+    (_blank_what_the_save_prices), at the moment the save prices it
+    (_moment_the_edit_prices_at), so the prices found are the ones the save
+    asks for (#646, #647): the form's unchanged echo of a past-year row
+    asked for one it never used, and a row priced at the day for the day's
+    where the save asks the hour's.
     """
     book = account_book(db)
     stored = {**_stored_inputs(tx), "acquired_at": tx.acquired_at, "price_moment": tx.price_moment}
-    edit = _edit_as_saved(tx, tx_data, stored, db, book)
+    edit = _edit_as_saved(tx, tx_data, book)
+    # Asked where apply_update asks it: before the fee's currency is filled (#649)
+    keeps_the_day = _keeps_a_day_price(tx, edit, book)
+    _fill_the_fee_currency(edit, stored, db)
     fee_again = _fee_priced_again(tx, edit)
     # A fee kept keeps its mark, so a Spent priced again takes its moment (_spent_proceeds_moment)
     row = {**stored, "fee_usd": None if fee_again else tx.fee_usd,
            "fee_usd_from_price": "fee_usd" not in edit and not fee_again and tx.fee_usd is not None
            and not tx.fee_usd_manual, **edit}
     _blank_what_the_save_prices(row, tx, edit, db, book)
+    row["price_moment"] = _moment_the_edit_prices_at(row, keeps_the_day, db, book)
     return row
 
 
-def _edit_as_saved(tx: Transaction, tx_data: dict, stored: dict, db: Session, book: AccountBook) -> dict:
+def _edit_as_saved(tx: Transaction, tx_data: dict, book: AccountBook) -> dict:
     """A copy of the edit as apply_update's first steps leave it: a type
     change's fields dropped, a dollar deposit's basis, a gift's $0 proceeds,
-    an old withdrawal's gross sent, and a fee's currency filled as _check_edit
-    fills it before the fee is priced. They change only the copy."""
+    an old withdrawal's gross sent. They change only the copy."""
     edit = dict(tx_data)
     _drop_dollar_deposit_basis(tx, edit, book)
     _drop_fields_of_old_type(tx, edit)
     _drop_proceeds_it_never_had(tx, edit, book)
     _send_gross_of_an_old_withdrawal_sold(tx, edit)
+    return edit
+
+
+def _fill_the_fee_currency(edit: dict, stored: dict, db: Session) -> None:
+    """A fee's currency the edit leaves out, filled as _check_edit fills it before the fee is priced."""
     merged = {**stored, **edit}
     if _fill_fee_currency(merged, db):
         edit["fee_currency"] = merged["fee_currency"]
-    return edit
+
+
+def _moment_the_edit_prices_at(row: dict, keeps_the_day: bool, db: Session, book: AccountBook) -> str | None:
+    """The moment the edit's save prices the row's values at, as
+    values_the_save_prices and _moments_priced read it: the day while they
+    keep the day's price, else the hour for those it prices itself (a fee's
+    value, an income's, a gift's, in apply_update's _priced_at_the_day); else
+    the moment the row keeps, which a Spent's blank proceeds the replay
+    prices take (_price_for). A Spent's proceeds take their moment from
+    _spent_proceeds_moment: the hour without a fee or with a typed one, and
+    with a priced fee kept, the fee's moment, which is the one this gives
+    (the day above, or the row's own). An inheritance's value is always its
+    date of death's day."""
+    if keeps_the_day:
+        return "day"
+    priced = {field for field, _when, _at in values_the_save_prices(row, db)}
+    return "hour" if _gift_left_blank(row, book) or priced - {"proceeds_usd"} else row["price_moment"]
+
+
+def _gift_left_blank(row: dict, book: AccountBook) -> bool:
+    """A gift's, donation's or lost coins' value its save fills from the price (_value_blank_gift)."""
+    return _is_gift_like(row, book) and row.get("fmv_usd") is None and Decimal(row.get("amount") or 0) > 0
 
 
 def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
@@ -1127,7 +1158,7 @@ def _moments_priced(db: Session, rows: list[dict]) -> set[tuple[datetime, bool]]
     moments = set()
     for row in rows:
         moments |= {(when, at == "day") for _field, when, at in values_the_save_prices(row, db)}
-        if _is_gift_like(row, book) and row.get("fmv_usd") is None and Decimal(row.get("amount") or 0) > 0:
+        if _gift_left_blank(row, book):
             moments.add((row.get("timestamp") or datetime.now(timezone.utc), _prices_at_the_day(row)))
     return moments
 
