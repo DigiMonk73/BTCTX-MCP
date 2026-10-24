@@ -3,11 +3,15 @@ name: Publish image
 # Multi-arch (amd64 + arm64) Docker image on GitHub Container Registry, run by
 # the StartOS package (startos/):
 #   ghcr.io/digimonk73/btctx-mcp:v<VERSION>  first build of each VERSION, never overwritten
+#                                            (with :latest, for a release)
 #   ghcr.io/digimonk73/btctx-mcp:main        latest main
 #   ghcr.io/digimonk73/btctx-mcp:sha-<sha>   every main commit
 # The version comes from the VERSION file, so a release is: bump VERSION on main.
 # release.yml also calls this, so a release never depends on main having
-# published the version first.
+# published the version first. A 2.0 pre-release (VERSION X.Y.Z-alpha.N or
+# X.Y.Z-beta.N) gets only its version tag, never :latest or :main, and only
+# from its own branch, prerelease/v<VERSION> (2.0 plan 7.4, B10a; #251's
+# decision 28). The rules: scripts/image-tags.sh.
 on:
   push:
     branches: [main]
@@ -40,25 +44,9 @@ jobs:
 
       - name: Tags
         id: tags
-        run: |
-          VERSION="v$(tr -d '[:space:]' < VERSION)"
-          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "bad VERSION: $VERSION"; exit 1; }
-          TAGS=""
-          SMOKE=""
-          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
-            TAGS="$IMAGE:main,$IMAGE:sha-${GITHUB_SHA::7}"
-            SMOKE="$IMAGE:sha-${GITHUB_SHA::7}"
-          fi
-          # Version tags are immutable: only the first build of a VERSION gets it.
-          if docker buildx imagetools inspect "$IMAGE:$VERSION" >/dev/null 2>&1; then
-            echo "$VERSION already published; not overwriting"
-          else
-            TAGS="${TAGS:+$TAGS,}$IMAGE:$VERSION,$IMAGE:latest"
-            SMOKE="${SMOKE:-$IMAGE:$VERSION}"
-            echo "publishing $VERSION"
-          fi
-          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
-          echo "smoke=$SMOKE" >> "$GITHUB_OUTPUT"
+        # Version tags are immutable: only the first build of a VERSION gets
+        # one; a pre-release never :latest
+        run: scripts/image-tags.sh >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         if: steps.tags.outputs.tags != ''

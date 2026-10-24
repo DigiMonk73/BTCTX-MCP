@@ -62,6 +62,9 @@ workflow keeps up to date by itself. We don't touch it.)
   step can be undone; `develop`'s latest 1.x work comes in before every
   step. Its safety rules ("Protect 2.0", "Protect 2.0 pins") are the
   owner's to set. The plan and where each step stands: issue #251.
+- **`prerelease/v2.0.0-alpha.N`, then `prerelease/v2.0.0-beta.N`**: a 2.0
+  alpha, later a beta, for anyone who chooses to test it, published from
+  `2.0` with the owner's "release" (section 2b), then deleted.
 - **Short branches**: one per change (`claude/...`), deleted by GitHub
   when its pull request merges.
 
@@ -161,6 +164,51 @@ grows too long. Details: `AGENTS.md`, "Big work".
    README's `docs/images/` (then `main` is fast-forwarded, docs only, as
    GitHub shows the README from `main`) and the landing page together. The owner sees the
    landing page before it goes live, since it's public.
+
+## 2b. A 2.0 alpha or beta (a pre-release)
+
+While 2.0 is tested, anyone who chooses can try it from GitHub: first as
+*alphas* (`v2.0.0-alpha.1`, `alpha.2`…), the earliest test versions,
+then as *betas* (`v2.0.0-beta.1`…) once the alphas have settled (the
+owner's decision 28, #251). Nobody gets one by accident:
+
+1. `develop` comes into `2.0` first, so the pre-release has every 1.x
+   fix.
+2. A pull request into `2.0` raises the version to `2.0.0-alpha.N` (or
+   `2.0.0-beta.N`) everywhere, with its release notes; the build's lead
+   merges it (the owner gave the lead the 2.0 build's merges, #251's
+   decision 25).
+3. The tests: before the first alpha, CI's full set green on `2.0` and
+   the StartOS test machine's trial of the update and the ways back
+   repeated on that build; before the first beta, all of 2.0's release
+   tests, with a fresh read of every doc; before a later one, those of
+   what changed and the update from the one before.
+4. With the owner's "release", a `prerelease/v2.0.0-alpha.N` (or
+   `-beta.N`) branch from `2.0` starts it on GitHub, the same workflow as
+   a release, except that:
+   - its commit must be on `2.0`, not `main`;
+   - the GitHub release is a *pre-release*, never "Latest", so the
+     download links that follow the latest release (the landing page's,
+     the README's) stay on 1.x;
+   - the Docker image gets only its own tag (`:v2.0.0-alpha.N`), never
+     `:latest` or `:main`;
+   - the AI connector goes to PyPI as a pre-release (`2.0.0aN`, a beta's
+     `2.0.0bN`), which only someone asking for that version gets;
+   - the Mac app is a separate app, "BitcoinTX Preview"
+     (`BitcoinTX-Preview-macOS.dmg`), the same for every alpha and beta,
+     with its own ledger, which carries from one to the next;
+   - nothing goes to the mirror or to Start9.
+5. Delete the `prerelease/` branch afterwards. A pre-release's tag can't
+   be moved, and its Docker image and AI connector may be out before the
+   tag: if its run fails, its failed steps are run again on the same
+   commit, or the next try is the next pre-release, never the same branch
+   from a newer commit.
+
+Testers report what they find with the "2.0 alpha or beta report" form
+(label `pre-release`). GitHub shows a form only once `main` has it: at
+the next fast-forward of `main` that is only docs, tests or tooling, else
+at the next 1.x release. The owner decides when the betas have run long
+enough; then 2.0's release follows section 2.
 
 ## 3. Sending a release to Start9
 
