@@ -254,30 +254,72 @@ def test_with_the_ai_key_a_duplicate_beside_a_row_dated_last_adds_at_once(ai, mo
     assert r.json()["imported_count"] == 1
 
 
-def test_its_confirm_checks_for_duplicates_inside_the_write_lock_it_writes_in(ledger, monkeypatch):
+def live_db_locked(db) -> bool:
+    """Whether the live database's write lock is held (by the session checking)."""
+    other = sqlite3.connect(db.get_bind().url.database, timeout=0)
+    try:
+        other.execute("BEGIN IMMEDIATE")
+        other.rollback()
+        return False
+    except sqlite3.OperationalError:
+        return True
+    finally:
+        other.close()
+
+
+def test_its_confirm_writes_its_rows_after_a_duplicate_check_inside_the_write_lock(ledger, monkeypatch):
+    """The check the rows are written after, of those very rows, under the
+    lock they're written under (#454, #504): the checks before it only decide
+    which years the rows can reach."""
     client, _ = ledger
     asked = ai_import(client, [OLD_ROW]).json()
-    locked = []
-    real = entry_import.mark_duplicates
+    checks, written = [], []
+    check, create = entry_import.mark_duplicates, entry_import._create_in_order
 
-    def check(prepared, db, exact_only=False):
+    def checking(prepared, db, exact_only=False):
         if exact_only and not db.info.get(SCRATCH):
-            other = sqlite3.connect(db.get_bind().url.database, timeout=0)
-            try:
-                other.execute("BEGIN IMMEDIATE")
-                other.rollback()
-                locked.append(False)
-            except sqlite3.OperationalError:
-                locked.append(True)
-            finally:
-                other.close()
-        return real(prepared, db, exact_only)
+            checks.append(({id(p) for p in prepared}, live_db_locked(db)))
+        return check(prepared, db, exact_only)
 
-    monkeypatch.setattr(entry_import, "mark_duplicates", check)
+    def creating(ordered, db):
+        if not db.info.get(SCRATCH):
+            written.append(({id(p) for p in ordered}, checks[-1]))
+        return create(ordered, db)
+
+    monkeypatch.setattr(entry_import, "mark_duplicates", checking)
+    monkeypatch.setattr(entry_import, "_create_in_order", creating)
     assert ai_import(client, [OLD_ROW], {"confirm": asked["confirm"]}).status_code == 200
-    # The last check is the one its rows are written after (the earlier ones
-    # only decide which years the rows can reach)
-    assert locked and locked[-1] is True
+    [(rows, (checked, locked))] = written
+    assert rows and rows <= checked and locked
+
+
+def test_rivers_confirm_writes_its_rows_after_a_duplicate_check_inside_the_write_lock(ledger, monkeypatch):
+    from backend.routers import river_import as river_router
+
+    client, _ = ledger
+    # Beside a row already in the ledger (sent again): only the check can leave it out
+    again = {**RIVER_OLD, "row_number": 3, "date": "2024-01-10T12:00:00Z", "cost_basis_usd": "1000"}
+    asked = river(client, [RIVER_OLD, again]).json()
+    checks, written = [], []
+    check, create = river_router._not_in_the_ledger, river_router.create_in_time_order
+
+    def checking(to_check, reserved, db):
+        kept = check(to_check, reserved, db)
+        if not db.info.get(SCRATCH):
+            checks.append(([dict(row) for row in kept], live_db_locked(db)))
+        return kept
+
+    def creating(db, transactions):
+        if not db.info.get(SCRATCH):  # as given: the save completes them in place
+            written.append(([dict(row) for row in transactions], checks[-1]))
+        return create(db, transactions)
+
+    monkeypatch.setattr(river_router, "_not_in_the_ledger", checking)
+    monkeypatch.setattr(river_router, "create_in_time_order", creating)
+    r = river(client, [RIVER_OLD, again], {"confirm": asked["confirm"]})
+    assert (r.status_code, r.json()["imported_count"]) == (200, 1), r.text
+    [(rows, (checked, locked))] = written
+    assert len(rows) == 1 and rows == checked and locked
 
 
 def test_with_the_ai_key_a_change_from_a_fixed_rule_in_an_earlier_year_asks(ai):
@@ -612,8 +654,8 @@ def test_past_the_budget_with_the_ai_key_a_batch_names_every_year_a_fix_can_reac
     past_the_budget(monkeypatch)
     by_date_and_confirmed(client, lambda params: ai_import(key, [{**NEW_ROW, "date": "2026-01-15T12:00:00Z"}], params),
                           "These rows can change the figures of tax year 2024 and later years you may have filed: "
-                          "saving them also applies the rules fixed since they were saved. Save them? A copy of your "
-                          "ledger is made first.", [2024, 2025], "ai")
+                          "saving them also applies the rules fixed since your transactions were saved. Save them? A "
+                          "copy of your ledger is made first.", [2024, 2025], "ai")
 
 
 def test_past_the_budget_a_river_import_names_the_years_from_its_first_row(ledger, monkeypatch):

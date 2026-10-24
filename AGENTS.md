@@ -255,18 +255,20 @@ scripts and the click-through specs confirm the 409 (`send_confirmed`,
 The other writes go through the same `past_years.save`, each a write of
 its own (#353; `services/past_year_writes.py`): the AI's import and River's
 (one confirm for the batch or file, its duplicate check run inside the
-write lock its rows are written under; the AI's preview gives the
+write lock its rows are written under; only the rows that check keeps
+count, so a batch sent again asks nothing; the AI's preview gives the
 execute's 409 as `past_years`, River's lists the past years its new rows
-are dated in as `past_years_dated`), Settings' Save of the tax timezone (each pass reads dates in
-its own timezone, so a row whose tax year moves is listed under both; the
-timezone in use saved again never asks; the login's fill is 1.x's, an empty
-ledger only), an exchange's 1099-DA switch (`PUT /api/accounts/{id}`
+are dated in as `past_years_dated`), Settings' Save of the tax timezone
+(each pass reads dates in its own timezone, so a row whose tax year moves
+is listed under both; the timezone in use saved again never asks; the
+login's fill is 1.x's, an empty ledger only), an exchange's 1099-DA switch (`PUT /api/accounts/{id}`
 `{sends_1099da}`: boxes compared, no replay) and, with the AI key,
 Recalculate Ledger (what it changes is `pending`; with a login it never
 asks). The AI connector answers a 409 as the tool's answer (`saved: false`,
 the fields, how to confirm: `confirm`, `update_transaction`'s
 `confirm_move`), and gives the writes that can answer one, and Ledger
-Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement; #637).
+Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
+#637).
 
 ## Tax invariants (each has regression tests; don't break them)
 

@@ -25,8 +25,8 @@ from backend.services.past_years import PastYearWrite, moves_only_dollars
 ROWS_BY_DATE = ("These rows start in {year}, so they can change {year}'s figures and later years you may have "
                 "filed. Save them? A copy of your ledger is made first.")
 ROWS_BY_DATE_WITH_FIXES = ("These rows can change the figures of tax year {year} and later years you may have "
-                           "filed: saving them also applies the rules fixed since they were saved. Save them? A copy "
-                           "of your ledger is made first.")
+                           "filed: saving them also applies the rules fixed since your transactions were saved. Save "
+                           "them? A copy of your ledger is made first.")
 TIMEZONE_BY_DATE = ("Saving this tax timezone recalculates your ledger from {year} on, so it can change {year}'s "
                     "figures and later years you may have filed. Save it? A copy of your ledger is made first.")
 RECALCULATES = ("Recalculating applies the rules fixed since your transactions were saved, and changes the figures "
