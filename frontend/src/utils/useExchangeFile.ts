@@ -104,6 +104,7 @@ export function useExchangeFile(toast: Toasts) {
 
   /** Save the draft: a new mapping of the owner's, or the one being edited. */
   const save = async () => {
+    asked.current += 1; // a file's columns asked for before the save are the last mapping's
     setSaving(true);
     try {
       const own = mappingFrom(draft);

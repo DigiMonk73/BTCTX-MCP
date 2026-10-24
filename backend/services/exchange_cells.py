@@ -72,6 +72,10 @@ class Header:
         """The place of the first of `names` the header has."""
         return next((self.places[n.lower()] for n in names if n.lower() in self.places), None)
 
+    def repeated_by(self, cells: list[str]) -> bool:
+        """Whether a row is this header again: files joined, each with its own."""
+        return [c.strip().lower() for c in cells] == [n.lower() for n in self.names]
+
     def name(self, names: Iterable[str]) -> str | None:
         """That column's name as the file writes it."""
         place = self.place(names)
@@ -120,6 +124,9 @@ class RowError(ValueError):
 
     def problem(self, row_number: int) -> CSVParseError:
         return CSVParseError(row_number=row_number, column=self.column, severity="error", message=str(self))
+
+
+HEADER_AGAIN = "repeat the file's header (files joined)"
 
 
 class LeftOut:

@@ -2,10 +2,9 @@
 // one of the owner's saved mappings) the column matcher (B5b, #567).
 
 import React from "react";
-import { mappingFrom, type Draft } from "../../utils/exchangeMapping";
+import { MATCH_COLUMNS, mappingFrom, type Draft } from "../../utils/exchangeMapping";
 import type { ExchangeFile } from "../../utils/useExchangeFile";
 import ColumnMatcher from "./ColumnMatcher";
-import { MATCH_COLUMNS } from "../../utils/exchangeMapping";
 import ExchangeFilePicker from "./ExchangeFilePicker";
 import "../../styles/exchangeImport.css";
 

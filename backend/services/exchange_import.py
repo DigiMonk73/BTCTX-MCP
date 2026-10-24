@@ -20,6 +20,7 @@ from decimal import Decimal
 from backend.schemas.csv_import import CSVParseError
 from backend.services.csv_import import TOO_MANY_FIELDS
 from backend.services.exchange_cells import (
+    HEADER_AGAIN,
     HEADER_SEARCH,
     Cells,
     FileRead,
@@ -109,7 +110,9 @@ def _needed(mapping: Mapping) -> dict[str, tuple[str, ...]]:
 def _read_rows(data: list[tuple[int, list[str]]], header: Header, mapping: Mapping) -> FileRead:
     read, left_out, rows = FileRead(total_rows=len(data)), LeftOut(), []
     for number, cells in data:
-        if any(c.strip() for c in cells[len(header.names):]):
+        if header.repeated_by(cells):
+            left_out.add(HEADER_AGAIN, number)
+        elif any(c.strip() for c in cells[len(header.names):]):
             read.errors.append(CSVParseError(row_number=number, column=None, severity="error", message=TOO_MANY_FIELDS))
         else:
             rows.append(Cells(number, header, cells))

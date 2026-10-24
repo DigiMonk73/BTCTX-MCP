@@ -22,13 +22,15 @@ interface ColumnMatcherProps {
 const ColumnMatcher: React.FC<ColumnMatcherProps> = ({ file, draft, disabled, saving, onChange, onSave }) => {
   const missing = missingRoles(draft);
   const wordsOf = (role: Role) => (draft.columns[role] ? file.values[draft.columns[role] as string] ?? [] : []);
+  // The import reads a kind word in any case, so each is asked once ("Buy" for "BUY" too)
+  const kindWords = wordsOf("kind").filter((w, i, all) => all.findIndex((v) => v.toLowerCase() === w.toLowerCase()) === i);
   const setColumn = (role: Role, column: string) => onChange({ ...draft, columns: { ...draft.columns, [role]: column } });
   return (
     <div className="column-matcher">
       <SampleRows file={file} />
       <MatchColumns columns={file.columns} draft={draft} disabled={disabled} onChange={setColumn} />
       {draft.columns.kind && (
-        <MatchKinds words={wordsOf("kind")} kinds={draft.kinds} disabled={disabled}
+        <MatchKinds words={kindWords} kinds={draft.kinds} disabled={disabled}
           onChange={(word, kind) => onChange({ ...draft, kinds: { ...draft.kinds, [word]: kind } })} />
       )}
       {draft.columns.asset && (

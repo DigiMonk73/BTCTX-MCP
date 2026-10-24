@@ -122,3 +122,22 @@ def test_two_kind_words_alike_but_for_their_case_need_one_kind(client):
 def test_an_own_mapping_cant_take_a_ready_made_ones_name(client):
     r = client.post("/api/import/exchange/mappings", json={**OWN, "name": "kraken"})
     assert r.status_code == 409 and r.json()["detail"] == "A ready-made mapping has that name."
+
+
+# The re-check's nits: files joined with their header, another asset's line
+
+def test_a_header_repeated_by_joined_files_is_left_out_as_one(client):
+    answer = preview(client, KRAKEN, [*BUY_LINES, KRAKEN, '"L3","Q1","2025-03-05 18:45:00","deposit","","currency",'
+                                                          '"BTC","spot / main",0.0010000000,0,0'], mapping_id="kraken")
+    assert answer["errors"] == [] and len(answer["proposals"]) == 2
+    assert "Row 4 repeat the file's header (files joined)" in said(answer)
+    own = preview(client, "When,Type,Coins,Dollars", ["2025-04-01 09:00,Bought,0.01,100.00", "When,Type,Coins,Dollars",
+                                                      "2025-04-02 09:00,Bought,0.02,200.00"], mapping=OWN)
+    assert own["errors"] == [] and len(own["proposals"]) == 2 and "Row 3 repeat the file's header" in said(own)
+
+
+def test_another_assets_unreadable_number_leaves_its_kraken_line_out_with_the_rest(client):
+    lines = ['"L5","T5","2025-03-20 11:00:00","trade","tradespot","currency","ETH","spot / main",0.1abc,0,0',
+             '"L6","T5","2025-03-20 11:00:00","trade","tradespot","currency","USD","spot / main",-300.0000,0.78,0']
+    answer = preview(client, KRAKEN, lines, mapping_id="kraken")
+    assert answer["errors"] == [] and "are ETH, not bitcoin" in said(answer)

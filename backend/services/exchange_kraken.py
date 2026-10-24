@@ -13,6 +13,7 @@ from decimal import Decimal
 
 from backend.schemas.csv_import import CSVParseError
 from backend.services.exchange_cells import (
+    HEADER_AGAIN,
     Cells,
     FileRead,
     LeftOut,
@@ -46,6 +47,9 @@ def read_ledger(rows: Records, whose: str = "Kraken's") -> FileRead:
         return FileRead(errors=[header])
     data = [Cells(number, header, cells) for number, cells in rows if number > header.number]
     read, left_out = FileRead(total_rows=len(data)), LeftOut()
+    for line in [line for line in data if header.repeated_by(line.cells)]:
+        left_out.add(HEADER_AGAIN, line.number)
+    data = [line for line in data if not header.repeated_by(line.cells)]
     for lines in _events(data, left_out).values():
         try:
             event = _event(lines, left_out, read.warnings)
@@ -87,15 +91,16 @@ class _Lines:
         self.others: list[str] = []
         for line in lines:
             asset = line.get(("asset",)).upper().split(".")[0]
-            unit = "BTC" if asset in BITCOIN else "USD" if asset in DOLLARS else None
+            if asset not in BITCOIN | DOLLARS:
+                self.others.append(line.get(("asset",)) or "no asset")  # left out, its numbers never read
+                continue
+            unit = "BTC" if asset in BITCOIN else "USD"
             amount = read_number(line.get(("amount",)), column="amount", unit=unit) or Decimal(0)
             fee = read_number(line.get(("fee",)), column="fee", unit=unit) or Decimal(0)
-            if asset in BITCOIN:
+            if unit == "BTC":
                 self.btc, self.btc_fee, self.has_btc = self.btc + amount, self.btc_fee + fee, True
-            elif asset in DOLLARS:
-                self.usd, self.usd_fee, self.has_usd = self.usd + amount, self.usd_fee + fee, True
             else:
-                self.others.append(line.get(("asset",)) or "no asset")
+                self.usd, self.usd_fee, self.has_usd = self.usd + amount, self.usd_fee + fee, True
 
 
 def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError]) -> FileRow | None:
