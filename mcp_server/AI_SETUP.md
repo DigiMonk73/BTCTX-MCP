@@ -47,18 +47,20 @@ configuration file intact.
 `bitcointx-preview` and the connector `btctx-mcp==2.0.0aN` or `2.0.0bN`):
 - a `bitcointx-preview` server already there: change only the version in
   its arguments, as below;
-- only when the prompt gives a `BTCTX_URL` (Docker or StartOS): a
-  `bitcointx` server that reaches the same server is this same BitcoinTX
-  (on StartOS the pre-release updated the user's BitcoinTX in place).
-  Compare the host and port, ignoring a trailing `/api` (StartOS's MCP
-  address ends in it); a StartOS server's `.local` name, its IP address and
-  its `.onion` address are the same server. Change that server's version
-  instead of adding another;
+- only on StartOS (the prompt's `BTCTX_URL` is a StartOS server's MCP
+  address, `https://…/api`), where the pre-release updated the user's
+  BitcoinTX in place: a `bitcointx` server that reaches that same StartOS
+  server is this same BitcoinTX. Compare the host and port, ignoring the
+  trailing `/api`; the server's `.local` name, its IP address and its
+  `.onion` address are the same server. Change that server's version
+  instead of adding another, keeping its key;
 - otherwise add it as `bitcointx-preview`, and leave any `bitcointx` server
   exactly as it is: it reaches the user's own BitcoinTX (another address,
-  or, with no `BTCTX_URL`, the BitcoinTX Mac app). On a Mac the pre-release
-  is a separate app, BitcoinTX Preview, which must be open, and its prompt
-  has no address: never change a `bitcointx` server there.
+  or, with no `BTCTX_URL`, the BitcoinTX Mac app). On Docker a pre-release
+  runs on a new volume, with its own AI key, even at an address 1.x once
+  had; on a Mac it is a separate app, BitcoinTX Preview, which must be
+  open, and its prompt has no address: never change a `bitcointx` server
+  in either.
 
 **Already set up?** (A release; for a 2.0 alpha or beta, the rule just
 above.) If their AI app already has a `bitcointx` server, don't add it
@@ -117,6 +119,11 @@ plain-text file. The key can be turned off or reset in **Settings → Connect
 an AI Assistant**; after a reset the server picks up the new key by itself.
 
 ## 2B. Docker or StartOS: add the server to the app you're running in
+
+For a 2.0 alpha or beta, use the prompt's name, `bitcointx-preview`, for
+`bitcointx` below and its `btctx-mcp==2.0.0aN` or `2.0.0bN`, beside any
+`bitcointx` server, unless the rule above (StartOS) has you change the
+`bitcointx` that reaches this same server.
 
 Use these environment variables (drop `BTCTX_CA_BUNDLE` unless needed):
 
