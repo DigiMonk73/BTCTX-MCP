@@ -1,44 +1,79 @@
 """
-scripts/equivalence_check.py reuses a release's snapshot only within the day
-it holds. The reports print the UTC date, so the day is UTC's: keyed by the
-computer's own date, an evening west of UTC reused the snapshot of the UTC
-day before, and every report's date showed as a difference (#630).
+scripts/equivalence_check.py reuses a release's snapshot only while the
+snapshot would hold the same dates. A report prints today's date in its
+ledger's tax timezone, so the snapshot is kept by today's date in each of
+those zones. Kept by the computer's own date, a baseline taken in Chicago
+before 19:00 was reused after it, when the UTC and Tokyo ledgers' reports
+already said the next day (#630).
 """
 
 import importlib.util
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "equivalence_check.py"
-_spec = importlib.util.spec_from_file_location("equivalence_check", SCRIPT)
-check = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(check)
+SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+import equivalence_inputs as inputs  # noqa: E402
 
-# 21:00 in Chicago (CDT) on 2026-10-23 is already 2026-10-24 in UTC
-EVENING_WEST = datetime(2026, 10, 24, 2, 0, tzinfo=timezone.utc)
+
+def _load(name):
+    spec = importlib.util.spec_from_file_location(name, SCRIPTS / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+check = _load("equivalence_check")
+snapshot = _load("equivalence_snapshot")
+CHICAGO = ZoneInfo("America/Chicago")
+
+
+def _utc(day, hour, minute=0):
+    return datetime(2020, 3, day, hour, minute, tzinfo=timezone.utc)
 
 
 class _Clock(datetime):
-    """The script's clock at EVENING_WEST, as a computer in Chicago reads it."""
+    """The script's clock at `instant`, as a computer in Chicago reads it."""
+
+    instant = _utc(11, 6)
 
     @classmethod
     def now(cls, tz=None):
-        return EVENING_WEST if tz is not None else datetime(2026, 10, 23, 21, 0)
+        if tz is None:
+            return cls.instant.astimezone(CHICAGO).replace(tzinfo=None)
+        return cls.instant.astimezone(tz)
 
 
-def test_the_baseline_is_kept_by_the_reports_utc_day(monkeypatch):
-    monkeypatch.setattr(check, "datetime", _Clock, raising=False)
-    assert check._report_day() == "2026-10-24"
+def _folder(monkeypatch, tmp_path, instant):
+    """The baseline folder equivalence_check names at `instant`."""
 
-
-def test_the_baseline_folder_names_that_day(monkeypatch, tmp_path):
     def take(root, out, bench):
         out.mkdir(parents=True)
         (out / "done").touch()
 
-    monkeypatch.setattr(check, "datetime", _Clock, raising=False)
+    _Clock.instant = instant
+    monkeypatch.setattr(check, "datetime", _Clock)
     monkeypatch.setattr(check, "STORE", tmp_path)
     monkeypatch.setattr(check, "_git", lambda *args: "0123456789abcdef\n")
     monkeypatch.setattr(check, "_take", take)
-    out = check._baseline_snapshot("origin/2.0", bench=False, fresh=False)
-    assert out.name.endswith("-2026-10-24"), out.name
+    return check._baseline_snapshot("origin/2.0", bench=False, fresh=False).name
+
+
+def test_a_baseline_is_retaken_after_a_midnight_in_any_ledgers_zone(monkeypatch, tmp_path):
+    # Chicago (CDT, from 2020-03-08) 18:00 → 19:30: the UTC ledgers' date moves
+    assert _folder(monkeypatch, tmp_path, _utc(10, 23)) != _folder(monkeypatch, tmp_path, _utc(11, 0, 30))
+    # 20:00 → 00:30, the same UTC day: New York's and Chicago's dates move
+    assert _folder(monkeypatch, tmp_path, _utc(11, 1)) != _folder(monkeypatch, tmp_path, _utc(11, 5, 30))
+    # 09:00 → 11:00: Tokyo's date moves
+    assert _folder(monkeypatch, tmp_path, _utc(11, 14)) != _folder(monkeypatch, tmp_path, _utc(11, 16))
+
+
+def test_a_baseline_is_reused_while_every_date_holds(monkeypatch, tmp_path):
+    # 01:00 → 08:00 in Chicago: the same date in UTC, New York, Chicago and Tokyo
+    assert _folder(monkeypatch, tmp_path, _utc(11, 6)) == _folder(monkeypatch, tmp_path, _utc(11, 13))
+
+
+def test_the_baseline_is_kept_by_every_ledgers_zone():
+    assert {zone for _, zone, _ in snapshot._ledgers()} == set(inputs.ZONES)
