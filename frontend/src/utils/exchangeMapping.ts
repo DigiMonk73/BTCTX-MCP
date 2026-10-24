@@ -20,7 +20,7 @@ export const ROLES: RoleInfo[] = [
   { role: "kind", label: "Kind of row", hint: "Buy, sell, send…: you say what each word means below.", required: true },
   { role: "btc", label: "Bitcoin amount", hint: "The bitcoin bought, sold, sent or received.", required: true },
   { role: "usd", label: "Dollar amount", hint: "What a buy cost or a sell brought.", required: false },
-  { role: "fee", label: "Fee", hint: "In dollars, unless a column says its currency.", required: false },
+  { role: "fee", label: "Fee", hint: "In dollars, unless its cell (0.0001 BTC) or a column says its currency.", required: false },
   { role: "fee_currency", label: "Fee currency", hint: "Only if a column says each fee's currency (USD, BTC).", required: false },
   { role: "fee_btc", label: "Network fee in bitcoin", hint: "A send's fee, if it has a column of its own.", required: false },
   { role: "asset", label: "Asset", hint: "Only if the file has other coins: their rows are left out.", required: false },

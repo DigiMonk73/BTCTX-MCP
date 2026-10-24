@@ -64,8 +64,12 @@ All notable changes to BitcoinTX are documented in this file.
   proceeds are taken before the fee, the fee recorded apart, whichever way
   the exchange writes its dollars (a total that includes the fee, or a
   net received after it); a fee is bitcoin only when the file says so;
-  amounts are kept to the satoshi and the cent. River's file reads exactly
-  as before: its rows, figures and duplicate checks are unchanged. The
+  amounts are kept to the satoshi and the cent; a cell is never read as
+  another number or currency than it says, and a row whose money goes the
+  other way than its kind (a reversal written as a buy) is left out. River's
+  file reads as before: the same rows, figures and duplicate checks, two
+  warnings reworded, and a Sell with a negative fee (which River never
+  writes) left out with a warning instead of refused at the import. The
   importer's mappings may name Coinbase, the exchange whose own file you
   upload, and BitcoinTX still never asks Coinbase anything (#161): the
   file that names it can make no request, and a test keeps it so.

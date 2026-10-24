@@ -540,11 +540,14 @@ class _Adapter:
             amount=row.btc, proceeds_usd=row.usd, fee_amount=row.fee, fee_currency="USD" if row.fee else None,
         )
 
-    def payout(self, row: FileRow) -> RiverProposal:
+    def payout(self, row: FileRow) -> RiverProposal | None:
         # BTC the exchange paid (River's interest on the cash balance too,
         # which River pays in BTC). Its basis, the value at receipt, is the
         # file's when it gives one, else filled from the hour's price by the
-        # router; editable.
+        # router; editable. River's reader never gives one without its coins.
+        if not row.btc:
+            self.warn(row, "Payout row missing its bitcoin amount — skipped.")
+            return None
         return self.proposal(
             row, type="Deposit", from_account_id=ACCOUNT_EXTERNAL, to_account_id=self.accounts.exchange_btc,
             amount=row.btc, cost_basis_usd=row.usd, source=PAYOUT_SOURCES[row.kind],

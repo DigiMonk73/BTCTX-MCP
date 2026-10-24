@@ -27,8 +27,8 @@ from backend.services.exchange_cells import (
     LeftOut,
     RowError,
     find_header,
+    read_amount,
     read_moment,
-    read_number,
     records,
     to_cents,
     to_sats,
@@ -140,20 +140,28 @@ def _events(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[tupl
 
 
 def _without_repeats(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[Cells]:
-    """A row whose id and every cell repeat an earlier row's is that row
-    twice (overlapping exports joined): left out. Rows sharing only an id
-    are kept (Strike's pieces of one order)."""
+    """A row whose id an earlier row has is left out (decision 8): with every
+    cell the same, the same row twice (overlapping exports joined); else the
+    file holds two rows for one record, and only the first is read. With
+    `merge_same_id`, only the first: rows sharing an id are one event's
+    pieces (Strike's)."""
     names = mapping.columns.row_id
     if not rows or rows[0].header.place(names) is None:
         return rows
-    seen, kept = set(), []
+    column = rows[0].header.name(names)
+    seen_rows, seen_ids, kept = set(), set(), []
     for row in rows:
-        key = (row.get(names), tuple(c.strip() for c in row.cells))
-        if key[0] and key in seen:
-            left_out.add(f"repeat an earlier row ({row.header.name(names)} and every cell the same)", row.number)
-            continue
-        seen.add(key)
-        kept.append(row)
+        row_id = row.get(names)
+        cells = (row_id, tuple(c.strip() for c in row.cells))
+        if row_id and cells in seen_rows:
+            left_out.add(f"repeat an earlier row ({column} and every cell the same)", row.number)
+        elif row_id and row_id in seen_ids and not mapping.merge_same_id:
+            left_out.add(f"have the id of an earlier row ({column}) with other cells: only the first is read, "
+                         "so check the file", row.number)
+        else:
+            seen_rows.add(cells)
+            seen_ids.add(row_id)
+            kept.append(row)
     return kept
 
 
@@ -180,36 +188,75 @@ def _merged(rows: list[Cells], mapping: Mapping, left_out: LeftOut) -> list[Cell
 
 def _adds_up_to_nothing(group: list[Cells], mapping: Mapping) -> bool:
     merged = Cells(group[0].number, group[0].header, group[0].cells, pieces=group)
-    return all(not _signed(merged, names, mapping) for names in (mapping.columns.btc, mapping.columns.usd) if names)
+    columns = mapping.columns
+    return all(not _number(merged, names, mapping, unit)[0]
+               for names, unit in ((columns.btc, "BTC"), (columns.usd, "USD")) if names)
 
 
 def _kind_if_read(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None:
     """The row's kind when the mapping reads it as an event: bitcoin,
     completed, not left out by one of its rules, of a kind it reads, with
-    bitcoin moving. Else None, the row left out with its reason."""
-    columns = mapping.columns
-    asset = row.get(columns.asset)
+    bitcoin moving the kind's way. Else None, the row left out with its
+    reason."""
     word = kind_word(row, mapping)
-    if mapping.kinds.get(word.lower()) == CONVERT and _mentions_bitcoin(row, mapping):
-        left_out.add(_convert(word), row.number)
-        return None
-    if row.header.place(columns.asset) is not None and asset.lower() not in mapping.btc_assets:
-        left_out.add(_not_bitcoin(asset, word), row.number)
-        return None
-    status = _unfinished(row, mapping)
-    if status is not None:
-        left_out.add(f"are {status}, not completed", row.number)
-        return None
-    rule = next((r for r in mapping.leave_out
-                 if row.header.place((r.column,)) is not None and r.applies(row.get((r.column,)))), None)
-    if rule is not None:
-        left_out.add(rule.reason, row.number)
-        return None
-    kind = _kind(row, mapping, left_out)
-    if kind in (SEND, RECEIVE, *PAYOUT_SOURCES) and not row.get(columns.btc) and row.get(columns.usd):
-        left_out.add(f"move dollars, not bitcoin (“{kind_word(row, mapping)}”)", row.number)
+    reason = _left_out_whatever_its_kind(row, mapping, word)
+    kind = None if reason is not None else _kind(row, mapping, left_out)
+    if kind is not None:
+        reason = _not_as_its_kind(row, kind, mapping, word)
+    if reason is not None:
+        left_out.add(reason, row.number)
         return None
     return kind
+
+
+def _left_out_whatever_its_kind(row: Cells, mapping: Mapping, word: str) -> str | None:
+    """Why the row isn't read, whatever its kind: a trade of bitcoin for
+    another coin, another asset, a row not completed, or one of the
+    mapping's own rules; else None."""
+    columns = mapping.columns
+    asset = row.get(columns.asset)
+    if mapping.kinds.get(word.lower()) == CONVERT and _mentions_bitcoin(row, mapping):
+        return _convert(word)
+    if row.header.place(columns.asset) is not None and asset.lower() not in mapping.btc_assets:
+        return _not_bitcoin(asset, word)
+    status = _unfinished(row, mapping)
+    if status is not None:
+        return f"are {status}, not completed"
+    return next((rule.reason for rule in mapping.leave_out
+                 if row.header.place((rule.column,)) is not None and rule.applies(row.get((rule.column,)))), None)
+
+
+def _not_as_its_kind(row: Cells, kind: str, mapping: Mapping, word: str) -> str | None:
+    """Why a row of a kind that's read isn't, after all: a move of dollars
+    alone, or money going the other way than its kind's; else None."""
+    columns = mapping.columns
+    if kind in (SEND, RECEIVE, *PAYOUT_SOURCES) and not row.get(columns.btc) and row.get(columns.usd):
+        return f"move dollars, not bitcoin (“{word}”)"
+    if _against_kind(row, kind, mapping):
+        return (f"go the other way than “{word}” does (a reversal or a refund?): add any that moved bitcoin "
+                "by hand")
+    return None
+
+
+# Which way each kind's money goes, bitcoin's and dollars': + into the exchange
+_WAYS = {BUY: (1, -1), SELL: (-1, 1), SEND: (-1, None), RECEIVE: (1, None), **{k: (1, None) for k in PAYOUT_SOURCES}}
+
+
+def _against_kind(row: Cells, kind: str, mapping: Mapping) -> bool:
+    """Whether a column whose sign follows the money (`mapping.signs`) has
+    it going the other way than the kind's: a reversal written as a buy is
+    never read as a second buy. A cell that can't be read isn't judged
+    here: the row's reading says what's wrong with it."""
+    for role, unit, way in (("btc", "BTC", _WAYS[kind][0]), ("usd", "USD", _WAYS[kind][1])):
+        if role not in mapping.signs or way is None:
+            continue
+        try:
+            value = _number(row, getattr(mapping.columns, role), mapping, unit)[0]
+        except RowError:
+            return False
+        if value and (value > 0) != (way > 0):
+            return True
+    return False
 
 
 def _mentions_bitcoin(row: Cells, mapping: Mapping) -> bool:
@@ -285,9 +332,9 @@ def file_row(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseErr
     columns = mapping.columns
     moment = read_moment(" ".join(filter(None, (row.get(columns.date), row.get(columns.time)))), mapping.zone,
                          mapping.day_first, row.header.name(columns.date) or "Date")
-    btc = _signed(row, columns.btc, mapping)
+    btc = _number(row, columns.btc, mapping, "BTC")[0]
     btc = to_sats(abs(btc), row.number, row.header.name(columns.btc), warnings) if btc is not None else None
-    usd = _signed(row, columns.usd, mapping)
+    usd = _number(row, columns.usd, mapping, "USD")[0]
     usd = to_cents(abs(usd)) if usd is not None else None
     fee = _fee(row, kind, mapping, warnings) if kind in (BUY, SELL, SEND) else None
     if kind in mapping.after_fee and usd is not None and fee is not None:
@@ -300,13 +347,23 @@ def file_row(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseErr
     return FileRow(row.number, moment, kind, btc, usd, fee, currency, kind_word(row, mapping) or None)
 
 
-def _signed(row: Cells, names: tuple[str, ...], mapping: Mapping) -> Decimal | None:
-    """A number column's value with its sign, summed over a merged row's pieces."""
+def _number(row: Cells, names: tuple[str, ...], mapping: Mapping, unit: str | None) -> tuple[Decimal | None, str | None]:
+    """A number column's value with its sign, summed over a merged row's
+    pieces, and the currency its cells write. A bitcoin column (`unit`
+    BTC) takes no thousands separator; a cell writing another currency than
+    `unit` is a RowError: "$5.00" is never read as 5 BTC."""
     if not names or row.header.place(names) is None:
-        return None
+        return None, None
     column = row.header.name(names)
-    given = [v for v in (read_number(p.get(names), mapping.decimal_comma, column) for p in row.pieces) if v is not None]
-    return sum(given, Decimal(0)) if given else None
+    values, units = [], set()
+    for piece in row.pieces:
+        value, said = read_amount(piece.get(names), mapping.decimal_comma, column, bitcoin=unit == "BTC")
+        values += [value] if value is not None else []
+        units |= {said} if said else set()
+    if (unit and units - {unit}) or len(units) > 1:
+        shown = "bitcoin" if unit == "BTC" else "dollars" if unit == "USD" else "in one currency"
+        raise RowError(f"{column} '{row.get(names)}' isn't {shown}.", column)
+    return (sum(values, Decimal(0)) if values else None), next(iter(units), None)
 
 
 def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError]) -> Decimal | None:
@@ -331,17 +388,25 @@ def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError])
 
 def _given_fee(row: Cells, wanted: str, mapping: Mapping) -> tuple[Decimal | None, str | None]:
     """The fee the row gives, and its currency: from the wanted currency's
-    own column, else the fee column, in dollars unless its currency column
-    says bitcoin (a fee is never taken for bitcoin without the file saying
-    so), else the other currency's column."""
+    own column, else the fee column, in the currency its cell or its
+    currency column writes, dollars when neither says (a fee is never taken
+    for bitcoin without the file saying so), else the other currency's
+    column."""
     columns = mapping.columns
-    own, other = (columns.fee_usd, columns.fee_btc) if wanted == "USD" else (columns.fee_btc, columns.fee_usd)
-    if (fee := _signed(row, own, mapping)) is not None:
+    other = "BTC" if wanted == "USD" else "USD"
+    own_column, other_column = (columns.fee_usd, columns.fee_btc) if wanted == "USD" else (columns.fee_btc, columns.fee_usd)
+    if (fee := _number(row, own_column, mapping, wanted)[0]) is not None:
         return fee, wanted
-    if (fee := _signed(row, columns.fee, mapping)) is not None:
-        said = row.get(columns.fee_currency).upper() if columns.fee_currency else ""
-        return fee, {"XBT": "BTC", "XXBT": "BTC", "$": "USD"}.get(said, said) or "USD"
-    return _signed(row, other, mapping), "BTC" if wanted == "USD" else "USD"
+    fee, written = _number(row, columns.fee, mapping, None)
+    if fee is not None:
+        named = row.get(columns.fee_currency).upper() if columns.fee_currency else ""
+        named = {"XBT": "BTC", "XXBT": "BTC", "$": "USD"}.get(named, named)
+        if written and named and written != named:
+            raise RowError(f"{row.header.name(columns.fee)} '{row.get(columns.fee)}' isn't {named}.",
+                           row.header.name(columns.fee))
+        currency = written or named or "USD"
+        return (_number(row, columns.fee, mapping, "BTC")[0] if currency == "BTC" else fee), currency
+    return _number(row, other_column, mapping, other)[0], other
 
 
 # The column matcher: what a file holds, before any mapping

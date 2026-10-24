@@ -147,48 +147,67 @@ def rows_said(numbers: list[int]) -> str:
     return f"Rows {', '.join(map(str, numbers[:-1]))} and {numbers[-1]}"
 
 
-# A number as exchanges write it
-_POINT = re.compile(r"(\d{1,3}(,\d{3})+|\d+)(\.\d+)?|\.\d+")
-_COMMA = re.compile(r"(\d{1,3}(\.\d{3})+|\d+)(,\d+)?|,\d+")
-_UNITS = ("US$", "USD", "BTC", "XBT", "$", "₿")
+# A number as exchanges write it. A thousands group never starts with a
+# zero, and a bitcoin amount has no thousands separator at all: read as one,
+# a decimal comma would make "0,005" BTC 5 (#452)
+_POINT = re.compile(r"([1-9]\d{0,2}(,\d{3})+|\d+)(\.\d+)?|\.\d+")
+_COMMA = re.compile(r"([1-9]\d{0,2}(\.\d{3})+|\d+)(,\d+)?|,\d+")
+_POINT_ONLY = re.compile(r"\d+(\.\d+)?|\.\d+")
+_COMMA_ONLY = re.compile(r"\d+(,\d+)?|,\d+")
+# The currency a cell may write beside its number, by how it writes it
+_UNITS = {"US$": "USD", "USD": "USD", "$": "USD", "BTC": "BTC", "XBT": "BTC", "₿": "BTC"}
 
 
-def read_number(text: str, decimal_comma: bool = False, column: str | None = None) -> Decimal | None:
+def read_number(text: str, decimal_comma: bool = False, column: str | None = None,
+                bitcoin: bool = False) -> Decimal | None:
+    """The number a cell holds (read_amount's), its unit aside."""
+    return read_amount(text, decimal_comma, column, bitcoin)[0]
+
+
+def read_amount(text: str, decimal_comma: bool = False, column: str | None = None,
+                bitcoin: bool = False) -> tuple[Decimal | None, str | None]:
     """
-    The number a cell holds, with its sign; None when it's blank or a dash.
-    Takes what exchanges write around it: a currency sign or code before or
+    (the number a cell holds, with its sign; the currency it writes beside
+    it, "USD" or "BTC", or None). Blank or a dash: (None, None). Takes what
+    exchanges write around a number: a currency sign or code before or
     after it, a minus before or after the sign ("-$100.00", "$-100.00"),
     parentheses for a negative, thousands separators ("1,234.56", or
-    "1.234,56" when the file writes a decimal comma). Anything else is a
-    RowError: a comma read as a point would make "0,5" BTC 5 (#452).
+    "1.234,56" when the file writes a decimal comma; never in a `bitcoin`
+    amount). Anything else is a RowError, never read as another number.
     """
     said = text.strip()
     if not said or said in ("-", "—"):
-        return None
-    negative = said.startswith("(") and said.endswith(")")
-    rest = _without_units(said[1:-1] if negative else said)
-    if rest[:1] in ("+", "-"):
-        negative, rest = negative or rest[0] == "-", _without_units(rest[1:])
-    pattern, point, thousands = (_COMMA, ",", ".") if decimal_comma else (_POINT, ".", ",")
+        return None, None
     unreadable = RowError(f"{column or 'A number'} '{said}' isn't a number BitcoinTX can read.", column)
-    if not pattern.fullmatch(rest):
+    negative = said.startswith("(") and said.endswith(")")
+    rest, units = _without_units(said[1:-1] if negative else said)
+    if rest[:1] in ("+", "-"):
+        negative = negative or rest[0] == "-"
+        rest, more = _without_units(rest[1:])
+        units |= more
+    if bitcoin:
+        pattern = _COMMA_ONLY if decimal_comma else _POINT_ONLY
+    else:
+        pattern = _COMMA if decimal_comma else _POINT
+    if len(units) > 1 or not pattern.fullmatch(rest):
         raise unreadable
+    point, thousands = (",", ".") if decimal_comma else (".", ",")
     try:
         value = Decimal(rest.replace(thousands, "").replace(point, "."))
     except InvalidOperation:
         raise unreadable from None
-    return -value if negative else value
+    return (-value if negative else value), next(iter(units), None)
 
 
-def _without_units(text: str) -> str:
-    """The text without a currency sign or code at either end."""
-    text = text.strip()
-    for unit in _UNITS:
+def _without_units(text: str) -> tuple[str, set[str]]:
+    """The text without a currency sign or code at either end, and the currencies they write."""
+    text, found = text.strip(), set()
+    for unit, currency in _UNITS.items():
         if text.upper().startswith(unit):
-            text = text[len(unit):].strip()
+            text, found = text[len(unit):].strip(), found | {currency}
         if text.upper().endswith(unit):
-            text = text[:-len(unit)].strip()
-    return text
+            text, found = text[:-len(unit)].strip(), found | {currency}
+    return text, found
 
 
 def to_sats(value: Decimal, number: int, column: str | None, warnings: list[CSVParseError]) -> Decimal:
@@ -215,7 +234,7 @@ ZONE_ABBREVIATIONS = {
     "UTC": 0, "GMT": 0, "EST": -5, "EDT": -4, "CST": -6, "CDT": -5, "MST": -7, "MDT": -6,
     "PST": -8, "PDT": -7, "AKST": -9, "AKDT": -8, "HST": -10,
 }
-_OFFSET = re.compile(r"([+-])(\d{2}):?(\d{2})?$")
+_OFFSET = re.compile(r"\s?([+-])(\d{2}):?(\d{2})?$")
 _ENDS_WITH_TIME = re.compile(r"\d:\d{2}(:\d{2}(\.\d+)?)?$")
 _ISO_DAY = re.compile(r"\d{4}-\d{2}-\d{2}T")
 _FRACTION = re.compile(r"(:\d{2})\.\d+")

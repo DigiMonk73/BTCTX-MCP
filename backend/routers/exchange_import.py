@@ -132,8 +132,8 @@ def _mapping(db: Session, mapping_id: str | None, given: str | None) -> Mapping:
 
 def _own_mapping(given: str) -> OwnMapping:
     """An unsaved mapping, from its JSON: refused (422) when it isn't text
-    (a lone surrogate can't be said back, #313) or isn't a mapping, its
-    problems said without the values sent."""
+    (a lone surrogate can't be said back, #313) or isn't a mapping, each
+    problem said by its field (a value it names is text, checked first)."""
     try:
         value = json.loads(given)
     except ValueError:

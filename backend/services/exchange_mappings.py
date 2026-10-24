@@ -70,13 +70,21 @@ class Columns:
 @dataclass(frozen=True)
 class LeaveOut:
     """A row left out, with `reason`, when its `column` holds `text` (in
-    any case; "" for any text at all), or when it's blank (`text` None)."""
+    any case; "" for any text at all), when it's blank (`text` None), or,
+    with `other_than`, when it holds anything else."""
     column: str
     text: str | None
     reason: str
+    other_than: str | None = None
 
     def applies(self, cell: str) -> bool:
+        if self.other_than is not None:
+            return bool(cell) and cell.lower() != self.other_than
         return not cell if self.text is None else bool(cell) and self.text in cell.lower()
+
+
+# A row priced in another currency: BitcoinTX's figures are in US dollars
+NOT_DOLLARS = "are priced in another currency, not US dollars (BitcoinTX's figures are in dollars)"
 
 
 @dataclass(frozen=True)
@@ -114,6 +122,7 @@ class Mapping:
     leave_out: tuple[LeaveOut, ...] = ()
     merge_same_id: bool = False
     notes: tuple[str, ...] = ()
+    signs: frozenset[str] = frozenset()
     funding: str = "exchange"
     help: str = ""
     checked: bool = True
@@ -145,6 +154,8 @@ COINBASE = Mapping(
            "exchange withdrawal": LEAVE_OUT, "retail staking transfer": LEAVE_OUT,
            "retail unstaking transfer": LEAVE_OUT},
     optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
+    leave_out=(LeaveOut("Spot Price Currency", "", NOT_DOLLARS, other_than="usd"),
+               LeaveOut("Price Currency", "", NOT_DOLLARS, other_than="usd")),
     help="coinbase.com → Profile → Reports → Generate report → Transaction history (CSV).",
 )
 
@@ -154,9 +165,9 @@ KRAKEN = Mapping(
     help="kraken.com → Documents → Export → Ledgers (CSV), unzipped: ledgers.csv.",
 )
 
-# Strike's account statements and its activity report (Strike writes UTC).
-# A purchase's dollars are its total, fee included, a sale's what arrived
-# after it. A target order comes in pieces sharing one id (the dollars, then
+# Strike's account statements and its activity report (Strike writes UTC),
+# its amounts signed by the money's way. A purchase's dollars are its total,
+# fee included, a sale's what arrived after it. A target order comes in pieces sharing one id (the dollars, then
 # the bitcoin), and a reversal shares the id of what it reverses.
 STRIKE = Mapping(
     id="strike", name="Strike",
@@ -168,7 +179,7 @@ STRIKE = Mapping(
     kinds={"purchase": BUY, "buy": BUY, "sale": SELL, "send": SEND, "receive": RECEIVE,
            "deposit": DOLLARS, "withdrawal": DOLLARS},
     after_fee=frozenset({BUY, SELL}), done=frozenset({"completed"}), optional=frozenset({"status"}),
-    merge_same_id=True,
+    merge_same_id=True, signs=frozenset({"btc", "usd"}),
     checked=False,
     help="Strike → Documents → Account statements → Export as CSV, or Activity → Generate report.",
 )
@@ -205,8 +216,8 @@ SWAN_WITHDRAWALS = Mapping(
 
 # Cash App's bitcoin "Transactions CSV" and its activity CSV: its dates
 # carry the account's US zone (PST, EDT…). A buy's Amount is what bought
-# the bitcoin, a sale's its gross, each fee apart in dollars; a Boost is
-# card cash-back paid in bitcoin, a rebate (#98).
+# the bitcoin, negative, a sale's its gross, positive, each fee apart in
+# dollars; a Boost is card cash-back paid in bitcoin, a rebate (#98).
 CASH_APP = Mapping(
     id="cash-app", name="Cash App", zone=ZONE_IN_DATES,
     columns=Columns(
@@ -217,6 +228,7 @@ CASH_APP = Mapping(
            "bitcoin withdrawal": SEND, "bitcoin lightning withdrawal": SEND, "bitcoin deposit": RECEIVE,
            "bitcoin lightning deposit": RECEIVE, "bitcoin boost": "rebate"},
     not_done=("fail", "revers", "cancel", "pending", "refund", "declin"), optional=frozenset({"status"}),
+    leave_out=(LeaveOut("Currency", "", NOT_DOLLARS, other_than="usd"),), signs=frozenset({"usd"}),
     checked=False,
     help="Cash App → Profile → Documents → Bitcoin → Transactions CSV, or Activity → Statements → Export CSV.",
 )
@@ -256,9 +268,10 @@ def saved_mappings(db: Session) -> dict[str, OwnMapping]:
 
 def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) -> str:
     """Save the owner's mapping as `mapping_id` (a new one when None), under
-    the write lock so two tabs saving at once both land; its id. An id is
-    never handed out twice, so a page holding a deleted one's id gets 404,
-    not another mapping."""
+    the write lock so two tabs saving at once both land; its id. This
+    install's saves never hand an id out twice, so a page holding a deleted
+    one's id gets 404, not another mapping (a restore brings the backup's
+    mappings and ids, decision 7)."""
     if not take_write_lock(db):
         raise HTTPException(status_code=503, detail=BUSY)
     try:
