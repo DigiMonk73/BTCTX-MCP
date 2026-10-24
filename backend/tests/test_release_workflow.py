@@ -113,9 +113,9 @@ def test_the_notes_are_checked_before_anything_is_published():
     assert check.index("scripts/release-notes.sh") < check.index('cat version.env >> "$GITHUB_OUTPUT"')
     for publishing in ("image", "pypi", "macos", "s9pk", "release"):
         assert re.search(r"needs: (check|\[check\b)", job(publishing)), publishing
-    # a release's notes, and a beta's after its opening words (2.0 plan 7.4, B10a)
+    # a release's notes, and a pre-release's after its opening words (2.0 plan 7.4, B10a)
     assert 'scripts/release-notes.sh "$TAG" > notes.md' in job("release")
-    assert 'scripts/release-notes.sh "$TAG" >> beta.md' in job("release")
+    assert 'scripts/release-notes.sh "$TAG" >> pre.md' in job("release")
     mirror = (REPO / "scripts/mirror-startos-release.sh").read_text()
     assert '"$ROOT/scripts/release-notes.sh" "$SOURCE_TAG" > "$NOTES"' in mirror
     assert "awk" not in mirror

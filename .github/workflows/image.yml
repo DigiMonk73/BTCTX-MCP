@@ -8,10 +8,10 @@ name: Publish image
 #   ghcr.io/digimonk73/btctx-mcp:sha-<sha>   every main commit
 # The version comes from the VERSION file, so a release is: bump VERSION on main.
 # release.yml also calls this, so a release never depends on main having
-# published the version first. A 2.0 pre-release (VERSION X.Y.Z-beta.N) gets
-# only its version tag, never :latest or :main, and only from its own branch,
-# prerelease/vX.Y.Z-beta.N (2.0 plan 7.4, B10a). The rules:
-# scripts/image-tags.sh.
+# published the version first. A 2.0 pre-release (VERSION X.Y.Z-alpha.N or
+# X.Y.Z-beta.N) gets only its version tag, never :latest or :main, and only
+# from its own branch, prerelease/v<VERSION> (2.0 plan 7.4, B10a; #251's
+# decision 28). The rules: scripts/image-tags.sh.
 on:
   push:
     branches: [main]
@@ -45,7 +45,7 @@ jobs:
       - name: Tags
         id: tags
         # Version tags are immutable: only the first build of a VERSION gets
-        # one; a beta never :latest
+        # one; a pre-release never :latest
         run: scripts/image-tags.sh >> "$GITHUB_OUTPUT"
 
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

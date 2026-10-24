@@ -389,14 +389,14 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: Build the app (BitcoinTX, or BitcoinTX Beta for a pre-release)
+      - name: Build the app (BitcoinTX, or BitcoinTX Preview for a pre-release)
         run: ./desktop/build-mac.sh
         env:
           # The Python set up above, never one the runner happens to have (#284)
           BTCTX_BUILD_PYTHON: ${{ steps.python.outputs.python-path }}
       - name: Launch the bundled app and check its API answers on its own port, its data in its own folder
         # Its name, executable and port from the build (scripts/mac-app.sh):
-        # a pre-release's is BitcoinTX Beta, never the installed app (2.0
+        # a pre-release's is BitcoinTX Preview, never the installed app (2.0
         # plan 7.4, B10a)
         run: scripts/mac-app.sh check
       - name: Zip and unsigned .dmg (same steps as release.yml)

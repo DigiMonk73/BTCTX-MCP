@@ -25,21 +25,23 @@ All notable changes to BitcoinTX are documented in this file.
   drawn the same. Nothing changes on screen or in any figure.
 
 ### Development
-- **The way to publish 2.0's betas** (2.0 plan 7.4, B10a, #532): a branch
+- **The way to publish 2.0's alphas and betas** (2.0 plan 7.4, B10a,
+  #532; #251's decision 28): a branch `prerelease/v2.0.0-alpha.N` or
   `prerelease/v2.0.0-beta.N` pushed from `2.0` publishes a GitHub
   pre-release, never "Latest", so `releases/latest` and the landing page
   stay on 1.x. Its Docker image gets only its own tag (never `:latest` or
-  `:main`), its connector goes to PyPI as a pre-release (`2.0.0bN`, which
-  only a pinned install takes), its Mac app is a separate "BitcoinTX
-  Beta" (`BitcoinTX-Beta-macOS.dmg`), and nothing reaches the mirror or
-  Start9. A release publishes what it did before; its run checks more:
-  `release/` refuses a beta's version and `prerelease/` a release's, and
-  its Mac launch check is CI's (an anonymous import refused, the app's
-  name, port and data folder). The rules are scripts, run by the tests:
-  `scripts/release-version.sh`, `image-tags.sh` and `mac-app.sh`, whose
-  check finds the Mac app's name and port from the build and checks that
-  a beta never answers as the installed app or writes to its folders. A
-  "2.0 beta report" issue form (label `beta`).
+  `:main`), its connector goes to PyPI as a pre-release (`2.0.0aN` or
+  `2.0.0bN`, which only a pinned install takes), its Mac app is a
+  separate "BitcoinTX Preview" (`BitcoinTX-Preview-macOS.dmg`), and
+  nothing reaches the mirror or Start9. A release publishes what it did
+  before; its run checks more: `release/` refuses a pre-release's version
+  and `prerelease/` a release's, and its Mac launch check is CI's (an
+  anonymous import refused, the app's name, port and data folder). The
+  rules are scripts, run by the tests: `scripts/release-version.sh`,
+  `image-tags.sh` and `mac-app.sh`, whose check finds the Mac app's name
+  and port from the build and checks that a pre-release never answers as
+  the installed app or writes to its folders. A "2.0 alpha or beta
+  report" issue form (label `pre-release`).
 - The before-and-after check (`scripts/equivalence_check.py`) reuses a
   release's snapshot only while today's date is the same in each of its
   ledgers' tax timezones (UTC, New York, Chicago, Tokyo: the date the

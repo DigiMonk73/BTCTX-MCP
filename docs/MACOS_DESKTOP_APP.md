@@ -291,8 +291,8 @@ the app the same way, on `macos-latest`'s Apple silicon, so the app is arm64
 only (`lipo -info` on 1.2.9's binary): it runs on Macs with Apple silicon,
 not on Intel Macs. They attach `BitcoinTX-macOS.dmg` (made with `hdiutil`,
 drag-to-Applications) and `BitcoinTX-macOS.zip` to the GitHub release (a
-2.0 pre-release, from `prerelease/v2.0.0-beta.N`, `BitcoinTX-Beta-macOS.dmg`
-and `.zip`). Both
+2.0 pre-release, an alpha or a beta from `prerelease/`,
+`BitcoinTX-Preview-macOS.dmg` and `.zip`). Both
 are unsigned and not notarized. Before it creates the release, the release
 job writes `SHA256SUMS` for these two files and `btctx.s9pk` (uploaded with
 them) and attests the three (`actions/attest-build-provenance`); see

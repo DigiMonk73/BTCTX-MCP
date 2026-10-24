@@ -1,11 +1,13 @@
 """
-2.0's beta on GitHub pre-releases (2.0 plan 7.4, B10a, point 1; #532).
+2.0's alphas and betas on GitHub pre-releases (2.0 plan 7.4, B10a, point 1;
+#532; #251's decision 28: alphas first, then betas).
 
-A branch prerelease/v2.0.0-beta.N, pushed from 2.0, publishes a GitHub
-pre-release: never "Latest", never Docker's :latest or :main, never the
-mirror or Start9, the connector on PyPI as a pre-release (2.0.0bN), and a
-Mac app that can't be taken for the installed one ("BitcoinTX Beta",
-BitcoinTX-Beta-macOS.dmg). A release/ branch publishes a release as before.
+A branch prerelease/v2.0.0-alpha.N or prerelease/v2.0.0-beta.N, pushed from
+2.0, publishes a GitHub pre-release: never "Latest", never Docker's :latest
+or :main, never the mirror or Start9, the connector on PyPI as a
+pre-release (2.0.0aN, 2.0.0bN), and a Mac app that can't be taken for the
+installed one ("BitcoinTX Preview", BitcoinTX-Preview-macOS.dmg). A
+release/ branch publishes a release as before.
 
 The rules are scripts, so they are run here: scripts/release-version.sh
 (which branch publishes which version), scripts/image-tags.sh (which Docker
@@ -89,19 +91,33 @@ def test_a_prerelease_branch_publishes_a_beta_from_2_0(tmp_path):
     }
 
 
+def test_a_prerelease_branch_publishes_an_alpha_from_2_0(tmp_path):
+    root = checkout(tmp_path, "2.0.0-alpha.2", "2.0.0-alpha.2:0", "## [v2.0.0-alpha.2] - 2026-10-30\n")
+    assert outputs(run(root, "release-version.sh", "prerelease/v2.0.0-alpha.2")) == {
+        "tag": "v2.0.0-alpha.2", "version": "v2.0.0-alpha.2", "revision": "0", "prerelease": "true",
+        "base": "2.0", "connector": "2.0.0a2",
+    }
+
+
 @pytest.mark.parametrize("version, package, branch, says", [
-    # a beta is never published as a release, nor a release as a beta
+    # a pre-release is never published as a release, nor a release as one
+    ("2.0.0-alpha.1", "2.0.0-alpha.1:0", "release/v2.0.0-alpha.1", "is a pre-release"),
+    ("2.0.0", "2.0.0:0", "prerelease/v2.0.0", "is not an alpha or a beta"),
     ("2.0.0-beta.1", "2.0.0-beta.1:0", "release/v2.0.0-beta.1", "is a pre-release"),
-    ("1.2.11", "1.2.11:0", "prerelease/v1.2.11", "is not a beta"),
-    # a beta takes no package-only revision: a fix is the next beta
+    ("1.2.11", "1.2.11:0", "prerelease/v1.2.11", "is not an alpha or a beta"),
+    # a pre-release takes no package-only revision: a fix is the next one
     ("2.0.0-beta.1", "2.0.0-beta.1:1", "prerelease/v2.0.0-beta.1", "takes no package revision"),
+    ("2.0.0-alpha.1", "2.0.0-alpha.1:1", "prerelease/v2.0.0-alpha.1", "takes no package revision"),
+    ("2.0.0-alpha.1", "2.0.0-alpha.1:0", "prerelease/v2.0.0-beta.1", "say v2.0.0-alpha.1"),
     # the branch, VERSION and current.ts agree
     ("2.0.0-beta.1", "2.0.0-beta.1:0", "prerelease/v2.0.0-beta.2", "say v2.0.0-beta.1"),
     ("2.0.0-beta.2", "2.0.0-beta.1:0", "prerelease/v2.0.0-beta.2", "is not 2.0.0-beta.2:<n>"),
-    # only betas, numbered from 1
-    ("2.0.0-rc.1", "2.0.0-rc.1:0", "prerelease/v2.0.0-rc.1", "is not a beta"),
-    ("2.0.0-beta.0", "2.0.0-beta.0:0", "prerelease/v2.0.0-beta.0", "is not a beta"),
-    ("2.0.0-beta.01", "2.0.0-beta.01:0", "prerelease/v2.0.0-beta.01", "is not a beta"),
+    # only alphas and betas, numbered from 1
+    ("2.0.0-rc.1", "2.0.0-rc.1:0", "prerelease/v2.0.0-rc.1", "is not an alpha or a beta"),
+    ("2.0.0-beta.0", "2.0.0-beta.0:0", "prerelease/v2.0.0-beta.0", "is not an alpha or a beta"),
+    ("2.0.0-beta.01", "2.0.0-beta.01:0", "prerelease/v2.0.0-beta.01", "is not an alpha or a beta"),
+    ("2.0.0-alpha.0", "2.0.0-alpha.0:0", "prerelease/v2.0.0-alpha.0", "is not an alpha or a beta"),
+    ("2.0.0-gamma.1", "2.0.0-gamma.1:0", "prerelease/v2.0.0-gamma.1", "is not an alpha or a beta"),
     # nothing else publishes
     ("1.2.11", "1.2.11:0", "v1.2.11", "neither release/ nor prerelease/"),
     ("1.2.11", "1.2.11:0", "draft/v1.2.11", "neither release/ nor prerelease/"),
@@ -162,6 +178,13 @@ def test_a_beta_pushes_only_its_own_version_tag(tmp_path):
     assert outputs(made)["smoke"] == f"{IMAGE}:v2.0.0-beta.1"
 
 
+def test_an_alpha_pushes_only_its_own_version_tag(tmp_path):
+    made = image_tags(tmp_path, "2.0.0-alpha.1", "refs/heads/prerelease/v2.0.0-alpha.1")
+    assert tags(made) == ["v2.0.0-alpha.1"]
+    made = image_tags(tmp_path / "main", "2.0.0-alpha.1", "refs/heads/main")
+    assert made.returncode == 1 and "prerelease/v2.0.0-alpha.1" in made.stderr
+
+
 def test_a_published_beta_is_never_overwritten(tmp_path):
     made = image_tags(tmp_path, "2.0.0-beta.1", "refs/heads/prerelease/v2.0.0-beta.1", ("v2.0.0-beta.1",))
     assert tags(made) == [] and outputs(made)["smoke"] == ""
@@ -177,7 +200,8 @@ def test_a_beta_is_published_only_from_its_own_prerelease_branch(tmp_path, ref):
     assert made.stdout == ""
 
 
-@pytest.mark.parametrize("version", ["2.0.0-rc.1", "2.0.0-beta.0", "2.0", "v1.2.11", "1.2.11-1"])
+@pytest.mark.parametrize("version", ["2.0.0-rc.1", "2.0.0-beta.0", "2.0.0-alpha.0", "2.0.0-gamma.1", "2.0",
+                                     "v1.2.11", "1.2.11-1"])
 def test_any_other_version_publishes_nothing(tmp_path, version):
     made = image_tags(tmp_path, version, "refs/heads/main")
     assert made.returncode == 1 and "bad VERSION" in made.stderr
@@ -191,22 +215,26 @@ def identity(tmp_path: Path, version: str, name: str, bundle_id: str, port: str)
 
 def test_a_release_build_is_bitcointx_on_its_fixed_port(tmp_path):
     assert identity(tmp_path, "1.2.11", "BitcoinTX", "org.bitcointx.desktop", "8765").returncode == 0
-    for n, wrong in enumerate((("BitcoinTX Beta", "org.bitcointx.desktop", "8765"),
+    for n, wrong in enumerate((("BitcoinTX Preview", "org.bitcointx.desktop", "8765"),
                                ("BitcoinTX", "org.bitcointx.beta", "8765"), ("BitcoinTX", "org.bitcointx.desktop", "8767"))):
         made = identity(tmp_path / str(n), "1.2.11", *wrong)
         assert made.returncode == 1, wrong
 
 
-def test_a_beta_build_is_never_the_installed_app(tmp_path):
-    assert identity(tmp_path, "2.0.0-beta.1", "BitcoinTX Beta", "org.bitcointx.desktop.beta", "8767").returncode == 0
+def test_a_pre_release_build_is_never_the_installed_app(tmp_path):
+    assert identity(tmp_path, "2.0.0-beta.1", "BitcoinTX Preview", "org.bitcointx.desktop.preview", "8767").returncode == 0
+    assert identity(tmp_path / "a", "2.0.0-alpha.1", "BitcoinTX Preview", "org.bitcointx.desktop.preview",
+                    "8767").returncode == 0
+    made = identity(tmp_path / "b", "2.0.0-alpha.1", "BitcoinTX", "org.bitcointx.desktop.preview", "8767")
+    assert made.returncode == 1 and "the installed app's name" in made.stderr
     for n, (wrong, says) in enumerate((
-        (("BitcoinTX", "org.bitcointx.desktop.beta", "8767"), "the installed app's name"),
+        (("BitcoinTX", "org.bitcointx.desktop.preview", "8767"), "the installed app's name"),
         # macOS folders ignore case: bitcointx.app would replace BitcoinTX.app
-        (("bitcointx", "org.bitcointx.desktop.beta", "8767"), "the installed app's name"),
-        (("BitcoinTX Beta", "org.bitcointx.desktop", "8767"), "the installed app's bundle id"),
-        (("BitcoinTX Beta", "ORG.bitcointx.Desktop", "8767"), "the installed app's bundle id"),
-        (("BitcoinTX Beta", "org.bitcointx.desktop.beta", "8765"), "the installed app's port"),
-        (("BitcoinTX Beta", "org.bitcointx.desktop.beta", "8766"), "desktop/run-test-build.sh's port"),
+        (("bitcointx", "org.bitcointx.desktop.preview", "8767"), "the installed app's name"),
+        (("BitcoinTX Preview", "org.bitcointx.desktop", "8767"), "the installed app's bundle id"),
+        (("BitcoinTX Preview", "ORG.bitcointx.Desktop", "8767"), "the installed app's bundle id"),
+        (("BitcoinTX Preview", "org.bitcointx.desktop.preview", "8765"), "the installed app's port"),
+        (("BitcoinTX Preview", "org.bitcointx.desktop.preview", "8766"), "desktop/run-test-build.sh's port"),
     )):
         made = identity(tmp_path / str(n), "2.0.0-beta.1", *wrong)
         assert made.returncode == 1 and says in made.stderr, (wrong, made.stderr)
@@ -224,11 +252,11 @@ def test_the_mac_check_never_runs_off_githubs_runners(tmp_path):
 
 
 FAKE_APP = """#!{python}
-# A stand-in for BitcoinTX Beta: its data folder, then (after a while, as the
+# A stand-in for BitcoinTX Preview: its data folder, then (after a while, as the
 # real app takes) an API on a port of its own
 import http.server, json, os, pathlib, sys, time
 home = pathlib.Path(os.environ["HOME"]) / "Library"
-(home / "Application Support" / "BitcoinTX Beta").mkdir(parents=True)
+(home / "Application Support" / "BitcoinTX Preview").mkdir(parents=True)
 for extra in filter(None, os.environ.get("FAKE_ALSO", "").split(":")):
     (home / extra).mkdir(parents=True)
 if os.environ.get("FAKE_QUITS"):
@@ -249,17 +277,18 @@ PLIST = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>BitcoinTX</string>
-<key>CFBundleIdentifier</key><string>org.bitcointx.desktop.beta</string>
+<key>CFBundleIdentifier</key><string>org.bitcointx.desktop.preview</string>
 </dict></plist>
 """
 on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="lsof's, PlistBuddy's and hdiutil's macOS")
 
 
-def fake_beta(tmp_path: Path) -> tuple[Path, dict]:
-    """A beta checkout whose desktop/dist holds a fake BitcoinTX Beta.app, and
-    the environment of one of GitHub's runners with a home of its own."""
+def fake_preview(tmp_path: Path) -> tuple[Path, dict]:
+    """A beta checkout whose desktop/dist holds a fake BitcoinTX Preview.app (an
+    alpha's would be the same app), and the environment of one of GitHub's
+    runners with a home of its own."""
     root = checkout(tmp_path / "repo", "2.0.0-beta.1", "2.0.0-beta.1:0")
-    app = root / "desktop/dist/BitcoinTX Beta.app/Contents"
+    app = root / "desktop/dist/BitcoinTX Preview.app/Contents"
     (app / "MacOS").mkdir(parents=True)
     (app / "Info.plist").write_text(PLIST)
     (app / "MacOS/BitcoinTX").write_text(FAKE_APP.format(python=sys.executable))
@@ -276,37 +305,37 @@ def mac_app(root: Path, command: str, env: dict) -> subprocess.CompletedProcess:
 @on_a_mac
 def test_the_mac_check_waits_for_the_app_and_finds_its_port(tmp_path):
     """It launches the build, waits until it listens, and checks it there."""
-    root, env = fake_beta(tmp_path)
+    root, env = fake_preview(tmp_path)
     made = mac_app(root, "check", env)
     assert made.returncode == 0, made.stdout + made.stderr
-    assert re.search(r"BitcoinTX Beta \(org\.bitcointx\.desktop\.beta\) answers on port \d+", made.stdout)
+    assert re.search(r"BitcoinTX Preview \(org\.bitcointx\.desktop\.preview\) answers on port \d+", made.stdout)
     assert "entries endpoint (anonymous) -> 401" in made.stdout
 
 
 @on_a_mac
 @pytest.mark.parametrize("folder", ["Application Support/BitcoinTX", "Logs/BitcoinTX"])
-def test_a_beta_that_writes_in_the_installed_apps_folders_fails_the_check(tmp_path, folder):
-    root, env = fake_beta(tmp_path)
+def test_a_pre_release_that_writes_in_the_installed_apps_folders_fails_the_check(tmp_path, folder):
+    root, env = fake_preview(tmp_path)
     made = mac_app(root, "check", {**env, "FAKE_ALSO": folder})
     assert made.returncode == 1 and f"made ~/Library/{folder}, the installed app's" in made.stderr
 
 
 @on_a_mac
 def test_an_app_that_quits_shows_its_log(tmp_path):
-    root, env = fake_beta(tmp_path)
+    root, env = fake_preview(tmp_path)
     made = mac_app(root, "check", {**env, "FAKE_QUITS": "1"})
-    assert made.returncode == 1 and "BitcoinTX Beta quit before it answered" in made.stderr
+    assert made.returncode == 1 and "BitcoinTX Preview quit before it answered" in made.stderr
     assert "the fake app quit" in made.stdout
 
 
 @on_a_mac
 def test_the_mac_files_are_named_after_the_app(tmp_path):
-    root, env = fake_beta(tmp_path)
+    root, env = fake_preview(tmp_path)
     made = mac_app(root, "package", env)
     assert made.returncode == 0, made.stderr
-    assert made.stdout.splitlines() == ["stem=BitcoinTX-Beta-macOS", "dmg=BitcoinTX-Beta-macOS.dmg",
-                                        "zip=BitcoinTX-Beta-macOS.zip"]
-    assert (root / "BitcoinTX-Beta-macOS.dmg").is_file() and (root / "BitcoinTX-Beta-macOS.zip").is_file()
+    assert made.stdout.splitlines() == ["stem=BitcoinTX-Preview-macOS", "dmg=BitcoinTX-Preview-macOS.dmg",
+                                        "zip=BitcoinTX-Preview-macOS.zip"]
+    assert (root / "BitcoinTX-Preview-macOS.dmg").is_file() and (root / "BitcoinTX-Preview-macOS.zip").is_file()
 
 
 # The workflows
@@ -315,7 +344,7 @@ def test_a_prerelease_branch_starts_the_release_workflow():
     assert re.search(r"^    branches: \['release/v\*', 'prerelease/v\*'\]$", RELEASE_YML, re.M)
 
 
-def test_the_commit_is_on_main_for_a_release_and_on_2_0_for_a_beta():
+def test_the_commit_is_on_main_for_a_release_and_on_2_0_for_a_pre_release():
     check = job(RELEASE_YML, "check")
     assert 'scripts/release-version.sh "$GITHUB_REF_NAME" > version.env' in check
     assert 'git merge-base --is-ancestor "$GITHUB_SHA" "origin/$base"' in check
@@ -326,16 +355,16 @@ def test_the_commit_is_on_main_for_a_release_and_on_2_0_for_a_beta():
         assert f"{output}: ${{{{ steps.v.outputs.{output} }}}}" in check, output
 
 
-def test_a_beta_never_reaches_the_mirror_or_start9():
+def test_a_pre_release_never_reaches_the_mirror_or_start9():
     check = job(RELEASE_YML, "check")
     start9 = check[check.index("- name: Start9's changes"):]
     assert start9.index("if: steps.v.outputs.prerelease == 'false'") < start9.index("scripts/start9-pull.sh --check")
     assert "if: needs.check.outputs.prerelease == 'false'" in job(RELEASE_YML, "mirror").split("steps:")[0]
 
 
-def test_a_beta_keeps_the_price_historys_age_check_and_goes_to_pypi():
+def test_a_pre_release_keeps_the_price_historys_age_check_and_goes_to_pypi():
     """Only a package-only revision (-N) ships the history it had and skips
-    PyPI, which never takes a version twice; a beta's tag has a '-' too."""
+    PyPI, which never takes a version twice; a pre-release's tag has a '-' too."""
     prices = job(RELEASE_YML, "check").split("The hourly price history")[1]
     assert 'if [ "$REVISION" != 0 ]; then age=(--no-age-check)' in prices
     assert "*-*" not in prices
@@ -347,11 +376,12 @@ def test_a_beta_is_a_github_prerelease_never_latest():
     assert 'if [ "$PRERELEASE" = true ]; then kind=(--prerelease --latest=false)' in release
     assert 'gh release create "$TAG" "${kind[@]}"' in release
     assert "pre-release · StartOS package" in release
-    # its notes open with what a beta is and how each platform keeps a tester's records
-    beta = release[release.index("cat > beta.md"):]
-    for words in ("BitcoinTX Beta", "its own empty ledger", "Make a StartOS backup", "a new volume",
-                  "never your real data", "docs/MAINTENANCE.md#going-back-to-1x", "beta_report.yml"):
-        assert words in beta, words
+    # its notes open with what an alpha or a beta is and how each platform keeps a tester's records
+    pre = release[release.index("cat > pre.md"):]
+    for words in ("BitcoinTX Preview", "its own ledger", "carries from one pre-release to the next",
+                  "Make a StartOS backup", "a new volume", "never your real data",
+                  "docs/MAINTENANCE.md#going-back-to-1x", "prerelease_report.yml"):
+        assert words in pre, words
 
 
 def run_release_step(tmp_path: Path, tag: str, changelog: str, **env: str) -> subprocess.CompletedProcess:
@@ -394,30 +424,43 @@ def test_a_release_is_created_as_before(tmp_path):
                  "`ghcr.io/digimonk73/btctx-mcp:v1.2.11` (amd64 and arm64).", "`uvx btctx-mcp==1.2.11` (PyPI)",
                  "**Checking a download:**"):
         assert line in notes, line
-    assert "pre-release" not in notes and "Beta" not in notes
+    assert "pre-release" not in notes and "Preview" not in notes
 
 
 def test_a_beta_is_created_as_a_prerelease_with_its_own_notes(tmp_path):
     notes, asked = release_step(
         tmp_path, "v2.0.0-beta.1", "## [v2.0.0-beta.1]\n\n**About this beta.** Words.\n\n### Added\n- x\n",
-        VERSION="v2.0.0-beta.1", CONNECTOR="2.0.0b1", PRERELEASE="true", MAC_DMG="BitcoinTX-Beta-macOS.dmg",
-        MAC_ZIP="BitcoinTX-Beta-macOS.zip", PACKAGE="2.0.0-beta.1:0")
+        VERSION="v2.0.0-beta.1", CONNECTOR="2.0.0b1", PRERELEASE="true", MAC_DMG="BitcoinTX-Preview-macOS.dmg",
+        MAC_ZIP="BitcoinTX-Preview-macOS.zip", PACKAGE="2.0.0-beta.1:0")
     assert asked.splitlines() == [
         "release", "create", "v2.0.0-beta.1", "--prerelease", "--latest=false", "--target", SHA, "--title",
         "v2.0.0-beta.1 · pre-release · StartOS package 2.0.0-beta.1:0", "--notes-file", "notes.md",
-        "dist/btctx.s9pk", "dist/BitcoinTX-Beta-macOS.dmg", "dist/BitcoinTX-Beta-macOS.zip", "dist/SHA256SUMS"]
-    assert notes.startswith("**This is a pre-release of BitcoinTX 2.0, for testing.**")
+        "dist/btctx.s9pk", "dist/BitcoinTX-Preview-macOS.dmg", "dist/BitcoinTX-Preview-macOS.zip", "dist/SHA256SUMS"]
+    assert notes.startswith("**This is a beta of BitcoinTX 2.0: a pre-release, for testing.**")
     assert notes.index("**About this beta.** Words.") < notes.index("## Downloads")
-    for line in ("`uvx btctx-mcp==2.0.0b1` (a pre-release on PyPI)", "`BitcoinTX-Beta-macOS.dmg`",
+    for line in ("`uvx btctx-mcp==2.0.0b1` (a pre-release on PyPI)", "`BitcoinTX-Preview-macOS.dmg`",
                  "`ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.1` (amd64 and arm64), on a new volume",
                  "/blob/v2.0.0-beta.1/docs/MAINTENANCE.md#going-back-to-1x", "**Checking a download:**"):
         assert line in notes, line
 
 
+def test_an_alpha_is_created_as_a_prerelease_and_called_an_alpha(tmp_path):
+    notes, asked = release_step(
+        tmp_path, "v2.0.0-alpha.1", "## [v2.0.0-alpha.1]\n\n**About this alpha.** Words.\n\n### Added\n- x\n",
+        VERSION="v2.0.0-alpha.1", CONNECTOR="2.0.0a1", PRERELEASE="true", MAC_DMG="BitcoinTX-Preview-macOS.dmg",
+        MAC_ZIP="BitcoinTX-Preview-macOS.zip", PACKAGE="2.0.0-alpha.1:0")
+    assert asked.splitlines()[:7] == ["release", "create", "v2.0.0-alpha.1", "--prerelease", "--latest=false",
+                                      "--target", SHA]
+    assert notes.startswith("**This is an alpha of BitcoinTX 2.0, its earliest test version: a pre-release, for testing.**")
+    assert "`uvx btctx-mcp==2.0.0a1` (a pre-release on PyPI)" in notes
+    assert "a beta of" not in notes
+
+
 @pytest.mark.parametrize("tag, prerelease, says", [
     ("v2.0.0-beta.1", "", "prerelease is '', not true or false"),
     ("v1.2.11", "yes", "prerelease is 'yes', not true or false"),
-    ("v2.0.0-beta.1", "false", "v2.0.0-beta.1 is a beta, not marked a pre-release"),
+    ("v2.0.0-beta.1", "false", "v2.0.0-beta.1 is a pre-release, not marked one"),
+    ("v2.0.0-alpha.1", "false", "v2.0.0-alpha.1 is a pre-release, not marked one"),
 ])
 def test_a_release_whose_kind_is_unclear_is_never_created(tmp_path, tag, prerelease, says):
     """Made a normal release, a beta would be "Latest" (gh's default), and
@@ -457,10 +500,10 @@ def test_the_release_job_uploads_the_mac_files_the_build_named():
     assert "dmg: ${{ steps.package.outputs.dmg }}" in job(RELEASE_YML, "macos")
 
 
-def test_the_beta_report_form_keeps_real_data_and_security_problems_out():
-    form = (REPO / ".github/ISSUE_TEMPLATE/beta_report.yml").read_text()
-    assert 'labels: ["beta", "unconfirmed"]' in form
-    for words in ("Which beta", "StartOS", "macOS app (BitcoinTX Beta)", "Docker", "test ledger",
+def test_the_pre_release_report_form_keeps_real_data_and_security_problems_out():
+    form = (REPO / ".github/ISSUE_TEMPLATE/prerelease_report.yml").read_text()
+    assert 'labels: ["pre-release", "unconfirmed"]' in form
+    for words in ("Which alpha or beta", "StartOS", "macOS app (BitcoinTX Preview)", "Docker", "test ledger",
                   "never post personal data", "SECURITY.md"):
         assert words in form, words
     after = form.split("I removed personal data", 1)[1]

@@ -62,7 +62,7 @@ make hooks          # installs the pre-push gate
   year of the hourly price history as fingerprinted, and opens an issue if not.
 - **On the same runs** (or manually from the Actions tab), not a required check: builds the macOS
   app, launches it, checks its API answers on its own port (`127.0.0.1:8765`;
-  a 2.0 pre-release's "BitcoinTX Beta" on one of its own) with its data in
+  a 2.0 pre-release's "BitcoinTX Preview" on one of its own) with its data in
   its own folder (`scripts/mac-app.sh`), and attaches the
   zipped `.app` and an unsigned `.dmg` to the run; `audit-macos` audits the
   Mac app's dependency locks.

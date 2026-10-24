@@ -26,20 +26,22 @@ name: Release
 # doesn't depend on being able to push tags. An existing release is left
 # alone. Setup of the two secrets: startos/UPDATING.md.
 #
-# A branch prerelease/vX.Y.Z-beta.N pushed from 2.0 publishes a 2.0
-# pre-release the same way (2.0 plan 7.4, B10a): VERSION X.Y.Z-beta.N,
-# current.ts X.Y.Z-beta.N:0, a CHANGELOG section of its own. The Mac app is
-# "BitcoinTX Beta" (BitcoinTX-Beta-macOS.dmg/.zip), the image only
-# :vX.Y.Z-beta.N (scripts/image-tags.sh), the connector btctx-mcp==X.Y.ZbN,
+# A branch prerelease/vX.Y.Z-alpha.N or prerelease/vX.Y.Z-beta.N pushed from
+# 2.0 publishes a 2.0 pre-release the same way (2.0 plan 7.4, B10a; #251's
+# decision 28: alphas first, then betas): VERSION X.Y.Z-alpha.N (or -beta.N),
+# current.ts the same with :0, a CHANGELOG section of its own. The Mac app is
+# "BitcoinTX Preview" (BitcoinTX-Preview-macOS.dmg/.zip), the image only its
+# own tag (scripts/image-tags.sh), the connector btctx-mcp==X.Y.ZaN (or bN),
 # a pre-release on PyPI. The GitHub release is a pre-release, never
 # "Latest", so releases/latest and the landing page stay on 1.x; it never
 # reaches the mirror or Start9 (no start9-pull.sh --check, no mirror job).
-# A beta's tag, like every v* tag, can't be moved or deleted ("Protect
-# release tags"). The image and PyPI jobs run beside the Mac and StartOS
-# builds, so a failed run may have published some of a version's files
-# before any tag: its failed jobs are re-run on the same commit, or the
-# next try is the next beta. The branch is never pushed again from another
-# commit (the image would stay the first commit's, never overwritten).
+# A pre-release's tag, like every v* tag, can't be moved or deleted
+# ("Protect release tags"). The image and PyPI jobs run beside the Mac and
+# StartOS builds, so a failed run may have published some of a version's
+# files before any tag: its failed jobs are re-run on the same commit, or
+# the next try is the next pre-release. The branch is never pushed again
+# from another commit (the image would stay the first commit's, never
+# overwritten).
 on:
   push:
     branches: ['release/v*', 'prerelease/v*']
@@ -66,7 +68,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0   # origin/main and origin/2.0, for the check below
-      - name: Commit is on main (2.0 for a beta); branch, VERSION, CHANGELOG and package version agree
+      - name: Commit is on main (2.0 for a pre-release); branch, VERSION, CHANGELOG and package version agree
         id: v
         env:
           GH_TOKEN: ${{ github.token }}
@@ -89,7 +91,7 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
       - name: Start9's changes to their fork are in startos/ (once they've forked it)
-        # Not for a beta: it never reaches the mirror, and 2.0's release
+        # Not for a pre-release: it never reaches the mirror, and 2.0's release
         # brings Start9's changes in first (2.0 plan 7.4, B10b)
         if: steps.v.outputs.prerelease == 'false'
         env:
@@ -104,8 +106,8 @@ jobs:
         # days still give their fingerprint and agree with Bitfinex and
         # Kraken, and it ends at most 14 days before this commit (`make
         # prices` in the bump pull request). A package-only revision (-N)
-        # ships the history it had: no age check. A beta ships its own, so it
-        # keeps the check.
+        # ships the history it had: no age check. A pre-release ships its own,
+        # so it keeps the check.
         env:
           REVISION: ${{ steps.v.outputs.revision }}
         run: |
@@ -119,9 +121,9 @@ jobs:
     uses: ./.github/workflows/image.yml
 
   pypi:
-    # The AI connector (mcp_server/) on PyPI as btctx-mcp==X.Y.Z (a beta's
-    # as X.Y.ZbN, which PyPI lists as a pre-release: pip and uv take it only
-    # when it's asked for by version). Trusted
+    # The AI connector (mcp_server/) on PyPI as btctx-mcp==X.Y.Z (an alpha's
+    # as X.Y.ZaN, a beta's as X.Y.ZbN, which PyPI lists as pre-releases: pip
+    # and uv take one only when it's asked for by version). Trusted
     # publishing: PyPI trusts this workflow in the `pypi` environment, so no
     # token is stored anywhere. Skipped for a package-only revision (-N):
     # PyPI never takes the same version twice.
@@ -163,7 +165,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
-      - name: Build the app (BitcoinTX, or BitcoinTX Beta for a pre-release)
+      - name: Build the app (BitcoinTX, or BitcoinTX Preview for a pre-release)
         run: ./desktop/build-mac.sh
         env:
           # The Python set up above, never one the runner happens to have (#284)
@@ -288,35 +290,39 @@ jobs:
           PACKAGE: ${{ needs.s9pk.outputs.package }}
         run: |
           [ -n "$PACKAGE" ] || { echo "no package version from the s9pk job"; exit 1; }
-          # A beta made a normal release would be "Latest" (gh's default):
-          # anything but a plain true or false, from the check job, stops here
+          # A pre-release made a normal release would be "Latest" (gh's
+          # default): anything but a plain true or false, from the check job,
+          # stops here
           case "$PRERELEASE" in true | false) ;; *) echo "prerelease is '$PRERELEASE', not true or false"; exit 1 ;; esac
-          [[ "$TAG" == *-beta.* ]] && [ "$PRERELEASE" != true ] && { echo "$TAG is a beta, not marked a pre-release"; exit 1; }
+          case "$TAG" in
+            *-alpha.* | *-beta.*) [ "$PRERELEASE" = true ] || { echo "$TAG is a pre-release, not marked one"; exit 1; }; STAGE="${TAG#*-}" ;;
+          esac
           REPO_URL="https://github.com/$GITHUB_REPOSITORY"
           if [ "$PRERELEASE" = true ]; then
-            # A beta's notes open with what it is, how each platform keeps a
-            # tester's records, and the way back (2.0 plan 7.4, B10a; 5.16)
-            cat > beta.md <<EOF
-          **This is a pre-release of BitcoinTX 2.0, for testing.** It's for people who choose to try 2.0 before it's released, and it may have bugs. Nobody gets it as an update: BitcoinTX's releases, Docker's \`:latest\`, the Mac app's download, the landing page and Start9's store stay on 1.x.
+            # A pre-release's notes open with what it is, how each platform
+            # keeps a tester's records, and the way back (2.0 plan 7.4, B10a; 5.16)
+            if [ "${STAGE%%.*}" = alpha ]; then what="an alpha of BitcoinTX 2.0, its earliest test version"; else what="a beta of BitcoinTX 2.0"; fi
+            cat > pre.md <<EOF
+          **This is $what: a pre-release, for testing.** It's for people who choose to try 2.0 before it's released, and it may have bugs. Nobody gets it as an update: BitcoinTX's releases, Docker's \`:latest\`, the Mac app's download, the landing page and Start9's store stay on 1.x.
 
-          - **Mac:** a separate app, **BitcoinTX Beta**, installed beside BitcoinTX, with its own empty ledger, folder and port: your BitcoinTX and its ledger are never opened. To try your records, download a backup in BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX Beta's Settings.
+          - **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta of 2.0), installed beside BitcoinTX, with its own ledger, folder and port: your BitcoinTX and its ledger are never opened. It starts empty, and its ledger carries from one pre-release to the next. To try your records, download a backup in BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX Preview's Settings.
           - **StartOS:** it updates your BitcoinTX in place. **Make a StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x, uninstall BitcoinTX (which deletes its data) and restore that backup.
           - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/docs/MAINTENANCE.md#going-back-to-1x).
 
-          What you enter in a beta can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 beta report]($REPO_URL/issues/new?template=beta_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next beta: until 2.0 is out, a StartOS server running a beta is offered no 1.x update.
+          What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 pre-release report]($REPO_URL/issues/new?template=prerelease_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next pre-release: until 2.0 is out, a StartOS server running one is offered no 1.x update.
 
           EOF
-            scripts/release-notes.sh "$TAG" >> beta.md
-            mv beta.md notes.md
+            scripts/release-notes.sh "$TAG" >> pre.md
+            mv pre.md notes.md
             title="$TAG · pre-release · StartOS package $PACKAGE"
             cat >> notes.md <<EOF
 
           ## Downloads
 
           - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first; then in StartOS, open **Sideload** and upload it: it updates your BitcoinTX in place.
-          - **macOS:** \`$MAC_DMG\` (or the \`.zip\`), the separate app BitcoinTX Beta. It is not signed by Apple: the first time, right-click (Control-click) BitcoinTX Beta in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
+          - **macOS:** \`$MAC_DMG\` (or the \`.zip\`), the separate app BitcoinTX Preview. It is not signed by Apple: the first time, right-click (Control-click) BitcoinTX Preview in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64), on a new volume. Never \`:latest\`, which stays on 1.x.
-          - **AI connector:** \`uvx btctx-mcp==$CONNECTOR\` (a pre-release on PyPI); BitcoinTX Beta's Settings → Connect an AI Assistant has it ready to paste.
+          - **AI connector:** \`uvx btctx-mcp==$CONNECTOR\` (a pre-release on PyPI); BitcoinTX Preview's Settings → Connect an AI Assistant has it ready to paste.
           EOF
           else
             scripts/release-notes.sh "$TAG" > notes.md
@@ -340,7 +346,7 @@ jobs:
 
   mirror:
     needs: [check, release]
-    # A beta never reaches the mirror or Start9 (2.0 plan 7.4, B10a)
+    # A pre-release never reaches the mirror or Start9 (2.0 plan 7.4, B10a)
     if: needs.check.outputs.prerelease == 'false'
     runs-on: ubuntu-latest
     permissions:

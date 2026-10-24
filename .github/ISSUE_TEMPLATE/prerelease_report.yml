@@ -1,19 +1,19 @@
-name: 2.0 beta report
-description: Something in a BitcoinTX 2.0 pre-release (v2.0.0-beta.N) doesn't work, or shows a wrong figure.
-labels: ["beta", "unconfirmed"]
+name: 2.0 alpha or beta report
+description: Something in a BitcoinTX 2.0 pre-release (v2.0.0-alpha.N or v2.0.0-beta.N) doesn't work, or shows a wrong figure.
+labels: ["pre-release", "unconfirmed"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for testing BitcoinTX 2.0. **Issues are public: never post personal data.** That means no real ledger figures, Bitcoin addresses or transaction ids, keys, passwords, server addresses, or screenshots of your real ledger. Show the problem on a test ledger: a few made-up transactions in an empty ledger (the Mac beta starts with one), never your real records.
+        Thanks for testing BitcoinTX 2.0. **Issues are public: never post personal data.** That means no real ledger figures, Bitcoin addresses or transaction ids, keys, passwords, server addresses, or screenshots of your real ledger. Show the problem on a test ledger: a few made-up transactions in an empty ledger (BitcoinTX Preview, the Mac app, starts with one), never your real records.
 
         **A security problem?** Don't file it here: report it privately ([SECURITY.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/SECURITY.md)).
   - type: input
-    id: beta
+    id: prerelease
     attributes:
-      label: Which beta
+      label: Which alpha or beta
       description: "The pre-release you ran, from its GitHub page, or Settings → About BitcoinTX. On StartOS, the Services list shows the package version too."
-      placeholder: "2.0.0-beta.1 (StartOS package 2.0.0-beta.1:0)"
+      placeholder: "2.0.0-alpha.1 (StartOS package 2.0.0-alpha.1:0)"
     validations:
       required: true
   - type: dropdown
@@ -22,9 +22,9 @@ body:
       label: Where you run it
       options:
         - StartOS
-        - macOS app (BitcoinTX Beta)
+        - macOS app (BitcoinTX Preview)
         - Docker
-        - AI connector (btctx-mcp 2.0 beta)
+        - AI connector (btctx-mcp 2.0 alpha or beta)
     validations:
       required: true
   - type: textarea
@@ -85,5 +85,5 @@ body:
       options:
         - label: I removed personal data (ledger figures, addresses, transaction ids, keys, passwords, server addresses).
           required: true
-        - label: I checked the open beta reports for the same problem.
+        - label: I checked the open pre-release reports for the same problem.
           required: true

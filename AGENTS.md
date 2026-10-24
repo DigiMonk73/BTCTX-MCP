@@ -143,14 +143,15 @@ carry its `Co-Authored-By` line.
   scheduled task on the Mac mini), so 1.x's fixes reach `2.0` without
   waiting. Never `gh pr update-branch` on a catch-up: its head is the
   merge commit its CI tested.
-- **`prerelease/v2.0.0-beta.N`**: pushed from `2.0`'s tip to publish
-  a 2.0 pre-release on GitHub (B10a), then deleted. A pre-release
-  never moves Docker's `:latest` or `:main`, never reaches the mirror
-  or Start9, and is never "Latest" on GitHub. Its tag can't be moved
-  or deleted ("Protect release tags"), and its image and connector may be
-  out before the tag: a failed run's jobs are re-run on the same commit,
-  or the next try is the next beta, `beta.N+1`; the branch is never
-  pushed again from another commit.
+- **`prerelease/v2.0.0-alpha.N`, then `prerelease/v2.0.0-beta.N`**:
+  pushed from `2.0`'s tip to publish a 2.0 pre-release on GitHub, an
+  alpha, then a beta (B10a; #251's decision 28), then deleted. A
+  pre-release never moves Docker's `:latest` or `:main`, never reaches
+  the mirror or Start9, and is never "Latest" on GitHub. Its tag can't
+  be moved or deleted ("Protect release tags"), and its image and
+  connector may be out before the tag: a failed run's jobs are re-run on
+  the same commit, or the next try is the next pre-release (`alpha.N+1`
+  or `beta.N+1`); the branch is never pushed again from another commit.
 
 The pre-push hook refuses a push to `main` of anything not already on
 GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
@@ -783,14 +784,16 @@ Full steps, the package version and the signing/mirror secrets:
 
 2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
 7.4's B10a and B10b: their version bumps go into `2.0`, not
-`develop`; a pre-release is published from `prerelease/v2.0.0-beta.N`;
-and for the release, `develop` takes nothing from the last `develop`
-merge until `2.0` is in it. A pre-release's `VERSION` is
-`2.0.0-beta.N`, its `current.ts` `2.0.0-beta.N:0` (never a package-only
-revision: a fix is the next beta), and `release.yml` publishes it as
-`release/` does a release, but as a GitHub pre-release (the Mac app
-"BitcoinTX Beta", the image's own tag only, the connector
-`btctx-mcp==2.0.0bN`), with no mirror and no Start9 step:
+`develop`; a pre-release, an alpha and later a beta (#251's decision
+28), is published from `prerelease/v2.0.0-alpha.N` or
+`prerelease/v2.0.0-beta.N`; and for the release, `develop` takes
+nothing from the last `develop` merge until `2.0` is in it. A
+pre-release's `VERSION` is `2.0.0-alpha.N` or `2.0.0-beta.N`, its
+`current.ts` the same with `:0` (never a package-only revision: a fix
+is the next pre-release), and `release.yml` publishes it as `release/`
+does a release, but as a GitHub pre-release (the Mac app "BitcoinTX
+Preview", the image's own tag only, the connector `btctx-mcp==2.0.0aN`
+or `2.0.0bN`), with no mirror and no Start9 step:
 `scripts/release-version.sh`, `image-tags.sh` and `mac-app.sh` hold
 the rules.
 
@@ -937,7 +940,7 @@ One home for each kind of information, so nothing is kept twice:
   Grok Bot's view), `start9` (the package, Start9's fork or registry); the
   workflows label the issues they open. Labels for what an issue is:
   `bug` (confirmed), `unconfirmed` (a report not yet reproduced),
-  `beta` (a report from a 2.0 pre-release, its own form: B10a),
+  `pre-release` (a report from a 2.0 alpha or beta, its own form: B10a),
   `tax-figures` (a figure could be wrong), `security` (hardening, and a
   fix's follow-up once released: never an unfixed vulnerability),
   `enhancement`. A pull request that finishes one says `Closes #N`, and Claude closes the issue when it merges: GitHub

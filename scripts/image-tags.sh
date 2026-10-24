@@ -3,14 +3,15 @@
 # GITHUB_SHA (IMAGE: the image's name):
 #   $IMAGE:main, $IMAGE:sha-<sha>   every push to main
 #   $IMAGE:vX.Y.Z, $IMAGE:latest    the first build of a release's VERSION
-#   $IMAGE:vX.Y.Z-beta.N            the first build of a 2.0 pre-release
-#                                   (2.0 plan 7.4, B10a), and nothing else:
-#                                   never :latest, :main or a moving tag, so
-#                                   no one's update takes a beta
-# A version tag is never overwritten. A beta is published only from its own
-# branch, prerelease/vX.Y.Z-beta.N (release.yml's run there, which the
-# owner's "release" starts): a push to main or a run started by hand on any
-# other branch publishes none.
+#   $IMAGE:vX.Y.Z-alpha.N           the first build of a 2.0 pre-release, an
+#   $IMAGE:vX.Y.Z-beta.N            alpha or a beta (2.0 plan 7.4, B10a; #251's
+#                                   decision 28), and nothing else: never
+#                                   :latest, :main or a moving tag, so no
+#                                   one's update takes one
+# A version tag is never overwritten. A pre-release is published only from
+# its own branch, prerelease/vX.Y.Z-alpha.N or -beta.N (release.yml's run
+# there, which the owner's "release" starts): a push to main or a run started
+# by hand on any other branch publishes none.
 #
 #   scripts/image-tags.sh >> "$GITHUB_OUTPUT"
 #
@@ -37,7 +38,7 @@ if [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     SMOKE="${SMOKE:-$IMAGE:$VERSION}"
     echo "publishing $VERSION" >&2
   fi
-elif [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[1-9][0-9]*$ ]]; then
+elif [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta)\.[1-9][0-9]*$ ]]; then
   [ "$GITHUB_REF" = "refs/heads/prerelease/$VERSION" ] || {
     echo "VERSION $VERSION is a pre-release: only release.yml publishes it, from prerelease/$VERSION (this is $GITHUB_REF)" >&2
     exit 1
