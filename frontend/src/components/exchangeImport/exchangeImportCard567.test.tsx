@@ -26,17 +26,25 @@ const COLUMNS = {
 
 function card() {
   vi.restoreAllMocks();
-  vi.spyOn(api, "get").mockResolvedValue({ data: { mappings: [
-    { id: "river", name: "River", ready_made: true, help: "", checked: true },
-  ] } });
+  // The saved mappings answer a moment after the card shows, as on a slow
+  // runner: the picker offers "Another exchange" only once they have (#660)
+  const mappings = { data: { mappings: [{ id: "river", name: "River", ready_made: true, help: "", checked: true }] } };
+  vi.spyOn(api, "get").mockImplementation(() => new Promise((resolve) => { setTimeout(() => resolve(mappings), 50); }));
   vi.spyOn(api, "post").mockImplementation(async (url) => ({ data: url === "/import/exchange/columns" ? COLUMNS : PREVIEW }));
   render(<ToastProvider><RiverImport onPreviewShown={() => undefined} /></ToastProvider>);
   return userEvent.setup();
 }
 
+/** "Another exchange: match its columns", once the picker offers it. */
+async function chooseAnotherExchange(user: ReturnType<typeof userEvent.setup>) {
+  const choice = "Another exchange: match its columns";
+  await screen.findByRole("option", { name: choice });
+  await user.selectOptions(screen.getByLabelText("Exchange file"), choice);
+}
+
 /** Another exchange's file, its columns matched by their names, previewed. */
 async function matchedAndPreviewed(user: ReturnType<typeof userEvent.setup>) {
-  await user.selectOptions(await screen.findByLabelText("Exchange file"), "Another exchange: match its columns");
+  await chooseAnotherExchange(user);
   await user.upload(screen.getByLabelText("Exchange CSV file"), new File(["a"], "x.csv", { type: "text/csv" }));
   await user.selectOptions(await screen.findByLabelText("Date"), "When");
   await user.selectOptions(screen.getByLabelText("Bitcoin amount"), "Coins");
@@ -65,7 +73,7 @@ describe("the import's card", () => {
 
   it("lists a kind word once whatever its case, since the import reads it in any case", async () => {
     const user = card();
-    await user.selectOptions(await screen.findByLabelText("Exchange file"), "Another exchange: match its columns");
+    await chooseAnotherExchange(user);
     await user.upload(screen.getByLabelText("Exchange CSV file"), new File(["a"], "x.csv", { type: "text/csv" }));
     expect(await screen.findByLabelText("“Buy” is")).toBeTruthy();
     expect(screen.queryByLabelText("“BUY” is")).toBeNull();
@@ -87,7 +95,7 @@ describe("the import's card", () => {
     const user = card();
     vi.spyOn(api, "post").mockImplementation(async (url) => ({ data: url === "/import/exchange/columns"
       ? { ...COLUMNS, values: { ...COLUMNS.values, Type: ["Buy", "BUY", "Sell"] } } : PREVIEW }));
-    await user.selectOptions(await screen.findByLabelText("Exchange file"), "Another exchange: match its columns");
+    await chooseAnotherExchange(user);
     await user.upload(screen.getByLabelText("Exchange CSV file"), new File(["a"], "x.csv", { type: "text/csv" }));
     await user.selectOptions(await screen.findByLabelText("Date"), "When");
     await user.selectOptions(screen.getByLabelText("Bitcoin amount"), "Coins");
