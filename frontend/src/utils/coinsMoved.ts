@@ -1,7 +1,8 @@
 // Which coins a Transfer moves, shown before it saves (#706): when to ask
 // the server (POST /transactions/coins-moved, which runs the save's own
 // path on a scratch copy of the ledger), with what, and the words around
-// the list it gives.
+// the list it gives. Asked with the body the Save sends, so once a transfer
+// can name the coins it moves (#711), the list follows that choice.
 import { accountName, chosenId, isBtcAccount } from "./accounts";
 import { btcText, parseDecimal } from "./format";
 import { buildTransactionPayload } from "./transactionForm";
@@ -52,9 +53,26 @@ export function coinsUrl(transactionId: number | null | undefined): string {
   return transactionId ? `/transactions/${transactionId}/coins-moved` : "/transactions/coins-moved";
 }
 
-/** The rule, said whenever coins move (Treas. Reg. §1.1012-1(j): the units aren't identified). */
+/** What the save does without a choice of coins, in decision 30's words
+ * for the method (#713): the IRS default when none are identified (Treas.
+ * Reg. §1.1012-1(j)), never a rule of its own. */
 export function oldestFirstLine(book: AccountBook, fromId: number): string {
-  return `Moves your oldest coins in ${accountName(book, fromId)} first (first in, first out, the IRS default).`;
+  return `Per-wallet FIFO: your oldest coins in ${accountName(book, fromId)} move first (the IRS default when you ` +
+    "don't pick specific coins).";
+}
+
+// How the save's answers begin when it refuses: nothing was being saved here
+const NOT_SAVED = /^Not (saved|changed): /;
+
+/**
+ * Why there's no list: the save's own refusal of the transfer as it is
+ * (400, 422), else that the list can't be shown, with the server's reason
+ * when it gave one; its "Not saved: " left out either way.
+ */
+export function noListLine(status: number | undefined, reason: string): string {
+  const why = reason.replace(NOT_SAVED, "");
+  if ((status === 400 || status === 422) && why) return `This transfer can't be saved as it is: ${why}`;
+  return why ? `Which coins move can't be shown: ${why}` : "Which coins move can't be shown right now.";
 }
 
 /** The network fee's line: the save takes it from the oldest coins before

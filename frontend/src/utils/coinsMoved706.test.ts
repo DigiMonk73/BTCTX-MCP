@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { MANY } from "../test/books";
 import {
-  acquiredText, coinsPayload, coinsUrl, feeLine, movesCoins, oldestFirstLine,
+  acquiredText, coinsPayload, coinsUrl, feeLine, movesCoins, noListLine, oldestFirstLine,
 } from "./coinsMoved";
 import { buildTransactionPayload } from "./transactionForm";
 
@@ -56,9 +56,25 @@ describe("what's asked", () => {
 });
 
 describe("the words", () => {
-  it("the oldest coins in the From account go first", () => {
+  it("the oldest coins in the From account go first: the IRS default without a pick, in decision 30's words", () => {
     expect(oldestFirstLine(MANY, SPARROW)).toBe(
-      "Moves your oldest coins in Sparrow first (first in, first out, the IRS default).");
+      "Per-wallet FIFO: your oldest coins in Sparrow move first (the IRS default when you don't pick specific coins).");
+  });
+
+  it("a transfer the save would refuse, without the save's \"Not saved\": nothing was", () => {
+    expect(noListLine(400, "Not saved: with it, the account would lack BTC on its date or later. Not enough BTC"))
+      .toBe("This transfer can't be saved as it is: with it, the account would lack BTC on its date or later. " +
+        "Not enough BTC");
+    expect(noListLine(400, "Not changed: Not enough BTC to transfer 2 (including fee 0)"))
+      .toBe("This transfer can't be saved as it is: Not enough BTC to transfer 2 (including fee 0)");
+    expect(noListLine(422, "Only a Transfer moves coins between your accounts."))
+      .toBe("This transfer can't be saved as it is: Only a Transfer moves coins between your accounts.");
+  });
+
+  it("any other failure: the list can't be shown", () => {
+    expect(noListLine(503, "Not saved: BitcoinTX was busy saving something else. Try again."))
+      .toBe("Which coins move can't be shown: BitcoinTX was busy saving something else. Try again.");
+    expect(noListLine(undefined, "")).toBe("Which coins move can't be shown right now.");
   });
 
   it("the fee, when there is one", () => {

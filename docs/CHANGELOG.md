@@ -11,14 +11,14 @@ All notable changes to BitcoinTX are documented in this file.
   oldest coins first (first in, first out: the IRS default when you don't
   identify the coins, Treas. Reg. §1.1012-1(j)), but the form never said
   so, so someone moving "the 2024 coins" to a new wallet moved the 2017
-  ones. Between two of your bitcoin accounts, the form now says "Moves your
-  oldest coins in *From* first", and lists the coins that will move, each
+  ones. Between two of your bitcoin accounts, the form now says "Per-wallet
+  FIFO: your oldest coins in *From* move first (the IRS default when you
+  don't pick specific coins)", and lists the coins that will move, each
   with its date acquired, amount and cost, and the network fee, which is
   paid from the oldest coins first. The list is the save's own: BitcoinTX
   works the transfer out as its save would, on a copy of your ledger, so a
   transfer dated in the past and an edit show what their save will do, and
-  one the save would refuse says why. No figure changes: BitcoinTX still
-  never lets you pick which coins move.
+  one the save would refuse says why. No figure changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 

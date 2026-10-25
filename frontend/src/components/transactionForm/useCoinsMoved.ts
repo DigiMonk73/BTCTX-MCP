@@ -1,3 +1,4 @@
+import axios from "axios";
 import { useEffect, useState } from "react";
 import api from "../../api";
 import { serverReason } from "../../utils/apiError";
@@ -8,21 +9,30 @@ import { coinsUrl, type CoinsMoved } from "../../utils/coinsMoved";
  * ledger on the server). */
 export const COINS_WAIT_MS = 400;
 
-/** What the list shows: nothing to ask yet, the question out, the server's
- * answer, or why it has none ("" when it gave no reason). */
+/** The server's answer to the form's question: nothing to ask yet, the
+ * question out, the list, or why there's none (the status it came with,
+ * and its reason, "" when it gave none). */
 export type CoinsState =
   | { kind: "idle" }
   | { kind: "asking" }
   | { kind: "listed"; answer: CoinsMoved }
-  | { kind: "refused"; reason: string };
+  | { kind: "refused"; status: number | undefined; reason: string };
+
+/** What the form shows: `stale` when it's the list for an earlier
+ * question, kept while this one is asked, so the form doesn't jump. */
+export interface CoinsShown {
+  state: CoinsState;
+  stale: boolean;
+}
 
 /**
  * The coins a Transfer would move (#706), asked with `payload` (null: not
  * yet) once it has stayed the same for COINS_WAIT_MS. An answer counts only
  * for the question it answers: one that changed meanwhile is asked again,
- * its old request cancelled.
+ * its old request cancelled in the browser and its replay stopped on the
+ * server (transfer_coins: the newest list asked for wins).
  */
-export function useCoinsMoved(payload: ICreateTransactionPayload | null, transactionId?: number | null): CoinsState {
+export function useCoinsMoved(payload: ICreateTransactionPayload | null, transactionId?: number | null): CoinsShown {
   const url = coinsUrl(transactionId);
   const body = payload ? JSON.stringify(payload) : "";
   const question = body && `${url} ${body}`;
@@ -34,7 +44,11 @@ export function useCoinsMoved(payload: ICreateTransactionPayload | null, transac
     const timer = setTimeout(() => {
       api.post<CoinsMoved>(url, JSON.parse(body), { signal: controller.signal })
         .then((res): CoinsState => ({ kind: "listed", answer: res.data }))
-        .catch((error: unknown): CoinsState => ({ kind: "refused", reason: serverReason(error) ?? "" }))
+        .catch((error: unknown): CoinsState => ({
+          kind: "refused",
+          status: axios.isAxiosError(error) ? error.response?.status : undefined,
+          reason: serverReason(error) ?? "",
+        }))
         .then((state) => {
           if (!controller.signal.aborted) setAnswered({ question, state });
         });
@@ -45,6 +59,8 @@ export function useCoinsMoved(payload: ICreateTransactionPayload | null, transac
     };
   }, [question, url, body]);
 
-  if (!question) return { kind: "idle" };
-  return answered?.question === question ? answered.state : { kind: "asking" };
+  if (!question) return { state: { kind: "idle" }, stale: false };
+  if (answered?.question === question) return { state: answered.state, stale: false };
+  if (answered?.state.kind === "listed" && answered.state.answer.coins) return { state: answered.state, stale: true };
+  return { state: { kind: "asking" }, stale: false };
 }

@@ -12,7 +12,8 @@ import { MANY } from "../../test/books";
 import { renderForm, type PlannedAnswer, type RenderedForm, type SentRequest } from "../../test/renderForm";
 import { COINS_WAIT_MS } from "./useCoinsMoved";
 
-const OLDEST_FIRST = "Moves your oldest coins in Sparrow first (first in, first out, the IRS default).";
+const OLDEST_FIRST =
+  "Per-wallet FIFO: your oldest coins in Sparrow move first (the IRS default when you don't pick specific coins).";
 const LISTED = {
   coins: [
     { acquired: "2017-03-01", btc: "0.29990000", cost_usd: "299.90", inherited: false },
@@ -70,8 +71,28 @@ describe("a Transfer between two of your bitcoin accounts", () => {
 
   it("asks once the typing stops, not for every key", async () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
-    await sparrowToColdcard(form);
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Sparrow");
+    await form.choose("To Account", "Coldcard");
+    // What arrived first: then each key of what left, from "0.4" on, is a transfer the list could be asked for
+    await form.user.type(screen.getByLabelText("Amount (To)"), "0.4");
+    await form.user.type(screen.getByLabelText("Amount (From)"), "0.40015");
+    await waitForCoins(form);
     expect(asked(form)).toHaveLength(1);
+    expect(asked(form)[0].body).toMatchObject({ amount: 0.40015 });
+  });
+
+  it("keeps the list shown, dimmed, while the changed transfer's is asked", async () => {
+    const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
+    await sparrowToColdcard(form);
+    const list = () => screen.getByRole("table", { name: "Coins that will move" }).parentElement;
+    expect(list()?.getAttribute("aria-busy")).toBe("false");
+    await form.user.clear(screen.getByLabelText("Amount (To)"));
+    await form.user.type(screen.getByLabelText("Amount (To)"), "0.3");
+    expect(list()?.getAttribute("aria-busy")).toBe("true");
+    await waitForCoins(form);
+    expect(list()?.getAttribute("aria-busy")).toBe("false");
+    expect(asked(form)).toHaveLength(2);
   });
 
   it("says the line before the amounts are there, and asks nothing yet", async () => {
@@ -85,17 +106,21 @@ describe("a Transfer between two of your bitcoin accounts", () => {
     expect(asked(form)).toEqual([]);
   });
 
-  it("says why when the save would be refused", async () => {
-    const refused = { status: 400, data: { detail: "Not enough BTC to transfer 2 (including fee 0)" } };
+  it("says why when the save would be refused, nothing yet saved", async () => {
+    const refused = {
+      status: 400,
+      data: { detail: "Not saved: with it, the account would lack BTC on its date or later. Not enough BTC to " +
+        "transfer 2 (including fee 0)" },
+    };
     const form = await renderForm({ book: MANY, respond: coinsAnswer(refused) });
     await sparrowToColdcard(form, "2", "2");
-    expect(screen.getByText("Which coins move can't be shown: Not enough BTC to transfer 2 (including fee 0)"))
-      .toBeTruthy();
+    expect(screen.getByText("This transfer can't be saved as it is: with it, the account would lack BTC on its " +
+      "date or later. Not enough BTC to transfer 2 (including fee 0)")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
   it("says so when the ledger is too big to work it out quickly", async () => {
-    const slow = { coins: null, fee_btc: null, detail: "BitcoinTX couldn't work out quickly enough here which coins move." };
+    const slow = { coins: null, fee_btc: null, detail: "BitcoinTX couldn't work out in time which coins move. Saving isn't affected." };
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: slow }) });
     await sparrowToColdcard(form);
     expect(screen.getByText(slow.detail)).toBeTruthy();
@@ -125,7 +150,7 @@ describe("no coins move", () => {
     await form.user.type(screen.getByLabelText("Amount (From)"), "0.4001");
     await form.user.type(screen.getByLabelText("Amount (To)"), "0.4");
     await waitForCoins(form);
-    expect(screen.queryByText(/^Moves your oldest coins/)).toBeNull();
+    expect(screen.queryByText(/^Per-wallet FIFO/)).toBeNull();
     expect(asked(form)).toEqual([]);
   });
 
@@ -137,7 +162,7 @@ describe("no coins move", () => {
     await form.user.type(screen.getByLabelText("Amount (From)"), "500");
     await form.user.type(screen.getByLabelText("Amount (To)"), "498");
     await waitForCoins(form);
-    expect(screen.queryByText(/^Moves your oldest coins/)).toBeNull();
+    expect(screen.queryByText(/^Per-wallet FIFO/)).toBeNull();
     expect(asked(form)).toEqual([]);
   });
 });

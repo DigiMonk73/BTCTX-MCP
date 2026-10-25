@@ -6,7 +6,8 @@
 import { test, expect, createTx, openAddForm, saveForm } from "./fixtures";
 import type { Page } from "@playwright/test";
 
-const OLDEST_FIRST = "Moves your oldest coins in Wallet first (first in, first out, the IRS default).";
+const OLDEST_FIRST =
+  "Per-wallet FIFO: your oldest coins in Wallet move first (the IRS default when you don't pick specific coins).";
 const COINS = [
   ["Mar 1, 2017", "0.29990000", "$299.90"],
   ["May 1, 2024", "0.10010000", "$6,006.00"],
