@@ -47,6 +47,21 @@ All notable changes to BitcoinTX are documented in this file.
   brings its mappings as they were; mappings in a backup this version
   can't read are left out, and never stop the restore. No figure
   changes.
+- **An account's name prints in the tax report** (#722, found by the 2.0
+  testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
+  lets you name your wallets, exchanges and banks, but the reports' fonts
+  can't draw most emoji, nor Cyrillic, Chinese or accented Greek letters:
+  a name with one printed with black boxes in the Complete Tax Report and
+  the Transaction History, so "by account" couldn't be read. Adding or
+  renaming an account now refuses a name with an emoji or a letter outside
+  Western European alphabets, saying "A name can use letters, digits and
+  punctuation the tax report can print: no emoji, and no letters outside
+  Western European alphabets." Accents, €, dashes and a name starting with
+  an apostrophe are fine. A name saved before (an alpha allowed any), or
+  any other text in a report, prints "?" for each character the fonts
+  can't draw, never a black box; rename it in Settings → Wallets,
+  exchanges and banks to print it in full. The CSV export keeps names as
+  they are. No figure changes.
 - **Settings reads your accounts afresh, so Delete follows the server**
   (#720, found by the StartOS tests, #691). The account book was read once
   per page, so after a transaction into a new account (on the Transactions
@@ -85,6 +100,23 @@ All notable changes to BitcoinTX are documented in this file.
   read the same way). A release keeps `bitcointx`. If your AI app's
   `bitcointx` reached another BitcoinTX (the Mac app, another server) and
   you replaced it with the action's configuration, set it back.
+- **A Transfer's consolidation no longer becomes a move when its From
+  Account changes** (#719, found by the 2.0 testing plan's StartOS run,
+  ACC-7, on alpha.2; the bug is in alpha.1 and alpha.2). With To Account on
+  "*Exchange*: consolidate within the same exchange" (or a wallet's),
+  choosing another From Account kept the old account as the To, so the
+  form then held a transfer into it, which moves your oldest coins, with
+  their dates and cost, into that account. A consolidation records only
+  the network fee. To Account is now blank again, as it already was when
+  it would have become the new From's consolidation. The same goes for an
+  edit of a saved consolidation, even when its From is put back: choose
+  the consolidation again before saving. A To that still means the same
+  move (into Coldcard, say, from another bitcoin account) stays. Nothing
+  was saved without the Save click, and the field showed its new value: no
+  figure changes. Testing an alpha? A Transfer you meant as a
+  consolidation shows as "Consolidation" in the Transactions list; one
+  listed between two different accounts moved coins, and can be edited
+  back.
 
 ### Development
 - **The release walk's steps match 2.0** (#723, found by the StartOS
@@ -126,6 +158,22 @@ All notable changes to BitcoinTX are documented in this file.
   "0.00000001 BTC", so a ledger with a small network fee showed differences
   that weren't there; and it stopped on a bitcoin spend with no network
   fee, which has no fee value. A test tool only: no figure of the app's
+  changes.
+- **The independent figures learn chosen coins** (#728, step C1 of
+  choosing which coins leave a wallet, #711). `scripts/independent_figures.py`,
+  the second calculation every figures check compares with the app's,
+  now follows specific identification (Treas. Reg. §1.1012-1(j)(2)) from
+  the rule, ahead of the app: a Transfer or Withdrawal from one of your
+  wallets may name the coins that leave, each by the key of the Buy or
+  Deposit that acquired them, together exactly what leaves; the network
+  fee takes the oldest of the chosen coins first, then the amount the
+  rest; and the coins keep their key when they move, so a later spend in
+  another wallet can choose them too. A choice the rules don't allow (on
+  an exchange, in a consolidation, not adding up, a key that names
+  nothing) or one the wallet doesn't hold when the coins leave stops the
+  calculation, naming the row. Its own tests work every figure out by
+  hand. No ledger chooses coins yet, so the reference ledger's figures
+  agree in every year as before. A test tool only: nothing in the app
   changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one

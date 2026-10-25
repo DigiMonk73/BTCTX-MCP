@@ -238,8 +238,8 @@ def test_two_adds_at_once_get_two_ids(api):
     # what nothing shows makes no name of its own (2.0 spec 5.1)
     ("wallet", "Wallet\u034f", "'Wallet' always means your first wallet in files (CSV, River, BitcoinTX 1.x): "
                                "choose another name."),
-    ("bank", "\u2800Bank\ufe0f", "'Bank\ufe0f' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
-                                 "choose another name."),
+    ("bank", "\u2800Bank", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
+                           "choose another name."),
     ("wallet", "Bank\u3164", "'Bank' always means your first bank in files (CSV, River, BitcoinTX 1.x): "
                              "choose another name."),
     ("exchange", "Exchange\u034f", "An exchange named 'Exchange' already exists."),
@@ -251,11 +251,22 @@ def test_a_name_is_refused(api, kind, name, detail):
     assert _rows(api.path, "SELECT count(*) FROM accounts WHERE id >= 100") == [(0,)]
 
 
-@pytest.mark.parametrize("name", ["COLDCARD", "Cold\u200dcard", "  coldcard ", "Cold\u034fcard"])
+@pytest.mark.parametrize("name", ["COLDCARD", "  coldcard "])
 def test_a_name_alike_another_is_refused(api, name):
     assert _add(api, "wallet", "Coldcard").status_code == 201
     r = _add(api, "bank", name)
     assert r.status_code == 400 and r.json()["detail"] == f"An account named '{name.strip()}' already exists."
+
+
+@pytest.mark.parametrize("saved", ["Cold\u200dcard", "Cold\u034fcard"])
+def test_a_name_alike_one_saved_before_is_refused(api, saved):
+    """A name with a character nothing shows, which the tax report can't
+    print (#722), can no longer be added, but one saved before (a 2.0 alpha
+    allowed it) is still alike its plain spelling."""
+    assert _add(api, "wallet", "Cold storage").status_code == 201
+    _sql(api.path, f"UPDATE accounts SET name = '{saved}' WHERE id = 100")
+    r = _add(api, "bank", "Coldcard")
+    assert r.status_code == 400 and r.json()["detail"] == "An account named 'Coldcard' already exists."
 
 
 def test_an_exchanges_account_names_must_be_free(api):
@@ -269,9 +280,7 @@ def test_an_exchanges_account_names_must_be_free(api):
     ("wallet", "x" * 40, "x" * 40),
     ("exchange", "y" * 36, "y" * 36 + " USD"),
     ("bank", "'Savings", "'Savings"),  # the owner's decision 23 (#251)
-    ("wallet", "Cold \u2744\ufe0f", "Cold \u2744\ufe0f"),  # an emoji keeps its variation selector
     ("wallet", "Cafe\u0301", "Caf\u00e9"),
-    ("wallet", "\U0001f469\u200d\U0001f4bb wallet", "\U0001f469\u200d\U0001f4bb wallet"),  # a joiner inside stays
 ])
 def test_a_name_is_saved_cleaned(api, kind, name, saved):
     r = _add(api, kind, name)
