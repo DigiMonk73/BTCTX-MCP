@@ -1,13 +1,15 @@
 """
 An account's name the tax report can print (#722; the owner's decision,
-2026-10-25: limit names). The reports' only font, ReportLab's built-in
-Helvetica, draws Windows-1252 (WinAnsiEncoding) and nothing else, and the
-reports open no font file (safe_text.py). So adding or renaming a bank, a
-wallet or an exchange refuses a name with a character outside it (emoji,
-letters outside Western European alphabets), in plain words; accents, €,
-an em dash and an apostrophe first (decision 23) stay allowed. A name saved
-before (a 2.0 alpha allowed any) prints "?" for each such character, never
-■, in the Complete Tax Report and the Transaction History.
+2026-10-25: limit names). The reports open no font file (safe_text.py):
+ReportLab's built-in Helvetica draws Windows-1252 (WinAnsiEncoding), then
+Symbol's and ZapfDingbats' characters (unaccented Greek, arrows, some
+signs), and a black box for anything else. Adding or renaming a bank, a
+wallet or an exchange refuses a name outside Windows-1252 (emoji, letters
+outside Western European alphabets), in plain words; accents, €, an em
+dash and an apostrophe first (decision 23) stay allowed. A name saved
+before (a 2.0 alpha allowed any) prints "?" for each character the fonts
+can't draw, never ■, in the Complete Tax Report and the Transaction
+History; what they draw prints as before.
 """
 
 from decimal import Decimal
@@ -26,7 +28,7 @@ from backend.tests.conftest import default_login, stub_prices_at
 UNPRINTABLE = ("A name can use letters, digits and punctuation the tax report can print: no emoji, and no "
                "letters outside Western European alphabets.")
 EXTERNAL = 99
-COLD, KRAKEN_USD, KRAKEN_BTC = 100, 101, 102
+COLD, KRAKEN_USD, KRAKEN_BTC, SECOND = 100, 101, 102, 103
 
 
 @pytest.fixture
@@ -55,7 +57,6 @@ def test_a_name_the_report_cant_print_is_refused(owner, kind, name):
     r = add(owner, kind, name)
     assert r.status_code == 400
     assert r.json()["detail"] == UNPRINTABLE
-    assert owner.get("/api/accounts/").json() == owner.get("/api/accounts/").json()  # nothing added
     assert [a["id"] for a in owner.get("/api/accounts/").json() if a["id"] >= 100] == []
 
 
@@ -83,22 +84,39 @@ def test_a_rename_is_refused_too(owner):
         "Cold storage", "Wallet", "Kraken USD", "Kraken BTC")
 
 
-def test_text_the_reports_cant_draw_is_a_question_mark():
-    assert pdf_text("🔥 <b>Кот</b> — Café €") == "? &lt;b&gt;???&lt;/b&gt; — Café €"
+@pytest.mark.parametrize("text, printed", [
+    ("🔥 <b>Кот</b> — Café €", "? &lt;b&gt;???&lt;/b&gt; — Café €"),
+    # what Symbol and ZapfDingbats draw prints as it always has
+    ("→ ✓ α ≥ ❄ ★", "→ ✓ α ≥ ❄ ★"),
+    ("Ταμείο ✓ → Wallet", "Ταμε?ο ✓ → Wallet"),
+    # a control character has no glyph: a black box until now
+    ("a\x01b\x7fc\td", "a?b?c\td"),
+    # an accent typed apart joins its letter; what nothing shows isn't a "?"
+    ("Cafe\u0301 Zu\u0308rich", "Café Zürich"),
+    ("Cold \u2744\ufe0f", "Cold \u2744"),
+    ("\U0001f469\u200d\U0001f4bb wallet", "?? wallet"),
+    ("soft\u00adhyphen", "soft\u00adhyphen"),
+])
+def test_text_the_reports_cant_draw_is_a_question_mark(text, printed):
+    assert pdf_text(text) == printed
 
 
 def saved_unprintable(owner) -> None:
-    """What a 2.0 alpha allowed: a wallet and an exchange named with an emoji
-    and Cyrillic, saved before this rule, each holding coins in 2025."""
+    """What a 2.0 alpha allowed: wallets and an exchange named with an emoji,
+    Cyrillic, and Greek with signs, saved before this rule, each holding
+    coins in 2025."""
     assert add(owner, "wallet", "Cold storage").status_code == 201
     assert add(owner, "exchange", "Kraken").status_code == 201
+    assert add(owner, "wallet", "Second").status_code == 201
     with owner.Session() as db:
+        db.get(Account, SECOND).name = "Ταμείο ✓ → Wallet"
         db.get(Account, COLD).name = "🔥 Cold storage"
         db.query(Exchange).filter(Exchange.name == "Kraken").one().name = "Биржа"
         db.get(Account, KRAKEN_USD).name = "Биржа USD"
         db.get(Account, KRAKEN_BTC).name = "Биржа BTC"
         db.commit()
-    for to, when in ((COLD, "2025-02-01T12:00:00Z"), (KRAKEN_BTC, "2025-03-01T12:00:00Z")):
+    for to, when in ((COLD, "2025-02-01T12:00:00Z"), (KRAKEN_BTC, "2025-03-01T12:00:00Z"),
+                     (SECOND, "2025-04-01T12:00:00Z")):
         r = owner.post("/api/transactions", json={
             "type": "Deposit", "timestamp": when, "from_account_id": EXTERNAL, "to_account_id": to,
             "amount": "0.1", "fee_amount": "0", "source": "MyBTC", "cost_basis_usd": "3000"})
@@ -122,6 +140,7 @@ def test_a_name_saved_before_prints_a_question_mark_for_each_such_character(owne
     words = pdf_words(r.content)
     assert "? Cold storage" in words
     assert "????? BTC" in words
+    assert "Ταμε?ο ✓ → Wallet" in words  # what the fonts draw prints as typed
     for drawn_as_a_box in ("🔥", "Биржа", "■"):
         assert drawn_as_a_box not in words
 

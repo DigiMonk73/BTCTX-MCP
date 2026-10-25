@@ -14,11 +14,14 @@ Ledger text on its way into the PDF and CSV reports.
   module must be imported before ReportLab opens anything: until then its
   own readers are in place, and they open a file's path whatever the trust
   settings say.
-- The built-in fonts draw Windows-1252 (WinAnsiEncoding) and nothing else:
-  any other character, an emoji or a Cyrillic letter, would print as a
-  black box. pdf_text() prints a "?" for each instead, and an account's
-  name is refused when it holds one (prints_in_reports, the account
-  service: #722, the owner's choice of a font file left unopened).
+- The built-in fonts draw what Helvetica's encoding (Windows-1252) holds,
+  then what Symbol's and ZapfDingbats' hold (unaccented Greek, arrows,
+  some signs); any other character, most emoji or a Cyrillic letter,
+  would print as a black box. pdf_text() prints a "?" for each instead,
+  by ReportLab's own rule, so what printed before prints the same. An
+  account's name keeps to Windows-1252, Western European letters
+  (in_report_font, the account service): #722, the owner's choice, with
+  no font file opened.
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
   value, and of one that starts with ' before such a text (#380). Numbers
@@ -32,10 +35,12 @@ The IRS forms are filled by pypdf (pdf_form_filler.py), not ReportLab.
 from __future__ import annotations
 
 import unicodedata
+from functools import cache
 from xml.sax.saxutils import escape
 
 from reportlab import rl_config
 from reportlab.lib import utils as rl_utils
+from reportlab.pdfbase import pdfmetrics
 
 rl_config.trustedSchemes = []
 rl_config.trustedHosts = []
@@ -51,25 +56,59 @@ rl_utils.open_for_read_by_name = _read_nothing
 rl_utils.rlUrlRead = _read_nothing
 
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
-# What the reports' built-in Helvetica draws: ReportLab's WinAnsiEncoding,
-# whose glyphs are exactly Windows-1252's characters (control characters aside)
-REPORT_ENCODING = "cp1252"
+# The reports' font (pdf_layout.FONT): its encoding, Windows-1252, holds
+# the Western European letters an account's name keeps to (#722)
+REPORT_FONT, NAME_ENCODING = "Helvetica", "cp1252"
+# A Paragraph draws these as spaces
+SPACES = ("\t", "\n", "\r")
+# Variation selectors: they only choose how the character before them looks
+VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 
 def pdf_text(value) -> str:
     """Text for a Paragraph, shown as written (never read as markup), with a
-    "?" for each character the reports' font can't draw, never a black box."""
-    text = "" if value is None else str(value)
-    return escape(text.encode(REPORT_ENCODING, errors="replace").decode(REPORT_ENCODING))
+    "?" for each character the reports' fonts can't draw, never a black box:
+    composed first (an accent typed apart joins its letter), and without what
+    nothing shows (a joiner, a variation selector), so it's one "?" for each
+    character seen."""
+    text = unicodedata.normalize("NFC", "" if value is None else str(value))
+    return escape("".join(c if _drawn(c) else "?" for c in text if not _unseen(c)))
 
 
-def prints_in_reports(text: str) -> bool:
-    """Whether the reports' font draws every character of `text`."""
+def in_report_font(text: str) -> bool:
+    """Whether every character of `text` is one the reports' own font draws
+    (Windows-1252): what an account's name may hold (#722). The fonts it
+    falls back to draw some signs and unaccented Greek, but not the letters
+    around them, so a name keeps to Western European alphabets."""
     try:
-        text.encode(REPORT_ENCODING)
+        text.encode(NAME_ENCODING)
     except UnicodeEncodeError:
         return False
     return True
+
+
+@cache
+def _drawn(c: str) -> bool:
+    """ReportLab's own rule (pdfmetrics.unicode2T1): the first of the font
+    and the fonts it falls back to whose encoding holds `c` draws it, a
+    black box when that encoding has no glyph there (a control character)."""
+    if c in SPACES:
+        return True
+    font = pdfmetrics.getFont(REPORT_FONT)
+    for each in (font, *font.substitutionFonts):
+        try:
+            code = c.encode(each.encName)
+        except UnicodeEncodeError:
+            continue
+        vector = pdfmetrics.getEncoding(each.encName).vector
+        return all(vector[b] is not None for b in code)
+    return False
+
+
+def _unseen(c: str) -> bool:
+    """A format character but the soft hyphen (which prints a hyphen), or a variation selector."""
+    return (unicodedata.category(c) == "Cf" and c != "\u00ad") or any(
+        low <= ord(c) <= high for low, high in VARIATION_SELECTORS)
 
 
 def csv_text(value) -> str:
