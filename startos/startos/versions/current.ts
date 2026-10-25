@@ -1,153 +1,143 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const CHANGELOG =
-  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.1/docs/CHANGELOG.md'
+  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.2/docs/CHANGELOG.md'
+
+const ALPHA_1 =
+  'https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1'
 
 /**
- * 2.0.0-alpha.1:0, 2.0's first pre-release (B10a; the owner's decision 28 on
- * #251: alphas, then betas), sideloaded from its GitHub pre-release, never
- * on Start9's registries. 1.2.10:0's migration was empty, so it is bumped in
- * place (Start9's versions.md), with no migration of its own: the app
- * migrates its database itself.
+ * 2.0.0-alpha.2:0, 2.0's second pre-release (B10a; the owner's decision 28
+ * on #251: alphas, then betas), sideloaded from its GitHub pre-release, never
+ * on Start9's registries. 2.0.0-alpha.1:0's migration was empty, so it is
+ * bumped in place (Start9's versions.md), with no migration of its own: the
+ * app migrates its database itself. Its notes say what's new since alpha.1,
+ * and keep, for a tester coming straight from 1.x, the backup first and the
+ * way back.
  */
 export const current = VersionInfo.of({
-  version: '2.0.0-alpha.1:0',
+  version: '2.0.0-alpha.2:0',
   releaseNotes: {
-    en_US: `**This is BitcoinTX 2.0's first alpha: a pre-release for trying 2.0 before it's released. Don't keep your real records in it.** Nobody gets it as an update: you sideload it yourself, it may have bugs, and Start9's store stays on BitcoinTX 1.x.
+    en_US: `**This is BitcoinTX 2.0's second alpha: a pre-release for trying 2.0 before it's released. Don't keep your real records in it.** Nobody gets it as an update: you sideload it yourself, it may have bugs, and Start9's store stays on BitcoinTX 1.x.
 
-**Before you sideload it**
+**New since 2.0.0-alpha.1**
 
-- **Make a StartOS backup of BitcoinTX, and keep it**: it's your way back to 1.x. A later backup of BitcoinTX to the same drive replaces it, so back the alpha up to another drive.
-- **Download BitcoinTX's own backup too** (Settings, Backup & Restore).
+- **The dashboard looks like 1.2.10's again**: one Portfolio Overview card with your bank, exchange and wallet balances, then Total BTC, Avg. Cost per BTC and Unrealized Gains/Losses. With more than one wallet, exchange or bank (or a hidden one still holding something), an arrow after that line's name shows each account's balance. No figure changes.
+- **A banner above every page says it's a test version**: "BitcoinTX · 2.0.0-alpha.2: a test version, not a release".
+- **The store listing's description is reworded**, in all five languages.
+- **Update your AI connector**: in your AI app's configuration, change the version after btctx-mcp== to 2.0.0a2, then restart the AI app.
+- **Reload BitcoinTX's page** in your browser to see them.
+
+Updating from alpha.1 changes no figure. StartOS won't install alpha.1 over it; the StartOS backup you made under 1.x still takes it back to 1.x (below).
+
+**Coming from 1.x**
+
+- **Before you sideload it, make a StartOS backup of BitcoinTX, and keep it**: it's your way back to 1.x. A later backup of BitcoinTX to the same drive replaces it, so back the alpha up to another drive. **Download BitcoinTX's own backup too** (Settings, Backup & Restore).
 - **Coming from 1.2.9?** The alpha has every 1.x fix up to 1.2.10. Read [1.2.10's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10) first: four of its fixes can change a tax figure, each with what to do.
+- **After updating**, reload BitcoinTX's page and update your AI connector (above): once your ledger has a second wallet or exchange, an older connector can still read it, but BitcoinTX refuses its changes, and a ledger with an extra bitcoin account made through 1.x's account API has two wallets as soon as it's updated. Every transaction keeps its account, and your figures don't change, except in a ledger started before 0.9.2: a transaction saved then into an account made through BitcoinTX's old account API now counts by that account's currency, so its income, rebates and gifts can move, and once the ledger is recalculated a spend's network fee from it lowers the spend's proceeds and gain. Ledger Review lists these rows ("Transactions in an account made through BitcoinTX's old account API"): check each, then run Recalculate Ledger. Before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so BitcoinTX's data takes about twice the space (one copy, made once); it never deletes that copy.
+- **What's new in 2.0**: your wallets, exchanges and banks, added in Settings (Wallets, exchanges and banks), each wallet and exchange with its own coins; Form 8949 per exchange; an importer for any exchange's CSV file; a question before an earlier tax year's figures move. [alpha.1's notes](${ALPHA_1}) say more.
 
 **Going back to 1.x**
 
-Uninstall BitcoinTX (which deletes the alpha's data, the copy below included) and restore the StartOS backup you made before: it brings back 1.x with its records. Without it, sideload 1.x from its GitHub release and restore, in its Settings, the BitcoinTX backup you downloaded under 1.x. What you entered in the alpha can't go back: 1.x can't read a 2.0 database or backup. While a server runs an alpha or a beta, StartOS offers it no 1.x update: fixes come in the next pre-release.
+Uninstall BitcoinTX (which deletes the alpha's data, the copy above included) and restore the StartOS backup you made before: it brings back 1.x with its records. Without it, sideload 1.x from its GitHub release and restore, in its Settings, the BitcoinTX backup you downloaded under 1.x. What you entered in the alpha can't go back: 1.x can't read a 2.0 database or backup. While a server runs an alpha or a beta, StartOS offers it no 1.x update: fixes come in the next pre-release.
 
-**After updating**
+[Everything in 2.0.0-alpha.2](${CHANGELOG})`,
+    es_ES: `**Esta es la segunda alfa de BitcoinTX 2.0: una versión preliminar para probar la 2.0 antes de su lanzamiento. No guardes en ella tus registros reales.** Nadie la recibe como actualización: la instalas tú mismo con Sideload, puede tener errores, y la tienda de Start9 sigue en BitcoinTX 1.x.
 
-- **Update your AI connector**: in your AI app's configuration, change the version after btctx-mcp== to 2.0.0a1 and restart the AI app. Once your ledger has a second wallet or exchange, an older connector can still read it, but BitcoinTX refuses its changes. A ledger with an extra bitcoin account made through 1.x's account API has two wallets as soon as it's updated.
-- **Reload BitcoinTX's page** in your browser.
-- **Your figures don't change**, except a very old ledger's rows (below). Every transaction keeps its account: your bank, wallet and exchange are 2.0's first bank, wallet and exchange. Before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so BitcoinTX's data takes about twice the space (one copy, made once); it never deletes that copy.
+**Novedades desde la 2.0.0-alpha.1**
 
-**What's new in 2.0**
+- **El panel vuelve a ser como el de la 1.2.10**: una sola tarjeta Portfolio Overview con los saldos de tu banco, tu exchange y tu monedero, y después Total BTC, Avg. Cost per BTC y Unrealized Gains/Losses. Con más de un monedero, exchange o banco (o uno oculto que aún tenga saldo), una flecha tras el nombre de esa línea muestra el saldo de cada cuenta. Ninguna cifra cambia.
+- **Un aviso encima de cada página dice que es una versión de prueba**: "BitcoinTX · 2.0.0-alpha.2: a test version, not a release".
+- **La descripción de la ficha de la tienda está reformulada**, en los cinco idiomas.
+- **Actualiza tu conector de IA**: en la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 2.0.0a2 y reinicia la aplicación de IA.
+- **Vuelve a cargar la página de BitcoinTX** en tu navegador para ver los cambios.
 
-- **Each wallet, exchange and bank you use**, added in Settings (Wallets, exchanges and banks), each wallet and exchange with its own coins. From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)).
-- **Form 8949 and the tax report per exchange**, with each exchange's own Form 1099-DA setting.
-- **An importer for any exchange's CSV file**, with ready-made mappings.
-- **A change that would move an earlier tax year's figures asks first.**
-- **A ledger started before 0.9.2**: a transaction saved then into an account made through BitcoinTX's old account API now counts by that account's currency, so its income, rebates and gifts can move, and once the ledger is recalculated a spend's network fee from it lowers the spend's proceeds and gain. Ledger Review lists these rows ("Transactions in an account made through BitcoinTX's old account API"): check each, then run Recalculate Ledger.
+Actualizar desde la 2.0.0-alpha.1 no cambia ninguna cifra. StartOS no permite instalar la 2.0.0-alpha.1 encima de esta versión; la copia de seguridad de StartOS que hiciste con la 1.x sigue devolviéndolo a la 1.x (abajo).
 
-[Everything in 2.0.0-alpha.1](${CHANGELOG})`,
-    es_ES: `**Esta es la primera alfa de BitcoinTX 2.0: una versión preliminar para probar la 2.0 antes de su lanzamiento. No guardes en ella tus registros reales.** Nadie la recibe como actualización: la instalas tú mismo con Sideload, puede tener errores, y la tienda de Start9 sigue en BitcoinTX 1.x.
+**Si vienes de la 1.x**
 
-**Antes de instalarla**
-
-- **Haz una copia de seguridad de BitcoinTX en StartOS y guárdala**: es tu forma de volver a la 1.x. Una copia posterior de BitcoinTX en la misma unidad la sustituye, así que haz las copias de la alfa en otra unidad.
-- **Descarga también la copia de seguridad propia de BitcoinTX** (Settings, Backup & Restore).
+- **Antes de instalarla, haz una copia de seguridad de BitcoinTX en StartOS y guárdala**: es tu forma de volver a la 1.x. Una copia posterior de BitcoinTX en la misma unidad la sustituye, así que haz las copias de la alfa en otra unidad. **Descarga también la copia de seguridad propia de BitcoinTX** (Settings, Backup & Restore).
 - **¿Vienes de la 1.2.9?** La alfa trae todas las correcciones de la 1.x hasta la 1.2.10. Lee antes [las notas de la 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10): cuatro de sus correcciones pueden cambiar una cifra fiscal, cada una con lo que hay que hacer.
+- **Después de actualizar**, vuelve a cargar la página de BitcoinTX y actualiza tu conector de IA (arriba): cuando tu libro contable tenga un segundo monedero o exchange, un conector anterior aún puede leerlo, pero BitcoinTX rechaza sus cambios, y un libro contable con una cuenta de bitcoin adicional creada mediante la API de cuentas de la 1.x tiene dos monederos en cuanto se actualiza. Cada transacción conserva su cuenta, y tus cifras no cambian, salvo en un libro contable empezado antes de la 0.9.2: una transacción guardada entonces en una cuenta creada con la antigua API de cuentas de BitcoinTX ahora se cuenta según la moneda de esa cuenta, así que sus ingresos, rebates y regalos recibidos pueden cambiar, y, una vez recalculado el libro contable, la comisión de red de un gasto desde esa cuenta reduce el importe recibido y la ganancia de ese gasto. Ledger Review muestra estas filas ("Transactions in an account made through BitcoinTX's old account API"): revisa cada una y después ejecuta Recalculate Ledger. Antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos pasan a ocupar más o menos el doble (una sola copia); nunca borra esa copia.
+- **Novedades de la 2.0**: tus monederos, exchanges y bancos, añadidos en Settings (Wallets, exchanges and banks), cada monedero y cada exchange con sus propias monedas; el formulario 8949 por exchange; un importador para el archivo CSV de cualquier exchange; una pregunta antes de que cambien las cifras de un año fiscal anterior. Más detalles en [las notas de la 2.0.0-alpha.1](${ALPHA_1}).
 
 **Volver a la 1.x**
 
-Desinstala BitcoinTX (lo que borra los datos de la alfa, incluida la copia de abajo) y restaura la copia de seguridad de StartOS que hiciste antes: vuelve la 1.x con sus registros. Sin ella, instala la 1.x desde su versión en GitHub con Sideload y restaura, en su Settings, la copia de BitcoinTX que descargaste con la 1.x. Lo que hayas introducido en la alfa no puede volver: la 1.x no puede leer una base de datos ni una copia de la 2.0. Mientras un servidor tenga una alfa o una beta, StartOS no le ofrece actualizaciones de la 1.x: las correcciones llegan en la siguiente versión preliminar.
+Desinstala BitcoinTX (lo que borra los datos de la alfa, incluida la copia de arriba) y restaura la copia de seguridad de StartOS que hiciste antes: vuelve la 1.x con sus registros. Sin ella, instala la 1.x desde su versión en GitHub con Sideload y restaura, en su Settings, la copia de BitcoinTX que descargaste con la 1.x. Lo que hayas introducido en la alfa no puede volver: la 1.x no puede leer una base de datos ni una copia de la 2.0. Mientras un servidor tenga una alfa o una beta, StartOS no le ofrece actualizaciones de la 1.x: las correcciones llegan en la siguiente versión preliminar.
 
-**Después de actualizar**
+[Todo lo de la 2.0.0-alpha.2](${CHANGELOG})`,
+    de_DE: `**Dies ist die zweite Alpha von BitcoinTX 2.0: eine Vorabversion, um 2.0 vor der Veröffentlichung auszuprobieren. Bewahre darin nicht deine echten Daten auf.** Niemand bekommt sie als Update: Du installierst sie selbst per Sideload, sie kann Fehler haben, und Start9s Store bleibt bei BitcoinTX 1.x.
 
-- **Actualiza tu conector de IA**: en la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 2.0.0a1 y reinicia la aplicación de IA. Cuando tu libro contable tenga un segundo monedero o exchange, un conector anterior aún puede leerlo, pero BitcoinTX rechaza sus cambios. Un libro contable con una cuenta de bitcoin adicional creada mediante la API de cuentas de la 1.x tiene dos monederos en cuanto se actualiza.
-- **Vuelve a cargar la página de BitcoinTX** en tu navegador.
-- **Tus cifras no cambian**, salvo las filas de un libro contable muy antiguo (abajo). Cada transacción conserva su cuenta: tu banco, tu monedero y tu exchange son el primer banco, monedero y exchange de la 2.0. Antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos pasan a ocupar más o menos el doble (una sola copia); nunca borra esa copia.
+**Neu seit 2.0.0-alpha.1**
 
-**Novedades de la 2.0**
+- **Das Dashboard sieht wieder aus wie in 1.2.10**: eine einzige Karte Portfolio Overview mit den Salden deiner Bank, deiner Börse und deiner Wallet, danach Total BTC, Avg. Cost per BTC und Unrealized Gains/Losses. Bei mehr als einer Wallet, Börse oder Bank (oder einer ausgeblendeten, die noch etwas enthält) zeigt ein Pfeil hinter dem Namen dieser Zeile den Saldo jedes Kontos. Keine Zahl ändert sich.
+- **Ein Banner über jeder Seite sagt, dass es eine Testversion ist**: "BitcoinTX · 2.0.0-alpha.2: a test version, not a release".
+- **Die Beschreibung im Store ist umformuliert**, in allen fünf Sprachen.
+- **Aktualisiere deinen KI-Connector**: Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 2.0.0a2 und starte die KI-App neu.
+- **Lade die Seite von BitcoinTX** in deinem Browser neu, um die Änderungen zu sehen.
 
-- **Cada monedero, exchange y banco que uses**, añadidos en Settings (Wallets, exchanges and banks), cada monedero y cada exchange con sus propias monedas. A partir de 2025, el coste base se calcula monedero por monedero y cuenta por cuenta; salvo que identifiques las monedas que vendes, se aplica la regla de primero en entrar, primero en salir dentro de cada uno, según la fecha en que se adquirieron por primera vez (Treas. Reg. §1.1012-1(j)).
-- **El formulario 8949 y el informe fiscal por exchange**, con el ajuste del formulario 1099-DA de cada exchange.
-- **Un importador para el archivo CSV de cualquier exchange**, con correspondencias ya hechas.
-- **Un cambio que movería las cifras de un año fiscal anterior pregunta antes.**
-- **Un libro contable empezado antes de la 0.9.2**: una transacción guardada entonces en una cuenta creada con la antigua API de cuentas de BitcoinTX ahora se cuenta según la moneda de esa cuenta, así que sus ingresos, rebates y regalos recibidos pueden cambiar, y, una vez recalculado el libro contable, la comisión de red de un gasto desde esa cuenta reduce el importe recibido y la ganancia de ese gasto. Ledger Review muestra estas filas ("Transactions in an account made through BitcoinTX's old account API"): revisa cada una y después ejecuta Recalculate Ledger.
+Das Update von 2.0.0-alpha.1 ändert keine Zahl. StartOS installiert 2.0.0-alpha.1 nicht wieder darüber; die StartOS-Sicherung, die du unter 1.x erstellt hast, bringt es weiterhin zu 1.x zurück (unten).
 
-[Todo lo de la 2.0.0-alpha.1](${CHANGELOG})`,
-    de_DE: `**Dies ist die erste Alpha von BitcoinTX 2.0: eine Vorabversion, um 2.0 vor der Veröffentlichung auszuprobieren. Bewahre darin nicht deine echten Daten auf.** Niemand bekommt sie als Update: Du installierst sie selbst per Sideload, sie kann Fehler haben, und Start9s Store bleibt bei BitcoinTX 1.x.
+**Wenn du von 1.x kommst**
 
-**Bevor du sie installierst**
-
-- **Erstelle eine StartOS-Sicherung von BitcoinTX und bewahre sie auf**: Sie ist dein Weg zurück zu 1.x. Eine spätere Sicherung von BitcoinTX auf dasselbe Laufwerk ersetzt sie, sichere die Alpha also auf ein anderes Laufwerk.
-- **Lade auch die eigene Sicherung von BitcoinTX herunter** (Settings, Backup & Restore).
+- **Erstelle vor der Installation eine StartOS-Sicherung von BitcoinTX und bewahre sie auf**: Sie ist dein Weg zurück zu 1.x. Eine spätere Sicherung von BitcoinTX auf dasselbe Laufwerk ersetzt sie, sichere die Alpha also auf ein anderes Laufwerk. **Lade auch die eigene Sicherung von BitcoinTX herunter** (Settings, Backup & Restore).
 - **Du kommst von 1.2.9?** Die Alpha enthält jede 1.x-Korrektur bis 1.2.10. Lies zuerst [die Hinweise zu 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10): Vier ihrer Korrekturen können eine Steuerzahl ändern, jede mit dem, was zu tun ist.
+- **Nach dem Update** lade die Seite von BitcoinTX neu und aktualisiere deinen KI-Connector (oben): Sobald dein Journal eine zweite Wallet oder Börse hat, kann ein älterer Connector es noch lesen, aber BitcoinTX lehnt seine Änderungen ab, und ein Journal mit einem zusätzlichen Bitcoin-Konto, das über die Konten-API von 1.x angelegt wurde, hat gleich nach dem Update zwei Wallets. Jede Transaktion behält ihr Konto, und deine Zahlen ändern sich nicht, außer in einem Journal, das vor 0.9.2 begonnen wurde: Eine Transaktion, die damals in einem über die alte Konten-API von BitcoinTX angelegten Konto gespeichert wurde, zählt jetzt nach der Währung dieses Kontos. Deren Einkünfte, Rebates und erhaltene Geschenke können sich dadurch verschieben, und nach einer Neuberechnung des Journals senkt die Netzwerkgebühr einer Ausgabe daraus deren Erlös und Gewinn. Ledger Review listet diese Zeilen auf ("Transactions in an account made through BitcoinTX's old account API"): Prüfe jede, dann führe Recalculate Ledger aus. Vor dem Update legt BitcoinTX eine Kopie deiner 1.x-Datenbank an, backups/btctx-pre-2.0-….db, seine Daten brauchen also einmal etwa doppelt so viel Platz; diese Kopie löscht BitcoinTX nie.
+- **Neu in 2.0**: deine Wallets, Börsen und Banken, angelegt in Settings (Wallets, exchanges and banks), jede Wallet und jede Börse mit ihren eigenen Coins; Formular 8949 pro Börse; ein Import für die CSV-Datei jeder Börse; eine Frage, bevor sich die Zahlen eines früheren Steuerjahres verschieben. Mehr dazu in [den Hinweisen zu 2.0.0-alpha.1](${ALPHA_1}).
 
 **Zurück zu 1.x**
 
-Deinstalliere BitcoinTX (das löscht die Daten der Alpha, die Kopie unten eingeschlossen) und stelle die StartOS-Sicherung wieder her, die du vorher erstellt hast: Sie bringt 1.x mit seinen Daten zurück. Ohne sie installiere 1.x aus seinem GitHub-Release per Sideload und stelle in seinen Settings die BitcoinTX-Sicherung wieder her, die du unter 1.x heruntergeladen hast. Was du in der Alpha eingegeben hast, kann nicht zurück: 1.x kann keine Datenbank und keine Sicherung von 2.0 lesen. Solange ein Server eine Alpha oder Beta ausführt, bietet StartOS ihm kein 1.x-Update an: Korrekturen kommen in der nächsten Vorabversion.
+Deinstalliere BitcoinTX (das löscht die Daten der Alpha, die Kopie oben eingeschlossen) und stelle die StartOS-Sicherung wieder her, die du vorher erstellt hast: Sie bringt 1.x mit seinen Daten zurück. Ohne sie installiere 1.x aus seinem GitHub-Release per Sideload und stelle in seinen Settings die BitcoinTX-Sicherung wieder her, die du unter 1.x heruntergeladen hast. Was du in der Alpha eingegeben hast, kann nicht zurück: 1.x kann keine Datenbank und keine Sicherung von 2.0 lesen. Solange ein Server eine Alpha oder Beta ausführt, bietet StartOS ihm kein 1.x-Update an: Korrekturen kommen in der nächsten Vorabversion.
 
-**Nach dem Update**
+[Alles in 2.0.0-alpha.2](${CHANGELOG})`,
+    pl_PL: `**To druga alfa BitcoinTX 2.0: wersja wstępna do wypróbowania 2.0 przed jej wydaniem. Nie trzymaj w niej swoich prawdziwych danych.** Nikt nie dostaje jej jako aktualizacji: instalujesz ją sam przez Sideload, może zawierać błędy, a sklep Start9 pozostaje przy BitcoinTX 1.x.
 
-- **Aktualisiere deinen KI-Connector**: Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 2.0.0a1 und starte die KI-App neu. Sobald dein Journal eine zweite Wallet oder Börse hat, kann ein älterer Connector es noch lesen, aber BitcoinTX lehnt seine Änderungen ab. Ein Journal mit einem zusätzlichen Bitcoin-Konto, das über die Konten-API von 1.x angelegt wurde, hat gleich nach dem Update zwei Wallets.
-- **Lade die Seite von BitcoinTX** in deinem Browser neu.
-- **Deine Zahlen ändern sich nicht**, außer bei den Zeilen eines sehr alten Journals (unten). Jede Transaktion behält ihr Konto: Deine Bank, deine Wallet und deine Börse sind die erste Bank, Wallet und Börse von 2.0. Vor dem Update legt BitcoinTX eine Kopie deiner 1.x-Datenbank an, backups/btctx-pre-2.0-….db, seine Daten brauchen also einmal etwa doppelt so viel Platz; diese Kopie löscht BitcoinTX nie.
+**Nowości od 2.0.0-alpha.1**
 
-**Neu in 2.0**
+- **Panel znów wygląda jak w 1.2.10**: jedna karta Portfolio Overview z saldami banku, giełdy i portfela, a pod nimi Total BTC, Avg. Cost per BTC i Unrealized Gains/Losses. Gdy masz więcej niż jeden portfel, giełdę lub bank (albo ukryte konto, na którym coś jeszcze jest), strzałka po nazwie danego wiersza pokazuje saldo każdego konta. Żaden wynik się nie zmienia.
+- **Baner nad każdą stroną mówi, że to wersja testowa**: "BitcoinTX · 2.0.0-alpha.2: a test version, not a release".
+- **Opis w sklepie ma nowe brzmienie**, we wszystkich pięciu językach.
+- **Zaktualizuj łącznik AI**: w konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 2.0.0a2 i uruchom aplikację AI ponownie.
+- **Odśwież stronę BitcoinTX** w przeglądarce, aby zobaczyć zmiany.
 
-- **Jede Wallet, Börse und Bank, die du nutzt**, angelegt in Settings (Wallets, exchanges and banks), jede Wallet und jede Börse mit ihren eigenen Coins. Ab 2025 werden die Anschaffungskosten Wallet für Wallet und Konto für Konto ermittelt; sofern du die Coins, die du verkaufst, nicht identifizierst, gilt innerhalb jeder Wallet und jedes Kontos das First-in-first-out-Prinzip, nach dem Datum der ersten Anschaffung (Treas. Reg. §1.1012-1(j)).
-- **Formular 8949 und der Steuerbericht pro Börse**, mit der eigenen Einstellung jeder Börse zum Formular 1099-DA.
-- **Ein Import für die CSV-Datei jeder Börse**, mit fertigen Zuordnungen.
-- **Eine Änderung, die die Zahlen eines früheren Steuerjahres verschieben würde, fragt vorher.**
-- **Ein Journal, das vor 0.9.2 begonnen wurde**: Eine Transaktion, die damals in einem über die alte Konten-API von BitcoinTX angelegten Konto gespeichert wurde, zählt jetzt nach der Währung dieses Kontos. Deren Einkünfte, Rebates und erhaltene Geschenke können sich dadurch verschieben, und nach einer Neuberechnung des Journals senkt die Netzwerkgebühr einer Ausgabe daraus deren Erlös und Gewinn. Ledger Review listet diese Zeilen auf ("Transactions in an account made through BitcoinTX's old account API"): Prüfe jede, dann führe Recalculate Ledger aus.
+Aktualizacja z 2.0.0-alpha.1 nie zmienia żadnego wyniku. StartOS nie pozwoli zainstalować z powrotem 2.0.0-alpha.1; kopia zapasowa StartOS zrobiona w 1.x nadal przywraca 1.x (niżej).
 
-[Alles in 2.0.0-alpha.1](${CHANGELOG})`,
-    pl_PL: `**To pierwsza alfa BitcoinTX 2.0: wersja wstępna do wypróbowania 2.0 przed jej wydaniem. Nie trzymaj w niej swoich prawdziwych danych.** Nikt nie dostaje jej jako aktualizacji: instalujesz ją sam przez Sideload, może zawierać błędy, a sklep Start9 pozostaje przy BitcoinTX 1.x.
+**Jeśli przechodzisz z 1.x**
 
-**Zanim ją zainstalujesz**
-
-- **Zrób kopię zapasową BitcoinTX w StartOS i zachowaj ją**: to Twoja droga powrotu do 1.x. Późniejsza kopia BitcoinTX na tym samym dysku ją zastępuje, więc kopie alfy rób na innym dysku.
-- **Pobierz też własną kopię zapasową BitcoinTX** (Settings, Backup & Restore).
+- **Przed instalacją zrób kopię zapasową BitcoinTX w StartOS i zachowaj ją**: to Twoja droga powrotu do 1.x. Późniejsza kopia BitcoinTX na tym samym dysku ją zastępuje, więc kopie alfy rób na innym dysku. **Pobierz też własną kopię zapasową BitcoinTX** (Settings, Backup & Restore).
 - **Przechodzisz z 1.2.9?** Alfa zawiera wszystkie poprawki 1.x do wersji 1.2.10. Najpierw przeczytaj [informacje o 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10): cztery z jej poprawek mogą zmienić wynik podatkowy, każda z opisem, co zrobić.
+- **Po aktualizacji** odśwież stronę BitcoinTX i zaktualizuj łącznik AI (wyżej): gdy Twoja księga ma drugi portfel lub drugą giełdę, starszy łącznik nadal może ją czytać, ale BitcoinTX odrzuca jego zmiany, a księga z dodatkowym kontem bitcoinowym utworzonym przez API kont 1.x ma dwa portfele od razu po aktualizacji. Każda transakcja zachowuje swoje konto, a Twoje wyniki się nie zmieniają, z wyjątkiem księgi założonej przed 0.9.2: transakcja zapisana wtedy na koncie utworzonym przez dawne API kont BitcoinTX liczy się teraz według waluty tego konta, więc dochody, rebate i otrzymane prezenty z tego konta mogą się zmienić, a po przeliczeniu księgi opłata sieciowa wydatku z tego konta obniża przychód i zysk z tego wydatku. Ledger Review wymienia te wiersze ("Transactions in an account made through BitcoinTX's old account API"): sprawdź każdy, a potem uruchom Recalculate Ledger. Przed aktualizacją BitcoinTX zachowuje kopię bazy danych 1.x, backups/btctx-pre-2.0-….db, więc jednorazowo jego dane zajmują mniej więcej dwa razy więcej miejsca; tej kopii nigdy nie usuwa.
+- **Nowości w 2.0**: Twoje portfele, giełdy i banki, dodane w Settings (Wallets, exchanges and banks), każdy portfel i każda giełda z własnymi monetami; formularz 8949 dla każdej giełdy; import pliku CSV z dowolnej giełdy; pytanie, zanim zmienią się wyniki wcześniejszego roku podatkowego. Więcej w [informacjach o 2.0.0-alpha.1](${ALPHA_1}).
 
 **Powrót do 1.x**
 
-Odinstaluj BitcoinTX (co usuwa dane alfy, łącznie z kopią opisaną niżej) i przywróć kopię zapasową StartOS zrobioną wcześniej: wraca 1.x z jej danymi. Bez niej zainstaluj 1.x z jej wydania na GitHubie przez Sideload i przywróć w jej Settings kopię BitcoinTX pobraną w 1.x. Tego, co wprowadzisz w alfie, nie da się przenieść z powrotem: 1.x nie odczyta bazy danych ani kopii zapasowej z 2.0. Dopóki serwer ma alfę lub betę, StartOS nie proponuje mu aktualizacji 1.x: poprawki przychodzą w kolejnej wersji wstępnej.
+Odinstaluj BitcoinTX (co usuwa dane alfy, łącznie z kopią opisaną wyżej) i przywróć kopię zapasową StartOS zrobioną wcześniej: wraca 1.x z jej danymi. Bez niej zainstaluj 1.x z jej wydania na GitHubie przez Sideload i przywróć w jej Settings kopię BitcoinTX pobraną w 1.x. Tego, co wprowadzisz w alfie, nie da się przenieść z powrotem: 1.x nie odczyta bazy danych ani kopii zapasowej z 2.0. Dopóki serwer ma alfę lub betę, StartOS nie proponuje mu aktualizacji 1.x: poprawki przychodzą w kolejnej wersji wstępnej.
 
-**Po aktualizacji**
+[Wszystko w 2.0.0-alpha.2](${CHANGELOG})`,
+    fr_FR: `**Voici la deuxième alpha de BitcoinTX 2.0 : une préversion pour essayer la 2.0 avant sa sortie. N’y gardez pas vos vrais registres.** Personne ne la reçoit en mise à jour : vous l’installez vous-même par Sideload, elle peut contenir des bugs, et la boutique de Start9 reste sur BitcoinTX 1.x.
 
-- **Zaktualizuj łącznik AI**: w konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 2.0.0a1 i uruchom aplikację AI ponownie. Gdy Twoja księga ma drugi portfel lub drugą giełdę, starszy łącznik nadal może ją czytać, ale BitcoinTX odrzuca jego zmiany. Księga z dodatkowym kontem bitcoinowym utworzonym przez API kont 1.x ma dwa portfele od razu po aktualizacji.
-- **Odśwież stronę BitcoinTX** w przeglądarce.
-- **Twoje wyniki się nie zmieniają**, z wyjątkiem wierszy bardzo starej księgi (niżej). Każda transakcja zachowuje swoje konto: Twój bank, portfel i giełda to pierwszy bank, portfel i giełda w 2.0. Przed aktualizacją BitcoinTX zachowuje kopię bazy danych 1.x, backups/btctx-pre-2.0-….db, więc jednorazowo jego dane zajmują mniej więcej dwa razy więcej miejsca; tej kopii nigdy nie usuwa.
+**Nouveautés depuis la 2.0.0-alpha.1**
 
-**Nowości w 2.0**
+- **Le tableau de bord ressemble de nouveau à celui de la 1.2.10** : une seule carte Portfolio Overview avec les soldes de votre banque, de votre plateforme et de votre portefeuille, puis Total BTC, Avg. Cost per BTC et Unrealized Gains/Losses. Avec plus d’un portefeuille, d’une plateforme ou d’une banque (ou avec un compte masqué qui contient encore quelque chose), une flèche après le nom de la ligne montre le solde de chaque compte. Aucun chiffre ne change.
+- **Une bannière au-dessus de chaque page indique que c’est une version de test** : "BitcoinTX · 2.0.0-alpha.2: a test version, not a release".
+- **La description de la boutique est reformulée**, dans les cinq langues.
+- **Mettez à jour votre connecteur IA** : dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 2.0.0a2 et redémarrez l’application d’IA.
+- **Rechargez la page de BitcoinTX** dans votre navigateur pour voir ces changements.
 
-- **Każdy portfel, giełda i bank, których używasz**, dodane w Settings (Wallets, exchanges and banks), każdy portfel i każda giełda z własnymi monetami. Od 2025 r. koszt nabycia ustala się osobno dla każdego portfela i każdego konta; o ile nie wskażesz, które monety sprzedajesz, w obrębie każdego z nich obowiązuje zasada „pierwsze weszło, pierwsze wyszło” według daty pierwszego nabycia (Treas. Reg. §1.1012-1(j)).
-- **Formularz 8949 i raport podatkowy dla każdej giełdy**, z własnym ustawieniem formularza 1099-DA każdej giełdy.
-- **Import pliku CSV z dowolnej giełdy**, z gotowymi dopasowaniami.
-- **Zmiana, która przesunęłaby wyniki wcześniejszego roku podatkowego, najpierw pyta.**
-- **Księga założona przed 0.9.2**: transakcja zapisana wtedy na koncie utworzonym przez dawne API kont BitcoinTX liczy się teraz według waluty tego konta, więc dochody, rebate i otrzymane prezenty z tego konta mogą się zmienić, a po przeliczeniu księgi opłata sieciowa wydatku z tego konta obniża przychód i zysk z tego wydatku. Ledger Review wymienia te wiersze ("Transactions in an account made through BitcoinTX's old account API"): sprawdź każdy, a potem uruchom Recalculate Ledger.
+La mise à jour depuis la 2.0.0-alpha.1 ne change aucun chiffre. StartOS ne réinstalle pas la 2.0.0-alpha.1 par-dessus ; la sauvegarde StartOS faite sous la 1.x le ramène toujours à la 1.x (ci-dessous).
 
-[Wszystko w 2.0.0-alpha.1](${CHANGELOG})`,
-    fr_FR: `**Voici la première alpha de BitcoinTX 2.0 : une préversion pour essayer la 2.0 avant sa sortie. N’y gardez pas vos vrais registres.** Personne ne la reçoit en mise à jour : vous l’installez vous-même par Sideload, elle peut contenir des bugs, et la boutique de Start9 reste sur BitcoinTX 1.x.
+**Si vous venez de la 1.x**
 
-**Avant de l’installer**
-
-- **Faites une sauvegarde StartOS de BitcoinTX, et gardez-la** : c’est votre chemin de retour vers la 1.x. Une sauvegarde ultérieure de BitcoinTX sur le même disque la remplace : sauvegardez donc l’alpha sur un autre disque.
-- **Téléchargez aussi la sauvegarde propre à BitcoinTX** (Settings, Backup & Restore).
+- **Avant de l’installer, faites une sauvegarde StartOS de BitcoinTX, et gardez-la** : c’est votre chemin de retour vers la 1.x. Une sauvegarde ultérieure de BitcoinTX sur le même disque la remplace : sauvegardez donc l’alpha sur un autre disque. **Téléchargez aussi la sauvegarde propre à BitcoinTX** (Settings, Backup & Restore).
 - **Vous venez de la 1.2.9 ?** L’alpha contient toutes les corrections de la 1.x jusqu’à la 1.2.10. Lisez d’abord [les notes de la 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10) : quatre de ses corrections peuvent changer un chiffre fiscal, chacune avec ce qu’il faut faire.
+- **Après la mise à jour**, rechargez la page de BitcoinTX et mettez à jour votre connecteur IA (ci-dessus) : dès que votre registre a un deuxième portefeuille ou une deuxième plateforme, un connecteur plus ancien peut encore le lire, mais BitcoinTX refuse ses modifications, et un registre avec un compte bitcoin supplémentaire créé via l’API des comptes de la 1.x a deux portefeuilles dès la mise à jour. Chaque transaction garde son compte, et vos chiffres ne changent pas, sauf dans un registre commencé avant la 0.9.2 : une transaction enregistrée alors dans un compte créé par l’ancienne API des comptes de BitcoinTX compte désormais selon la devise de ce compte ; ses revenus, rebates et dons reçus peuvent changer, et une fois le registre recalculé, les frais de réseau d’une dépense faite depuis ce compte réduisent le produit et le gain de cette dépense. Ledger Review liste ces lignes ("Transactions in an account made through BitcoinTX's old account API") : vérifiez chacune, puis lancez Recalculate Ledger. Avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc environ deux fois plus de place (une seule copie) ; BitcoinTX ne supprime jamais cette copie.
+- **Nouveautés de la 2.0** : vos portefeuilles, plateformes et banques, ajoutés dans Settings (Wallets, exchanges and banks), chaque portefeuille et chaque plateforme avec ses propres bitcoins ; le formulaire 8949 par plateforme ; un import pour le fichier CSV de n’importe quelle plateforme ; une question avant que les chiffres d’une année fiscale antérieure ne bougent. [Les notes de la 2.0.0-alpha.1](${ALPHA_1}) en disent plus.
 
 **Revenir à la 1.x**
 
-Désinstallez BitcoinTX (ce qui efface les données de l’alpha, y compris la copie ci-dessous) et restaurez la sauvegarde StartOS faite avant : elle ramène la 1.x avec ses registres. Sans elle, installez la 1.x depuis sa version GitHub par Sideload et restaurez, dans ses Settings, la sauvegarde BitcoinTX téléchargée sous la 1.x. Ce que vous avez saisi dans l’alpha ne peut pas revenir : la 1.x ne lit ni une base de données ni une sauvegarde de la 2.0. Tant qu’un serveur fait tourner une alpha ou une bêta, StartOS ne lui propose aucune mise à jour 1.x : les corrections arrivent dans la préversion suivante.
+Désinstallez BitcoinTX (ce qui efface les données de l’alpha, y compris la copie ci-dessus) et restaurez la sauvegarde StartOS faite avant : elle ramène la 1.x avec ses registres. Sans elle, installez la 1.x depuis sa version GitHub par Sideload et restaurez, dans ses Settings, la sauvegarde BitcoinTX téléchargée sous la 1.x. Ce que vous avez saisi dans l’alpha ne peut pas revenir : la 1.x ne lit ni une base de données ni une sauvegarde de la 2.0. Tant qu’un serveur fait tourner une alpha ou une bêta, StartOS ne lui propose aucune mise à jour 1.x : les corrections arrivent dans la préversion suivante.
 
-**Après la mise à jour**
-
-- **Mettez à jour votre connecteur IA** : dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 2.0.0a1 et redémarrez l’application d’IA. Dès que votre registre a un deuxième portefeuille ou une deuxième plateforme, un connecteur plus ancien peut encore le lire, mais BitcoinTX refuse ses modifications. Un registre avec un compte bitcoin supplémentaire créé via l’API des comptes de la 1.x a deux portefeuilles dès la mise à jour.
-- **Rechargez la page de BitcoinTX** dans votre navigateur.
-- **Vos chiffres ne changent pas**, sauf les lignes d’un registre très ancien (ci-dessous). Chaque transaction garde son compte : votre banque, votre portefeuille et votre plateforme sont la première banque, le premier portefeuille et la première plateforme de la 2.0. Avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc environ deux fois plus de place (une seule copie) ; BitcoinTX ne supprime jamais cette copie.
-
-**Nouveautés de la 2.0**
-
-- **Chaque portefeuille, plateforme et banque que vous utilisez**, ajoutés dans Settings (Wallets, exchanges and banks), chaque portefeuille et chaque plateforme avec ses propres bitcoins. À partir de 2025, le coût d’acquisition se calcule portefeuille par portefeuille et compte par compte ; sauf si vous identifiez les bitcoins que vous vendez, la règle du premier entré, premier sorti s’applique au sein de chacun, selon la date de première acquisition (Treas. Reg. §1.1012-1(j)).
-- **Le formulaire 8949 et le rapport fiscal par plateforme**, avec le réglage du formulaire 1099-DA propre à chaque plateforme.
-- **Un import pour le fichier CSV de n’importe quelle plateforme**, avec des correspondances toutes prêtes.
-- **Une modification qui déplacerait les chiffres d’une année fiscale antérieure demande d’abord.**
-- **Un registre commencé avant la 0.9.2** : une transaction enregistrée alors dans un compte créé par l’ancienne API des comptes de BitcoinTX compte désormais selon la devise de ce compte : ses revenus, rebates et dons reçus peuvent changer, et une fois le registre recalculé, les frais de réseau d’une dépense faite depuis ce compte réduisent le produit et le gain de cette dépense. Ledger Review liste ces lignes ("Transactions in an account made through BitcoinTX's old account API") : vérifiez chacune, puis lancez Recalculate Ledger.
-
-[Tout ce que contient la 2.0.0-alpha.1](${CHANGELOG})`,
+[Tout ce que contient la 2.0.0-alpha.2](${CHANGELOG})`,
   },
   migrations: {
     up: async ({ effects }) => {},
