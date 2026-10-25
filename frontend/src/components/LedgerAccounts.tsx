@@ -79,12 +79,15 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     void change(row, () => api.put(`/accounts/${row.id}`, { hidden }));
   };
 
-  // Refused, the account was used since the book was read (the AI connector, another tab, #720): the book and the
-  // balances are read again, so its row says what the server said and offers Delete no more
+  // Refused, the book may be out of date (the account used since it was read, by the AI connector or another tab,
+  // #720, or deleted there): it and the balances are read again, so the row says what the server has and offers
+  // Delete only if it still may; the keyboard goes back to the row, its Delete button perhaps gone
   const remove = (row: AccountRow) => {
     if (!window.confirm(`Delete ${row.name}? It has no transactions.`)) return;
     void change(row, () => api.delete(`/accounts/${row.id}`)).then(async (deleted) => {
-      if (!deleted) await Promise.all([reload(), loadBalances()]);
+      if (deleted) return;
+      await Promise.all([reload(), loadBalances()]);
+      setRefocus(row);
     });
   };
 

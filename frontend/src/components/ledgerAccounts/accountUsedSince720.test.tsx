@@ -68,8 +68,13 @@ it("reads it again after a refused delete: the server's words, and the row as th
   server = USED; // used by the AI connector while Settings stayed open
   vi.spyOn(window, "confirm").mockReturnValue(true);
   vi.spyOn(api, "delete").mockRejectedValue(refused(409, IN_USE));
+  const balances = () => vi.mocked(api.get).mock.calls.filter(([url]) => url !== "/accounts/").length;
+  const balancesBefore = balances();
   await user.click(remove);
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", IN_USE);
   await waitFor(() => expect(within(details).queryByRole("button", { name: "Delete" })).toBeNull());
   expect(within(details).getByText(IN_USE)).toBeTruthy();
+  expect(balances()).toBe(balancesBefore + 1);
+  // The keyboard back on the row, as after every change here: its Delete button is gone
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /^Coldcard\b/ })));
 });
