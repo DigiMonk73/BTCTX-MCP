@@ -251,11 +251,13 @@ from the Transaction row alone.
 **The past-year warning** (2.0, #352; `services/past_years.py`): an add,
 edit or delete on `/api/transactions` that would change the figures of a
 tax year before this one (Ledger Review's snapshot, each disposal's Form
-8949 box and column (b), what the report counts as income or a rebate and
-as a gift, donation or lost coins, each row's date and tax year:
-`services/year_changes.py`)
+8949 box and column (b) (a gift's, donation's or lost coins' own, on no
+Form 8949: their holding period and date acquired, #736), what the report
+counts as income or a rebate and as a gift, donation or lost coins, each
+row's date and tax year: `services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
-`exact`, `confirm`) and saves nothing. Sent again with
+`exact`, `timezone`: the one its rows' dates are in, `confirm`) and saves
+nothing. Sent again with
 `?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
 "pre-change" one, the newest 5 and the first of each day for a week; a
 fresh AI copy with the key), the fingerprint checked again before the
@@ -564,8 +566,8 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   can't open counts as none chosen, logged once), and a restore keeps this
   install's own in place of a backup's that `tzdata` doesn't name.
   Times on screen are the device's clock (#260), except Ledger Review's
-  (the tax timezone, as `cli review` and the AI see them) and a price's
-  hour (UTC, labelled).
+  and the past-year question's (the tax timezone, as `cli review` and the
+  AI see them, labelled: #737) and a price's hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
   (1099-DA without basis); 2026+ Sells of lots bought on that exchange (a Buy
   into the account sold from) on/after 2026-01-01 and never moved G/J;
