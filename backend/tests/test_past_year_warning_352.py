@@ -491,6 +491,29 @@ def test_a_pending_fix_on_a_spend_made_a_gift_names_its_own_rows_never_a_network
     assert "Form 8949 box I -> none" in changes[spend] and "network fee's" not in changes[spend]
 
 
+def test_a_pending_fix_on_a_gift_made_a_spend_names_its_fees_rows(fresh_app, monkeypatch, tax_year):
+    """The other way round: the pending list's gift is a gift on both sides,
+    so its only Form 8949 rows are its network fee's."""
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    r = post(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+             timestamp="2025-07-01T12:00:00Z", purpose="Gift", fmv_usd="3000", fee_amount="0.0001",
+             fee_currency="BTC")
+    assert r.status_code == 200, r.text
+    gift = r.json()["id"]
+    tax_year(2026)
+    with fresh_app() as db:  # a fix pending on the gift itself, as after an upgrade
+        db.execute(text("UPDATE lot_disposals SET holding_period = 'LONG' WHERE transaction_id = :id"), {"id": gift})
+        db.execute(text("DELETE FROM app_settings WHERE key = 'recalculated_by'"))
+        db.commit()
+    r = client.put(f"/api/transactions/{gift}", json={"purpose": "Spent", "proceeds_usd": "3000"})
+    assert r.status_code == 409, r.text
+    pending = {item["id"]: item["change"] for item in r.json()["pending"]}
+    assert "held long-term -> short-term" in pending[gift] and "network fee's Form 8949 box L -> I" in pending[gift]
+
+
 def test_past_the_budget_a_dollar_row_still_saves_at_once(ledger, monkeypatch):
     client, _ = ledger
     monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
