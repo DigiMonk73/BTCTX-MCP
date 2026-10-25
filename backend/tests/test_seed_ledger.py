@@ -294,7 +294,7 @@ def test_each_route_joins_more_than_one_pair_of_accounts():
 
 def test_every_broker_form_choice_against_each_switch():
     """From 2025, when an exchange's 1099-DA switch decides a Sell's box
-    (2.0 spec 5.7): a Sell of every Broker form choice (none: the switch's
+    (2.0 spec 5.7): a Sell of every Broker form choice (blank: the switch's
     rule) on an exchange with it on and one with it off; and a spend with a
     BTC fee of each choice, which its fee follows (#549)."""
     rows, switch = [r for r in seed_ledger.ledger_rows() if r["timestamp"] >= "2025"], switches()

@@ -9,8 +9,11 @@ a Transfer from Wallet to the Coldcard with no fee, after every row that
 takes coins from either.
 
 - Every old row keeps its figures with the new rows beside it
-  (test_old_rows_keep_their_figures): equivalence_check's ledgers leave the
-  new rows out (B1), so this is their proof.
+  (test_old_rows_keep_their_figures): 1.x's beside every 2.0 row
+  (equivalence_check's ledgers leave those out, B1, so this is their
+  proof), and 1.x's and B7a's beside #702's ("added": "#702"), which go
+  into the same 2.0 accounts only after each one's last earlier disposal
+  (Kraken's and Overseas' bitcoin emptied by the end of 2025).
 - The split row moves only Wallet's and the Coldcard's year-end lots and
   balances.
 - The seed makes the accounts with the ids the ledger lists, uses again
@@ -87,18 +90,19 @@ def seed_without(c: TestClient, leave_out) -> list[dict]:
     return [raw for raw, _ in kept]
 
 
-def old_rows_figures(Session, sent: list[dict]) -> list[dict]:
-    """Each 1.x row's figures, in the ledger's order: its own stored ones (a
-    deposit's value at receipt is its income), every disposal it made
-    (BTC, proceeds, basis, gain, term, box) and every lot it made (BTC,
-    date, cost; not what's left of it, which the split row changes)."""
+def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw) -> list[dict]:
+    """Each row's figures but those `newer` picks (1.x's by default), in the
+    ledger's order: its own stored ones (a deposit's value at receipt is
+    its income), every disposal it made (BTC, proceeds, basis, gain, term,
+    box) and every lot it made (BTC, date, cost; not what's left of it,
+    which the split row, and later rows taking from it, change)."""
     with Session() as db:
         book, tz = account_book(db), get_tax_timezone(db)
         txs = db.query(Transaction).order_by(Transaction.id).all()
         assert len(txs) == len(sent)
         figures = []
         for tx, raw in zip(txs, sent):
-            if "since" in raw:
+            if newer(raw):
                 continue
             year = local_date(tx.timestamp, tz).year
             disposals = db.query(LotDisposal).filter(LotDisposal.transaction_id == tx.id)
@@ -116,20 +120,21 @@ def old_rows_figures(Session, sent: list[dict]) -> list[dict]:
         return figures
 
 
-def test_old_rows_keep_their_figures(owner):
+@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw], ids=["2.0", "#702"])
+def test_old_rows_keep_their_figures(owner, newer):
     c, Session = owner
-    with_new = old_rows_figures(Session, seed_without(c, lambda raw: False))
+    with_new = old_rows_figures(Session, seed_without(c, lambda raw: False), newer)
     delete_all(c)
-    alone = old_rows_figures(Session, seed_without(c, lambda raw: "since" in raw))
-    assert len(alone) == len([r for r in raw_rows() if "since" not in r])
+    alone = old_rows_figures(Session, seed_without(c, newer), newer)
+    assert len(alone) == len([r for r in raw_rows() if not newer(r)])
     assert with_new == alone
 
 
 def test_the_new_rows_use_only_new_accounts_but_the_split():
     """2.0 spec 5.15: deposits from External fund them; the one exception
-    is the split, from Wallet (and its date is checked, not trusted). Each
-    account is its own pile, so a new row in any year moves no old row's
-    figure (test_old_rows_keep_their_figures), only its year's totals."""
+    is the split, from Wallet (and its date is checked, not trusted). A new
+    row moves its year's totals and the holdings after it, never an older
+    row's figures (test_old_rows_keep_their_figures)."""
     new = [r for r in raw_rows() if "since" in r]
     assert {r["since"] for r in new} == {"2.0"}
     assert all({r["from_account_id"], r["to_account_id"]} <= NEW_ACCOUNTS | {EXTERNAL} for r in new if r != split_row())
@@ -225,16 +230,18 @@ def test_an_account_is_made_under_its_old_name_and_renamed_after_the_rows(owner)
     writes = []
 
     def noted(method, url, **kwargs):
-        if "/api/accounts" in str(url) and method in ("POST", "PUT"):
-            writes.append((method, str(url), kwargs.get("json")))
+        if method in ("POST", "PUT"):
+            writes.append((method, str(url).split("?")[0], kwargs.get("json")))
         return sent(method, url, **kwargs)
 
     c.request = noted
     seed_ledger.seed(c)
-    made = [body["name"] for method, _, body in writes if method == "POST"]
+    made = [body["name"] for method, url, body in writes if (method, url) == ("POST", "/api/accounts/")]
     assert "Offshore" in made and "Overseas" not in made
-    renamed = [(url, body) for method, url, body in writes if method == "PUT" and body.get("name") == "Overseas"]
-    assert renamed == [("/api/accounts/104", {"name": "Overseas", "hidden": False})]
+    renamed = [i for i, (method, _, body) in enumerate(writes) if method == "PUT" and body.get("name") == "Overseas"]
+    last_row = max(i for i, (method, url, _) in enumerate(writes) if (method, url) == ("POST", "/api/transactions"))
+    assert len(renamed) == 1 and renamed[0] > last_row
+    assert writes[renamed[0]][1:] == ("/api/accounts/104", {"name": "Overseas", "hidden": False})
     with Session() as db:
         assert dict(db.query(Exchange.id, Exchange.name)) == {1: "Exchange", 2: "Kraken", 3: "Overseas"}
     accounts = {a["id"]: a for a in c.get("/api/accounts/").json()}

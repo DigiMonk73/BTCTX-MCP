@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). Each account is its own pile, so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). 'added' names the change that added a 2.0 row (#702's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
  "accounts": [
   {
    "id": 100,
@@ -32,7 +32,7 @@
    "currency": "BTC",
    "exchange_id": 2,
    "sends_1099da": true,
-   "why": "A second exchange's bitcoin, on a Form 1099-DA: G for coins bought there in 2026, H for coins moved in."
+   "why": "A second exchange's bitcoin, on a Form 1099-DA: G for coins bought there in 2026, H for coins moved in or held a year or less before 2026, K for coins held more than a year; I where the owner recorded no form."
   },
   {
    "id": 104,
@@ -52,7 +52,7 @@
    "exchange_id": 3,
    "sends_1099da": false,
    "renamed_from": "Offshore BTC",
-   "why": "Its sales are on no broker form: I or L."
+   "why": "Its sales are on no broker form, I or L, unless the owner recorded what a form showed: H and G by their Broker form choice."
   },
   {
    "id": 106,
@@ -82,6 +82,7 @@
    "cost_basis_usd": "3400.00",
    "acquired_at": "2021-11-10T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "My own coins, bought at the November 2021 top elsewhere and moved to Kraken before the ledger's first year: 2023 starts holding them (the report's holdings at the start of the year), and 2024 sells them at a long-term loss, Box F."
   },
   {
@@ -335,6 +336,7 @@
    "fee_currency": "USD",
    "source": "N/A",
    "since": "2.0",
+   "added": "#702",
    "why": "Dollars into Kraken: a second exchange's USD account gets a deposit."
   },
   {
@@ -368,6 +370,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "1185.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Part of the 2021 coins sold in the January 2024 dip: long-term, on no 1099-B, a loss: Box F, on a second exchange (Sales by exchange)."
   },
   {
@@ -437,6 +440,7 @@
    "fee_currency": "USD",
    "cost_basis_usd": "7300.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Bought on Kraken at the March 2024 top."
   },
   {
@@ -472,6 +476,7 @@
    "cost_basis_usd": "3600.00",
    "acquired_at": "2024-03-13T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "Inherited coins into an exchange, valued on the date of death (2024-03-13), near the top: they come before the March 14 buy."
   },
   {
@@ -571,6 +576,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "6480.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Sold in the August 2024 drop: FIFO takes the rest of the 2021 coins (F, a loss), the inherited coins (F, INHERITED, a loss below their value at the death) and half the March buy (C, a short-term loss)."
   },
   {
@@ -771,6 +777,7 @@
    "fee_currency": "USD",
    "cost_basis_usd": "10000.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A Buy on Kraken in 2025: before 2026, so its basis isn't reported (not covered)."
   },
   {
@@ -785,6 +792,7 @@
    "cost_basis_usd": "2120.00",
    "acquired_at": "2025-01-20T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "Inherited coins into Overseas, valued on the date of death (2025-01-20)."
   },
   {
@@ -808,6 +816,7 @@
    "source": "MyBTC",
    "cost_basis_usd": "2850.00",
    "since": "2.0",
+   "added": "#702",
    "why": "My own coins into Overseas, bought elsewhere that week, with no date originally acquired: counted from the deposit (Ledger Review's reminder lists it)."
   },
   {
@@ -888,6 +897,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "7800.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Kraken's 2025 Form 1099-DA reports proceeds only: the March 2024 coins, held more than a year (K, a gain), and half the 2025 buy (H, a short-term loss): H and K on a second exchange with its switch on."
   },
   {
@@ -900,6 +910,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "2340.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Overseas sends no 1099-DA (its switch is off): the inherited coins (L, INHERITED, a long-term loss) and part of the My BTC (I, a loss)."
   },
   {
@@ -1009,6 +1020,7 @@
    "gross_proceeds_usd": "1200.00",
    "broker_reporting": "none",
    "since": "2.0",
+   "added": "#702",
    "why": "A Kraken sale the owner recorded as on no broker form: Box I, though Kraken's switch is on."
   },
   {
@@ -1022,6 +1034,7 @@
    "gross_proceeds_usd": "1200.00",
    "broker_reporting": "proceeds",
    "since": "2.0",
+   "added": "#702",
    "why": "Overseas sent a 1099-DA for this sale after all (proceeds only), as the owner recorded: Box H, though its switch is off."
   },
   {
@@ -1136,6 +1149,7 @@
    "fmv_usd": "3599.10",
    "purpose": "Donation",
    "since": "2.0",
+   "added": "#702",
    "why": "A donation straight from an exchange (its network fee is Box I). Kraken's bitcoin is then empty, so its 2026 rows keep their figures."
   },
   {
@@ -1171,6 +1185,7 @@
    "fmv_usd": "900.00",
    "purpose": "Lost",
    "since": "2.0",
+   "added": "#702",
    "why": "Coins lost at an exchange (an account frozen for good): not a sale. Overseas' bitcoin is then empty, so its 2026 rows keep their figures."
   },
   {
@@ -1525,6 +1540,7 @@
    "fee_currency": "USD",
    "cost_basis_usd": "2800.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Bought on Overseas in 2026 and never moved: covered by the rule, but Overseas sends no 1099-DA, so its sale is Box I, not G."
   },
   {
@@ -1539,6 +1555,7 @@
    "cost_basis_usd": "245.00",
    "acquired_at": "2023-03-15T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "A gift into an exchange, with the giver's basis and date (2023): long-term when sold."
   },
   {
@@ -1552,6 +1569,7 @@
    "source": "Income",
    "cost_basis_usd": "280.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Income paid into an exchange account: 2026's income grows by its value."
   },
   {
@@ -1565,6 +1583,7 @@
    "source": "Interest",
    "cost_basis_usd": "140.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Interest paid into an exchange account."
   },
   {
@@ -1578,6 +1597,7 @@
    "source": "Rebate",
    "cost_basis_usd": "70.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A rebate into an exchange account: valued at receipt, never income."
   },
   {
@@ -1638,6 +1658,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "1420.00",
    "since": "2.0",
+   "added": "#702",
    "why": "FIFO takes the gift (acquired 2023): long-term on an exchange that sends no 1099-DA, Box L."
   },
   {
@@ -1651,6 +1672,7 @@
    "gross_proceeds_usd": "1418.58",
    "broker_reporting": "none",
    "since": "2.0",
+   "added": "#702",
    "why": "The owner recorded that no broker form showed it: Box I, as Overseas' switch gives anyway."
   },
   {
@@ -1674,6 +1696,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "1420.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Half the coins bought on Overseas: Box I, not G, since its switch is off."
   },
   {
@@ -1699,6 +1722,7 @@
    "gross_proceeds_usd": "710.00",
    "broker_reporting": "basis",
    "since": "2.0",
+   "added": "#702",
    "why": "Overseas sent a 1099-DA with this sale's basis, as the owner recorded: Box G, though its switch is off."
   },
   {
@@ -1713,6 +1737,7 @@
    "fmv_usd": "142.00",
    "purpose": "Donation",
    "since": "2.0",
+   "added": "#702",
    "why": "A donation from a second exchange: not a sale; its network fee is Box I."
   },
   {
@@ -1740,6 +1765,7 @@
    "fmv_usd": "142.00",
    "purpose": "Gift",
    "since": "2.0",
+   "added": "#702",
    "why": "A gift from a second exchange: not a sale; its network fee is Box I."
   },
   {
@@ -1768,6 +1794,7 @@
    "cost_basis_usd": "880.00",
    "acquired_at": "2024-11-12T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "A gift into Kraken, with the giver's basis and date (2024): long-term when sold."
   },
   {
@@ -1781,6 +1808,7 @@
    "source": "Income",
    "cost_basis_usd": "284.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Income paid into Kraken."
   },
   {
@@ -1794,6 +1822,7 @@
    "source": "Interest",
    "cost_basis_usd": "142.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Interest paid into Kraken."
   },
   {
@@ -1807,6 +1836,7 @@
    "source": "Rebate",
    "cost_basis_usd": "71.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A rebate into Kraken: never income."
   },
   {
@@ -1820,6 +1850,7 @@
    "source": "Reward",
    "cost_basis_usd": "284.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A reward paid into Kraken (staking, a bonus): income."
   },
   {
@@ -1845,6 +1876,7 @@
    "cost_basis_usd": "1480.00",
    "acquired_at": "2026-03-01T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "Inherited coins into Kraken, valued on the date of death (2026-03-01): they come before the 2026-03-05 coins left there."
   },
   {
@@ -1856,6 +1888,7 @@
    "fee_amount": "0",
    "fee_currency": "USD",
    "since": "2.0",
+   "added": "#702",
    "why": "Kraken's dollars to the credit union: a second exchange's dollars to a bank."
   },
   {
@@ -1881,6 +1914,7 @@
    "fee_amount": "0",
    "fee_currency": "USD",
    "since": "2.0",
+   "added": "#702",
    "why": "Savings to the credit union: a second pair of banks."
   },
   {
@@ -1892,6 +1926,7 @@
    "fee_amount": "0",
    "fee_currency": "USD",
    "since": "2.0",
+   "added": "#702",
    "why": "Overseas' dollars to Kraken's: a second pair of exchanges' dollars."
   },
   {
@@ -1906,6 +1941,7 @@
    "cost_basis_usd": "102.50",
    "acquired_at": "2022-06-18T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "A gift into a second wallet, with the giver's basis and date (2022)."
   },
   {
@@ -1920,6 +1956,7 @@
    "cost_basis_usd": "426.00",
    "acquired_at": "2026-06-01T12:00:00Z",
    "since": "2.0",
+   "added": "#702",
    "why": "Inherited coins into a second wallet, valued on the date of death (2026-06-01)."
   },
   {
@@ -1933,6 +1970,7 @@
    "source": "Interest",
    "cost_basis_usd": "71.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Interest into a second wallet."
   },
   {
@@ -1946,6 +1984,7 @@
    "source": "Reward",
    "cost_basis_usd": "142.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A reward into a second wallet."
   },
   {
@@ -1959,6 +1998,7 @@
    "source": "Rebate",
    "cost_basis_usd": "28.40",
    "since": "2.0",
+   "added": "#702",
    "why": "Card sats-back into a second wallet."
   },
   {
@@ -1995,6 +2035,7 @@
    "fmv_usd": "864.00",
    "purpose": "Donation",
    "since": "2.0",
+   "added": "#702",
    "why": "A donation from the Jade taking coins of both terms: the gift's, held since 2022 (its network fee too, Box L), then short-term ones."
   },
   {
@@ -2008,6 +2049,7 @@
    "fmv_usd": "144.00",
    "purpose": "Lost",
    "since": "2.0",
+   "added": "#702",
    "why": "Coins lost from a second wallet: not a sale."
   },
   {
@@ -2021,6 +2063,7 @@
    "source": "MyBTC",
    "cost_basis_usd": "0.00",
    "since": "2.0",
+   "added": "#702",
    "why": "My own coins whose cost the owner doesn't know, entered at $0 (allowed: all of it is gain when sold). Ledger Review lists it (a deposit without a basis), and reminds that it has no date originally acquired."
   },
   {
@@ -2035,6 +2078,7 @@
    "gross_proceeds_usd": "0.00",
    "purpose": "Spent",
    "since": "2.0",
+   "added": "#702",
    "why": "A spend saved with $0 proceeds, as a slip would save it: its basis is a loss, and its fee is worth no more than the $0 received (#157). Ledger Review lists it."
   },
   {
@@ -2058,6 +2102,7 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "2160.00",
    "since": "2.0",
+   "added": "#702",
    "why": "Kraken's 1099-DA reports proceeds only: FIFO takes the gift (2024, long-term, a gain) and half the inherited coins (INHERITED, a long-term loss): Box K on a second exchange."
   },
   {
@@ -2071,6 +2116,7 @@
    "gross_proceeds_usd": "1440.00",
    "broker_reporting": "proceeds",
    "since": "2.0",
+   "added": "#702",
    "why": "Kraken's 1099-DA showed this sale's proceeds only, as the owner recorded: the rest of the inherited coins (K) and coins bought on Kraken in 2026, which go to H instead of G."
   },
   {
@@ -2099,6 +2145,7 @@
    "purpose": "Spent",
    "broker_reporting": "basis",
    "since": "2.0",
+   "added": "#702",
    "why": "A spend from Kraken that its 1099-DA showed with its basis, as the owner recorded: the spend and its network fee are both Box G (#549)."
   },
   {
@@ -2114,6 +2161,7 @@
    "purpose": "Spent",
    "broker_reporting": "none",
    "since": "2.0",
+   "added": "#702",
    "why": "A spend the owner recorded as on no broker form: it and its fee are Box I, as a spend's are anyway."
   },
   {
@@ -2126,6 +2174,7 @@
    "fee_currency": "USD",
    "cost_basis_usd": "0.00",
    "since": "2.0",
+   "added": "#702",
    "why": "A Buy saved with no cost, as when its amount is forgotten: Ledger Review lists it. Kept, never sold."
   },
   {
@@ -2150,6 +2199,7 @@
    "fee_currency": "BTC",
    "fee_usd": "1.43",
    "since": "2.0",
+   "added": "#702",
    "why": "Overseas' bitcoin to Kraken's: a second pair of exchanges. 0.001 arrives keeping its date (2026-05-20), after Kraken's last disposal; the fee is Box I."
   },
   {

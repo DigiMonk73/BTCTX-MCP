@@ -22,8 +22,9 @@ All notable changes to BitcoinTX are documented in this file.
   - the rows Ledger Review lists ($0 cost, a $0 Buy, $0 proceeds).
 
   New coverage tests in `test_seed_ledger.py` fail if a dimension ever
-  empties. Each account is its own pile, so no older row's figure moves;
-  the test figures move only by the new rows' own
+  empties. The rows go only into 2.0's accounts, each after that
+  account's last earlier disposal, so no older row's figure moves (a test
+  compares every one); the test figures move only by the new rows' own
   (`testdata/reference_figures.json`). `scripts/independent_figures.py`
   also checks each exchange's Sells (Sales by exchange) and the coins held
   at each year's start, and agrees in every year. Test data only: nothing

@@ -53,7 +53,7 @@ LEDGER = ROOT / "testdata" / "reference_ledger.json"
 MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
 # A row's notes, never sent to the server
-NOTES = ("why", "since")
+NOTES = ("why", "since", "added")
 # The account API's kinds, by the ledger's (an exchange is added once, as its two accounts)
 ADDED_AS = ("bank", "wallet", "exchange")
 # 1.x's exchange, which every install has (scripts/independent_figures.py's exchange 1)
@@ -67,8 +67,8 @@ class SeedError(Exception):
 # The ledger
 def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it
-    (testdata/reference_ledger.json without its notes: "why", and "since",
-    which marks a row 2.0 added)."""
+    (testdata/reference_ledger.json without its notes: "why", "since",
+    which marks a row 2.0 added, and "added", the change that added it)."""
     with open(LEDGER) as f:
         rows = json.load(f)["transactions"]
     return [{k: v for k, v in row.items() if k not in NOTES} for row in rows]

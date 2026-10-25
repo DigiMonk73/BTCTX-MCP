@@ -242,13 +242,15 @@ fee following it), gains and losses of both terms and inherited coins sold
 in each forms year (2024 to 2026), holdings at each year's start, a hidden
 and a renamed account on the dashboard, and each Ledger Review item a row
 can show (it names the others, with why no row can). Priced values stay
-empty: every value is typed, so it loads with the price source Off. Each
-account is its own pile, so the new rows move no older row's figure. The
-one exception is the last row, the fee-less split of a pooled wallet
-(Wallet to the Coldcard). `test_reference_ledger_354.py` proves every
-older row keeps its figures beside them (the equivalence check's ledgers
-leave them out) and that the split moves only those two wallets' year-end
-lots and balances.
+empty: every value is typed, so it loads with the price source Off. The
+2.0 rows go only into 2.0's accounts (the one exception is the last row,
+the fee-less split of a pooled wallet, Wallet to the Coldcard), and
+#702's (marked `"added": "#702"`) each after that account's last earlier
+disposal (Kraken's and Overseas' bitcoin are emptied by the end of 2025),
+so no older row's figure moves. `test_reference_ledger_354.py` proves it
+row by row, 1.x's beside every 2.0 row (the equivalence check's ledgers
+leave those out) and B7a's beside #702's, and that the split moves only
+those two wallets' year-end lots and balances.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
 
