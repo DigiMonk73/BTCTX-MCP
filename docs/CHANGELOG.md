@@ -75,6 +75,15 @@ All notable changes to BitcoinTX are documented in this file.
   you replaced it with the action's configuration, set it back.
 
 ### Development
+- **The release walk's steps match 2.0** (#723, found by the StartOS
+  tests, #691). `docs/AGENT-TESTS.md`: IMP-4b's Buy starts on **Bank**
+  (no earlier sale in its file leaves Kraken dollars, #655), so there's no
+  Bank to press; PRC-4c clears the Mempool address before choosing
+  **Nobody**, which hides the field and keeps an address left in it, and
+  so does MAC-7; REF-1's `settings.png` is about 1730 wide, its height
+  following the Connect an AI Assistant section it shows; and a published
+  pre-release is walked with the file at its own tag or commit. The app
+  doesn't change.
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0
   testing plan #686). 50 rows join the made-up ledger every figures check
   uses (191 in all), so each of 2.0's dimensions is filled:
