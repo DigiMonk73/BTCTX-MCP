@@ -31,6 +31,7 @@ from backend.models.app_setting import AppSetting, save_setting
 from backend.models.exchange import Exchange
 from backend.models.transaction import LedgerEntry, Transaction
 from backend.models.user import User
+from backend.services.reports.safe_text import in_report_font
 
 YOUR_KINDS = ("bank", "wallet", "exchange")
 FEE_ACCOUNTS = (ACCOUNT_BTC_FEES, ACCOUNT_USD_FEES)
@@ -41,7 +42,9 @@ LAST_ID_KEY = "accounts_last_id"
 # A last id as stored: ASCII digits, well inside SQLite's integers
 LAST_ID = re.compile("[0-9]{1,18}")
 LONGEST_NAME, LONGEST_EXCHANGE_NAME = 40, 36  # an exchange's leaves room for " USD"
-# The one format characters a name keeps, inside it: some scripts and emoji need them
+# The one format characters a name isn't refused as one line for: some
+# scripts and emoji need them. The tax report's font has neither (#722), so a
+# new name with one is refused for that; one saved before is compared as ever
 JOINERS = ("\u200c", "\u200d")
 # Characters nothing shows (Unicode's Default_Ignorable_Code_Point, and the
 # blank braille pattern): left out when names are compared and trimmed at a
@@ -52,7 +55,8 @@ INVISIBLE = ((0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x11
              (0x3164, 0x3164), (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8),
              (0x1BCA0, 0x1BCA3), (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF))
 # Variation selectors: invisible, but they make the symbol before them an
-# emoji ("Cold \u2744\ufe0f"), so a name keeps them, at its ends too
+# emoji ("Cold \u2744\ufe0f"), so a name is never trimmed of them: the tax
+# report's font has none (#722), so a new name with one is refused
 VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 LIST_ORDER = {"bank": 0, "wallet": 1, "exchange": 2, "fee": 3}
 
@@ -67,6 +71,10 @@ FEES_NOT_DELETED = "The fee accounts can't be deleted."
 FIRST_NOT_DELETED = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use."
 IN_USE = "This account has transactions, so it can't be deleted. Hide it instead: its history stays."
 NO_1099DA = "Only an exchange's accounts have the 1099-DA setting."
+# The tax report names each account, in a font whose letters are Western
+# European (safe_text.in_report_font; #722, the owner's choice: limit names)
+UNPRINTABLE = ("A name can use letters, digits and punctuation the tax report can print: no emoji, and no "
+               "letters outside Western European alphabets.")
 
 
 @dataclass(frozen=True)
@@ -327,7 +335,7 @@ def _lock(db: Session) -> None:
 
 
 def _one(db: Session, kind: str, name: str) -> Account:
-    _one_line(name, LONGEST_NAME)
+    _check_name(name, LONGEST_NAME)
     _free(db, name)
     account = Account(id=_next_id(db), user_id=_owner(db), name=name, kind=kind,
                       currency="BTC" if kind == "wallet" else "USD")
@@ -337,7 +345,7 @@ def _one(db: Session, kind: str, name: str) -> Account:
 
 
 def _exchange(db: Session, name: str, sends_1099da: bool | None) -> list[Account]:
-    _one_line(name, LONGEST_EXCHANGE_NAME)
+    _check_name(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name)
     for currency in ("USD", "BTC"):
         _free(db, f"{name} {currency}")
@@ -360,13 +368,13 @@ def _rename(db: Session, account: Account, name: str) -> None:
     exchange = db.get(Exchange, account.exchange_id) if account.exchange_id is not None else None
     if exchange is None:
         if name != account.name:
-            _one_line(name, LONGEST_NAME)
+            _check_name(name, LONGEST_NAME)
             _free(db, name, own=(account.id,))
             account.name = name
         return
     if name == exchange.name:
         return
-    _one_line(name, LONGEST_EXCHANGE_NAME)
+    _check_name(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name, own=exchange.id)
     halves = _with_its_pair(db, account)
     for half in halves:
@@ -376,10 +384,13 @@ def _rename(db: Session, account: Account, name: str) -> None:
         half.name = f"{name} {half.currency}"
 
 
-def _one_line(name: str, longest: int) -> None:
-    """1 to `longest` characters, with no control or format character (but the joiners)."""
+def _check_name(name: str, longest: int) -> None:
+    """1 to `longest` characters, with no control or format character (but
+    the joiners), each one the tax report can print."""
     if not 1 <= len(name) <= longest or any(_not_text(c) for c in name):
         raise HTTPException(status_code=400, detail=f"A name is 1 to {longest} characters on one line.")
+    if not in_report_font(name):
+        raise HTTPException(status_code=400, detail=UNPRINTABLE)
 
 
 def _free(db: Session, name: str, own: tuple[int, ...] = ()) -> None:

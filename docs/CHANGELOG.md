@@ -58,6 +58,21 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **An account's name prints in the tax report** (#722, found by the 2.0
+  testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
+  lets you name your wallets, exchanges and banks, but the reports' fonts
+  can't draw most emoji, nor Cyrillic, Chinese or accented Greek letters:
+  a name with one printed with black boxes in the Complete Tax Report and
+  the Transaction History, so "by account" couldn't be read. Adding or
+  renaming an account now refuses a name with an emoji or a letter outside
+  Western European alphabets, saying "A name can use letters, digits and
+  punctuation the tax report can print: no emoji, and no letters outside
+  Western European alphabets." Accents, €, dashes and a name starting with
+  an apostrophe are fine. A name saved before (an alpha allowed any), or
+  any other text in a report, prints "?" for each character the fonts
+  can't draw, never a black box; rename it in Settings → Wallets,
+  exchanges and banks to print it in full. The CSV export keeps names as
+  they are. No figure changes.
 - **Settings reads your accounts afresh, so Delete follows the server**
   (#720, found by the StartOS tests, #691). The account book was read once
   per page, so after a transaction into a new account (on the Transactions
