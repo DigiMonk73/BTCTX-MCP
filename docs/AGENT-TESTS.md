@@ -74,9 +74,12 @@ GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 1.2.10 when 2.0.0 comes out.
 
 To walk a published pre-release (or any build that isn't the tip), use
-this file as it is at that build's tag (`git show
-v2.0.0-alpha.N:docs/AGENT-TESTS.md`): its steps quote that build's screens,
-and a later commit can change both together.
+this file as it is at that build's tag or commit (`git show
+v2.0.0-alpha.N:docs/AGENT-TESTS.md`, or `git show
+$SHA:docs/AGENT-TESTS.md`): its steps quote that build's screens, and a
+later commit can change both together. A step that reads as a FAIL there
+may have been corrected since: the tip's CHANGELOG, under Development,
+names the release walk's corrections.
 
 ### The machine
 
@@ -1209,8 +1212,7 @@ Set `KEY` to the key from AI-3, and use
   "Kraken BTC → Kraken USD"; the send a Transfer, "Kraken BTC → Coldcard".
   Click **Import 3 Transaction(s)** and confirm (the past-year dialog too,
   in a year after 2026). Expect "Imported 3 transaction(s)." and the Sell
-  at Gain +$13.33: River's
-  $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
+  at Gain +$13.33: River's $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
   lot ($148.50 plus its $1.50 fee), where IMP-4's same sale at the
   Exchange took lot C (+$5.00). Dashboard: Wallet (BTC) lists `Coldcard`
   0.00100000 BTC; Exchange (USD) `Kraken` $55.00 and Exchange (BTC)
@@ -1795,8 +1797,9 @@ point, leave it alone, touch nothing in it, and record that.
   Converter's **Date** mode on a past day. Expect a price, and in
   `DATA/logs/run-test-build.out` "Price history from your mempool server:
   N days" with N in the hundreds (only if no daily price was stored yet:
-  this build has asked no public site). Set it back to **Nobody** and clear
-  the address.
+  this build has asked no public site). Then clear the address, choose
+  **Nobody** (which hides the address field, and keeps an address left in
+  it), and save.
 
 ## BETA: what a tester of an alpha or a beta meets (2.0's pre-releases only)
 
@@ -1904,8 +1907,9 @@ page's pictures".
 - **REF-1** The landing page's pictures:
   `make site-shots SITE_SHOTS_DIR=LAB/runs/site-shots-X.Y.Z`. Expect four
   PNGs: `dashboard.png`, `transactions.png` and `reports.png` at 2940 ×
-  1734, and `settings.png` about 1730 wide (its height follows what
-  Settings shows: about 1475 at 2.0.0-alpha.2). Settings shows
+  1734, and `settings.png` about 1730 wide (its height follows the
+  **Connect an AI Assistant** section it shows: about 1475 at
+  2.0.0-alpha.2). Settings shows
   `btctx-mcp==X.Y.Z` and `~/Library/Application Support/BitcoinTX/mcp.json`.
   The Dashboard's Income & Fees card has every line the app's card has.
   Compare each with DigiMonk73/btctx-site's `img/` (`cmp`) and list which
