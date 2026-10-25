@@ -68,7 +68,8 @@ def pdf_text(value) -> str:
     "?" for each character the reports' fonts can't draw, never a black box.
     Text they draw in full is as it always printed. Otherwise an accent typed
     apart joins its letter first, and what nothing shows (a joiner, a
-    variation selector) is left out: one "?" for each character seen."""
+    variation selector) is left out, adding no "?" of its own; an accent
+    that joins no letter still prints one."""
     text = "" if value is None else str(value)
     if all(_drawn(c) for c in text):
         return escape(text)
