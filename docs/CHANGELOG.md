@@ -25,8 +25,9 @@ All notable changes to BitcoinTX are documented in this file.
   empties. Each account is its own pile, so no older row's figure moves;
   the test figures move only by the new rows' own
   (`testdata/reference_figures.json`). `scripts/independent_figures.py`
-  also checks each exchange's Sells (Sales by exchange) and agrees in every
-  year. Test data only: nothing in the app changes.
+  also checks each exchange's Sells (Sales by exchange) and the coins held
+  at each year's start, and agrees in every year. Test data only: nothing
+  in the app changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 

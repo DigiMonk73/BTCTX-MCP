@@ -290,7 +290,7 @@ review once every figures check is green.
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box
 totals, each exchange's Sells, the gains summary, income, rebates, gifts,
-year-end lots) from the
+the lots held at each year's start and end) from the
 IRS's and the ledger's documented rules, importing nothing of the app
 (#150). `backend/tests/test_independent_figures.py` fails on any difference
 in those from `reference_figures.json`, so a change meant to move figures

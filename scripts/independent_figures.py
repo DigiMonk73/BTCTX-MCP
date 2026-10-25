@@ -14,7 +14,8 @@ exchange its own 1099-DA switch)
 and its tax timezone (`tax_timezone`, else UTC), and gives each year's
 Form 8949 rows, Schedule D lines, box totals, gains summary, each
 exchange's Sells (Sales by exchange), income, rebates, gifts (with the
-cost basis and term of what each took from its lots) and year-end lots:
+cost basis and term of what each took from its lots) and the lots held at
+the year's start and end:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
@@ -278,6 +279,10 @@ def year_figures(ledger: Ledger, year: int) -> dict:
     holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(),
                  "quantity": _btc(lot.quantity), "cost": str(_cents(lot.basis, ledger.rounding))}
                 for account, lot in ledger.holdings.get(year, [])]
+    # What the year starts with is what the year before ended with: none
+    # before the ledger's first year.
+    opening = [{"account": ledger.accounts[account].name, "quantity": _btc(lot.quantity),
+                "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year - 1, [])]
     return {
         "tax_timezone": ledger.tax_zone.key,
         "form_8949": rows,
@@ -291,6 +296,7 @@ def year_figures(ledger: Ledger, year: int) -> dict:
         "gifts_donations_lost": [
             {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv), "lots_by_term": terms}
             for when, kind, amount, fmv, terms in ledger.gifts if ledger.tax_year(when) == year],
+        "start_of_year_holdings": opening,
         "end_of_year_holdings": holdings,
         "end_of_year_total": {"quantity": _btc(sum(Fraction(lot["quantity"]) for lot in holdings)),
                               "cost": str(sum(Decimal(lot["cost"]) for lot in holdings))},
@@ -319,6 +325,11 @@ def differences(mine: dict, app: dict) -> list[str]:
          "lots_by_term": [{"term": t["term"], "btc": _btc(Fraction(str(t["btc"]))), "cost_basis": _usd(t["cost_basis"])}
                           for t in g["lots_by_term"]]}
         for g in report["gifts_donations_lost"]])
+    found += _unmatched("start-of-year lot", mine["start_of_year_holdings"], [
+        {"account": lot["account"], "quantity": _btc(Fraction(str(lot["quantity"]))),
+         # the report gives the average cost of what's left: its cost is that times the BTC, to the cent
+         "cost": _usd(Decimal(str(lot["avg_cost_basis"])) * Decimal(str(lot["quantity"])))}
+        for lot in report["start_of_year_balances"]])
     return found + _holding_differences(mine, report["end_of_year_balances"])
 
 
