@@ -35,6 +35,15 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **Settings no longer offers Delete for an account used since the page
+  loaded** (#720, found by the StartOS tests, #691). The account book was
+  read once per page, so after a transaction into a new account (on the
+  Transactions page, or by the AI connector), Settings still said "It has
+  no transactions." and offered Delete, and the server refused it. Settings
+  now reads the book afresh as it opens, and again after a refused delete,
+  so the row says "This account has transactions, so it can't be deleted.
+  Hide it instead: its history stays." beside the server's refusal. No
+  figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins

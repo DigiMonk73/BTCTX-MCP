@@ -79,9 +79,13 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     void change(row, () => api.put(`/accounts/${row.id}`, { hidden }));
   };
 
+  // Refused, the account was used since the book was read (the AI connector, another tab, #720): the book and the
+  // balances are read again, so its row says what the server said and offers Delete no more
   const remove = (row: AccountRow) => {
     if (!window.confirm(`Delete ${row.name}? It has no transactions.`)) return;
-    void change(row, () => api.delete(`/accounts/${row.id}`));
+    void change(row, () => api.delete(`/accounts/${row.id}`)).then(async (deleted) => {
+      if (!deleted) await Promise.all([reload(), loadBalances()]);
+    });
   };
 
   // A new exchange has no sales, so its 1099-DA answer moves no figure: one request, no past-year warning
