@@ -741,7 +741,8 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   logs no trace (#430; the tests fail on one unless marked
   `unexpected_error`). An id a request sends that can reach a query is a
   `database.RowId` (SQLite's 64-bit integers), or as tightly bound (Ledger
-  Review's `ids`): one beyond is a 422 naming it, never bound into a query
+  Review's `ids`, a chosen coin's `acquired_txn_id`: `chosen_coins.LARGEST_ID`):
+  one beyond is a 422 naming it, never bound into a query
   (an `OverflowError`'s 500, #744). A save a restore's swap refused
   answers `REPLACED` (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
