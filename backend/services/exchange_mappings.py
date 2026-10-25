@@ -33,6 +33,8 @@ KINDS = (*EVENTS, DOLLARS, CONVERT, LEAVE_OUT)
 
 SETTING_KEY = "import_mappings"
 OWN_PREFIX = "own-"
+# The highest id number read: far past any install's saves, and well inside what int() writes
+MAX_ID = 10**18 - 1
 MAX_OWN_MAPPINGS = 50
 MAPPING_NOT_FOUND = "No such mapping."
 TOO_MANY_MAPPINGS = f"You can save up to {MAX_OWN_MAPPINGS} mappings: delete one first."
@@ -324,7 +326,8 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
     row as the live database holds it) stay; the backup's are added unless
     one here has the name (as a save compares them; one named like a
     ready-made one comes too, saved before that one took the name), each
-    with its id unless this install has handed that id out, else a new one. The last id is the higher of the two, so no id handed out here is
+    with its id unless this install has handed that id out, else a new
+    one. The last id is the higher of the two, so no id handed out here is
     handed out again. With none here and none handed out, the backup's row
     stays as it is. They may then pass MAX_OWN_MAPPINGS: no new one is
     saved until some are deleted.
@@ -334,14 +337,12 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
     if not mappings and own_last == 0:
         return row.value if row is not None else None
     backup_last, backups = _stored(restored)
-    # An id's number above its row's last id (a row written by hand) still counts as handed out
-    handed_here = max(own_last, *map(_number, mappings), 0)
-    last_id = max(handed_here, backup_last, *map(_number, backups))
+    last_id = max(own_last, backup_last)
     taken = {m.name.casefold() for m in mappings.values()}
     for mapping_id, mapping in backups.items():
         if mapping.name.casefold() in taken:
             continue
-        if _number(mapping_id) <= handed_here:  # handed out here, or not an id this version gives
+        if _number(mapping_id) <= own_last:  # handed out here, or not an id this version gives
             last_id += 1
             mapping_id = f"{OWN_PREFIX}{last_id}"
         mappings[mapping_id] = mapping
@@ -352,8 +353,7 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
 
 def _number(mapping_id: str) -> int:
     """An own mapping's id's number; 0 for one this version doesn't give
-    (its digits ASCII, and few enough for int() to read: a backup's id may
-    be anything)."""
+    (at most 18 ASCII digits: a backup's id may be anything)."""
     number = mapping_id.removeprefix(OWN_PREFIX)
     readable = mapping_id.startswith(OWN_PREFIX) and number.isascii() and number.isdigit() and len(number) <= 18
     return int(number) if readable else 0
@@ -381,7 +381,10 @@ def _read(value: str | None) -> tuple[int, dict[str, OwnMapping]]:
         except ValueError:
             continue
     last_id = stored.get("last_id")
-    return (last_id if isinstance(last_id, int) and not isinstance(last_id, bool) else 0), mappings
+    readable = isinstance(last_id, int) and not isinstance(last_id, bool) and 0 <= last_id <= MAX_ID
+    # The ids' own numbers count too: a row whose last id is missing or wrong
+    # (damaged, or written by hand) never has an id handed out twice
+    return max(last_id if readable else 0, *map(_number, mappings), 0), mappings
 
 
 def _store(db: Session, last_id: int, mappings: dict[str, OwnMapping]) -> None:

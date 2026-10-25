@@ -39,14 +39,14 @@ All notable changes to BitcoinTX are documented in this file.
   the 2.0 build's release tests; checked by the imports tests, #689).
   Settings' **Import from an exchange** can save your own column mappings,
   and an in-app restore took the backup's set whole: mappings saved since
-  the backup were lost, and the next one saved could get the id of one
-  just dropped. A restore now keeps the mappings in use and adds the
-  backup's beside them, unless you already have one with the same name;
-  a backup's mapping takes a new id if this install has already handed
-  its id out, and the higher of the two last ids is kept. A backup
-  restored on a new install brings its mappings as they were, and a
-  backup's mappings row this version can't read counts as none, never
-  stopping the restore. No figure changes.
+  the backup were lost, and a page still open on one of them could find
+  the next mapping saved in its place. A restore now keeps the mappings
+  you have and adds the backup's beside them, unless you already have one
+  with the same name, and a mapping that's gone is never replaced by
+  another under the same reference. A backup restored on a new install
+  brings its mappings as they were; mappings in a backup this version
+  can't read are left out, and never stop the restore. No figure
+  changes.
 - **Settings reads your accounts afresh, so Delete follows the server**
   (#720, found by the StartOS tests, #691). The account book was read once
   per page, so after a transaction into a new account (on the Transactions
