@@ -288,6 +288,30 @@ def test_the_list_reads_every_choice_in_one_query(owner):
     assert sum("FROM chosen_coins" in s for s in statements) == 1
 
 
+def test_a_restores_read_check_reads_every_choice_in_one_query(chose_a2):
+    """A restore reads each table as the screens do (#460), each transaction
+    through TransactionRead, which reads its chosen coins: in one query,
+    not one per transaction (the review's)."""
+    from backend.services import backup
+
+    for day in ("02", "03"):
+        saved(chose_a2.post("/api/transactions", json=spend(f"2025-06-{day}T12:00:00Z", "0.01", "1000",
+                                                            chosen=coins((chose_a2.ids["A2"], "0.01")))))
+    engine = chose_a2.Session.kw["bind"]
+    statements = []
+
+    def seen(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", seen)
+    try:
+        backup._read_as_the_app_does(engine)
+    finally:
+        event.remove(engine, "before_cursor_execute", seen)
+    # The transactions' choices, and the chosen_coins table's own check
+    assert sum("FROM chosen_coins" in s for s in statements) == 2
+
+
 @pytest.mark.parametrize("make_body, detail", [
     (lambda ids: spend(LEAVES, "0.1", "10000", frm=EXCHANGE_BTC, chosen=coins((ids["A4"], "0.1"))),
      "Coins can be chosen only when they leave one of your wallets. An exchange's coins leave oldest first, as "
@@ -309,6 +333,11 @@ def test_the_list_reads_every_choice_in_one_query(owner):
      "Transaction {USD} didn't acquire bitcoin: choose coins by the Buy or Deposit that acquired them."),
     (lambda ids: spend(LEAVES, "0.1", "10000", chosen=coins((9999, "0.1"))),
      "Transaction 9999 didn't acquire bitcoin: choose coins by the Buy or Deposit that acquired them."),
+    # Beyond what SQLite stores: refused as any other id, never a 500 (the review's)
+    (lambda ids: spend(LEAVES, "0.1", "10000", chosen=coins((2**70, "0.1"))),
+     f"Transaction {2**70} didn't acquire bitcoin: choose coins by the Buy or Deposit that acquired them."),
+    (lambda ids: spend(LEAVES, "0.1", "10000", chosen=coins((0, "0.1"))),
+     "Transaction 0 didn't acquire bitcoin: choose coins by the Buy or Deposit that acquired them."),
     (lambda ids: spend(LEAVES, "0.1", "10000", "0.0001", coins((ids["A2"], "0.1"))),
      "The coins chosen add up to 0.10000000 BTC, but 0.10010000 BTC leaves Wallet (0.10000000 sent and "
      "0.00010000 network fee). Choose coins for all of it, or none to send the oldest first."),
@@ -549,6 +578,31 @@ def test_a_choice_survives_recalculate_ledger_and_a_tax_timezone_change(chose_a2
     r = chose_a2.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True})
     assert r.status_code == 200, r.text
     assert [p[:3] for p in pieces(chose_a2, ids["S"])] == [p[:3] for p in chosen]
+
+
+def test_a_tax_timezone_that_reorders_the_coins_so_a_choice_runs_short_is_refused(owner):
+    """In Cold Storage, D2 arrives 2025-03-02 05:00 UTC and D1 the next day,
+    acquired 2025-03-02 (its lot at noon that day in the tax timezone).
+    In UTC D2's coins are the older, so W1 (no choice) takes them and W2's
+    choice of D1's is there. Kiritimati's noon (UTC+14) is the day before in
+    UTC: D1's coins become the older, W1 would take them, and W2 would be
+    short. The change is refused, naming W2, and nothing changes (Q2). Its
+    dates are in the timezone the change would save, as the replay runs."""
+    d2 = deposit(owner, "2025-03-02T05:00:00Z", "0.2", "2000", to=COLD)
+    d1 = deposit(owner, "2025-03-03T12:00:00Z", "0.2", "4000", acquired="2025-03-02", to=COLD)
+    saved(owner.post("/api/transactions", json=spend("2025-04-01T12:00:00Z", "0.2", "20000", frm=COLD)))
+    w2 = saved(owner.post("/api/transactions", json=spend("2025-05-01T12:00:00Z", "0.2", "20000", frm=COLD,
+                                                          chosen=coins((d1, "0.2")))))
+    assert [p[0] for p in pieces(owner, w2)] == [d1] and d2
+    before = owner.get("/api/transactions").json()
+    r = owner.put("/api/settings/tax-timezone", json={"timezone": "Pacific/Kiritimati", "chosen": True})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == (
+        f"Transaction {w2} (a Withdrawal of 2025-05-02 from Cold Storage) chose 0.20000000 BTC of the coins from "
+        f"transaction {d1} (a Deposit of 2025-03-04), but Cold Storage holds 0.00000000 BTC of them then. Change "
+        "that transaction's chosen coins first, or set it back to oldest first.")
+    assert owner.get("/api/settings/tax-timezone").json()["timezone"] == "UTC"
+    assert owner.get("/api/transactions").json() == before
 
 
 def test_delete_all_leaves_no_choice(chose_a2):

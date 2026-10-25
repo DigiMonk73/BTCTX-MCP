@@ -415,21 +415,15 @@ def _recalculate_with(new_tx: Transaction, db: Session) -> None:
     one: it says so (as a delete does)."""
     try:
         recalculate_all_transactions(db)
-    except chosen_coins.NotHeld as e:
-        if e.tx_id != new_tx.id:
-            raise _not_saved(e) from e
-        raise e.of_this_one() from e
     except HTTPException as e:
+        if isinstance(e, chosen_coins.NotHeld) and e.tx_id == new_tx.id:
+            raise e.of_this_one() from e
         if e.status_code != 400 or isinstance(e, AccountMissing):
             raise
-        raise _not_saved(e) from e
-
-
-def _not_saved(e: HTTPException) -> HTTPException:
-    return HTTPException(
-        status_code=400,
-        detail=f"Not saved: with it, the account would lack BTC on its date or later. {e.detail}",
-    )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not saved: with it, the account would lack BTC on its date or later. {e.detail}",
+        ) from e
 
 
 def _is_backdated(new_tx: Transaction, db: Session) -> bool:
@@ -539,14 +533,9 @@ def _recalculate_past(edited: Transaction, past: list[Transaction] | None, db: S
     others: the edited row must pass its own balance check."""
     try:
         recalculate_all_transactions(db, past_missing=past)
-    except chosen_coins.NotHeld as e:
-        if e.tx_id == edited.id:
-            raise e.of_this_one() from e
-        if not past:
-            raise
-        _refuse_if_still_missing(edited, past, db)
-        raise HTTPException(status_code=400, detail=f"Not changed: {_why_short(past, db)}{e.detail}") from e
     except HTTPException as e:
+        if isinstance(e, chosen_coins.NotHeld) and e.tx_id == edited.id:
+            raise e.of_this_one() from e
         if e.status_code != 400 or isinstance(e, AccountMissing) or not past:
             raise
         _refuse_if_still_missing(edited, past, db)

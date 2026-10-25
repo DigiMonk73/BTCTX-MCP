@@ -20,7 +20,8 @@ All notable changes to BitcoinTX are documented in this file.
   saved, `coins_chosen_at`), and survives Recalculate Ledger, a tax
   timezone change and a restore. A change that would take chosen coins away
   (deleting or editing their purchase, an earlier transfer, an older
-  exchange file) is refused, naming the transaction that chose them; an
+  exchange file, a tax timezone that puts a wallet's coins in another
+  order) is refused, naming the transaction that chose them; an
   edit that changes what leaves must send the coins again, or null for
   oldest first. Exchanges stay first in, first out. Migration 0101 adds a
   table and two columns and writes nothing: **no figure changes**, since

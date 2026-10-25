@@ -31,6 +31,8 @@ from backend.services.tax_time import get_tax_timezone, local_date
 Choice = dict[int, Decimal]
 
 MOST_LINES = 1000
+# The largest id SQLite stores: a larger one names no transaction (and can't be asked for)
+LARGEST_ID = 2**63 - 1
 NOT_FROM_A_WALLET = "Coins can be chosen only when they leave one of your wallets."
 EXCHANGE_OLDEST_FIRST = " An exchange's coins leave oldest first, as its Form 1099-DA reports them."
 WITHIN_ONE_WALLET = ("A move within the same wallet records only its network fee, from the oldest coins: no "
@@ -243,7 +245,8 @@ def _btc(value) -> Decimal:
 def _check_acquisitions(choice: Choice, db: Session, book: AccountBook) -> None:
     """Each id is a Buy or Deposit into a bitcoin account: the transaction
     that first acquired the coins, never a transfer that moved them."""
-    found = {tx.id: tx for tx in db.query(Transaction).filter(Transaction.id.in_(list(choice)))}
+    ids = [acquired for acquired in choice if 0 < acquired <= LARGEST_ID]
+    found = {tx.id: tx for tx in db.query(Transaction).filter(Transaction.id.in_(ids))}
     for acquired in choice:
         tx = found.get(acquired)
         if tx is None or tx.type not in ("Buy", "Deposit") or not book.is_btc(tx.to_account_id):
