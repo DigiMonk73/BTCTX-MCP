@@ -48,7 +48,7 @@ from backend.migrate import (
     sqlite_file,
 )
 from backend.models.transaction import Transaction
-from backend.services import hourly_prices, recalculated_by, review, tax_time, year_changes
+from backend.services import chosen_coins, hourly_prices, recalculated_by, review, tax_time, year_changes
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
 
@@ -202,8 +202,12 @@ class Write(PastYearWrite):
 
     def appends(self, db: Session) -> bool:
         """An add dated at or after every row: it replays nothing, and so
-        applies no pending change (transaction._is_backdated)."""
+        applies no pending change (transaction._is_backdated). One choosing
+        coins while a lot doesn't know its acquisition replays the whole
+        ledger first (#711)."""
         if self.kind != ADD:
+            return False
+        if self.data.get("chosen_coins") and chosen_coins.lots_lack_acquisition(db):
             return False
         latest = db.query(func.max(Transaction.timestamp)).scalar()
         when = self.data.get("timestamp") or datetime.now(timezone.utc)

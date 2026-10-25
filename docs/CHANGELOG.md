@@ -5,6 +5,29 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **Choosing which coins leave a wallet: the database, the engine and the
+  API** (#711, step C2a, #729; the owner's decision 29, 2026-10-25). Within
+  each of your wallets the IRS counts the oldest coins as the ones that
+  leave, unless you identify others by the time they leave and your records
+  show it (specific identification, Treas. Reg. §1.1012-1(j)(2)). A
+  Transfer out of a wallet, or a Spent, Gift, Donation or Lost withdrawal
+  from one, can now name its coins through the API (`chosen_coins`): each
+  by the Buy or Deposit that acquired them and how much of them, together
+  exactly what leaves. Those coins leave instead of the oldest, the network
+  fee from the oldest of them first; a transfer's chosen coins arrive with
+  their date, cost and inheritance, and can be chosen again from the wallet
+  they reach. The choice is saved with the transaction (and when it was
+  saved, `coins_chosen_at`), and survives Recalculate Ledger, a tax
+  timezone change and a restore. A change that would take chosen coins away
+  (deleting or editing their purchase, an earlier transfer, an older
+  exchange file, a tax timezone that puts a wallet's coins in another
+  order) is refused, naming the transaction that chose them; an
+  edit that changes what leaves must send the coins again, or null for
+  oldest first. Exchanges stay first in, first out. Migration 0101 adds a
+  table and two columns and writes nothing: **no figure changes**, since
+  nothing is chosen in any ledger yet. The form's picker (C3), the CSV and
+  the reports (C4) and the AI connector (C5) follow; until then the AI
+  connector can't choose coins.
 - **The Transfer form shows which coins will move, before it saves** (#706;
   found by Grok (Cursor) reading alpha.2; the owner's decision,
   2026-10-25). A Transfer out of a wallet or exchange moves that account's
@@ -45,6 +68,18 @@ All notable changes to BitcoinTX are documented in this file.
   422, naming the id, before anything is looked up. Only a hand-made
   request sends such an id: the app, the connector and the imports send
   the ids the server gave. No figure changes.
+- **A restore keeps your saved exchange-file mappings** (#656, found by
+  the 2.0 build's release tests; checked by the imports tests, #689).
+  Settings' **Import from an exchange** can save your own column mappings,
+  and an in-app restore took the backup's set whole: mappings saved since
+  the backup were lost, and a page still open on one of them could find
+  the next mapping saved in its place. A restore now keeps the mappings
+  you have and adds the backup's beside them, unless you already have one
+  with the same name, and a page still open on a mapping that's gone never
+  finds another in its place. A backup restored on a new install
+  brings its mappings as they were; mappings in a backup this version
+  can't read are left out, and never stop the restore. No figure
+  changes.
 - **An account's name prints in the tax report** (#722, found by the 2.0
   testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
   lets you name your wallets, exchanges and banks, but the reports' fonts

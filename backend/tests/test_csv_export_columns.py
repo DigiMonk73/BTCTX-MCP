@@ -42,6 +42,8 @@ NOT_EXPORTED = {
     "updated_at": "set when the row is saved",
     "realized_gain_usd": "worked out from the lots on every recalculation",
     "holding_period": "worked out from the lots on every recalculation",
+    # Until C4 (#711's plan 6.3), the CSV carries no choice of coins, nor its day
+    "coins_chosen_at": "the CSV's chosen-coins columns come with the coins themselves (#711, C4)",
 }
 
 # CSV columns with no Transaction column behind them.

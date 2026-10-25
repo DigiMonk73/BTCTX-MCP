@@ -217,9 +217,10 @@ to; the release workflow still creates new ones. If unsure, branch from
 
 ```
 Transaction (user input)
+  → ChosenCoin (user input too: the coins it chose to leave a wallet, #711)
   → LedgerEntry (double-entry lines)
-  → BitcoinLot (BTC acquisitions, per account)
-  → LotDisposal (FIFO consumption, with basis/proceeds/gain per lot)
+  → BitcoinLot (BTC acquisitions, per account, each knowing its acquisition)
+  → LotDisposal (FIFO consumption, or the coins chosen, with basis/proceeds/gain per lot)
 ```
 
 Accounts (2.0, #251; the account book, `services/account.py`, read once
@@ -246,7 +247,7 @@ Every update and delete, and a create dated before the latest transaction,
 runs `recalculate_all_transactions` ("scorched earth"): all ledger lines,
 lots and disposals are rebuilt in timestamp order (a create dated last only
 adds its own lines and lots, #172). So derived values must be recomputable
-from the Transaction row alone.
+from the Transaction row (and the coins it chose) alone.
 
 **The past-year warning** (2.0, #352; `services/past_years.py`): an add,
 edit or delete on `/api/transactions` that would change the figures of a
@@ -554,6 +555,24 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
   Inherited coins are long-term whatever the dates (above).
+- **Chosen coins** (2.0, #711; specific identification, Treas. Reg.
+  §1.1012-1(j)(2)): a Transfer out of a wallet (not to itself) or a bitcoin
+  Withdrawal from one may name the coins that leave, `chosen_coins`: each
+  the Buy or Deposit that acquired them (`acquired_txn_id`) and the BTC
+  from it, together exactly what leaves (a Transfer's amount; a
+  Withdrawal's amount and BTC fee). The fee takes the oldest of the chosen
+  coins first, then the amount the rest, as first in, first out does with
+  all of a wallet's coins; each piece costs its running share (Lot cost).
+  Every lot keeps the acquisition its coins came from
+  (`bitcoin_lots.acquired_txn_id`), through transfers; a write with a
+  choice while a lot lacks it (made before migration 0101) replays the
+  ledger first. Nothing chosen: per-wallet FIFO. An exchange's coins and a
+  consolidation take no choice. A choice survives every recalculation; a
+  write that would leave a later choice short of its coins is refused,
+  naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
+  must send the coins again, or null (`SendAgain`). `coins_chosen_at` is
+  when the choice was saved, kept while it's sent back unchanged. The AI
+  key can't send one until the connector's step (C5).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -596,6 +615,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page and afresh as Settings or its accounts section opens (#720); Settings' "Wallets, exchanges and banks" |
 | `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
+| `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form the coins held (`HELD_HOOK`) |
 | `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/TransferCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts will move, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
@@ -752,7 +772,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). An in-app restore
+  brings back a backup's password or its price source), and the exchange
+  import's mappings in use beside the backup's (#656: a restore loses
+  none, and hands no mapping id out twice). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
   ordinary tables and indexes (no generated column, no index on an
   expression or with a WHERE) is refused, and the database that goes

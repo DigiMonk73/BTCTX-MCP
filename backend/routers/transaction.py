@@ -22,7 +22,7 @@ from backend.schemas.transaction import (
 from backend.services import past_years
 from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
-from backend.services import transfer_coins, wipe
+from backend.services import chosen_coins, transfer_coins, wipe
 from backend.services.account import account_book
 from backend.database import RowId, get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
@@ -47,7 +47,7 @@ def _attach_utc_and_build_read_model(tx, db: Session, years: dict | None = None)
     data["values_from_price"] = tx_service.values_from_price(tx, account_book(db))
     data["price_used"] = tx_service.price_used(tx, db, years)
 
-    for field in ["timestamp", "created_at", "updated_at"]:
+    for field in ["timestamp", "created_at", "updated_at", "coins_chosen_at"]:
         val = data.get(field)
         if isinstance(val, datetime):
             iso_str = val.isoformat()
@@ -180,8 +180,12 @@ def update_transaction(transaction_id: RowId, tx: TransactionUpdate, request: Re
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
     by_ai = _by_ai(request)
+    _refuse_a_choice_from_the_ai(tx, by_ai)
     write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
-    updated_tx = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not changed"))
+    try:
+        updated_tx = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not changed"))
+    except chosen_coins.SendAgain as e:
+        raise (e.for_the_ai() if by_ai else e) from None
     if isinstance(updated_tx, JSONResponse):
         return updated_tx  # the warning
     if not updated_tx:
@@ -235,6 +239,15 @@ def delete_transaction(transaction_id: RowId, request: Request, confirm: str | N
 
 def _by_ai(request: Request) -> bool:
     return not request.session.get("user_id")  # else the AI key: a route on AI_KEY_ROUTES
+
+
+def _refuse_a_choice_from_the_ai(tx: TransactionUpdate, by_ai: bool) -> None:
+    """The AI connector can't choose coins yet (#711, Q4: it comes with the
+    connector's own step), nor set a choice back to oldest first: any
+    chosen_coins its edit sends, a list or null, is refused before anything
+    runs. (It adds through the entry import, which refuses them too.)"""
+    if by_ai and "chosen_coins" in tx.model_fields_set:
+        raise HTTPException(status_code=422, detail=chosen_coins.AI_CANT_CHOOSE)
 
 
 def _ai_copy_first(db: Session, by_ai: bool, refused: str):

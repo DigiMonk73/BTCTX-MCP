@@ -21,7 +21,7 @@ from typing import NamedTuple
 from pydantic import ValidationError
 from sqlalchemy import Date, DateTime, Numeric, create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.pool import NullPool
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -537,13 +537,16 @@ def _read_as_the_app_does(new) -> None:
     read would fail every later read of that table, so it refuses the
     restore now.
     """
-    from backend.models import Base
+    from backend.models import Base, Transaction
 
     with Session(new) as session:
         for mapper in Base.registry.mappers:
             checks = _checks(mapper)
+            query = session.query(mapper.class_)
+            if mapper.class_ is Transaction:  # TransactionRead reads its chosen coins: one query a batch
+                query = query.options(selectinload(Transaction.chosen_coins))
             try:
-                for row in session.query(mapper.class_).yield_per(1000):
+                for row in query.yield_per(1000):
                     _require_usable(row, checks)
             except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
                 logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
@@ -568,7 +571,8 @@ def _read_as_the_app_does(new) -> None:
 #   million lots, each at a save's limit, would pass it).
 NUMBER_LIMITS = {
     **dict.fromkeys([("transactions", "amount"), ("transactions", "fee_amount"), ("bitcoin_lots", "total_btc"),
-                     ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc")], Decimal(10) ** 10),
+                     ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc"), ("chosen_coins", "btc")],
+                    Decimal(10) ** 10),
     **dict.fromkeys([("btc_price_daily", "usd"), ("btc_price_hourly", "usd")], Decimal(10) ** 15),
 }
 FIGURES_BELOW = Decimal(10) ** 17

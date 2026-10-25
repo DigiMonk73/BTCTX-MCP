@@ -404,7 +404,14 @@ def test_the_migration_moves_no_stored_figure(tmp_path, fixture):
     _move_to(at_1x, "0012")
     _move_to(at_2_0, "head")
     for table in FIGURE_TABLES:
-        assert q(at_2_0, f"SELECT * FROM {table} ORDER BY id") == q(at_1x, f"SELECT * FROM {table} ORDER BY id")
+        # 1.x's columns as they were; a column 2.0 adds (0101's) holds nothing yet
+        columns = [row[1] for row in q(at_1x, f"PRAGMA table_info({table})")]
+        added = [row[1] for row in q(at_2_0, f"PRAGMA table_info({table})") if row[1] not in columns]
+        select = f"SELECT {', '.join(columns)} FROM {table} ORDER BY id"
+        assert q(at_2_0, select) == q(at_1x, select)
+        for column in added:
+            assert q(at_2_0, f"SELECT count(*) FROM {table} WHERE {column} IS NOT NULL") == [(0,)]
+    assert q(at_2_0, "SELECT count(*) FROM chosen_coins") == [(0,)]
     assert q(at_2_0, "SELECT version_num FROM alembic_version") == [(head_revision(),)]
 
 
@@ -421,7 +428,8 @@ def test_an_old_ledgers_accounts_are_taken_in(tmp_path):
     takes its 1.x name back and the app starts; the row naming 999 left as
     it is."""
     db = _copy(OLD_ACCOUNTS, tmp_path)
-    naming_999 = q(db, "SELECT * FROM transactions WHERE to_account_id = 999")
+    columns = ", ".join(row[1] for row in q(db, "PRAGMA table_info(transactions)"))  # 1.x's
+    naming_999 = q(db, f"SELECT {columns} FROM transactions WHERE to_account_id = 999")
     assert q(db, "SELECT count(*) FROM ledger_entries WHERE account_id = 9") == [(1,)]
     init_db(engine_for(db))
     assert q(db, ACCOUNT_ROWS) == FIXED_ROWS + [
@@ -429,7 +437,7 @@ def test_an_old_ledgers_accounts_are_taken_in(tmp_path):
         (8, "wallet (account 8)", "USD", "bank", None, 0),
         (9, "BTC Fees (account 9)", "BTC", "fee", None, 0),
     ]
-    assert q(db, "SELECT * FROM transactions WHERE to_account_id = 999") == naming_999
+    assert q(db, f"SELECT {columns} FROM transactions WHERE to_account_id = 999") == naming_999
 
 
 def test_an_account_with_externals_id_is_a_fee_account(v070):

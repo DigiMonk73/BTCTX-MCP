@@ -1352,10 +1352,10 @@ Set `KEY` to the key from AI-3, and use
   header). Nothing is saved.
 - **BAK-4** Restore BAK-2's backup again, which removes the rows IMP-4 to
   IMP-6 imported. Expect every golden figure, Coldcard and Kraken at $0.00
-  and 0.00000000 BTC, and **Exchange file** without `Example Exchange`: a
-  restore takes the backup's mappings with its data (it had none), as it
-  does the backup's rows (whether a restore should keep mappings saved
-  since: #656).
+  and 0.00000000 BTC, and **Exchange file** still listing `Example
+  Exchange` under "Your mappings": a restore keeps the mappings saved
+  since the backup, beside the backup's own (it had none), while it takes
+  the backup's rows (#656).
 
 ### SEC: the live install from outside
 

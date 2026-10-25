@@ -2,8 +2,9 @@
 The ledger engine. A transaction is saved as the user entered it; from it
 come its debit and credit lines and its effect on the BTC lots: a Deposit
 or Buy acquires a lot, a Sell or Withdrawal disposes of the account's
-oldest BTC first (FIFO), a Transfer moves lots between accounts, and a BTC
-network fee is a disposal of its own. Every edit or delete recalculates the
+oldest BTC first (FIFO), or of the coins it chose in a wallet (#711), a
+Transfer moves lots between accounts, and a BTC network fee is a disposal
+of its own. Every edit or delete recalculates the
 whole ledger in time order ("scorched earth", recalculate_all_transactions),
 so everything derived must follow from the saved transactions alone.
 """
@@ -17,12 +18,12 @@ from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from collections import defaultdict
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
 from backend.models.account import Account
 from backend.schemas.transaction import validate_btc_storable, validate_usd_storable
-from backend.services import hourly_prices, old_rows, price_history, recalculated_by
+from backend.services import chosen_coins, hourly_prices, old_rows, price_history, recalculated_by
 from backend.services.account import AccountBook, account_book
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, get_tax_timezone, local_date, local_noon_utc
 from backend.constants import (
@@ -46,9 +47,10 @@ logger = logging.getLogger(__name__)
 
 
 def get_all_transactions(db: Session):
-    """Every transaction, newest first."""
+    """Every transaction, newest first, with the coins each chose (one query for all)."""
     return (
         db.query(Transaction)
+        .options(selectinload(Transaction.chosen_coins))
         .order_by(Transaction.timestamp.desc())
         .all()
     )
@@ -90,20 +92,27 @@ def apply_create(tx_data: dict, db: Session) -> Transaction:
     """
     _prepare_input(tx_data, db)
     new_tx = _insert(tx_data, db)
+    if tx_data["chosen_coins"]:
+        chosen_coins.store(new_tx, tx_data["chosen_coins"], db)
 
     remove_ledger_entries_for_tx(new_tx, db)
     build_ledger_entries_for_transaction(new_tx, tx_data, db)
     _maybe_verify_balance_for_internal(new_tx, db)
     if new_tx.type == "Transfer":
         _default_btc_transfer_fee(new_tx, db)
-    if _is_backdated(new_tx, db):
+    if _is_backdated(new_tx, db) or (tx_data["chosen_coins"] and chosen_coins.lots_lack_acquisition(db)):
         # Every lot is rebuilt in date order, which also checks the new entry
         # against the account as it was on its date. Checked first against
         # today's lots, a past consolidation (#159) was refused once coins
-        # had left the account later, though only its fee leaves it.
+        # had left the account later, though only its fee leaves it. A
+        # choice of coins needs every lot to know its acquisition, which a
+        # replay gives lots made before migration 0101 (#711).
         _recalculate_with(new_tx, db)
     else:
-        _post_lots(new_tx, tx_data, db)
+        try:
+            _post_lots(new_tx, tx_data, db)
+        except chosen_coins.NotHeld as e:
+            raise e.of_this_one() from e
     return new_tx
 
 
@@ -116,6 +125,7 @@ def _prepare_input(tx_data: dict, db: Session) -> None:
     _enforce_transaction_type_rules(tx_data, db)
     _enforce_fee_rules(tx_data, db)
     _enforce_broker_reporting(tx_data.get("type"), tx_data.get("broker_reporting"))
+    tx_data["chosen_coins"] = chosen_coins.checked(tx_data, db)
     _record_gross_proceeds(tx_data)
     with _priced_at_the_day(db, _prices_at_the_day(tx_data)):
         _mark_income_value(tx_data, priced=_value_at_receipt(tx_data, db), db=db)
@@ -406,6 +416,8 @@ def _recalculate_with(new_tx: Transaction, db: Session) -> None:
     try:
         recalculate_all_transactions(db)
     except HTTPException as e:
+        if isinstance(e, chosen_coins.NotHeld) and e.tx_id == new_tx.id:
+            raise e.of_this_one() from e
         if e.status_code != 400 or isinstance(e, AccountMissing):
             raise
         raise HTTPException(
@@ -498,6 +510,8 @@ def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction
         _revalue_spent_proceeds(tx, tx_data, db)
         _revalue_gift(tx, tx_data, db)
     _apply_edit(tx, tx_data, type_changed, book)
+    if "chosen_coins" in tx_data:
+        chosen_coins.store(tx, tx_data["chosen_coins"], db)
     tx.price_moment = _price_moment(tx)
     tx.updated_at = datetime.now(timezone.utc)
     db.flush()
@@ -520,6 +534,8 @@ def _recalculate_past(edited: Transaction, past: list[Transaction] | None, db: S
     try:
         recalculate_all_transactions(db, past_missing=past)
     except HTTPException as e:
+        if isinstance(e, chosen_coins.NotHeld) and e.tx_id == edited.id:
+            raise e.of_this_one() from e
         if e.status_code != 400 or isinstance(e, AccountMissing) or not past:
             raise
         _refuse_if_still_missing(edited, past, db)
@@ -681,6 +697,7 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     if any(k in tx_data for k in ("fee_amount", "fee_currency", "type", "amount", "from_account_id",
                                   "to_account_id")):
         _enforce_fee_rules(merged, db)
+    chosen_coins.check_edit(tx, tx_data, merged, db)
     _revalue_income_deposit(tx, tx_data, db)
 
 
@@ -1555,6 +1572,7 @@ def maybe_create_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
         remaining_btc=btc_amount,
         cost_basis_usd=cost_basis,
         inherited=tx.type == "Deposit" and _is_inherited({"source": tx.source}),
+        acquired_txn_id=tx.id,  # what a choice of these coins names (#711)
     )
     db.add(new_lot)
     db.flush()
@@ -1582,7 +1600,8 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
     - Gift/Donation/Lost => the amount carries no proceeds and no gain.
     - A withdrawal's BTC network fee is its own disposal (like a transfer's),
       at the fee's stored USD value, taxable whatever the purpose. It uses the
-      oldest BTC first, then the amount follows.
+      oldest BTC first, then the amount follows: of the coins it chose, when
+      it chose some in a wallet (#711).
     """
     from_acct = db.get(Account, tx.from_account_id) if tx.from_account_id else None
     if not from_acct or from_acct.currency != "BTC":
@@ -1606,10 +1625,10 @@ def maybe_dispose_lots_fifo(tx: Transaction, tx_data: dict, db: Session):
         total_proceeds, fee_usd = _spend_net_of_fee(total_proceeds, fee_usd)
 
     disposal = _FifoDisposal(tx, amount_btc, total_proceeds, not_a_sale, fee_btc, fee_usd, db)
-    for lot in _open_lots(tx.from_account_id, db):
+    for lot, available in _lots_to_take(tx, tx_data, db):
         if disposal.remaining_fee <= 0 and disposal.remaining_amount <= 0:
             break
-        disposal.take_from(lot)
+        disposal.take_from(lot, available)
 
     # Validate that we had enough BTC to complete the disposal. No tolerance:
     # amounts are exact decimals of at most 8 places.
@@ -1653,6 +1672,37 @@ def _spend_net_of_fee(gross: Decimal, fee_usd: Decimal) -> tuple[Decimal, Decima
     """
     fee_proceeds = min(fee_usd, gross)
     return gross - fee_proceeds, fee_proceeds
+
+
+def _lots_to_take(tx: Transaction, tx_data: dict, db: Session) -> list[tuple[BitcoinLot, Decimal]]:
+    """
+    What a transaction leaving a bitcoin account may take, as (lot, BTC it
+    may give), oldest first: without a choice every open lot, all of it;
+    with one (tx_data["chosen_coins"], #711) only the coins it chose
+    (chosen_coins.lots_chosen, which refuses a choice the account doesn't
+    hold). A coins list's hook hears what the account holds first.
+    """
+    lots = _open_lots(tx.from_account_id, db)
+    _hand_over(tx, lots, db)
+    choice = tx_data.get("chosen_coins")
+    if not choice:
+        return [(lot, lot.remaining_btc) for lot in lots]
+    return chosen_coins.lots_chosen(tx, choice, lots, db)
+
+
+def _hand_over(tx: Transaction, lots: list[BitcoinLot], db: Session) -> None:
+    """The account's coins before the transaction takes any, one line per
+    acquisition in the order they're taken, to the session's HELD_HOOK if
+    it has one (the form's list of coins to choose from, #711)."""
+    hook = db.info.get(chosen_coins.HELD_HOOK)
+    if hook is None:
+        return
+    lines: dict[int | None, list] = {}
+    for lot in lots:
+        line = lines.setdefault(lot.acquired_txn_id, [Decimal(0), Decimal(0), lot.acquired_date, lot.inherited])
+        line[0] += Decimal(lot.remaining_btc)
+        line[1] += cost_left(lot)
+    hook(tx, [chosen_coins.Held(acquired, *line) for acquired, line in lines.items()])
 
 
 def _open_lots(account_id: int, db: Session) -> list[BitcoinLot]:
@@ -1710,7 +1760,8 @@ class _FifoDisposal:
     A Sell's or Withdrawal's BTC taken from lots, oldest first: the network
     fee's part before the amount's, each with its running share of the
     fee's value (fee_usd; a spend's at most its gross) or of the proceeds,
-    so the parts add up to them exactly and none is below zero (#297).
+    so the parts add up to them exactly and none is below zero (#297). Each
+    lot gives at most what _lots_to_take says (all of it, or the BTC chosen).
     """
 
     def __init__(self, tx: Transaction, amount_btc: Decimal, total_proceeds: Decimal, not_a_sale: bool,
@@ -1722,14 +1773,15 @@ class _FifoDisposal:
         self.remaining_fee = fee_btc
         self.tz = get_tax_timezone(db)
 
-    def take_from(self, lot: BitcoinLot) -> None:
-        if self.remaining_fee > 0 and lot.remaining_btc > 0:
-            qty = min(lot.remaining_btc, self.remaining_fee)
+    def take_from(self, lot: BitcoinLot, available: Decimal) -> None:
+        if self.remaining_fee > 0 and available > 0:
+            qty = min(available, self.remaining_fee)
             proceeds = running_share(self.fee_usd, self.fee_btc - self.remaining_fee, qty, self.fee_btc)
             self.record(lot, qty, proceeds, gain_zero=False, is_fee=True)
             self.remaining_fee -= qty
-        if self.remaining_amount > 0 and lot.remaining_btc > 0:
-            qty = min(lot.remaining_btc, self.remaining_amount)
+            available -= qty
+        if self.remaining_amount > 0 and available > 0:
+            qty = min(available, self.remaining_amount)
             proceeds = running_share(self.total_proceeds, self.amount_btc - self.remaining_amount, qty, self.amount_btc)
             self.record(lot, qty, proceeds, gain_zero=self.not_a_sale, is_fee=False)
             self.remaining_amount -= qty
@@ -2021,7 +2073,7 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     if btc_outflow <= 0:
         return
 
-    lots = _open_lots(tx.from_account_id, db)
+    lots = _lots_to_take(tx, tx_data, db)
     if tx.from_account_id == tx.to_account_id:
         btc_outflow = _fee_leaving_account(lots, btc_outflow, fee_btc)
 
@@ -2031,11 +2083,11 @@ def maybe_transfer_bitcoin_lot(tx: Transaction, tx_data: dict, db: Session):
     db.flush()
 
 
-def _fee_leaving_account(lots: list[BitcoinLot], btc_outflow: Decimal, fee_btc: Decimal) -> Decimal:
+def _fee_leaving_account(lots: list[tuple[BitcoinLot, Decimal]], btc_outflow: Decimal, fee_btc: Decimal) -> Decimal:
     """A move within one account (#159): the coins sent must be there, as for
     any transfer, and only the fee leaves the account (IRS digital-asset FAQ
     Q81, Q97). What leaves it."""
-    if sum(lot.remaining_btc for lot in lots) < btc_outflow:
+    if sum(available for _lot, available in lots) < btc_outflow:
         raise HTTPException(
             status_code=400,
             detail=f"Not enough BTC to transfer {btc_outflow} (including fee {fee_btc})"
@@ -2046,26 +2098,28 @@ def _fee_leaving_account(lots: list[BitcoinLot], btc_outflow: Decimal, fee_btc: 
 class _LotMove:
     """
     A BTC transfer's amount (fee included) taken from the source's lots,
-    oldest first. The fee's part is disposed of at the fee's stored USD
-    value (its running share per lot when it spans lots, so the parts add
-    up to fee_usd exactly and none is below zero, #297). The rest becomes
-    lots in the destination, each keeping its source lot's acquisition date
-    and share of basis.
+    oldest first (of the coins it chose, when it chose some, #711). The
+    fee's part is disposed of at the fee's stored USD value (its running
+    share per lot when it spans lots, so the parts add up to fee_usd exactly
+    and none is below zero, #297). The rest becomes lots in the destination,
+    each keeping its source lot's acquisition date, share of basis,
+    inheritance and acquisition.
     """
 
     def __init__(self, tx: Transaction, btc_outflow: Decimal, fee_btc: Decimal, db: Session):
         self.tx, self.btc_outflow, self.fee_btc, self.db = tx, btc_outflow, fee_btc, db
         self.remaining_outflow = btc_outflow
         self.remaining_fee = fee_btc
-        self.to_destination: list[tuple[Decimal, Decimal, datetime, bool]] = []
+        self.to_destination: list[tuple[Decimal, Decimal, datetime, bool, int | None]] = []
 
-    def take_all(self, lots: list[BitcoinLot]) -> None:
-        """The whole outflow from `lots`, oldest first; too little BTC is a 400."""
-        for lot in lots:
+    def take_all(self, lots: list[tuple[BitcoinLot, Decimal]]) -> None:
+        """The whole outflow from `lots` (each lot and the BTC it may give),
+        oldest first; too little BTC is a 400."""
+        for lot, available in lots:
             if self.remaining_outflow <= 0:
                 break
-            if lot.remaining_btc > 0:
-                self.take_from(lot)
+            if available > 0:
+                self.take_from(lot, available)
         if self.remaining_fee > 0:
             raise HTTPException(
                 status_code=400,
@@ -2077,8 +2131,8 @@ class _LotMove:
                 detail=f"Not enough BTC to transfer {self.btc_outflow} (including fee {self.fee_btc})"
             )
 
-    def take_from(self, lot: BitcoinLot) -> None:
-        btc_to_use = min(lot.remaining_btc, self.remaining_outflow)
+    def take_from(self, lot: BitcoinLot, available: Decimal) -> None:
+        btc_to_use = min(available, self.remaining_outflow)
         self.remaining_outflow -= btc_to_use
 
         # The fee's piece first, then the moved one, each with its cost
@@ -2089,8 +2143,8 @@ class _LotMove:
             self.dispose_fee(lot, portion_for_fee, piece_cost(lot, portion_for_fee))
             lot.remaining_btc -= portion_for_fee
         if portion_for_dest > 0:
-            self.to_destination.append(
-                (portion_for_dest, piece_cost(lot, portion_for_dest), lot.acquired_date, lot.inherited))
+            self.to_destination.append((portion_for_dest, piece_cost(lot, portion_for_dest), lot.acquired_date,
+                                        lot.inherited, lot.acquired_txn_id))
             lot.remaining_btc -= portion_for_dest
         self.db.add(lot)
 
@@ -2110,7 +2164,7 @@ class _LotMove:
         self.remaining_fee -= portion
 
     def add_destination_lots(self) -> None:
-        for amt_btc, cost_portion, acquired_date, inherited in self.to_destination:
+        for amt_btc, cost_portion, acquired_date, inherited, acquired_txn_id in self.to_destination:
             if acquired_date.tzinfo is None:
                 acquired_date = acquired_date.replace(tzinfo=timezone.utc)
             self.db.add(BitcoinLot(
@@ -2120,6 +2174,7 @@ class _LotMove:
                 remaining_btc=amt_btc,
                 cost_basis_usd=cost_portion,
                 inherited=inherited,  # inherited coins stay inherited (#154)
+                acquired_txn_id=acquired_txn_id,  # and keep the acquisition a choice names (#711)
             ))
 
 
@@ -2174,26 +2229,29 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
         query = query.filter(Transaction.timestamp < until)
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
+    choices = chosen_coins.every_choice(db)
     deadline = db.info.get(DEADLINE)
     superseded = db.info.get(SUPERSEDED, lambda: False)
     for rec_tx in all_txs:
         if (deadline is not None and time.monotonic() >= deadline) or superseded():
             raise OutOfTime
-        _replay(rec_tx, db, known, past_missing)
+        _replay(rec_tx, db, known, past_missing, choices.get(rec_tx.id))
     if until is None and not past_missing:  # the whole ledger, every row through its own checks
         recalculated_by.note(db)
 
     db.flush()
 
 
-def _replay(tx: Transaction, db: Session, known: set[int], past_missing: list[Transaction] | None) -> None:
-    """One saved transaction's ledger lines and lots, in the replay. Its
-    balance check failing on a missing account is refused by name, or, with
-    a `past_missing` list, it goes on, as a row naming a missing account
-    that passes its check does, and is added to it (#368). Any other refusal
-    (short of BTC, say) stays its own."""
+def _replay(tx: Transaction, db: Session, known: set[int], past_missing: list[Transaction] | None,
+            choice: chosen_coins.Choice | None = None) -> None:
+    """One saved transaction's ledger lines and lots, in the replay, with
+    the coins it chose (#711). Its balance check failing on a missing
+    account is refused by name, or, with a `past_missing` list, it goes on,
+    as a row naming a missing account that passes its check does, and is
+    added to it (#368). Any other refusal (short of BTC, say) stays its
+    own."""
     _fill_stored_fee_currency(tx, db)
-    stored = _stored_inputs(tx)
+    stored = {**_stored_inputs(tx), "chosen_coins": choice}
     build_ledger_entries_for_transaction(tx, stored, db)
     try:
         _maybe_verify_balance_for_internal(tx, db)
@@ -2228,8 +2286,9 @@ def _stored_inputs(tx: Transaction) -> dict:
 
 def _post_lots(tx: Transaction, tx_data: dict, db: Session) -> None:
     """Its effect on the BTC lots: a Deposit or Buy acquires a lot, a Sell or
-    Withdrawal disposes of the oldest BTC first (then its figures are summed
-    up from those disposals), a Transfer moves lots between accounts."""
+    Withdrawal disposes of the oldest BTC first, or of the coins it chose
+    (then its figures are summed up from those disposals), a Transfer moves
+    lots between accounts."""
     if tx.type in ("Deposit", "Buy"):
         maybe_create_bitcoin_lot(tx, tx_data, db)
     elif tx.type in ("Sell", "Withdrawal"):
