@@ -255,13 +255,15 @@ def test_an_unknown_option_is_refused(tmp_path):
 def test_no_doc_runs_a_build_s_binary_by_itself():
     """Run on a Mac with BitcoinTX installed, a build's binary opens the real
     ledger: the docs launch builds only through run-test-build.sh (the
-    installed app may be run from /Applications)."""
+    installed app, or the installed BitcoinTX Preview, may be run from
+    /Applications)."""
     root = Path(__file__).resolve().parents[2]
     skipped = {".claude", ".git", ".venv", "node_modules", "dist", "build"}  # other worktrees, packages
     offenders = [
         f"{doc.relative_to(root)}:{n}"
         for doc in root.rglob("*.md") if not skipped & set(doc.relative_to(root).parts)
         for n, line in enumerate(doc.read_text(errors="ignore").splitlines(), start=1)
-        if "Contents/MacOS/BitcoinTX" in line and "/Applications/BitcoinTX.app" not in line
+        if "Contents/MacOS/BitcoinTX" in line
+        and not any(f"/Applications/{app}.app" in line for app in ("BitcoinTX", "BitcoinTX Preview"))
     ]
     assert offenders == []

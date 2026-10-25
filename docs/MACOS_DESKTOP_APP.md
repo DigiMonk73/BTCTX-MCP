@@ -364,11 +364,13 @@ BitcoinTX, close that program (`lsof -nP -iTCP:8765 -sTCP:LISTEN` names it) and
 reopen. The log records each attempt ("Port 8765 unavailable … EADDRINUSE").
 
 **BitcoinTX Preview.** The same, with its own names: its log is
-`~/Library/Logs/BitcoinTX Preview/BitcoinTX.log`, the installed app is
-`/Applications/BitcoinTX Preview.app` (to run it from Terminal, put
-"BitcoinTX Preview" in both of the command's names above), and its port
-is 8767. Its empty ledger is its own, not your BitcoinTX reset: BitcoinTX
-and its ledger are as they were ("BitcoinTX Preview" above).
+`~/Library/Logs/BitcoinTX Preview/BitcoinTX.log`, its port is 8767, and it
+runs from Terminal as
+```bash
+"/Applications/BitcoinTX Preview.app/Contents/MacOS/BitcoinTX Preview"
+```
+Its empty ledger is its own, not your BitcoinTX reset: BitcoinTX and its
+ledger are as they were ("BitcoinTX Preview" above).
 
 **Debugging PyInstaller:** `pyinstaller --debug=imports BitcoinTX.spec`.
 

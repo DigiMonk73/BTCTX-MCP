@@ -140,8 +140,9 @@ Each row shows its type and its accounts as you named them (a Buy's or a
 Sell's exchange by the exchange's name, a transfer as *from* → *to*), its
 time, a deposit's source or a withdrawal's purpose ("Consolidation" for a
 bitcoin account sent to itself), its fee, the gain of a sale or a spend,
-and the amount in its account's currency with its dollar value under it.
-**Edit** opens it in the form. Above the list:
+and the amount in its account's currency (under a bitcoin deposit,
+withdrawal, buy or sell, its value in dollars). **Edit** opens it in the
+form. Above the list:
 
 - **Add transaction** opens the form.
 - The account filter, on **All accounts** at first, narrows the list to a
@@ -158,7 +159,9 @@ fits (two wallets, say), the field starts blank and you choose one; where
 exactly one fits, it's filled in. Hidden accounts aren't offered, except
 the one a transaction you're editing already uses; an account that no
 longer exists shows as "account N (missing)" until you choose another.
-Editing a transaction keeps the accounts it was saved with.
+Editing a transaction keeps the accounts it was saved with. A page opened
+before BitcoinTX was updated from 1.x to 2.0 can't save: it says
+"BitcoinTX was updated: reload the page." Reload it, and save again.
 
 There are five kinds. Every edit or deletion, and every entry dated
 before your latest one, recalculates the whole ledger, so backdated
@@ -189,7 +192,7 @@ entries come out right.
     one; left blank, the date of death's price). Any sale of those coins is
     long-term.
 - **Withdrawal**: money leaving one of your accounts to External. A bitcoin
-  withdrawal's **Purpose** decides how it's taxed: **Spent** is a disposal
+  withdrawal's **Purpose (BTC only)** decides how it's taxed: **Spent** is a disposal
   at its proceeds (left blank, the value at the hour's price); **Gift**,
   **Donation** and **Lost** aren't sales, so their value (**FMV (USD)**;
   left blank, the value at the hour's price) is recorded but is never part
@@ -297,7 +300,8 @@ when a lot turns long-term.
   too); **Sales by exchange**, each exchange's Sells of the year (whether
   it sends a Form 1099-DA, the boxes, the rows, proceeds, cost basis and
   gain, network fees left out), to set beside the Form 1099-DA each
-  exchange sends; income; gifts, donations and lost coins; the bitcoin held
+  exchange sends; income, and rebates apart (they aren't income); gifts,
+  donations and lost coins; the bitcoin held
   at the end of the year, by account and lot by lot; "Using these forms",
   for whoever files the return; and notes on how the figures are made.
 - **IRS Reports (Form 8949, Schedule D, etc.)** (PDF): the filled,
@@ -328,7 +332,8 @@ NOT FILE.
 
 - **An exchange's file** (Settings → Import from an exchange). Under
   **Exchange file**, choose the exchange's CSV export: River's,
-  Coinbase's, Kraken's (its ledger), Strike's, Swan's or Cash App's, read
+  Coinbase's, Kraken's (its ledger), Strike's, Swan's (two files: "Swan:
+  deposits and purchases" and "Swan: withdrawals") or Cash App's, read
   as each writes it (all but River's from the exchange's published format,
   not yet checked against a real export: check the preview against your
   file); a mapping you saved, under **Your mappings**; or **Another
@@ -365,13 +370,19 @@ NOT FILE.
   them); a hidden account still imports, with a warning.
 - **Export as CSV** (Settings → Backup & Restore): every transaction, in
   BitcoinTX's own columns, each account by its name now (unencrypted, and
-  editable). It imports back into an empty ledger.
+  editable). It imports back into an empty ledger whose accounts have
+  those names (after Delete All Transactions, say); to move a whole ledger,
+  use the encrypted backup.
 - **AI entry**: paste an exchange email or a wallet history into an AI
   assistant, or type "moved 0.05 BTC to my Coldcard yesterday, fee 2k
   sats". The assistant previews the rows (duplicate check, fair market
   value, resulting gains) and saves them once you confirm. It names your
   accounts as you named them, asks which one when more than one fits, and
-  can't add an account: you add it in Settings. An AI connector older than
+  can't add an account: you add it in Settings. A name that isn't one of
+  your accounts is refused before anything is sent (a renamed account's
+  first name, with its new one). For Ledger Review and for a change that
+  may ask about an earlier tax year, the connector waits up to 20 minutes
+  for BitcoinTX's answer, time a large ledger on a slow server can need. An AI connector older than
   BitcoinTX 2.0 can't tell your wallets or exchanges apart, so once you
   have more than one wallet or more than one exchange (a hidden one
   counted), BitcoinTX refuses its changes until it's updated; it can still

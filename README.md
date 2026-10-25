@@ -408,7 +408,8 @@ you. What you enter in 2.0 can't go back to 1.x ([Going back to
 
 - **Before you update:** download BitcoinTX's encrypted backup (step 1).
   On StartOS, also make a StartOS backup of BitcoinTX and keep it: it's
-  your way back. A later backup of BitcoinTX to the same drive replaces it.
+  your way back. A later backup of BitcoinTX to the same drive replaces it,
+  so back 2.0 up to another drive.
   Coming from 1.2.9? 2.0 has every fix of
   [1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10),
   four of which can change a tax figure: read its notes first.
