@@ -5,7 +5,7 @@
 // have the owner create one. Until the edition is known, the summary names
 // no key at all.
 import "../test/setup";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import api from "../api";
@@ -55,6 +55,8 @@ describe("Connect an AI Assistant's summary", () => {
 
   it("while the edition isn't known, no key at all", async () => {
     await mount(async () => { throw new Error("offline"); });
-    await waitFor(() => expect(summary()).toBe("An AI app that reads your ledger and enters transactions"));
+    // Once the refusal has run its course, not before: until then no key is named anyway
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
+    expect(summary()).toBe("An AI app that reads your ledger and enters transactions");
   });
 });

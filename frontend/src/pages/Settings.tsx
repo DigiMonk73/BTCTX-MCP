@@ -37,7 +37,7 @@ const Settings: React.FC = () => {
   // Ledger Review asked again once another section saved what it reads (#645)
   const [reviewRound, setReviewRound] = useState(0);
   const reviewAgain = () => setReviewRound((n) => n + 1);
-  // The AI section's edition (the Mac app makes its own key), once it has asked (#724)
+  // The AI section's edition (the Mac app makes its own key), once the server has said it (#724)
   const [aiKeyMode, setAiKeyMode] = useState<boolean>();
   const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };

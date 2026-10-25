@@ -335,6 +335,10 @@ test.describe("Mac app: AI key file instead of a password", () => {
     expect(statSync(keyFile).mode & 0o777).toBe(0o600);
 
     await openSettings(page, "Connect an AI Assistant");
+    // The app makes its key, so the section's summary never asks for one (#724)
+    await expect(page.getByRole("button", { name: "Connect an AI Assistant", exact: true })).toHaveAccessibleDescription(
+      "An AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+    );
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     await expect(ai.getByText("No AI key yet: press Reset key.")).toHaveCount(0); // it has one (#238)
     const prompt = ai.getByLabel("Setup prompt");
@@ -402,6 +406,9 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
 
 test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
   await openSettings(page, "Connect an AI Assistant");
+  await expect(page.getByRole("button", { name: "Connect an AI Assistant", exact: true })).toHaveAccessibleDescription(
+    "An AI app that reads your ledger and enters transactions, with a key you create",
+  );
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
   const anon = await playwrightRequest.newContext({ baseURL: app.url });
   const works = async (key: string) =>
