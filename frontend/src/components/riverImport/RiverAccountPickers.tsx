@@ -13,8 +13,11 @@ interface RiverAccountPickersProps {
 }
 
 /** River's "Exchange" and "Wallet for sends and receives" (2.0 spec 5.11,
- * 5.13, Q8): asked once per file when there's more than one of either, the
- * first shown one chosen; with one of each, nothing shows. */
+ * 5.13, Q8): asked once per file when there's more than one of either (the
+ * first shown wallet chosen, an exchange only by the file's name); with one
+ * of each, nothing shows. With more than one exchange, a line for whoever
+ * recorded this one's trades in another before 2.0, as 1.x's guide said
+ * (#707): the preview marks them Review. */
 const RiverAccountPickers: React.FC<RiverAccountPickersProps> = ({ choices, chosen, disabled, outOfDate, onChange }) => (
   <>
     {choices && (choices.askExchange || choices.askWallet) && (
@@ -32,6 +35,12 @@ const RiverAccountPickers: React.FC<RiverAccountPickersProps> = ({ choices, chos
             onChange={(wallet) => onChange({ ...chosen, wallet })} />
         )}
       </div>
+    )}
+    {choices && choices.exchanges.length > 1 && (
+      <p className="note" role="note">
+        Recorded this exchange&apos;s trades in another one before 2.0? Rows found there are marked Review:
+        untick them, or first move those trades to this exchange.
+      </p>
     )}
     {outOfDate && (
       <p className="note note-warning" role="status">

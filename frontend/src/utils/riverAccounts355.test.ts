@@ -19,8 +19,8 @@ describe("the file's exchange and wallet", () => {
     expect([choices.askExchange, choices.askWallet]).toEqual([false, false]);
   });
 
-  it("with more than one, are asked, hidden ones too, the first shown of each chosen (Q8), each exchange by its name", () => {
-    const choices = riverChoices(MANY);
+  it("with more than one, are asked, hidden ones too, the first shown wallet chosen (Q8), each exchange by its name", () => {
+    const choices = riverChoices(MANY, "River");
     expect(choices.exchanges).toEqual([
       { id: 4, name: "River", hidden: false }, { id: 103, name: "Kraken", hidden: false },
       { id: 106, name: "Closed", hidden: true },
@@ -38,19 +38,36 @@ describe("the file's exchange and wallet", () => {
 
   it("never default to a hidden one: the first shown is chosen, and the screen still asks", () => {
     // Your first exchange hidden and Kraken shown: a file isn't sent to Kraken unasked (the review of #355)
-    const choices = riverChoices(hide(MANY, [2, 3, 4]));
-    expect(choices.defaults).toEqual({ exchange: 103, wallet: 100 });
+    const choices = riverChoices(hide(MANY, [2, 3, 4]), "River");
+    expect(choices.defaults).toEqual({ exchange: undefined, wallet: 100 });
     expect(choices.exchanges.map((e) => e.id)).toEqual([4, 103, 106]);
     expect([choices.askExchange, choices.askWallet]).toEqual([true, true]);
   });
 
   it("with every one of a kind hidden, ask with none chosen", () => {
-    const choices = riverChoices(hide(MANY, [2, 100]));
+    const choices = riverChoices(hide(MANY, [2, 100]), "River");
     expect(choices.defaults).toEqual({ exchange: 4, wallet: undefined });
     expect(choices.wallets.map((w) => w.id)).toEqual([2, 100, 104]);
     expect(choices.askWallet).toBe(true);
     // One wallet, hidden: still asked, so it isn't taken unasked
     expect(riverChoices(hide(ONE_OF_EACH, [2])).askWallet).toBe(true);
+  });
+
+  it("of more than one exchange, take none unasked, but the one shown the file is named for (#707)", () => {
+    expect(riverChoices(MANY).defaults).toEqual({ exchange: undefined, wallet: 2 });
+    expect(riverChoices(MANY, "").defaults.exchange).toBeUndefined();
+    expect(riverChoices(MANY, "Coinbase").defaults.exchange).toBeUndefined();
+    expect(riverChoices(MANY, " kraken ").defaults.exchange).toBe(103);
+    // A ready-made mapping's name for one of an exchange's files
+    expect(riverChoices(MANY, "Kraken: ledger").defaults.exchange).toBe(103);
+    expect(riverChoices(MANY, "Krakenite").defaults.exchange).toBeUndefined();
+    // Never a hidden one, even by its name
+    expect(riverChoices(MANY, "Closed").defaults.exchange).toBeUndefined();
+    // Two named alike: neither taken
+    const twice = MANY.map((a) => (a.exchange === "Closed" ? { ...a, exchange: "kraken", hidden: false } : a));
+    expect(riverChoices(twice, "Kraken").defaults.exchange).toBeUndefined();
+    // With one exchange, it's taken whatever the file's name, as before
+    expect(riverChoices(ONE_OF_EACH, "Coinbase").defaults).toEqual({ exchange: 4, wallet: 2 });
   });
 
   it("are named in the rows as the import reads them: the exchange's BTC account, the wallet", () => {
@@ -85,16 +102,17 @@ describe("a row's type change keeps the file's exchange and wallet", () => {
 });
 
 describe("the pick", () => {
-  it("is the owner's while that account is there, else the first shown one; nothing before the book is read", () => {
-    const choices = riverChoices(MANY);
+  it("is the owner's while that account is there, else the default; nothing before the book is read", () => {
+    const choices = riverChoices(MANY, "River");
     expect(chosenRiverAccounts(choices, {})).toEqual({ exchange: 4, wallet: 2 });
+    expect(chosenRiverAccounts(riverChoices(MANY), {})).toEqual({ exchange: undefined, wallet: 2 });
     expect(chosenRiverAccounts(choices, { exchange: 103 })).toEqual({ exchange: 103, wallet: 2 });
     // Kraken hidden since it was picked: still the pick, so a preview made with it stands
     expect(chosenRiverAccounts(riverChoices(hide(MANY, [102, 103])), { exchange: 103 }))
       .toEqual({ exchange: 103, wallet: 2 });
-    // Deleted since: back to the first shown
+    // Deleted since: back to the default (two exchanges left: the one the file is named for)
     const gone = MANY.filter((a) => a.exchange_id !== 2);
-    expect(chosenRiverAccounts(riverChoices(gone), { exchange: 103 })).toEqual({ exchange: 4, wallet: 2 });
+    expect(chosenRiverAccounts(riverChoices(gone, "River"), { exchange: 103 })).toEqual({ exchange: 4, wallet: 2 });
     expect(chosenRiverAccounts(undefined, { exchange: 103 })).toEqual({});
   });
 });
@@ -111,7 +129,7 @@ describe("a preview made with one pick", () => {
 });
 
 describe("a pick", () => {
-  it("is wanting while the screen asks and one of the two isn't chosen (every one hidden)", () => {
+  it("is wanting while the screen asks and one of the two isn't chosen (every one hidden, no exchange named)", () => {
     expect(pickWanting(riverChoices(MANY), { exchange: 4, wallet: 2 })).toBe(false);
     expect(pickWanting(riverChoices(MANY), { exchange: 4 })).toBe(true);
     // Before the book is read nothing is sent, and the server takes your first ones

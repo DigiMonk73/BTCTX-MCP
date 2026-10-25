@@ -5,7 +5,9 @@ accounts: a recorded transaction isn't a row's copy when, on the same side,
 the two name different accounts of the same kind and currency (two wallets,
 two exchanges' BTC or USD accounts, two banks); External, or accounts of
 different kinds, still match as before. It holds for River's rows and the
-AI's (5.11). River's guessed wallet (the owner's decision, 2026-10-16): a
+AI's (5.11); River's are only similar to such a transaction at the same
+minute (the owner's decision, 2026-10-25, #707: test_across_accounts_707).
+River's guessed wallet (the owner's decision, 2026-10-16): a
 send's or receive's wallet is the file's choice, not River's word, so a
 copy that differs only there is never paired and never in the rough pass,
 but offered to the similar pass: marked Review, ticked, its note naming the
@@ -62,11 +64,12 @@ def found(proposal: dict) -> tuple:
 
 # River: the exchange side is the owner's choice for the file
 def test_another_exchanges_send_to_the_wallet_is_never_this_ones(client):
-    """Exchange B's send left out as exchange A's: B's coins would never
-    leave B (the bug the rule closes)."""
-    record(client, "Transfer", KRAKEN_BTC, WALLET, "0.001005", fee_amount="0.000005", fee_currency="BTC")
+    """Exchange B's send never left out as exchange A's: B's coins would
+    never leave B (the bug the rule closes). Only similar, ticked (#707)."""
+    tx = record(client, "Transfer", KRAKEN_BTC, WALLET, "0.001005", fee_amount="0.000005", fee_currency="BTC")
     [send] = river(client, SEND)
-    assert found(send) == ("new", None, False) and send["discrepancy"] is None
+    assert found(send) == ("discrepancy", tx, False)
+    assert send["discrepancy"].endswith("recorded from Kraken BTC, not Exchange BTC: it may already be recorded in Kraken")
 
 
 def test_a_deposit_typed_into_the_wallet_still_matches_the_send(client):
@@ -123,10 +126,11 @@ def test_the_other_wallets_send_of_a_near_amount_isnt_offered(client):
     assert found(send) == ("new", None, False)
 
 
-def test_the_same_send_from_another_exchange_into_the_other_wallet_isnt_marked(client):
-    record(client, "Transfer", KRAKEN_BTC, COLD, "0.001005", fee_amount="0.000005", fee_currency="BTC")
+def test_the_same_send_from_another_exchange_into_the_other_wallet_is_only_similar(client):
+    """Never paired, nor in the rough pass; at the same minute, similar (#707)."""
+    tx = record(client, "Transfer", KRAKEN_BTC, COLD, "0.001005", fee_amount="0.000005", fee_currency="BTC")
     [send] = river(client, SEND)
-    assert found(send) == ("new", None, False)
+    assert found(send) == ("discrepancy", tx, False)
 
 
 def test_the_wallet_chosen_for_the_file_is_the_one_compared(client):
