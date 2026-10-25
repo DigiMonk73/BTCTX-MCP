@@ -68,9 +68,10 @@ const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | nul
   const fromId = chosenId(watch("fromAccountId"));
   // A new From never changes what the To chosen means, so the To goes, as 1.x
   // set the new From's own, when it would be the new From: a consolidation,
-  // which records only a fee (#159); and when it was the old From (`fromId`,
-  // the From this render showed): that consolidation would move coins into
-  // the old From's lots (#719).
+  // which records only a fee (#159); and when it was the old From: that
+  // consolidation would move coins into the old From's lots (#719).
+  // react-hook-form has written the new From when it calls this, so the old
+  // one is `fromId`, the From this render showed.
   const toKeepsItsMeaning = () => {
     const from = chosenId(getValues("fromAccountId"));
     const to = chosenId(getValues("toAccountId"));
