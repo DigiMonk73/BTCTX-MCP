@@ -283,7 +283,8 @@ def test_the_tiny_sale_is_printed(printed):
 
 AMOUNT = re.compile(r"\(\d+\.\d{2}\)|\d+\.\d{2}")
 # The printed losses each case must show, so the format check isn't vacuous
-LOSSES = {("seed", 2026): {"G"}, ("golden", 2025): {"H"}, ("tiny", 2026): {"K"}}
+LOSSES = {("seed", 2024): {"C", "F"}, ("seed", 2025): {"H", "I", "L"}, ("seed", 2026): {"G", "I", "K"},
+          ("golden", 2025): {"H"}, ("tiny", 2026): {"K"}}
 
 
 @pytest.mark.parametrize("ledger, year", CASES)
