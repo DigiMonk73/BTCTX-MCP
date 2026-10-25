@@ -215,8 +215,8 @@ input[type="radio"] {
 .chevron-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 /* A native <details> opens the same way (#681): its summary carries
    .chevron-toggle and the chevron after its words, and the browser's own
-   marker goes (Chromium draws it for a list item, WebKit, the Mac app's,
-   as ::-webkit-details-marker) */
+   marker goes (Chromium and today's WebKit draw it for a list item, Safari
+   15's WebKit as ::-webkit-details-marker) */
 summary.chevron-toggle { display: flex; align-items: center; gap: var(--space-1); list-style: none; cursor: pointer; }
 summary.chevron-toggle::-webkit-details-marker { display: none; }
 details[open] > summary.chevron-toggle .chevron { transform: rotate(180deg); }

@@ -33,7 +33,7 @@ All notable changes to BitcoinTX are documented in this file.
   with a bank or a wallet. No figure changes for an exchange answered as
   before; one answered No puts its sales from 2025 in boxes I/L from the
   start.
-- **Every box that opens has the app's one chevron** (#681, found in #674's
+- **Every box that opens has the app's one chevron** (#681, found in #678's
   review). Settings → Connect an AI Assistant → **Set it up yourself**,
   and the error page's **Error details** (shown only in a development
   build), still showed the browser's own triangle, left of the words, and
