@@ -412,8 +412,8 @@ Start from the `clean` snapshot.
   on `2025-04-01`, cost basis `500`. Expect under Source "Coins moved here
   from another wallet or exchange you track in BitcoinTX are a Transfer,
   not a Deposit: a deposit would count them in both accounts." (#705), and
-  a **Date originally acquired**
-  field (it isn't there for Income or for a Bank deposit); enter
+  a **Date originally acquired** field (it isn't there for Income or for a
+  Bank deposit); enter
   `2023-03-14` and save. Edit it: the field shows 03/14/2023 (the date
   entered, #185), and saving the edit unchanged keeps it. Ledger Review shows "Nothing to review." and no
   "Reminder: My BTC and Gift deposits counted from their deposit date". Delete it. Expect:
@@ -421,9 +421,11 @@ Start from the `clean` snapshot.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Wallet`: expect the hint "A
   wallet is one set of keys: add each one you use in Settings → Wallets,
-  exchanges and banks." under it. Switch to Account `Exchange BTC`
-  (Currency shows `BTC`; the wallet hint goes), Source **Rebate** (the line
-  under Source about a Transfer goes too), `0.0001` BTC on
+  exchanges and banks." under it, and under Source (still N/A) the line
+  "Coins moved here from another wallet or exchange you track in
+  BitcoinTX are a Transfer, …". Switch to Account `Exchange BTC`
+  (Currency shows `BTC`; the wallet hint goes), Source **Rebate** (the
+  Transfer line goes too), `0.0001` BTC on
   `2025-04-01`, cost basis `6`, and save. Expect: Exchange (BTC)
   0.15010000 BTC, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged
