@@ -403,7 +403,7 @@ def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> N
     (2.0 spec 5.5). One that doesn't stops the calculation, never skipped
     (5.15): a skipped row would leave its figures out unseen."""
     for position, tx in enumerate(transactions, start=1):
-        number = position if tx.get("id") is None else tx["id"]
+        number = _number(position, tx)
         source, destination = (_named_account(number, tx[side], accounts)
                                for side in ("from_account_id", "to_account_id"))
         if tx["type"] not in ROUTES:
@@ -411,6 +411,11 @@ def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> N
         problem = ROUTES[tx["type"]](source, destination, accounts)
         if problem:
             raise ValueError(f"Transaction {number}: {problem}")
+
+
+def _number(position: int, tx: dict) -> int:
+    """How a message names a row: its id in the ledger, else its place in the file."""
+    return position if tx.get("id") is None else tx["id"]
 
 
 def _named_account(number: int, account_id: int, accounts: dict[int, Account]) -> Account:
@@ -567,8 +572,7 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
     # A spend with no network fee has no fee value: the app stores none (#703)
-    fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
-    fee_value = min(_fee_value(tx), received) if fee else Fraction(0)
+    fee_value = min(_fee_value(tx), received) if _btc_fee(tx) else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
     _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
@@ -619,11 +623,16 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
     unless given), oldest first. Returns the BTC it took. `reporting`: what
     a spend's 1099-DA showed for it, when the user recorded that (#549); a
     gift's or a transfer's fee has none."""
-    fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+    fee = _btc_fee(tx)
     if fee:
         pieces = ledger.take(account, fee)
         _dispose(ledger, "fee", pieces, _fee_value(tx) if value is None else value, when, reporting)
     return fee
+
+
+def _btc_fee(tx: dict) -> Fraction:
+    """The BTC a row's network fee takes from its account: none when the fee is in dollars."""
+    return _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
 
 
 def _fee_value(tx: dict) -> Fraction:
