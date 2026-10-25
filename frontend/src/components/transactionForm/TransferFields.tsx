@@ -64,16 +64,17 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
  * accounts, the coins that will move, before it saves (#706).
  */
 const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
-  const { register, watch, getValues, setValue, formState: { errors, defaultValues } } =
-    useFormContext<TransactionFormData>();
+  const { register, watch, getValues, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
   const fromId = chosenId(watch("fromAccountId"));
-  // A new From never turns the To chosen into a consolidation, which records
-  // only a fee (#159): the To goes, as 1.x set the new From's own. Only the
-  // row's saved consolidation stays one.
-  const toNotItself = () => {
+  // A new From never changes what the To chosen means, so the To goes, as 1.x
+  // set the new From's own, when it would be the new From: a consolidation,
+  // which records only a fee (#159); and when it was the old From (`fromId`,
+  // the From this render showed): that consolidation would move coins into
+  // the old From's lots (#719).
+  const toKeepsItsMeaning = () => {
     const from = chosenId(getValues("fromAccountId"));
-    const savedItself = chosenId(defaultValues?.fromAccountId) === from && chosenId(defaultValues?.toAccountId) === from;
-    if (from !== undefined && chosenId(getValues("toAccountId")) === from && !savedItself) {
+    const to = chosenId(getValues("toAccountId"));
+    if (from !== fromId && to !== undefined && (to === from || to === fromId)) {
       setValue("toAccountId", undefined);
     }
   };
@@ -91,7 +92,7 @@ const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | nul
         placeholder="Select From Account"
         requiredMessage="From Account is required"
         deps={["amountFrom", "amountTo"]} // messages about the old source go
-        onChange={toNotItself}
+        onChange={toKeepsItsMeaning}
       >
         {accountKind(book, fromId) === "wallet" && <small className="field-hint">{WALLET_HINT}</small>}
       </AccountPicker>

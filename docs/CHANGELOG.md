@@ -51,6 +51,19 @@ All notable changes to BitcoinTX are documented in this file.
   now says under **Source** that coins moved from another wallet or
   exchange you track in BitcoinTX are a Transfer, not a Deposit: a deposit
   would count them in both accounts. Words only: no figure changes.
+- **A Transfer's consolidation no longer becomes a move when its From
+  Account changes** (#719, found by the 2.0 testing plan's StartOS run,
+  ACC-7, on alpha.2). With To Account on "*Exchange*: consolidate within
+  the same exchange" (or a wallet's), choosing another From Account kept
+  the old account as the To, so the form then held a transfer into it,
+  which moves your oldest coins, with their dates and cost, into that
+  account. A consolidation records only the network fee. To Account is now
+  blank again, as it already was when it would have become the new From's
+  consolidation, and that holds for an edit of a saved consolidation too: a
+  To chosen afresh is never turned back into one. A To that still means
+  the same move (into Coldcard, say, from whichever From) stays. Nothing
+  was saved without the Save click, and the field showed its new value: no
+  figure changes.
 
 ### Development
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0
