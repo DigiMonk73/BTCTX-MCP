@@ -33,12 +33,16 @@ KINDS = (*EVENTS, DOLLARS, CONVERT, LEAVE_OUT)
 
 SETTING_KEY = "import_mappings"
 OWN_PREFIX = "own-"
+# The highest id number read back (18 digits): far past any install's saves. No id past it is
+# handed out, since it would read back as none and be handed out again over a mapping
+MAX_ID = 10**18 - 1
 MAX_OWN_MAPPINGS = 50
 MAPPING_NOT_FOUND = "No such mapping."
 TOO_MANY_MAPPINGS = f"You can save up to {MAX_OWN_MAPPINGS} mappings: delete one first."
 NAME_TAKEN = "A mapping of yours already has that name."
 READY_MADE_NAME = "A ready-made mapping has that name."
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
+NO_MORE_IDS = "No new mapping can be saved here: its numbers are used up. Replace one of yours instead."
 
 
 @dataclass(frozen=True)
@@ -274,8 +278,8 @@ def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) ->
     """Save the owner's mapping as `mapping_id` (a new one when None), under
     the write lock so two tabs saving at once both land; its id. This
     install's saves never hand an id out twice, so a page holding a deleted
-    one's id gets 404, not another mapping (a restore brings the backup's
-    mappings and ids, decision 7)."""
+    one's id gets 404, not another mapping (a restore keeps the higher last
+    id: kept_by_restore)."""
     if not take_write_lock(db):
         raise HTTPException(status_code=503, detail=BUSY)
     try:
@@ -289,6 +293,8 @@ def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) ->
         if mapping_id is None:
             if len(mappings) >= MAX_OWN_MAPPINGS:
                 raise HTTPException(status_code=409, detail=TOO_MANY_MAPPINGS)
+            if last_id >= MAX_ID:  # only a crafted backup's mapping gets there
+                raise HTTPException(status_code=409, detail=NO_MORE_IDS)
             last_id += 1
             mapping_id = f"{OWN_PREFIX}{last_id}"
         mappings[mapping_id] = own
@@ -315,24 +321,77 @@ def delete_mapping(db: Session, mapping_id: str) -> None:
         raise
 
 
+def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
+    """
+    The mappings a restored database keeps (#656), written into it, as
+    stored, for the restore's read-back: they're the owner's tools, neither
+    this install's own (as the login is) nor the ledger's (no transaction
+    names one), so a restore loses none. This install's (`in_use`, its
+    row as the live database holds it) stay; the backup's are added unless
+    one here has the name (as a save compares them; one named like a
+    ready-made one comes too, saved before that one took the name), each
+    with its id unless this install has handed that id out, else a new
+    one. The last id is the higher of the two, so no id handed out here is
+    handed out again. With none here and none handed out, the backup's row
+    stays as it is. They may then pass MAX_OWN_MAPPINGS: no new one is
+    saved until some are deleted. A backup's that would need an id past
+    MAX_ID (only a crafted backup's) stays behind.
+    """
+    own_last, mappings = _read(in_use)
+    row = restored.get(AppSetting, SETTING_KEY)
+    if not mappings and own_last == 0:
+        return row.value if row is not None else None
+    backup_last, backups = _stored(restored)
+    last_id = max(own_last, backup_last)
+    taken = {m.name.casefold() for m in mappings.values()}
+    for mapping_id, mapping in backups.items():
+        if mapping.name.casefold() in taken:
+            continue
+        if _number(mapping_id) <= own_last:  # handed out here, or not an id this version gives
+            if last_id >= MAX_ID:  # none left to give (a crafted backup's): it stays behind
+                continue
+            last_id += 1
+            mapping_id = f"{OWN_PREFIX}{last_id}"
+        mappings[mapping_id] = mapping
+        taken.add(mapping.name.casefold())
+    _store(restored, last_id, mappings)
+    return restored.get(AppSetting, SETTING_KEY).value
+
+
+def _number(mapping_id: str) -> int:
+    """An own mapping's id's number; 0 for one this version doesn't give
+    (at most 18 ASCII digits: a backup's id may be anything)."""
+    number = mapping_id.removeprefix(OWN_PREFIX)
+    readable = mapping_id.startswith(OWN_PREFIX) and number.isascii() and number.isdigit() and len(number) <= 18
+    return int(number) if readable else 0
+
+
 def _stored(db: Session) -> tuple[int, dict[str, OwnMapping]]:
-    """(the last id's number handed out, the mappings by id). What this
-    version can't read (a restore's, from a later one) is left out, never
-    an error."""
+    """(the last id's number handed out, the mappings by id)."""
     row = db.get(AppSetting, SETTING_KEY)
+    return _read(row.value if row is not None else None)
+
+
+def _read(value: str | None) -> tuple[int, dict[str, OwnMapping]]:
+    """The row's value read. What this version can't read (a restore's,
+    from a later one) is left out, never an error."""
     try:
-        stored = json.loads(row.value) if row is not None else {}
-    except ValueError:
+        stored = json.loads(value) if value is not None else {}
+    except (ValueError, RecursionError):  # not JSON, or nested deeper than it reads
         stored = {}
     stored = stored if isinstance(stored, dict) else {}
+    listed = stored.get("mappings")
     mappings = {}
-    for mapping_id, value in (stored.get("mappings") or {}).items():
+    for mapping_id, fields in (listed if isinstance(listed, dict) else {}).items():
         try:
-            mappings[mapping_id] = OwnMapping.model_validate(value)
+            mappings[mapping_id] = OwnMapping.model_validate(fields)
         except ValueError:
             continue
     last_id = stored.get("last_id")
-    return (last_id if isinstance(last_id, int) else 0), mappings
+    readable = isinstance(last_id, int) and not isinstance(last_id, bool) and 0 <= last_id <= MAX_ID
+    # The ids' own numbers count too: a row whose last id is missing or wrong
+    # (damaged, or written by hand) never has an id handed out twice
+    return max(last_id if readable else 0, *map(_number, mappings), 0), mappings
 
 
 def _store(db: Session, last_id: int, mappings: dict[str, OwnMapping]) -> None:

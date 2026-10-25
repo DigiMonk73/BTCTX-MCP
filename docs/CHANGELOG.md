@@ -35,6 +35,18 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **A restore keeps your saved exchange-file mappings** (#656, found by
+  the 2.0 build's release tests; checked by the imports tests, #689).
+  Settings' **Import from an exchange** can save your own column mappings,
+  and an in-app restore took the backup's set whole: mappings saved since
+  the backup were lost, and a page still open on one of them could find
+  the next mapping saved in its place. A restore now keeps the mappings
+  you have and adds the backup's beside them, unless you already have one
+  with the same name, and a page still open on a mapping that's gone never
+  finds another in its place. A backup restored on a new install
+  brings its mappings as they were; mappings in a backup this version
+  can't read are left out, and never stop the restore. No figure
+  changes.
 - **An account's name prints in the tax report** (#722, found by the 2.0
   testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
   lets you name your wallets, exchanges and banks, but the reports' fonts

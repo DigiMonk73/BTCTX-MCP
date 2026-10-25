@@ -749,7 +749,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). An in-app restore
+  brings back a backup's password or its price source), and the exchange
+  import's mappings in use beside the backup's (#656: a restore loses
+  none, and hands no mapping id out twice). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
   ordinary tables and indexes (no generated column, no index on an
   expression or with a WHERE) is refused, and the database that goes
