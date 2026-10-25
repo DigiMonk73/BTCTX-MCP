@@ -45,6 +45,10 @@ class EntryRow(BaseModel):
                     "then saved, once (sent again, it's left out) (#253, #378). Beside an identical row "
                     "without it, both are refused as unclear (#497).",
     )
+    chosen_coins: list[Any] | None = Field(
+        default=None,
+        description="Not taken yet: a row that sends it is refused. Choose coins in BitcoinTX (#711).",
+    )
 
 
 class EntryRequest(BaseModel):

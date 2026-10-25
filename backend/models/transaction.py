@@ -2,8 +2,9 @@
 The ledger's models. A Transaction is what the user enters (type, accounts,
 amount, fee, USD values); from it every recalculation rebuilds its
 LedgerEntry lines (debits and credits), the BitcoinLots it acquires and the
-LotDisposals that consume lots first in, first out
-(services/transaction.py). All timestamps are stored in UTC (UTCDateTime).
+LotDisposals that consume lots first in, first out, or the coins its
+ChosenCoin rows name (services/transaction.py). All timestamps are stored
+in UTC (UTCDateTime).
 """
 
 from sqlalchemy import (
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Boolean,
     Numeric,
     ForeignKey,
+    UniqueConstraint,
     false as sa_false,
     func
 )
@@ -213,6 +215,16 @@ class Transaction(Base):
             "value is kept."
         ),
     )
+    # Last, where migration 0101 added it
+    coins_chosen_at = Column(
+        UTCDateTime,
+        nullable=True,
+        doc=(
+            "When the coins it chose (chosen_coins) were saved: the books' own date of "
+            "the identification (#711). Kept while the same coins are sent back; NULL "
+            "when nothing is chosen."
+        ),
+    )
 
     ledger_entries = relationship(
         "LedgerEntry",
@@ -233,6 +245,16 @@ class Transaction(Base):
         back_populates="transaction",
         cascade="all, delete-orphan",
         doc="The lot slices it disposed of."
+    )
+
+    # ChosenCoin has two keys to transactions: this is the one that chose
+    chosen_coins = relationship(
+        "ChosenCoin",
+        back_populates="transaction",
+        cascade="all, delete-orphan",
+        foreign_keys="ChosenCoin.transaction_id",
+        order_by="ChosenCoin.id",
+        doc="The coins it chose to leave a wallet (#711); none: first in, first out."
     )
 
     def __repr__(self):
@@ -343,6 +365,18 @@ class BitcoinLot(Base):
             "§1223(9)), and Form 8949 column (b) says INHERITED. A moved lot keeps it."
         ),
     )
+    # Last, where migration 0101 added it. No foreign key: the lot is
+    # rebuilt from the transactions at every recalculation
+    acquired_txn_id = Column(
+        Integer,
+        nullable=True,
+        index=True,
+        doc=(
+            "The Buy or Deposit that first acquired its coins, kept by a moved lot "
+            "(#711): what a choice of coins names. NULL on a lot made before "
+            "migration 0101, until the next recalculation."
+        ),
+    )
 
     created_transaction = relationship(
         "Transaction",
@@ -448,4 +482,52 @@ class LotDisposal(Base):
             f"<LotDisposal(id={self.id}, lot_id={self.lot_id}, txn_id={self.transaction_id}, "
             f"disposed_btc={self.disposed_btc}, realized_gain_usd={self.realized_gain_usd}, "
             f"holding_period={self.holding_period})>"
+        )
+
+
+class ChosenCoin(Base):
+    """
+    Coins a Transfer out of a wallet, or a bitcoin Withdrawal from one, chose
+    to leave (#711; specific identification, Treas. Reg. §1.1012-1(j)(2)):
+    the Buy or Deposit that acquired them, and how much of them. What the
+    user entered, like its transaction: a recalculation reads it and never
+    rebuilds it.
+    """
+
+    __tablename__ = "chosen_coins"
+    __table_args__ = (UniqueConstraint("transaction_id", "acquired_txn_id"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    transaction_id = Column(
+        Integer,
+        ForeignKey("transactions.id"),
+        nullable=False,
+        index=True,
+        doc="The Transfer or Withdrawal that chose."
+    )
+    acquired_txn_id = Column(
+        Integer,
+        ForeignKey("transactions.id"),
+        nullable=False,
+        index=True,
+        doc="The Buy or Deposit whose coins it chose."
+    )
+    btc = Column(
+        Numeric(18, 8),
+        nullable=False,
+        doc="How much of them, above 0."
+    )
+
+    transaction = relationship(
+        "Transaction",
+        back_populates="chosen_coins",
+        foreign_keys=[transaction_id],
+        doc="The transaction that chose."
+    )
+
+    def __repr__(self):
+        return (
+            f"<ChosenCoin(id={self.id}, tx={self.transaction_id}, acquired_txn={self.acquired_txn_id}, "
+            f"btc={self.btc})>"
         )

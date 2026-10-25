@@ -340,6 +340,31 @@ def test_a_choice_the_rules_dont_allow_is_refused(owner, make_body, detail):
     assert owner.get("/api/transactions").json() == before
 
 
+@pytest.mark.parametrize("body, wallet", [
+    # Dated before A2 arrived (dated before others: the ledger is replayed)
+    (spend("2025-01-01T12:00:00Z", "0.1", "10000"), "Wallet"),
+    # A2's coins are all in Wallet, none in Cold Storage (dated last: no replay)
+    (spend(LEAVES, "0.1", "10000", frm=COLD), "Cold Storage"),
+])
+def test_a_choice_its_wallet_doesnt_hold_then_is_refused(owner, body, wallet):
+    """The transaction being saved has no id yet: its refusal names none."""
+    a2 = owner.ids["A2"]
+    before = owner.get("/api/transactions").json()
+    r = owner.post("/api/transactions", json={**body, "chosen_coins": coins((a2, "0.1"))})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == (f"{wallet} holds 0.00000000 BTC of the coins from transaction {a2} (a Deposit "
+                                  "of 2025-01-15) on this date, not the 0.10000000 BTC chosen.")
+    assert owner.get("/api/transactions").json() == before
+
+
+def test_an_edit_that_moves_a_choice_before_its_coins_is_refused(chose_a2):
+    ids = chose_a2.ids
+    r = chose_a2.put(f"/api/transactions/{ids['S']}", json={"timestamp": "2025-01-01T12:00:00Z"})
+    assert r.status_code == 400, r.text
+    assert r.json()["detail"] == (f"Wallet holds 0.00000000 BTC of the coins from transaction {ids['A2']} (a "
+                                  "Deposit of 2025-01-15) on this date, not the 0.10010000 BTC chosen.")
+
+
 def test_more_than_eight_places_is_refused(owner):
     r = owner.post("/api/transactions", json=spend(LEAVES, "0.1", "10000",
                                                    chosen=coins((owner.ids["A2"], "0.100000001"))))
@@ -656,12 +681,13 @@ def ai(chose_a2) -> TestClient:
     return TestClient(app, headers={"Authorization": f"Bearer {r.json()['key']}", "X-BitcoinTX-Connector": "2.0.0a2"})
 
 
-@pytest.mark.parametrize("choice", [None, []])
-def test_the_ai_key_cant_send_a_choice(chose_a2, ai, choice):
+@pytest.mark.parametrize("choice", [None, [], "coins"])
+def test_the_ai_keys_edit_cant_send_a_choice(chose_a2, ai, choice):
+    """Neither coins nor null (oldest first). Its adds go through the AI
+    import (below): the transactions API's add is closed to the key."""
     ids = chose_a2.ids
-    r = ai.post("/api/transactions", json=spend("2025-07-01T12:00:00Z", "0.01", "1000", chosen=choice))
-    assert r.status_code == 422, r.text
-    assert r.json()["detail"] == AI_CANT_CHOOSE
+    if choice == "coins":
+        choice = coins((ids["A1"], "0.1001"))
     r = ai.put(f"/api/transactions/{ids['S']}", json={"chosen_coins": choice})
     assert r.status_code == 422, r.text
     assert r.json()["detail"] == AI_CANT_CHOOSE
