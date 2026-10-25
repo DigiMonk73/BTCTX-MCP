@@ -308,7 +308,8 @@ def restore_encrypted_backup(
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and switch, and the price settings) stays: an old backup never
     brings back an old password, and on StartOS the password Set Login
-    Credentials gave stays right. The restored database is rebuilt from
+    Credentials gave stays right. The exchange import's mappings in use stay
+    too, with the backup's added beside them (#656). The restored database is rebuilt from
     BitcoinTX's own migrations with only the backup's own data, and these are
     written into it before it replaces the live one; if anything fails,
     nothing is restored. A backup's tax timezone that tzdata doesn't name is
