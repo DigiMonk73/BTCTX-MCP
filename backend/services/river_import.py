@@ -670,9 +670,13 @@ class DuplicateRule:
     kind, besides the minute, to be it (#253): an amount, and nothing that
     `differences` names (each difference as the note says it). The amount
     tests are tried in turn, each over every row, so a row of the same
-    ledger amount takes its match before one that has only River's."""
+    ledger amount takes its match before one that has only River's. With
+    `other_accounts`, a row the other passes leave new is similar to a
+    transaction of its kind, amount and minute in another account of the
+    same kind (#707)."""
     amounts: tuple[Callable[[RiverProposal, Transaction], bool], ...]
     differences: Callable[[RiverProposal, Transaction], list[str]]
+    other_accounts: bool = False
 
 
 def same_ledger_amount(proposal: RiverProposal, tx: Transaction) -> bool:
@@ -702,8 +706,12 @@ def _nothing_else(_proposal: RiverProposal, _tx: Transaction) -> list[str]:
 # River's rule (owner, 2026-10-14, #253): the same kind, BTC amount and
 # minute is the same event. A row's source, purpose, fee and values are the
 # preview's defaults or the owner's own edits, so a re-import of an edited
-# row isn't recorded twice.
-RIVER_RULE = DuplicateRule(amounts=(same_ledger_amount, _same_river_amount), differences=_nothing_else)
+# row isn't recorded twice. A file's exchange is the owner's pick, and 1.x's
+# guide had a second exchange's trades recorded in the first: the same
+# event in another exchange is shown, never left out (the owner, 2026-10-25,
+# #707).
+RIVER_RULE = DuplicateRule(amounts=(same_ledger_amount, _same_river_amount), differences=_nothing_else,
+                           other_accounts=True)
 
 
 def annotate_duplicates(
@@ -737,7 +745,13 @@ def annotate_duplicates(
     amount within ±20 %: the user's manual transfer entries are known to be
     approximate.
 
-    Passes 2 and 3 are skipped when exact_only=True: the execute
+    Pass 4 (`rule.other_accounts`, bitcoin rows only, #707): the same kind,
+    amount and minute in another account of the same kind (another
+    exchange's, another wallet: _in_another_account), STATUS_DISCREPANCY
+    with a note naming it. Last, so a row the other passes find keeps what
+    they say.
+
+    Passes 2 to 4 are skipped when exact_only=True: the execute
     endpoints' double-submit guard leaves out only duplicates.
     """
     if not proposals:
@@ -749,11 +763,12 @@ def annotate_duplicates(
     by_time = sorted(proposals, key=lambda p: p.timestamp)
     nearby = _nearby(proposals, existing)
 
-    def each_new(match, types=None, order=by_time, guess=False) -> None:
-        """One pass: `match` for every row still new (of `types`), in `order` (time, unless given)."""
+    def each_new(match, types=None, order=by_time, fits=_compatible) -> None:
+        """One pass: `match` for every row still new (of `types`), in `order`
+        (time, unless given), offered the transactions that `fits` it."""
         for proposal in order:
             if proposal.status == STATUS_NEW and (types is None or proposal.type in types):
-                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids, book, guess), used_tx_ids)
+                match(proposal, _candidates(proposal, nearby[id(proposal)], used_tx_ids, book, fits), used_tx_ids)
 
     timed_first = sorted(proposals, key=_timed_first)
     for same_amount in rule.amounts:
@@ -764,8 +779,10 @@ def annotate_duplicates(
         return
     for same_amount in rule.amounts:
         each_new(partial(_match_similar, same_amount=same_amount, differences=rule.differences, tz=tz, book=book),
-                 guess=True)
+                 fits=partial(_compatible, guess=True))
     each_new(partial(_match_roughly, book=book), types=("Transfer", "Withdrawal"))
+    for same_amount in rule.amounts if rule.other_accounts else ():
+        each_new(partial(_match_elsewhere, same_amount=same_amount, tz=tz, book=book), fits=_in_another_account)
 
 
 def _timed_first(proposal: RiverProposal) -> tuple[bool, datetime]:
@@ -806,14 +823,15 @@ def _window(moment: datetime) -> tuple[datetime, datetime]:
 
 
 def _candidates(proposal: RiverProposal, existing: list[Transaction], used_tx_ids: set,
-                book: AccountBook, guess: bool = False) -> list[Transaction]:
-    """The unmatched transactions of a compatible type within the window,
-    going the same way (_compatible). The window is checked here too, so
-    that over the whole ledger (the speed test's reference) it's exact."""
+                book: AccountBook, fits) -> list[Transaction]:
+    """The unmatched transactions within the window that `fits` the row (a
+    compatible type going the same way: _compatible). The window is checked
+    here too, so that over the whole ledger (the speed test's reference)
+    it's exact."""
     return [
         tx for tx in existing
         if tx.id not in used_tx_ids
-        and _compatible(proposal, tx, book, guess)
+        and fits(proposal, tx, book)
         and abs(_as_utc(tx.timestamp) - proposal.timestamp) <= SIMILAR_WINDOW
     ]
 
@@ -834,7 +852,7 @@ def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, gue
     chose its wallet, River didn't (the owner's decision, 2026-10-16), so a
     deposit typed into the other wallet is offered too, never a move
     between two of the owner's wallets."""
-    alike = [side for side in _other_accounts_alike(proposal, tx, book) if not _unnamed_bank(proposal, side, book)]
+    alike = _accounts_alike_named(proposal, tx, book)
     guessed = guess and proposal.guessed in alike and _beside_its_own(proposal, tx)
     return (
         tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
@@ -843,6 +861,30 @@ def _compatible(proposal: RiverProposal, tx: Transaction, book: AccountBook, gue
         and _in_dollars(tx, book) == _in_dollars(proposal, book)
         and all(guessed and side == proposal.guessed for side in alike)
     )
+
+
+def _in_another_account(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> bool:
+    """A bitcoin row's compatible type recorded in another account of the
+    same kind and currency on a side (another exchange's, another wallet:
+    the owner's decision, 2026-10-25, #707), as 1.x's guide had a second
+    exchange's trades and a second wallet's coins recorded in the first.
+    The guessed wallet counts only beside the row's own account, one like
+    it or External, never a move between two of the owner's wallets
+    (_beside_its_own); a bank River never names is no other account."""
+    alike = _accounts_alike_named(proposal, tx, book)
+    opposite = "from" if proposal.guessed == "to" else "to"
+    return (
+        bool(alike)
+        and tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+        and not _in_dollars(proposal, book) and not _in_dollars(tx, book)
+        and (proposal.guessed not in alike or _beside_its_own(proposal, tx) or opposite in alike)
+    )
+
+
+def _accounts_alike_named(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> list[str]:
+    """The sides on which the transaction names another account like the
+    row's (_other_accounts_alike), but for a bank River never names."""
+    return [side for side in _other_accounts_alike(proposal, tx, book) if not _unnamed_bank(proposal, side, book)]
 
 
 def _other_accounts_alike(proposal: RiverProposal, tx: Transaction, book: AccountBook) -> list[str]:
@@ -1003,6 +1045,27 @@ def _match_similar(proposal: RiverProposal, candidates: list[Transaction], used_
         f"Same {'dollar' if _in_dollars(best, book) else 'BTC'} amount as tx #{best.id} "
         f"({_type_and_amount(best, book)}), "
         f"{'; '.join(what)}: it may be the same transaction"
+    )
+
+
+def _match_elsewhere(proposal: RiverProposal, candidates: list[Transaction], used_tx_ids: set,
+                     same_amount, tz, book: AccountBook) -> None:
+    """Pass 4 (#707): the same amount and minute in another account of the
+    same kind. Its note names the accounts, then where the row may already
+    be: an exchange by its name ("Kraken"), a wallet by its own."""
+    best = _nearest(proposal, [tx for tx in candidates if same_amount(proposal, tx) and _same_moment(proposal, tx, tz)])
+    if best is None:
+        return
+    used_tx_ids.add(best.id)
+    proposal.matched_tx_id = best.id
+    proposal.status = STATUS_DISCREPANCY
+    sides = tuple(_accounts_alike_named(proposal, best, book))
+    accounts = [best.from_account_id if side == "from" else best.to_account_id for side in sides]
+    places = dict.fromkeys(book.exchange_name(account) or book.name(account) for account in accounts)
+    what = [_when_recorded(proposal, best, tz), *account_differences(proposal, best, book, sides)]
+    proposal.discrepancy = (
+        f"Same BTC amount as tx #{best.id} ({_type_and_amount(best, book)}), {'; '.join(what)}: "
+        f"it may already be recorded in {' and '.join(places)}"
     )
 
 

@@ -116,8 +116,9 @@ def test_a_river_row_is_compared_with_an_old_accounts_row_by_its_currency(fresh_
 
 def test_a_row_into_wallet_is_never_an_old_wallets_copy(fresh_app):
     """Two wallets on the same side are never copies (the owner's rule,
-    2026-10-15, B5a #350): 7 is a wallet, as Wallet is."""
-    assert _river_deposit_beside(fresh_app, 7, into=2).status == "new"
+    2026-10-15, B5a #350): 7 is a wallet, as Wallet is. At the same minute,
+    only similar (#707)."""
+    assert _river_deposit_beside(fresh_app, 7, into=2).status == "discrepancy"
 
 
 def test_a_river_row_is_never_taken_for_an_old_dollar_accounts_row(fresh_app):
