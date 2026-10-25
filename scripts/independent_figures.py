@@ -12,9 +12,10 @@ its accounts (the six fixed accounts and External, and those its
 `accounts` list adds: each bitcoin account its own FIFO pile, each
 exchange its own 1099-DA switch)
 and its tax timezone (`tax_timezone`, else UTC), and gives each year's
-Form 8949 rows, Schedule D lines, box totals, gains summary, income,
-rebates, gifts (with the cost basis and term of what each took from its
-lots) and year-end lots:
+Form 8949 rows, Schedule D lines, box totals, gains summary, each
+exchange's Sells (Sales by exchange), income, rebates, gifts (with the
+cost basis and term of what each took from its lots) and the lots held at
+the year's start and end:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
@@ -81,9 +82,11 @@ EXTERNAL = 99
 KIND_CURRENCIES = {"bank": ("USD",), "wallet": ("BTC",), "exchange": ("USD", "BTC"), "fee": ("USD", "BTC"),
                    "external": (None,)}
 ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
-# `hidden` only keeps an account out of the pickers, and `why` and `since`
-# say what a test row is for and from which version: none changes a figure.
-NOTES = ("hidden", "why", "since")
+# `hidden` only keeps an account out of the pickers, `renamed_from` is the
+# name it had before the owner renamed it (the seed makes it so), and `why`
+# and `since` say what a test row is for and from which version: none
+# changes a figure.
+NOTES = ("hidden", "renamed_from", "why", "since")
 OPTIONAL_FIELDS = ("exchange_id", "sends_1099da") + NOTES
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
@@ -164,6 +167,7 @@ class Row:
     broker_reporting: str | None
     inherited: bool = False
     on_1099da: bool = False  # sold from an account whose exchange sends a 1099-DA
+    account: int | None = None  # a sale's exchange account
 
 
 @dataclass(kw_only=True)
@@ -275,11 +279,16 @@ def year_figures(ledger: Ledger, year: int) -> dict:
     holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(),
                  "quantity": _btc(lot.quantity), "cost": str(_cents(lot.basis, ledger.rounding))}
                 for account, lot in ledger.holdings.get(year, [])]
+    # What the year starts with is what the year before ended with: none
+    # before the ledger's first year.
+    opening = [{"account": ledger.accounts[account].name, "quantity": _btc(lot.quantity),
+                "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year - 1, [])]
     return {
         "tax_timezone": ledger.tax_zone.key,
         "form_8949": rows,
         "schedule_d": _schedule_d(rows),
         "boxes": _box_totals(rows),
+        "sales_by_exchange": _sales_by_exchange(ledger, year),
         "gains": _gains_summary(rows),
         "income": _income(ledger, year),
         "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(_cents(value, ledger.rounding))}
@@ -287,6 +296,7 @@ def year_figures(ledger: Ledger, year: int) -> dict:
         "gifts_donations_lost": [
             {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv), "lots_by_term": terms}
             for when, kind, amount, fmv, terms in ledger.gifts if ledger.tax_year(when) == year],
+        "start_of_year_holdings": opening,
         "end_of_year_holdings": holdings,
         "end_of_year_total": {"quantity": _btc(sum(Fraction(lot["quantity"]) for lot in holdings)),
                               "cost": str(sum(Decimal(lot["cost"]) for lot in holdings))},
@@ -302,6 +312,9 @@ def differences(mine: dict, app: dict) -> list[str]:
     found += _unmatched("box total", mine["boxes"], [
         {"box": b["box"], "line": b["line"], "rows": b["rows"], **{c: _usd(b[c]) for c in COLUMNS}}
         for b in report["form_8949_boxes"]])
+    found += _compare("sales by exchange", mine["sales_by_exchange"], [
+        {"exchange": s["exchange"], "sends_1099da": s["sends_1099da"], "boxes": s["boxes"], "rows": s["rows"],
+         **{c: _usd(s[c]) for c in COLUMNS}} for s in report["sales_by_exchange"]])
     found += _compare("gains summary", mine["gains"], _app_gains(report["capital_gains_summary"]))
     found += _compare("income", mine["income"], {k: _usd(v) for k, v in report["income_summary"].items()})
     found += _unmatched("rebate", mine["rebates"], [
@@ -312,6 +325,11 @@ def differences(mine: dict, app: dict) -> list[str]:
          "lots_by_term": [{"term": t["term"], "btc": _btc(Fraction(str(t["btc"]))), "cost_basis": _usd(t["cost_basis"])}
                           for t in g["lots_by_term"]]}
         for g in report["gifts_donations_lost"]])
+    found += _unmatched("start-of-year lot", mine["start_of_year_holdings"], [
+        {"account": lot["account"], "quantity": _btc(Fraction(str(lot["quantity"]))),
+         # the report gives the average cost of what's left: its cost is that times the BTC, to the cent
+         "cost": _usd(Decimal(str(lot["avg_cost_basis"])) * Decimal(str(lot["quantity"])))}
+        for lot in report["start_of_year_balances"]])
     return found + _holding_differences(mine, report["end_of_year_balances"])
 
 
@@ -530,7 +548,7 @@ def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
     proceeds = _gross_proceeds(tx) - _money(tx["fee_amount"])
     pieces = ledger.take(tx["from_account_id"], _money(tx["amount"]))
     _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"),
-             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da)
+             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da, account=tx["from_account_id"])
 
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -548,7 +566,9 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     # received, and the two realize what was received (Treas. Reg.
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
-    fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
+    # A spend with no network fee has no fee value: the app stores none (#703)
+    fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+    fee_value = min(_fee_value(tx), received) if fee else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
     _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
@@ -602,12 +622,21 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
     if fee:
         pieces = ledger.take(account, fee)
-        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, reporting)
+        _dispose(ledger, "fee", pieces, _fee_value(tx) if value is None else value, when, reporting)
     return fee
 
 
+def _fee_value(tx: dict) -> Fraction:
+    """A bitcoin fee's USD value. The app prices a fee that has none, or
+    refuses the row; it never counts one as $0, so one missing here stops
+    the replay instead of being guessed."""
+    if tx.get("fee_usd") in (None, ""):
+        raise ValueError(f"The {tx['type']} of {tx['timestamp']} pays a network fee with no USD value (fee_usd).")
+    return _money(tx["fee_usd"])
+
+
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
-             when: datetime, reporting: str | None, *, on_1099da: bool = False) -> None:
+             when: datetime, reporting: str | None, *, on_1099da: bool = False, account: int | None = None) -> None:
     """One row per lot, each with its share of the proceeds as a running
     total in cents: the proceeds for the BTC so far with this lot, less
     without it. So the rows report all of the proceeds (the amount realized)
@@ -617,7 +646,8 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
         share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
         before += quantity
         ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, covered=lot.covered,
-                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da))
+                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da,
+                               account=account))
 
 
 def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
@@ -685,6 +715,25 @@ def _box_totals(rows: list[dict]) -> list[dict]:
     return list(boxes.values())
 
 
+def _sales_by_exchange(ledger: Ledger, year: int) -> list[dict]:
+    """Each exchange with Sells in the year, by its id (2.0 spec 5.7): its
+    name (its accounts are "<name> USD" and "<name> BTC", 5.1), whether it
+    sends a 1099-DA, and its Sells' boxes, rows and totals, to set beside
+    the form it sends. Sells only: a network fee is on no 1099-DA by itself."""
+    exchanges: dict[int, dict] = {}
+    for row in ledger.rows:
+        if row.kind != "sale" or ledger.tax_year(row.sold) != year:
+            continue
+        account, form = ledger.accounts[row.account], _form_row(row, year, ledger)
+        sales = exchanges.setdefault(account.exchange_id, {
+            "exchange": account.name.removesuffix(" BTC"), "sends_1099da": account.sends_1099da,
+            "boxes": set(), "rows": 0, **_zero()})
+        sales["boxes"].add(form["box"])
+        sales["rows"] += 1
+        _add(sales, form)
+    return [{**sales, "boxes": sorted(sales["boxes"])} for _, sales in sorted(exchanges.items())]
+
+
 def _gains_summary(rows: list[dict]) -> dict:
     """Proceeds, basis and gain per term, with gains and losses apart."""
     summary: dict = {"number_of_disposals": len(rows), "total": _zero()}
@@ -729,7 +778,8 @@ def _cents(value: Fraction, rounding: str) -> Decimal:
 
 
 def _btc(quantity: Fraction) -> str:
-    return str((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS))
+    """To the satoshi, fixed-point as the app writes it: str() would write 1 sat as "1E-8" (#703)."""
+    return format((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS), "f")
 
 
 def _usd(value) -> str | None:

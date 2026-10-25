@@ -7,6 +7,14 @@ Form 8949 box of 2024, 2025 and 2026); every account route the app offers
 is in it, between 2.0's multiple wallets, exchanges or accounts too (its
 accounts list, made through the account API first); and it refuses a ledger
 that isn't empty and the Mac app's address.
+
+2.0's own dimensions (#702) each fail here once empty: each kind of
+transaction in more than one account of each kind that holds it, each
+route between more than one pair of accounts, each exchange's Sells in the
+boxes its 1099-DA switch gives, every Broker form choice against each
+switch, gains and losses of both terms and inherited coins in every forms
+year, holdings at each year's start, a hidden and a renamed account on the
+dashboard, and each Ledger Review item a row can show.
 """
 
 import csv
@@ -29,8 +37,9 @@ from backend.models.transaction import Transaction
 from backend.schemas.transaction import BrokerReporting
 from backend.services import first_run, outbound
 from backend.services.transaction import DEPOSIT_SOURCES, TX_TYPES, WITHDRAWAL_PURPOSES
-from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
+from backend.services.reports.form_8949 import INHERITED, build_form_8949_and_schedule_d
 from backend.services.reports.reporting_core import generate_report_data
+from backend.services.review import build_review
 
 
 def _script(name: str):
@@ -56,6 +65,12 @@ BOXES_2026 = {
     "02/16/2026": {"G"}, "03/23/2026": {"H"}, "05/11/2026": {"I"},
     **{day: {"I"} for day in ("03/02/2026", "04/06/2026", "04/20/2026", "06/03/2026", "06/10/2026", "06/24/2026",
                               "07/07/2026", "07/21/2026")},
+    # #702's: Overseas' gift held since 2023 (L), its own coins (I: the switch is off), its sale with basis
+    # reported (G by the override), Kraken's long-term coins (K), its covered coins with proceeds only
+    # (H), its spends' choices (G, I), the Jade's donation fee (L), and the network fees and the $0 spend (I)
+    "06/16/2026": {"L"}, "06/17/2026": {"I"}, "06/23/2026": {"I"}, "06/25/2026": {"G"}, "08/06/2026": {"L"},
+    "08/12/2026": {"K"}, "08/18/2026": {"H", "K"}, "08/20/2026": {"G"}, "08/21/2026": {"I"},
+    **{day: {"I"} for day in ("06/30/2026", "07/02/2026", "08/10/2026", "08/25/2026")},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own
@@ -78,6 +93,44 @@ ROUTES = {
     ("Buy", "bank", "exchange BTC"), ("Buy", "exchange USD", "its exchange's BTC"),
     ("Sell", "exchange BTC", "its exchange's USD"),
 }
+# Each deposit source and withdrawal purpose in each kind of account that
+# holds it (2.0 spec 5.5), and dollars in and out of each dollar kind, each
+# in more than one account of that kind, so every pile rule runs beyond
+# 1.x's first account too (#702). A dollar deposit's source is N/A.
+CASH = "N/A"
+BTC_SIDES, USD_SIDES = ("wallet", "exchange BTC"), ("bank", "exchange USD")
+EACH_KIND_IN_EACH_SIDE = {
+    *(("Deposit", s, side) for s in DEPOSIT_SOURCES if s != CASH for side in BTC_SIDES),
+    *(("Withdrawal", p, side) for p in WITHDRAWAL_PURPOSES for side in BTC_SIDES),
+    *(("Deposit", CASH, side) for side in USD_SIDES), *(("Withdrawal", "cash", side) for side in USD_SIDES),
+}
+# Each exchange's Sells' boxes, by year (Sales by exchange, #349): before
+# 2025 the 1099-B boxes by override only; from 2025 the 1099-DA switch's,
+# H/K with it on (Exchange, Kraken) and I/L with it off (Overseas); from
+# 2026 G for coins bought there; and each Broker form choice beside them
+# (an override wins over the switch: Overseas' H in 2025 and G in 2026)
+SALES_BOXES = {
+    2023: {"Exchange": "C"},
+    2024: {"Exchange": "ABCDEF", "Kraken": "CF"},
+    2025: {"Exchange": "GHIJK", "Kraken": "HIK", "Overseas": "HIL"},
+    2026: {"Exchange": "GHJK", "Kraken": "GHK", "Overseas": "GIL"},
+}
+# Ledger Review's items (#702): those a row of the reference ledger shows,
+# and why no row saved through the API can show the others, so a new item
+# fails here until it's one or the other
+REVIEW_SHOWN = {"original_date_missing", "sale_may_differ_from_1099da", "gift_without_value",
+                "deposit_without_basis", "buy_without_basis", "zero_proceeds_spend"}
+REVIEW_OUT_OF_REACH = {
+    "withdrawal_purpose_unknown": "the API refuses a purpose it doesn't know",
+    "inherited_without_date": "the API refuses an inheritance without its date of death",
+    "income_without_value": "a $0 or blank income is priced, and the ledger loads with the price source Off",
+    "income_value_off": "it compares a typed value with the hour's price, and no price is stored",
+    "day_priced_values": "no value is priced at all: every one is typed",
+    "account_missing": "only a database from before 0.9.2, or one whose account was deleted, names one",
+    "account_from_before_0_9_2": "only a database from before 0.9.2 has one",
+    "lost_with_loss": "every save gives lost coins a $0 gain",
+    "recalc_changes": "a seeded ledger is recalculated by every save",
+}
 # 1.x's accounts, which every ledger has, by id: (kind, currency, exchange)
 FIXED = {1: ("bank", "USD", None), 2: ("wallet", "BTC", None), 3: ("exchange", "USD", 1),
          4: ("exchange", "BTC", 1), 99: ("External", None, None)}
@@ -86,10 +139,20 @@ FIXED = {1: ("bank", "USD", None), 2: ("wallet", "BTC", None), 3: ("exchange", "
 NEW_KEYS: set[str] = set()
 
 
+def listed_accounts() -> list[dict]:
+    """The ledger's accounts list as written, with its notes."""
+    return json.loads(seed_ledger.LEDGER.read_text()).get("accounts", [])
+
+
 def ledger_accounts() -> dict[int, tuple]:
     """The ledger's accounts by id, 1.x's and its accounts list's: (kind, currency, exchange)."""
-    listed = json.loads(seed_ledger.LEDGER.read_text()).get("accounts", [])
-    return {**FIXED, **{a["id"]: (a["kind"], a["currency"], a.get("exchange_id")) for a in listed}}
+    return {**FIXED, **{a["id"]: (a["kind"], a["currency"], a.get("exchange_id")) for a in listed_accounts()}}
+
+
+def switches() -> dict[int, bool]:
+    """Each exchange account's 1099-DA switch: on, unless the list says otherwise (1.x's Exchange is on)."""
+    return {3: True, 4: True, **{a["id"]: a.get("sends_1099da", True) for a in listed_accounts()
+                                 if a["kind"] == "exchange"}}
 
 
 def _side(account: tuple) -> str:
@@ -159,7 +222,8 @@ def test_every_year_has_every_kind_of_transaction(seeded):
     with Session() as db:
         kinds = {year: set() for year in YEARS}
         for t in db.query(Transaction):
-            kinds[t.timestamp.year].add(_kind(t, accounts))
+            if t.timestamp.year in kinds:  # 2022's deposit only gives 2023 its opening holdings
+                kinds[t.timestamp.year].add(_kind(t, accounts))
     assert {year: KINDS - found for year, found in kinds.items()} == {year: set() for year in YEARS}
 
 
@@ -168,7 +232,8 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
     """Form 8949: every box the year's form has (2023 has no forms here,
     only box C rows for the reports), short- and long-term; Schedule D:
     every line; the complete tax report: gains, income from each source,
-    rebates, and a gift, a donation and a loss."""
+    rebates, a gift, a donation and a loss, and holdings at both ends of
+    the year (2023's opening ones from a 2022 deposit)."""
     _, Session, _ = seeded
     with Session() as db:
         forms = build_form_8949_and_schedule_d(year, db)
@@ -177,16 +242,17 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
     if year >= 2024:
         assert set(forms["schedule_d"]["lines"]) == {"1b", "2", "3", "8b", "9", "10"}
         assert forms["short_term"] and forms["long_term"], year
-    for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates"):
+    for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates",
+                 "start_of_year_balances", "end_of_year_balances"):
         assert report[part], (year, part)
-    # Each exchange adding up its Sells' rows (#349): 1.x's one, and from 2026 Kraken and Overseas (#354)
+    # Each exchange adding up its Sells' rows (#349), in the boxes its switch and its Sells' choices give
     sales = defaultdict(list)
     for r in report["capital_gains_transactions"]:
         if r["kind"] == "Sale":
             sales[r["account"].removesuffix(" BTC")].append(r)
-    exchanges = ["Exchange", "Kraken", "Overseas"] if year == 2026 else ["Exchange"]
     assert [(s["exchange"], s["rows"]) for s in report["sales_by_exchange"]] == [
-        (name, len(sales[name])) for name in exchanges]
+        (name, len(sales[name])) for name in SALES_BOXES[year]]
+    assert {s["exchange"]: "".join(s["boxes"]) for s in report["sales_by_exchange"]} == SALES_BOXES[year]
     for exchange in report["sales_by_exchange"]:
         for total in ("proceeds", "cost", "gain_loss"):
             assert round(exchange[total], 2) == round(sum(r[total] for r in sales[exchange["exchange"]]), 2), total
@@ -205,6 +271,83 @@ def test_the_ledger_has_everything_the_app_offers():
     paid = {(r["type"], r["fee_currency"]) for r in rows if Decimal(r["fee_amount"]) > 0}
     assert {("Buy", "USD"), ("Sell", "USD"), ("Transfer", "BTC"), ("Withdrawal", "BTC")} <= paid
     assert {"MyBTC", "Gift"} <= {r["source"] for r in rows if r.get("acquired_at")}
+
+
+def test_each_kind_is_in_more_than_one_account_of_each_kind():
+    accounts, seen = ledger_accounts(), defaultdict(set)
+    for r in seed_ledger.ledger_rows():
+        if r["type"] == "Deposit":
+            seen[(r["type"], r["source"], _side(accounts[r["to_account_id"]]))].add(r["to_account_id"])
+        elif r["type"] == "Withdrawal":
+            purpose = r.get("purpose") or "cash"
+            seen[(r["type"], purpose, _side(accounts[r["from_account_id"]]))].add(r["from_account_id"])
+    assert {kind: sorted(seen[kind]) for kind in EACH_KIND_IN_EACH_SIDE if len(seen[kind]) < 2} == {}
+
+
+def test_each_route_joins_more_than_one_pair_of_accounts():
+    accounts, pairs = ledger_accounts(), defaultdict(set)
+    for r in seed_ledger.ledger_rows():
+        route = _route(r["type"], r["from_account_id"], r["to_account_id"], accounts)
+        pairs[route].add((r["from_account_id"], r["to_account_id"]))
+    assert {route: sorted(pairs[route]) for route in ROUTES if len(pairs[route]) < 2} == {}
+
+
+def test_every_broker_form_choice_against_each_switch():
+    """From 2025, when an exchange's 1099-DA switch decides a Sell's box
+    (2.0 spec 5.7): a Sell of every Broker form choice (blank: the switch's
+    rule) on an exchange with it on and one with it off; and a spend with a
+    BTC fee of each choice, which its fee follows (#549)."""
+    rows, switch = [r for r in seed_ledger.ledger_rows() if r["timestamp"] >= "2025"], switches()
+    choices = {None, *get_args(BrokerReporting)}
+    sells = {(switch[r["from_account_id"]], r.get("broker_reporting")) for r in rows if r["type"] == "Sell"}
+    assert sells == {(on, choice) for on in (True, False) for choice in choices}
+    spends = {r.get("broker_reporting") for r in rows if r["type"] == "Withdrawal" and r.get("purpose") == "Spent"
+              and r["fee_currency"] == "BTC" and Decimal(r["fee_amount"]) > 0}
+    assert spends == choices
+
+
+@pytest.mark.parametrize("year", [2024, 2025, 2026])
+def test_each_forms_year_has_gains_and_losses_and_inherited_coins(seeded, year):
+    """Schedule D's short- and long-term parts each with a gain and a loss,
+    and inherited coins sold (INHERITED in column (b), #154), in each year
+    BitcoinTX fills IRS forms for (none for 2023)."""
+    _, Session, _ = seeded
+    with Session() as db:
+        forms = build_form_8949_and_schedule_d(year, db)
+    rows = forms["short_term"] + forms["long_term"]
+    signs = {(r["holding_period"], r["gain_loss"] > 0) for r in rows if r["gain_loss"]}
+    assert signs == {("SHORT", True), ("SHORT", False), ("LONG", True), ("LONG", False)}
+    assert INHERITED in {r["date_acquired"] for r in rows}
+
+
+def test_the_dashboard_has_each_kind_more_than_once_a_hidden_account_and_a_renamed_one(seeded):
+    """2.0's dashboard goes by kind (spec 5.13): more than one bank, wallet
+    and exchange holding something; an account the owner hid while it
+    still holds coins; and one renamed after its rows, shown by its new
+    name (an exchange's: the exchange and both its accounts)."""
+    c, _, _ = seeded
+    balances = c.get("/api/calculations/accounts/balances").json()
+    held = defaultdict(set)
+    for b in balances:
+        if b["balance"]:
+            held[b["kind"]].add(b["exchange_id"] or b["account_id"])
+    assert {kind: len(held[kind]) > 1 for kind in ("bank", "wallet", "exchange")} == dict.fromkeys(
+        ("bank", "wallet", "exchange"), True)
+    hidden = {a["id"] for a in listed_accounts() if a.get("hidden")}
+    assert hidden and {b["account_id"] for b in balances if b["hidden"]} == hidden
+    assert all(b["balance"] for b in balances if b["hidden"])
+    renamed = {a["id"]: (a["name"], a["renamed_from"]) for a in listed_accounts() if "renamed_from" in a}
+    names = {b["account_id"]: b["name"] for b in balances}
+    assert renamed and {i: names[i] for i in renamed} == {i: new for i, (new, _) in renamed.items()}
+    assert not {old for _, old in renamed.values()} & set(names.values())
+
+
+def test_ledger_review_shows_each_item_a_row_can(seeded):
+    _, Session, _ = seeded
+    with Session() as db:
+        checks = build_review(db)["checks"]
+    assert {c["key"] for c in checks if c["count"]} == REVIEW_SHOWN
+    assert {c["key"] for c in checks} == REVIEW_SHOWN | set(REVIEW_OUT_OF_REACH)
 
 
 def test_every_value_a_price_would_fill_is_given():
