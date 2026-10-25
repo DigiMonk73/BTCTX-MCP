@@ -719,9 +719,11 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
-  `unexpected_error`). An id a request sends that reaches a query is a
-  `database.RowId` (SQLite's 64-bit integers): one beyond is a 422 naming
-  it, never bound (an `OverflowError`'s 500, #744). A save a restore's swap refused answers `REPLACED`
+  `unexpected_error`). An id a request sends that can reach a query is a
+  `database.RowId` (SQLite's 64-bit integers), or as tightly bound (Ledger
+  Review's `ids`): one beyond is a 422 naming it, never bound into a query
+  (an `OverflowError`'s 500, #744). A save a restore's swap refused
+  answers `REPLACED`
   (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
   (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
