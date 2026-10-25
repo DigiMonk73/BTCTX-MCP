@@ -1,6 +1,6 @@
 {
  "dashboard": {
-  "average_cost_basis": "59589.43",
+  "average_cost_basis": "59570.64",
   "balances": [
    {
     "account_id": 1,
@@ -104,9 +104,9 @@
    "income_earned": 33519.0,
    "interest_btc": 0.0585,
    "interest_earned": 2250.0,
-   "long_term_gains": 106542.85,
+   "long_term_gains": 106556.8,
    "long_term_losses": 2642.97,
-   "long_term_net": 103899.88,
+   "long_term_net": 103913.83,
    "rebates_btc": 0.04165,
    "rebates_received": 5805.7,
    "rewards_btc": 0.235,
@@ -117,7 +117,7 @@
    "short_term_net": 33939.7,
    "total_income": 49275.0,
    "total_losses": 0.0,
-   "total_net_capital_gains": 137839.58,
+   "total_net_capital_gains": 137853.53,
    "withdrawals_spent": 32298.05
   }
  },
@@ -3441,7 +3441,7 @@
       "account": "Sparrow",
       "acquired": "2023-03-10T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
-      "cost": 425.0,
+      "cost": 348.5,
       "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.017,
       "value": null
@@ -3763,7 +3763,7 @@
      },
      {
       "asset": "Total",
-      "cost": 209357.87,
+      "cost": 209281.37,
       "description": "",
       "quantity": 3.62434,
       "value": null
@@ -3888,7 +3888,7 @@
       "lots_by_term": [
        {
         "btc": 0.003,
-        "cost_basis": 75.0,
+        "cost_basis": 61.5,
         "term": "LONG"
        },
        {
@@ -4741,11 +4741,11 @@
     },
     {
      "box": "L",
-     "cost": "2.50",
+     "cost": "2.05",
      "date_acquired": "03/10/2023",
      "date_sold": "08/27/2026",
      "description": "0.00010000 BTC",
-     "gain_loss": "8.70",
+     "gain_loss": "9.15",
      "holding_period": "LONG",
      "proceeds": "11.20"
     },
@@ -4781,21 +4781,21 @@
     },
     {
      "box": "L",
-     "cost": "50.00",
+     "cost": "41.00",
      "date_acquired": "03/10/2023",
      "date_sold": "09/04/2026",
      "description": "0.00200000 BTC",
-     "gain_loss": "174.00",
+     "gain_loss": "183.00",
      "holding_period": "LONG",
      "proceeds": "224.00"
     },
     {
      "box": "L",
-     "cost": "25.00",
+     "cost": "20.50",
      "date_acquired": "03/10/2023",
      "date_sold": "09/04/2026",
      "description": "0.00100000 BTC",
-     "gain_loss": "87.00",
+     "gain_loss": "91.50",
      "holding_period": "LONG",
      "proceeds": "112.00"
     },
@@ -4865,17 +4865,17 @@
      {
       "asset": "BTC",
       "loss": 380.84,
-      "net": 36986.21,
-      "profit": 37367.05
+      "net": 37000.16,
+      "profit": 37381.0
      }
     ],
     "capital_gains_summary": {
      "long_term": {
-      "basis": 42847.09,
-      "gain": 29398.52,
+      "basis": 42833.14,
+      "gain": 29412.47,
       "losses": 41.44,
       "proceeds": 72245.61,
-      "profits": 29439.96
+      "profits": 29453.91
      },
      "number_of_disposals": 57,
      "short_term": {
@@ -4886,8 +4886,8 @@
       "profits": 7927.09
      },
      "total": {
-      "basis": 102026.72,
-      "gain": 36986.21,
+      "basis": 102012.77,
+      "gain": 37000.16,
       "proceeds": 139012.93
      }
     },
@@ -5513,10 +5513,10 @@
       "amount": 0.0001,
       "asset": "BTC",
       "box": "L",
-      "cost": 2.5,
+      "cost": 2.05,
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-08-27T14:00:00+00:00",
-      "gain_loss": 8.7,
+      "gain_loss": 9.15,
       "holding_period": "LONG",
       "kind": "Network fee",
       "proceeds": 11.2,
@@ -5583,10 +5583,10 @@
       "amount": 0.002,
       "asset": "BTC",
       "box": "L",
-      "cost": 50.0,
+      "cost": 41.0,
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-09-04T14:00:00+00:00",
-      "gain_loss": 174.0,
+      "gain_loss": 183.0,
       "holding_period": "LONG",
       "kind": "Spend",
       "proceeds": 224.0,
@@ -5597,10 +5597,10 @@
       "amount": 0.001,
       "asset": "BTC",
       "box": "L",
-      "cost": 25.0,
+      "cost": 20.5,
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-09-04T14:00:00+00:00",
-      "gain_loss": 87.0,
+      "gain_loss": 91.5,
       "holding_period": "LONG",
       "kind": "Spend",
       "proceeds": 112.0,
@@ -6137,10 +6137,10 @@
       "asset": "BTC",
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-08-27T14:00:00+00:00",
-      "disposal_basis_usd": 2.5,
+      "disposal_basis_usd": 2.05,
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 11.2,
-      "realized_gain_usd": 8.7
+      "realized_gain_usd": 9.15
      },
      {
       "amount_disposed": 1e-05,
@@ -6187,20 +6187,20 @@
       "asset": "BTC",
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-09-04T14:00:00+00:00",
-      "disposal_basis_usd": 50.0,
+      "disposal_basis_usd": 41.0,
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 224.0,
-      "realized_gain_usd": 174.0
+      "realized_gain_usd": 183.0
      },
      {
       "amount_disposed": 0.001,
       "asset": "BTC",
       "date_acquired": "2023-03-10T12:00:00+00:00",
       "date_sold": "2026-09-04T14:00:00+00:00",
-      "disposal_basis_usd": 25.0,
+      "disposal_basis_usd": 20.5,
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 112.0,
-      "realized_gain_usd": 87.0
+      "realized_gain_usd": 91.5
      },
      {
       "amount_disposed": 1e-05,
@@ -6305,7 +6305,7 @@
       "account": "Sparrow",
       "acquired": "2023-03-10T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
-      "cost": 322.5,
+      "cost": 264.45,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.0129,
       "value": null
@@ -6314,7 +6314,7 @@
       "account": "Jade",
       "acquired": "2023-03-10T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
-      "cost": 25.0,
+      "cost": 20.5,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.001,
       "value": null
@@ -6888,7 +6888,7 @@
      },
      {
       "asset": "Total",
-      "cost": 198339.24,
+      "cost": 198276.69,
       "description": "",
       "quantity": 3.32843,
       "value": null
@@ -6937,8 +6937,8 @@
      },
      {
       "box": "L",
-      "cost": 1649.68,
-      "gain_loss": 7610.14,
+      "cost": 1635.73,
+      "gain_loss": 7624.09,
       "line": "10",
       "proceeds": 9259.82,
       "rows": 15
@@ -7362,7 +7362,7 @@
      },
      {
       "account": "Sparrow",
-      "avg_cost_basis": 25000.0,
+      "avg_cost_basis": 20500.0,
       "quantity": 0.017,
       "value": null
      },
@@ -7487,8 +7487,8 @@
    "schedule_d": {
     "lines": {
      "10": {
-      "cost": "1649.68",
-      "gain_loss": "7610.14",
+      "cost": "1635.73",
+      "gain_loss": "7624.09",
       "proceeds": "9259.82"
      },
      "1b": {
@@ -7518,8 +7518,8 @@
      }
     },
     "long_term": {
-     "cost": "42847.09",
-     "gain_loss": "29398.52",
+     "cost": "42833.14",
+     "gain_loss": "29412.47",
      "proceeds": "72245.61"
     },
     "short_term": {

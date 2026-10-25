@@ -229,29 +229,28 @@ it loads with the price source Nobody. Each row's `why` says what it is for.
 From 2.0 it holds multiple wallets, exchanges or accounts: its `accounts`
 list adds two of each kind (wallets Coldcard and Jade, exchanges Kraken and
 Overseas, whose 1099-DA switch is off, banks Credit union and Savings) and
-a fourth wallet, the Sparrow,
-which the seed makes through the account API before the rows and, after
-them, names and hides as listed (Overseas is made as "Offshore" and
-renamed; the Jade is hidden while it still holds coins). The rows marked
-`"since": "2.0"` use them: B7a's in 2026, #702's from 2022 to 2026,
-each filling its year's 2.0 dimensions, and #730's in 2025 and 2026,
-which choose which coins leave a wallet (#711). A row names the coins it
-acquired with a `key`, and a later row chooses them by it
+a fourth wallet, the Sparrow, which the seed makes through the account API
+before the rows and, after them, names and hides as listed (Overseas is
+made as "Offshore" and renamed; the Jade is hidden while it still holds
+coins). The rows marked `"since": "2.0"` use them: B7a's in 2026, #702's
+from 2022 to 2026, each filling its year's 2.0 dimensions, and #730's in
+2025 and 2026, which choose which coins leave a wallet (#711). A row names
+the coins it acquired with a `key`, and a later row chooses them by it
 (`"chosen_coins": [{"key": …, "btc": …}]`): the seed sends each as the id
 the server gave that row, never by position, and stops before sending
-anything if a key is defined twice or chosen before its row. `test_seed_ledger.py` fails if
-one empties: each deposit source and withdrawal purpose in more than one
+anything if a key is defined twice or chosen before its row.
+`test_seed_ledger.py` fails if one empties: each deposit source and withdrawal purpose in more than one
 wallet and exchange, each account route between more than one pair of
 accounts, each exchange's sales in the boxes its 1099-DA switch gives
 (`SALES_BOXES`), every Broker form choice against each switch (a spend's
 fee following it), gains and losses of both terms and inherited coins sold
 in each forms year (2024 to 2026), holdings at each year's start, a hidden
 and a renamed account on the dashboard, and each Ledger Review item a row
-can show (it names the others, with why no row can); and chosen coins for
-each withdrawal purpose and each move out of a wallet, in 2025 and 2026,
-inherited coins chosen, a spend's coins of both terms with its fee, one
-purchase chosen across two lots, and a choice equal to oldest first beside
-choices that aren't. Priced values stay
+can show (it names the others, with why no row can); and chosen coins
+for each withdrawal purpose and each move out of a wallet, choices in 2025
+and 2026, inherited coins chosen, a spend's coins and a donation's of both
+terms, one purchase chosen across two lots, and a choice equal to oldest
+first beside choices that aren't. Priced values stay
 empty: every value is typed, so it loads with the price source Off. The
 2.0 rows go only into 2.0's accounts (the one exception is the last row,
 the fee-less split of a pooled wallet, Wallet to the Coldcard), and

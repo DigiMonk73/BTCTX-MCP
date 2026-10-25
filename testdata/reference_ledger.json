@@ -762,7 +762,7 @@
    "fee_amount": "0",
    "fee_currency": "BTC",
    "source": "MyBTC",
-   "cost_basis_usd": "500.00",
+   "cost_basis_usd": "410.00",
    "acquired_at": "2023-03-10T12:00:00Z",
    "key": "sparrow-mybtc-2023",
    "since": "2.0",

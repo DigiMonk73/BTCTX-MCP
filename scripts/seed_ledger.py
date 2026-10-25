@@ -201,40 +201,18 @@ def check_keys(rows: list[dict]) -> None:
     defined: dict[str, int] = {}
     for n, row in enumerate(rows, start=1):
         for line in row.get("chosen_coins") or []:
-            if line["key"] not in defined:
-                raise SeedError(f"row {n} chooses coins by the key {line['key']!r}, which no row before it has: "
-                                "a key is defined once, before the rows that choose by it")
+            if line.get("key") not in defined:
+                raise SeedError(f"row {n} chooses coins by the key {line.get('key')!r}, which no row before it "
+                                "has: a key is defined once, before the rows that choose by it")
         key = row.get("key")
-        if key is not None and key in defined:
+        if key is None:
+            continue
+        if row["type"] not in ("Buy", "Deposit"):
+            raise SeedError(f"row {n} is a {row['type']} with a key: only a Buy or a Deposit acquires coins a "
+                            "choice can name")
+        if key in defined:
             raise SeedError(f"row {n}'s key {key!r} is row {defined[key]}'s too: a key names one Buy or Deposit")
-        if key is not None:
-            defined[key] = n
-
-
-def create_rows(rows: list[dict], create: Callable[[int, dict], int]) -> None:
-    """Each row created in order by `create` (its number and the row as the
-    API takes it, returning the id the server gave it). A row's `key` names
-    the coins it acquired, and a later row's chosen coins name them by it
-    (#711, docs/temp/2.0-coin-choice.md 8.3), never by position: the file
-    is kept in time order, so a row put in later would move every number
-    after it. The key isn't sent; a choice is sent with the id its row got."""
-    ids: dict[str, int] = {}
-    for n, row in enumerate(rows, start=1):
-        sent = {field: value for field, value in row.items() if field != "key"}
-        if row.get("chosen_coins"):
-            sent["chosen_coins"] = [{"acquired_txn_id": ids[line["key"]], "btc": line["btc"]}
-                                    for line in row["chosen_coins"]]
-        made = create(n, sent)
-        if row.get("key") is not None:
-            ids[row["key"]] = made
-
-
-def _post_row(c: httpx.Client, n: int, row: dict) -> int:
-    r = send_confirmed(c, "POST", "/api/transactions", row)
-    if r.status_code != 200:
-        raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
-                        f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
-    return r.json()["id"]
+        defined[key] = n
 
 
 def make_account(c: httpx.Client, account: dict) -> None:
@@ -263,6 +241,32 @@ def make_account(c: httpx.Client, account: dict) -> None:
         r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": account["sends_1099da"]})
         if r.status_code != 200:
             raise SeedError(f"setting {account['name']}'s 1099-DA switch failed: {r.status_code} {r.text[:300]}")
+
+
+def create_rows(rows: list[dict], create: Callable[[int, dict], int]) -> None:
+    """Each row created in order by `create` (its number and the row as the
+    API takes it, returning the id the server gave it). A row's `key` names
+    the coins it acquired, and a later row's chosen coins name them by it
+    (#711, docs/temp/2.0-coin-choice.md 8.3), never by position: the file
+    is kept in time order, so a row put in later would move every number
+    after it. The key isn't sent; a choice is sent with the id its row got."""
+    ids: dict[str, int] = {}
+    for n, row in enumerate(rows, start=1):
+        sent = {field: value for field, value in row.items() if field != "key"}
+        if row.get("chosen_coins"):
+            sent["chosen_coins"] = [{"acquired_txn_id": ids[line["key"]], "btc": line["btc"]}
+                                    for line in row["chosen_coins"]]
+        made = create(n, sent)
+        if row.get("key") is not None:
+            ids[row["key"]] = made
+
+
+def _post_row(c: httpx.Client, n: int, row: dict) -> int:
+    r = send_confirmed(c, "POST", "/api/transactions", row)
+    if r.status_code != 200:
+        raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
+                        f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    return r.json()["id"]
 
 
 def finish_account(c: httpx.Client, account: dict) -> None:

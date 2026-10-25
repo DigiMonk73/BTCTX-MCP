@@ -16,9 +16,9 @@ switch, gains and losses of both terms and inherited coins in every forms
 year, holdings at each year's start, a hidden and a renamed account on the
 dashboard, and each Ledger Review item a row can show. And chosen coins
 (#711, #730): each withdrawal purpose and each move out of a wallet by a
-choice, in 2025 and 2026, inherited coins chosen, a spend's coins of both
-terms with its fee, one purchase chosen across two lots, and a choice equal
-to oldest first beside choices that aren't.
+choice, choices in 2025 and 2026, inherited coins chosen, a spend's coins
+and a donation's of both terms, one purchase chosen across two lots, and a
+choice equal to oldest first beside choices that aren't.
 """
 
 import csv
@@ -320,8 +320,8 @@ def test_every_broker_form_choice_against_each_switch():
 
 
 def test_coins_are_chosen_for_each_purpose_and_each_move_out_of_a_wallet():
-    """In 2025, the year the rule begins (Treas. Reg. §1.1012-1(j)(6)), and
-    in 2026, only out of a wallet (2.2)."""
+    """Only out of a wallet (2.2), with choices in 2025, the year the rule
+    begins (Treas. Reg. §1.1012-1(j)(6)), and in 2026."""
     accounts, years = ledger_accounts(), defaultdict(set)
     for r in seed_ledger.ledger_rows():
         if r.get("chosen_coins"):
@@ -335,8 +335,9 @@ def test_coins_are_chosen_for_each_purpose_and_each_move_out_of_a_wallet():
 def test_chosen_coins_reach_inherited_coins_both_terms_and_one_purchase_in_two_lots(seeded):
     """What a choice takes, in the seeded ledger's disposals: inherited coins
     (INHERITED, long-term, #154); a spend's coins of both terms with its BTC
-    fee, which the chosen coins pay (#711's call (b)); and one purchase
-    held in two lots of one wallet, by two transfers, taken from both."""
+    fee, which the chosen coins pay (#711's call (b)), and a donation's of
+    both terms (its deduction depends on both, #160); and one purchase held
+    in two lots of one wallet, by two transfers, taken from both."""
     _, Session, _ = seeded
     with Session() as db:
         choosing = [tx for tx in db.query(Transaction) if tx.chosen_coins]
@@ -347,14 +348,16 @@ def test_chosen_coins_reach_inherited_coins_both_terms_and_one_purchase_in_two_l
                     if len({d.lot_id for d in tx.lot_disposals if d.lot.acquired_txn_id == coin.acquired_txn_id}) > 1]
     assert inherited
     assert ("Spent", frozenset({"SHORT", "LONG"}), True) in spends
+    assert {(purpose, terms) for purpose, terms, _ in spends} >= {("Donation", frozenset({"SHORT", "LONG"}))}
     assert two_lots
 
 
 def test_one_choice_is_the_oldest_coins_and_the_others_arent():
-    """Oldest first is a way of identifying too ((j)(4)): one choice gives
-    oldest first's figures, and the others move some. The independent check
-    replays the ledger with each choice left out in turn; one left out can
-    also leave a later choice short, which stops the replay."""
+    """Oldest first is a way of identifying too ((j)(4)): a choice of
+    exactly the oldest coins gives oldest first's figures, and the others
+    move some. The independent check replays the ledger with each choice
+    left out in turn; one left out can also leave a later choice short,
+    which stops the replay: that one moves something too."""
     independent, ledger = independent_figures(), json.loads(seed_ledger.LEDGER.read_text())
 
     def every_year(transactions: list[dict]) -> dict:
@@ -362,11 +365,12 @@ def test_one_choice_is_the_oldest_coins_and_the_others_arent():
         return {year: independent.year_figures(replayed, year) for year in YEARS}
 
     rows, same = ledger["transactions"], []
+    chosen = every_year(rows)
     for i, row in enumerate(rows):
         if row.get("chosen_coins"):
             unchosen = {field: value for field, value in row.items() if field != "chosen_coins"}
             try:
-                same.append(every_year([*rows[:i], unchosen, *rows[i + 1:]]) == every_year(rows))
+                same.append(every_year([*rows[:i], unchosen, *rows[i + 1:]]) == chosen)
             except ValueError:
                 same.append(False)
     assert True in same and False in same, same

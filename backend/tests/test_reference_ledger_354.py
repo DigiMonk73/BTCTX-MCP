@@ -369,16 +369,42 @@ def test_a_choice_names_its_coins_by_the_id_their_row_got(owner):
         {"acquired_txn_id": line_id, "btc": "0.004"} for line_id in (2, 2)]
 
 
+def test_a_choice_is_sent_with_the_id_the_server_gave_never_the_rows_place():
+    """On a fresh install the two are the same number, so a create that
+    answers other ids tells them apart."""
+    created = []
+
+    def create(n: int, row: dict) -> int:
+        created.append(row)
+        return n + 100
+
+    seed_ledger.create_rows([OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])], create)
+    assert created == [OLDER, NEWER, _spend([{"acquired_txn_id": 102, "btc": "0.004"}])]
+
+
 @pytest.mark.parametrize("rows, said", [
     ([{**OLDER, "key": "k"}, {**NEWER, "key": "k"}], "row 2's key 'k' is row 1's too: a key names one Buy or Deposit"),
     ([_spend([{"key": "k", "btc": "0.004"}]), {**NEWER, "key": "k"}],
      "row 1 chooses coins by the key 'k', which no row before it has"),
     ([NEWER, _spend([{"key": "z", "btc": "0.004"}])], "row 2 chooses coins by the key 'z', which no row before it has"),
-], ids=["a key twice", "a choice before its key", "a key no row has"])
+    ([NEWER, _spend([{"acquired_txn_id": 1, "btc": "0.004"}])],
+     "row 2 chooses coins by the key None, which no row before it has"),
+    ([NEWER, {**_spend([]), "key": "s"}], "row 2 is a Withdrawal with a key: only a Buy or a Deposit acquires coins"),
+], ids=["a key twice", "a choice before its key", "a key no row has", "a line without a key", "a key on a spend"])
 def test_a_key_the_seed_cant_follow_stops_it_before_anything_is_sent(owner, rows, said):
     c, Session = owner
+    sent = c.request
+    writes = []
+
+    def noted(method, url, **kwargs):
+        if method != "GET":
+            writes.append((method, str(url)))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
     with pytest.raises(seed_ledger.SeedError, match=re.escape(said)):
-        seed_ledger.seed(c, rows)
+        seed_ledger.seed(c, rows, seed_ledger.ledger_accounts())
+    assert writes == []  # neither an account nor a row
     with Session() as db:
         assert db.query(Transaction).count() == 0
 
