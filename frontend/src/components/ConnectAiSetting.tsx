@@ -18,6 +18,7 @@ import {
   serverPackage,
 } from "../utils/aiSetup";
 import { macApp } from "../utils/prereleaseVersion";
+import Chevron from "./Chevron";
 
 /** Clipboard API where allowed (https, localhost); else the older copy command. */
 async function copyText(text: string): Promise<boolean> {
@@ -293,7 +294,7 @@ const ConnectAiSetting: React.FC = () => {
           <OlderVersionHint version={version} serverMode={access?.mode === "server"} />
 
           <details className="ai-setup-manual">
-            <summary>Set it up yourself</summary>
+            <summary className="chevron-toggle">Set it up yourself<Chevron /></summary>
             <p className="settings-option-subtitle">
               {!keyMode && (
                 <>

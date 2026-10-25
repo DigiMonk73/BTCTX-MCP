@@ -1,4 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import Chevron from './Chevron';
 
 interface Props {
   children: ReactNode;
@@ -61,7 +62,7 @@ class ErrorBoundary extends Component<Props, State> {
 
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <details className="error-boundary-details">
-                <summary>Error details</summary>
+                <summary className="chevron-toggle">Error details<Chevron /></summary>
                 <pre className="error-boundary-stack">
                   {this.state.error.toString()}
                   {this.state.errorInfo?.componentStack}
