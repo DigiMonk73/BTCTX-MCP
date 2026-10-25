@@ -284,6 +284,17 @@ def test_choosing_the_oldest_coins_gives_the_figures_of_no_choice():
         assert independent.year_figures(chosen, year) == independent.year_figures(oldest, year)
 
 
+def test_a_null_key_names_no_coins():
+    """`"key": null` is no key, as `"chosen_coins": null` is no choice: two
+    rows may have one, and no choice takes their coins."""
+    unnamed = [{**A, "key": None}, _deposit("2023-06-01", "0.01", "300.00", None)]
+    spend = _spend("2025-09-01", "0.005", "500.00", _chosen(b="0.005"))
+    [row] = independent.year_figures(independent.replay([*unnamed, B, spend]), 2025)["form_8949"]
+    # B's 0.005 of its 0.02: $1,000 / 4 = $250.00, bought 06/01/2024; the
+    # two older deposits are left whole.
+    assert (row["date_acquired"], row["cost"]) == ("06/01/2024", "250.00")
+
+
 D = _deposit("2025-01-01", "0.01", "500.00", "d")
 BAD_CHOICES = {
     "more than the wallet holds": (
