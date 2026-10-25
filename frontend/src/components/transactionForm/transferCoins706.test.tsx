@@ -46,7 +46,7 @@ async function sparrowToColdcard(form: RenderedForm, amountFrom = "0.4001", amou
 function rows(): string[][] {
   const table = screen.getByRole("table", { name: "Coins that will move" });
   return within(table).getAllByRole("row").map((row) =>
-    within(row).queryAllByRole(/cell|columnheader/).map((cell) => cell.textContent ?? ""));
+    [...row.querySelectorAll("th, td")].map((cell) => cell.textContent ?? ""));
 }
 
 describe("a Transfer between two of your bitcoin accounts", () => {

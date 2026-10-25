@@ -7,6 +7,7 @@ import { WALLET_HINT } from "../../utils/disclaimer";
 import { transferAmountProblem } from "../../utils/transferAmounts";
 import AccountPicker from "./AccountPicker";
 import FeeValueField from "./FeeValueField";
+import TransferCoins from "./TransferCoins";
 
 // A BTC account sent to itself (#159): how the choice reads, and what it records
 const WITHIN_LABEL: Partial<Record<AccountKind, (book: AccountBook, id: number) => string>> = {
@@ -53,9 +54,10 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
  * A transfer between the user's accounts: the destination within the
  * source's currency (a bitcoin one can also be the same account, a
  * consolidation), and the fee is what was sent less what arrived, in
- * bitcoin or in dollars (#447; useFieldAutofill).
+ * bitcoin or in dollars (#447; useFieldAutofill). Between two bitcoin
+ * accounts, the coins that will move, before it saves (#706).
  */
-const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
+const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
   const { register, watch, getValues, setValue, formState: { errors, defaultValues } } =
     useFormContext<TransactionFormData>();
   const fromId = chosenId(watch("fromAccountId"));
@@ -168,6 +170,8 @@ const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
           <small className="field-hint">Amount (From) less Amount (To): what the transfer cost.</small>
         </div>
       )}
+
+      <TransferCoins book={book} transactionId={transactionId} />
     </>
   );
 };
