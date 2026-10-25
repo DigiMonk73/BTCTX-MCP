@@ -14,6 +14,14 @@ Ledger text on its way into the PDF and CSV reports.
   module must be imported before ReportLab opens anything: until then its
   own readers are in place, and they open a file's path whatever the trust
   settings say.
+- The built-in fonts draw what Helvetica's encoding (Windows-1252) holds,
+  then what Symbol's and ZapfDingbats' hold (unaccented Greek, arrows,
+  some signs); any other character, most emoji or a Cyrillic letter,
+  would print as a black box. pdf_text() prints a "?" for each instead,
+  by ReportLab's own rule, so what printed before prints the same. An
+  account's name keeps to Windows-1252, Western European letters
+  (in_report_font, the account service): #722, the owner's choice, with
+  no font file opened.
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
   value, and of one that starts with ' before such a text (#380). Numbers
@@ -27,10 +35,12 @@ The IRS forms are filled by pypdf (pdf_form_filler.py), not ReportLab.
 from __future__ import annotations
 
 import unicodedata
+from functools import cache
 from xml.sax.saxutils import escape
 
 from reportlab import rl_config
 from reportlab.lib import utils as rl_utils
+from reportlab.pdfbase import pdfmetrics
 
 rl_config.trustedSchemes = []
 rl_config.trustedHosts = []
@@ -46,11 +56,77 @@ rl_utils.open_for_read_by_name = _read_nothing
 rl_utils.rlUrlRead = _read_nothing
 
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
+# The reports' font (pdf_layout.FONT): its encoding, Windows-1252, holds
+# the Western European letters an account's name keeps to (#722)
+REPORT_FONT, NAME_ENCODING = "Helvetica", "cp1252"
+# Variation selectors: they only choose how the character before them looks
+VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 
 def pdf_text(value) -> str:
-    """Text for a Paragraph, shown as written (never read as markup)."""
-    return escape("" if value is None else str(value))
+    """Text for a Paragraph, shown as written (never read as markup), with a
+    "?" for each character the reports' fonts can't draw, never a black box.
+    Text they draw in full is as it always printed. Otherwise an accent typed
+    apart joins its letter first, and what nothing shows (a joiner, a
+    variation selector) is left out, adding no "?" of its own; an accent
+    that joins no letter still prints one."""
+    text = "" if value is None else str(value)
+    if all(_drawn(c) for c in text):
+        return escape(text)
+    return escape("".join(c if _drawn(c) else "?" for c in _composed(text) if not _unseen(c)))
+
+
+def in_report_font(text: str) -> bool:
+    """Whether every character of `text` is one the reports' own font draws
+    (Windows-1252): what an account's name may hold (#722). The fonts it
+    falls back to draw some signs and unaccented Greek, but not the letters
+    around them, so a name keeps to Western European alphabets."""
+    try:
+        text.encode(NAME_ENCODING)
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _drawn(c: str) -> bool:
+    """A space (a Paragraph draws any as a gap), or, by ReportLab's own rule
+    (pdfmetrics.unicode2T1), a character the encoding of the font or of one
+    of the fonts it falls back to holds; anything else is a black box."""
+    return c.isspace() or any(_holds(encoding, c) for encoding in _encodings())
+
+
+@cache
+def _encodings() -> tuple[str, ...]:
+    """The encodings of the reports' font and of the fonts it falls back to
+    (Symbol, ZapfDingbats): built in, none of them a file."""
+    font = pdfmetrics.getFont(REPORT_FONT)
+    return tuple(f.encName for f in (font, *font.substitutionFonts))
+
+
+def _holds(encoding: str, c: str) -> bool:
+    try:
+        c.encode(encoding)
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _composed(text: str) -> str:
+    """Each letter with the accents typed after it composed (NFC): only those,
+    as NFC would also turn signs the fonts draw (U+2329 〈) into ones they don't."""
+    clusters, start = [], 0
+    for i in range(1, len(text) + 1):
+        if i == len(text) or not unicodedata.combining(text[i]):
+            cluster = text[start:i]
+            clusters.append(unicodedata.normalize("NFC", cluster) if len(cluster) > 1 else cluster)
+            start = i
+    return "".join(clusters)
+
+
+def _unseen(c: str) -> bool:
+    """A format character but the soft hyphen (which prints a hyphen), or a variation selector."""
+    return (unicodedata.category(c) == "Cf" and c != "\u00ad") or any(
+        low <= ord(c) <= high for low, high in VARIATION_SELECTORS)
 
 
 def csv_text(value) -> str:

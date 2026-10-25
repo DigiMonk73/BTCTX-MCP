@@ -96,7 +96,7 @@ describe("a row saved unchanged keeps its accounts", () => {
     expect(await savedUnchanged(MANY, sell(103, 102))).toMatchObject({ amount: 0.1, gross_proceeds_usd: 6000 });
   });
 
-  it("an edit's new From never makes its To a consolidation, but a saved one stays one", async () => {
+  it("an edit's new From never makes its To a consolidation, nor a saved consolidation a transfer (#719)", async () => {
     const moved = await renderForm({ book: ONE_OF_EACH, transaction: btcTransfer(4, 2) });
     await moved.choose("From Account", "Wallet");
     expect(shown("To Account")).toBe("Select To Account");
@@ -104,9 +104,18 @@ describe("a row saved unchanged keeps its accounts", () => {
     expect(moved.sent()).toBeUndefined();
     moved.unmount();
     const consolidation = await renderForm({ book: ONE_OF_EACH, transaction: btcTransfer(2, 2) });
-    await consolidation.choose("From Account", "Exchange BTC");
-    await consolidation.choose("From Account", "Wallet");
     expect(shown("To Account")).toBe("Wallet: consolidate within the same wallet");
+    await consolidation.choose("From Account", "Exchange BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+    await consolidation.save();
+    expect(consolidation.sent()).toBeUndefined();
+    await consolidation.choose("From Account", "Wallet"); // put back: chosen again, never brought back
+    expect(shown("To Account")).toBe("Select To Account");
+    // A To chosen since is a move into it, even back to the row's own From
+    await consolidation.choose("From Account", "Exchange BTC");
+    await consolidation.choose("To Account", "Wallet");
+    await consolidation.choose("From Account", "Wallet");
+    expect(shown("To Account")).toBe("Select To Account");
   });
 
   it("showing a hidden account it names", async () => {
