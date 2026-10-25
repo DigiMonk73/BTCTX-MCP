@@ -4,6 +4,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
+- **Four words that misled at the moment of saving** (#705, found by Grok
+  (Cursor) reading alpha.2). A Transfer from a wallet to itself read
+  "consolidate / move within the same wallet", though it moves no coins
+  and records only the network fee: it now reads "consolidate within the
+  same wallet", and, chosen, points a move at the other wallet ("Moving
+  coins to another of your wallets? Choose that wallet as To Account…"),
+  as an exchange's consolidation already did. The import's **Wallet for
+  sends and receives** said "River's sends…" whatever exchange the file
+  was from: it now says "This file's sends to your wallet go into it, and
+  its receives come from it." A Buy's **Paid from** called every bank
+  "(auto-buy)", 1.x's word for River's recurring buy: each bank is now
+  listed by its own name, for a one-off buy as well as a recurring one.
+  And a bitcoin Deposit whose source is MyBTC (or N/A, the first choice)
+  now says under **Source** that coins moved from another wallet or
+  exchange you track in BitcoinTX are a Transfer, not a Deposit: a deposit
+  would count them in both accounts. Words only: no figure changes.
+
 ### Development
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0
   testing plan #686). 50 rows join the made-up ledger every figures check

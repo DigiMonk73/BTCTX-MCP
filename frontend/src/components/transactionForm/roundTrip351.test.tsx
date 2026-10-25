@@ -106,7 +106,7 @@ describe("a row saved unchanged keeps its accounts", () => {
     const consolidation = await renderForm({ book: ONE_OF_EACH, transaction: btcTransfer(2, 2) });
     await consolidation.choose("From Account", "Exchange BTC");
     await consolidation.choose("From Account", "Wallet");
-    expect(shown("To Account")).toBe("Wallet: consolidate / move within the same wallet");
+    expect(shown("To Account")).toBe("Wallet: consolidate within the same wallet");
   });
 
   it("showing a hidden account it names", async () => {

@@ -11,7 +11,7 @@ import { offered, renderForm, shown } from "../../test/renderForm";
 import { WALLET_HINT } from "../../utils/disclaimer";
 import { ACCOUNTS_FAILED } from "../../utils/useAccounts";
 
-const WITHIN_WALLET = "Wallet: consolidate / move within the same wallet";
+const WITHIN_WALLET = "Wallet: consolidate within the same wallet";
 const WITHIN_EXCHANGE = "Exchange: consolidate within the same exchange";
 
 describe("with one of each: 1.x's form, its accounts by name", () => {
@@ -52,7 +52,7 @@ describe("with one of each: 1.x's form, its accounts by name", () => {
     const form = await renderForm({ book: ONE_OF_EACH });
     await form.pickType("Buy");
     expect(screen.queryByLabelText("Exchange", { exact: true })).toBeNull();
-    expect(offered("Paid from")).toEqual(["Exchange USD", "Bank (auto-buy)"]);
+    expect(offered("Paid from")).toEqual(["Exchange USD", "Bank"]);
     expect(shown("Paid from")).toBe("Select Account");
   });
 
@@ -79,7 +79,7 @@ describe("with more accounts", () => {
     await form.pickType("Transfer");
     await form.choose("From Account", "Coldcard");
     expect(offered("To Account")).toEqual([
-      "Wallets: Sparrow", "Wallets: Coldcard: consolidate / move within the same wallet",
+      "Wallets: Sparrow", "Wallets: Coldcard: consolidate within the same wallet",
       "Exchanges: River BTC", "Exchanges: Kraken BTC",
     ]);
     expect(shown("To Account")).toBe("Select To Account");
@@ -133,7 +133,7 @@ describe("with more accounts", () => {
     expect([shown("Paid from"), ...offered("Paid from")]).toEqual(["Choose the exchange first"]);
     await form.choose("Exchange", "Kraken");
     expect(offered("Paid from")).toEqual([
-      "Exchanges: Kraken USD", "Banks: Checking (auto-buy)", "Banks: Savings (auto-buy)",
+      "Exchanges: Kraken USD", "Banks: Checking", "Banks: Savings",
     ]);
     await form.choose("Paid from", "Kraken USD");
     await form.choose("Exchange", "River");
@@ -151,7 +151,7 @@ describe("with more accounts", () => {
     const form = await renderForm({ book: MANY });
     await form.pickType("Buy");
     await form.choose("Exchange", "Kraken");
-    await form.choose("Paid from", "Savings (auto-buy)");
+    await form.choose("Paid from", "Savings");
     await form.user.type(screen.getByLabelText("Amount USD"), "1000");
     await form.user.type(screen.getByLabelText("Amount BTC"), "0.01");
     await form.save();
