@@ -23,20 +23,33 @@ ROOT = Path(__file__).resolve().parents[2]
 ACTION = (ROOT / "startos/startos/actions/connectAi.ts").read_text()
 CURRENT = (ROOT / "startos/startos/versions/current.ts").read_text()
 AI_SETUP = (ROOT / "frontend/src/utils/aiSetup.ts").read_text()
+PRERELEASE_VERSION = (ROOT / "frontend/src/utils/prereleaseVersion.ts").read_text()
 
 
 def test_the_action_names_no_server_of_its_own():
-    # alpha.2's action wrote `bitcointx` and `claude mcp add --scope user
-    # bitcointx` whatever the version
+    # alpha.1's and alpha.2's action wrote `bitcointx` and `claude mcp add
+    # --scope user bitcointx` whatever the version
     assert not re.search(r"\bbitcointx\s*:", ACTION)
     assert "--scope user bitcointx" not in ACTION
-    assert "aiConnector(" in ACTION
 
 
-def test_the_names_are_the_apps():
+def test_the_configuration_and_the_command_take_the_helpers_answer():
+    """For the package's version without its revision (VERSION, the app's),
+    in both the Claude Desktop configuration and the Claude Code command."""
+    flat = re.sub(r"\s+", "", ACTION)
+    assert "aiConnector(current.options.version.split(':')[0],)" in flat
+    assert "[serverName]:{command:'uvx',args:[pkg]," in flat
+    assert "claude mcp add --scope user ${serverName}" in ACTION
+    assert "`-- uvx ${q(pkg)}`" in ACTION
+
+
+def test_the_names_and_the_rule_are_the_apps():
     for name in ("bitcointx", "bitcointx-preview"):
         assert f'"{name}"' in AI_SETUP
         assert f"'{name}'" in ACTION
+    # The same pre-release pattern: a change to the app's rule fails here
+    pattern = re.search(r"const PRERELEASE = (/.+/)\n", ACTION).group(1)
+    assert pattern in PRERELEASE_VERSION
 
 
 def _node_runs_typescript() -> bool:
@@ -74,15 +87,15 @@ def test_a_pre_release_names_its_server_apart_and_pins_its_connector_as_pypi_doe
     assert run.returncode == 0, run.stderr
     *named, this_package = json.loads(run.stdout)
     assert named == [
-        {"name": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0a2"},
-        {"name": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0a12"},
-        {"name": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0b1"},
-        {"name": "bitcointx", "pkg": "btctx-mcp==2.0.0"},
-        {"name": "bitcointx", "pkg": "btctx-mcp==1.2.10"},
-        {"name": "bitcointx", "pkg": "btctx-mcp==2.1.0"},
+        {"serverName": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0a2"},
+        {"serverName": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0a12"},
+        {"serverName": "bitcointx-preview", "pkg": "btctx-mcp==2.0.0b1"},
+        {"serverName": "bitcointx", "pkg": "btctx-mcp==2.0.0"},
+        {"serverName": "bitcointx", "pkg": "btctx-mcp==1.2.10"},
+        {"serverName": "bitcointx", "pkg": "btctx-mcp==2.1.0"},
     ]
     # This package's own: on a pre-release, never the tester's own BitcoinTX's name
     pre = re.fullmatch(r"(\d+\.\d+\.\d+)-(alpha|beta)\.(\d+)", _package_version())
     assert this_package == (
-        {"name": "bitcointx-preview", "pkg": f"btctx-mcp=={pre[1]}{pre[2][0]}{pre[3]}"} if pre
-        else {"name": "bitcointx", "pkg": f"btctx-mcp=={_package_version()}"})
+        {"serverName": "bitcointx-preview", "pkg": f"btctx-mcp=={pre[1]}{pre[2][0]}{pre[3]}"} if pre
+        else {"serverName": "bitcointx", "pkg": f"btctx-mcp=={_package_version()}"})

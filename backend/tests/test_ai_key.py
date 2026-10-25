@@ -307,7 +307,7 @@ def test_every_claude_code_command_adds_the_server_for_all_folders():
     action = (REPO / "startos" / "startos" / "actions" / "connectAi.ts").read_text()
     settings = (REPO / "frontend" / "src" / "utils" / "aiSetup.ts").read_text()
     guide = (REPO / "mcp_server" / "AI_SETUP.md").read_text()
-    assert "claude mcp add --scope user ${name}" in action  # a pre-release's name apart (#721)
+    assert "claude mcp add --scope user ${serverName}" in action  # a pre-release's name apart (#721)
     assert "claude mcp add --scope user ${serverName(input.version)}" in settings
     assert "claude mcp add --scope user bitcointx" in guide
     for source in (action, settings, guide):
