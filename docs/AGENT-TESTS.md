@@ -1802,10 +1802,12 @@ not a step to skip.
   it updates in place, with UPG-2's and UPG-2b's checks (its log's
   "Migrating …" names the registry's version), and the service page shows
   `2.0.0-beta.N:0`. A refusal is a FAIL (record StartOS's
-  words): the beta's way onto a tester's server doesn't work. Then back,
-  as WAY-3: uninstall, restore the StartOS backup. Expect the version the
-  registry gave, its login, the recorded figures and 14 rows. Revert the
-  VM to `clean`.
+  words): the beta's way onto a tester's server doesn't work. Expect every
+  page of its web app, the login page included, to have the banner
+  "BitcoinTX · 2.0.0-beta.N: a test version, not a release" (#670). Then
+  back, as WAY-3: uninstall, restore the StartOS backup. Expect the
+  version the registry gave, its login, the recorded figures and 14 rows.
+  Revert the VM to `clean`.
 - **BETA-2** (StartOS VM, from `clean`; from beta.2 on) One pre-release
   to the next: sideload the pre-release before this one, do its tasks,
   run `golden_loader.py`, create an AI key and turn AI access on, add
@@ -1823,7 +1825,14 @@ not a step to skip.
   folder (UNPACKED) and start it with `REPO/desktop/run-test-build.sh
   --app "UNPACKED/BitcoinTX Preview.app" --fresh --background`. Expect its
   window, and `curl http://127.0.0.1:8766/api/health` with
-  `2.0.0-beta.N`. Choose its login as MAC-3 does. Settings, open **Backup
+  `2.0.0-beta.N`. Expect it to look like a test version (#670): in Finder
+  and the Dock its icon has a red PREVIEW band (BitcoinTX's doesn't); a
+  banner above the page, "BitcoinTX Preview · 2.0.0-beta.N: a test
+  version, apart from your BitcoinTX"; on the login page, "BitcoinTX
+  Preview is a separate test app: it starts empty, and BitcoinTX and its
+  ledger are still there, as they were."; and `ps -o comm= -p PID` (the
+  PID the script printed) ending in `MacOS/BitcoinTX Preview`. Choose its
+  login as MAC-3 does. Settings, open **Backup
   & Restore**: Restore from Backup with UPG-1's `golden-1x.btx` and
   `backup-pass-123`. Expect "✅ Database successfully restored. Log in
   again with your current username and password.", then the login page;
@@ -1851,8 +1860,10 @@ not a step to skip.
   docker run -d --name btctx-beta -p 127.0.0.1:8793:80 -v btctx-beta:/data ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N
   ```
 
-  Expect `curl http://127.0.0.1:8793/api/health` with `2.0.0-beta.N`.
-  Claim it as WAY-6 does (port 8793, `docker logs btctx-beta`). Settings,
+  Expect `curl http://127.0.0.1:8793/api/health` with `2.0.0-beta.N`, and
+  above its login page the banner "BitcoinTX · 2.0.0-beta.N: a test
+  version, not a release" (#670). Claim it as WAY-6 does (port 8793,
+  `docker logs btctx-beta`). Settings,
   open **Backup & Restore**: restore `golden-1x.btx` with
   `backup-pass-123`. Expect the restore's message, then the login page;
   the new login works; every golden figure, and **Wallets, exchanges and

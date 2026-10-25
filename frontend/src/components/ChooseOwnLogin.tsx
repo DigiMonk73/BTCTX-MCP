@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { extractErrorMessage } from "../utils/apiError";
 import { PASSWORD_RULE } from "../utils/credentials";
 import { claimDefaultLogin, ownLoginProblem, windowSetupCode } from "../utils/ownLogin";
+import { macApp, previewFirstPageLine } from "../utils/prereleaseVersion";
 
 interface ChooseOwnLoginProps {
   /** The Mac app window's API: it reads the setup code (desktop/desktop_api.py). */
@@ -16,7 +17,9 @@ interface ChooseOwnLoginProps {
  * The login card in the Mac app's window while the account still has the
  * default login (a first start, or an older install never changed): the
  * owner chooses a username and password, the window supplies the setup
- * code, and every transaction is kept (utils/ownLogin.ts).
+ * code, and every transaction is kept (utils/ownLogin.ts). BitcoinTX
+ * Preview, a pre-release's app, says first that it starts empty beside
+ * BitcoinTX: a tester's ledger isn't gone (#670).
  */
 const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone, onNoCode }) => {
   const [username, setUsername] = useState("");
@@ -24,6 +27,9 @@ const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone, onNo
   const [repeat, setRepeat] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // BitcoinTX Preview's own login, never the tester's BitcoinTX's (#670)
+  const app = macApp(__BTCTX_VERSION__);
+  const previewLine = previewFirstPageLine(__BTCTX_VERSION__);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,8 +58,9 @@ const ChooseOwnLogin: React.FC<ChooseOwnLoginProps> = ({ windowApi, onDone, onNo
       <h2 className="login-card-title">Choose your username and password</h2>
 
       <form onSubmit={handleSubmit} className="login-form">
+        {previewLine && <p className="note">{previewLine}</p>}
         <p className="field-hint">
-          BitcoinTX still has the login it comes with (admin / password), which anyone could
+          {app} still has the login it comes with (admin / password), which anyone could
           guess. Choose your own; your transactions are kept.
         </p>
 

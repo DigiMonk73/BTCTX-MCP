@@ -17,6 +17,25 @@ All notable changes to BitcoinTX are documented in this file.
   ships, in every language (this CHANGELOG keeps its history as written).
   GitHub's About for this repository follows when 2.0 replaces 1.x.
 
+### Fixed
+- **BitcoinTX Preview looks like a test version** (#670). The Mac app of
+  2.0's alphas and betas ran beside BitcoinTX but looked the same: its
+  icon was BitcoinTX's, and nothing inside its window said Preview, so its
+  empty ledger could look like your BitcoinTX reset. Its icon now has a
+  red "PREVIEW" band (`desktop/resources/icon-preview.icns`, made by
+  `scripts/preview_icon.py`). A banner above every page of a pre-release,
+  the login page included, names it: "BitcoinTX Preview · 2.0.0-alpha.N: a
+  test version, apart from your BitcoinTX" on a Mac, and "BitcoinTX ·
+  2.0.0-alpha.N: a test version, not a release" on StartOS and Docker,
+  where the pre-release is BitcoinTX itself. The Preview's first page says
+  it starts empty and BitcoinTX and its ledger are still there, and that
+  the default login (admin / password) is BitcoinTX Preview's. Its
+  executable is named `BitcoinTX Preview` too, the name crash reports,
+  Console and `ps` show (the Dock, Activity Monitor and Force Quit
+  already showed the app's); `desktop/run-test-build.sh` runs the
+  executable a bundle names. BitcoinTX itself looks as it did. No figure
+  changes.
+
 ### Development
 - **A test that failed now and then, fixed** (#660). Three of the
   exchange import card's tests chose "Another exchange: match its

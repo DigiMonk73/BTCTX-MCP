@@ -186,13 +186,14 @@ SPEC = (DESKTOP / "BitcoinTX.spec").read_text()
 
 
 def test_the_spec_takes_the_apps_name_and_id_from_desktop_paths():
-    assert "from desktop_paths import bundle_id, own_name" in SPEC
+    assert "from desktop_paths import bundle_id, icon_name, own_name" in SPEC
     assert 'name=f"{APP_NAME}.app"' in SPEC
     assert "bundle_identifier=APP_ID" in SPEC
     assert '"CFBundleName": APP_NAME' in SPEC and '"CFBundleDisplayName": APP_NAME' in SPEC
     assert '"CFBundleIdentifier": APP_ID' in SPEC
-    # the executable keeps its name: desktop/run-test-build.sh runs Contents/MacOS/BitcoinTX
-    assert re.search(r'exe = EXE\((?:.|\n)*?name="BitcoinTX",', SPEC)
+    # the executable is named after the app too (#670): desktop/run-test-build.sh
+    # and scripts/mac-app.sh run the one its bundle names
+    assert re.search(r"exe = EXE\((?:.|\n)*?name=APP_NAME,", SPEC)
     for fixed in ('"BitcoinTX.app"', '"org.bitcointx.desktop"'):
         assert fixed not in SPEC, fixed
 

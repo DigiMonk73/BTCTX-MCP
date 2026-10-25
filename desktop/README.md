@@ -79,3 +79,4 @@ desktop/run-test-build.sh            # --fresh: empty folder; --app PATH: anothe
 | `requirements.in` | Desktop-only packages (pyinstaller, pywebview, and setuptools to build proxy-tools), pinned |
 | `requirements.txt` | Their lock, with hashes (`make lock`; docs/MAINTENANCE.md) |
 | `resources/icon.icns` | App icon |
+| `resources/icon-preview.icns` | BitcoinTX Preview's icon: the same with a "PREVIEW" band (`scripts/preview_icon.py` makes it; docs/MACOS_DESKTOP_APP.md, "App icon") |

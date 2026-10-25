@@ -27,6 +27,9 @@ APP_NAME = "BitcoinTX"
 APP_ID = "org.bitcointx.desktop"
 PREVIEW_APP_NAME = "BitcoinTX Preview"
 PREVIEW_APP_ID = "org.bitcointx.desktop.preview"
+ICON = "icon.icns"
+# BitcoinTX's with a "PREVIEW" band (#670; scripts/preview_icon.py makes it)
+PREVIEW_ICON = "icon-preview.icns"
 
 
 class InstalledAppsFolder(RuntimeError):
@@ -45,6 +48,12 @@ def own_name() -> str:
 
 def bundle_id() -> str:
     return PREVIEW_APP_ID if is_preview() else APP_ID
+
+
+def icon_name() -> str:
+    """The app's icon in desktop/resources/: BitcoinTX Preview's has a band,
+    so the two can't be taken for each other in the Dock or Finder (#670)."""
+    return PREVIEW_ICON if is_preview() else ICON
 
 
 def data_dir_override() -> Path | None:

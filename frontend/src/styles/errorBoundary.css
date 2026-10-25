@@ -4,7 +4,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  flex: 1 0 auto;
   padding: var(--space-6);
 }
 .error-boundary-content { max-width: 500px; text-align: center; }
