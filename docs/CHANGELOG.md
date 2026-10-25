@@ -35,6 +35,17 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **Settings reads your accounts afresh, so Delete follows the server**
+  (#720, found by the StartOS tests, #691). The account book was read once
+  per page, so after a transaction into a new account (on the Transactions
+  page, or by an import in Settings), Settings still said "It has no
+  transactions." and offered Delete, and the server refused it. Settings
+  now reads the book again as it opens, each time its **Wallets, exchanges
+  and banks** section opens, and after a refused delete (an account the AI
+  connector used while the section stayed open): the row then says "This
+  account has transactions, so it can't be deleted. Hide it instead: its
+  history stays.", with the server's refusal below and the keyboard back
+  on the row. No figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins
@@ -51,6 +62,17 @@ All notable changes to BitcoinTX are documented in this file.
   now says under **Source** that coins moved from another wallet or
   exchange you track in BitcoinTX are a Transfer, not a Deposit: a deposit
   would count them in both accounts. Words only: no figure changes.
+- **StartOS's Connect an AI Assistant names a pre-release's connector apart,
+  as Settings does** (#721, found by the 2.0 testing plan's StartOS
+  session). On 2.0.0-alpha.1 and alpha.2 the action named the server
+  `bitcointx`, so its Claude Desktop configuration or its `claude mcp add`
+  command replaced your AI app's entry for your own BitcoinTX with the test
+  server. On an alpha or a beta it now names it `bitcointx-preview`, as
+  Settings → Connect an AI Assistant does, and pins the connector as PyPI
+  lists it (`btctx-mcp==2.0.0a2`, where it wrote `2.0.0-alpha.2`, which uv
+  read the same way). A release keeps `bitcointx`. If your AI app's
+  `bitcointx` reached another BitcoinTX (the Mac app, another server) and
+  you replaced it with the action's configuration, set it back.
 - **A Transfer's consolidation no longer becomes a move when its From
   Account changes** (#719, found by the 2.0 testing plan's StartOS run,
   ACC-7, on alpha.2; the bug is in alpha.1 and alpha.2). With To Account on
