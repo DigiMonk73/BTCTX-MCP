@@ -980,9 +980,11 @@ Set `KEY` to the key from AI-3, and use
 - **AI-7** StartOS action **Connect an AI Assistant**. Expect: "MCP address
   (BTCTX_URL)" = `$API`, a "Root CA certificate" (save it as `ca.crt` if you
   haven't), and a "Claude Desktop configuration" and "Claude Code command"
-  that run `uvx btctx-mcp==X.Y.Z` with `YOUR_BITCOINTX_AI_KEY`. Settings'
-  **Connect an AI Assistant**: its Setup prompt contains the same version
-  and `$URL` (the connector accepts the address with or without `/api`).
+  that run `uvx btctx-mcp==X.Y.Z` with `YOUR_BITCOINTX_AI_KEY`, under the
+  server name `bitcointx` (an alpha's or a beta's: `bitcointx-preview`, with
+  `btctx-mcp==2.0.0aN` or `2.0.0bN`, #721). Settings' **Connect an AI
+  Assistant**: its Setup prompt contains the same server name, version and
+  `$URL` (the connector accepts the address with or without `/api`).
 - **AI-8** List the connector's tools with the MCP Inspector CLI. In
   Inspector 2.8.0 the server command comes first, then `--`, then the
   Inspector's own options:
