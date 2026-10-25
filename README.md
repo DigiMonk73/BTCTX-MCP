@@ -127,8 +127,9 @@ Start9's store stay on 1.x.
 
 - **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta),
   installed beside BitcoinTX with its own ledger, folder and port: your
-  BitcoinTX and its ledger are never opened. For now it has BitcoinTX's
-  icon: tell them apart by the name, **BitcoinTX Preview**
+  BitcoinTX and its ledger are never opened. From 2.0.0-alpha.2 its icon
+  has a red **PREVIEW** band and a banner above every page names it
+  (alpha.1 still has BitcoinTX's icon: tell them apart by the name)
   ([#670](https://github.com/DigiMonk73/BTCTX-MCP/issues/670)). It starts
   with an empty ledger; to try your records in it, download a backup in
   BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX
