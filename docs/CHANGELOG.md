@@ -4,6 +4,20 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
+
+**About this alpha.** BitcoinTX 2.0's second pre-release, for anyone who
+chooses to try 2.0 before it's released: never for real records. New since
+[v2.0.0-alpha.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1):
+the dashboard's Portfolio Overview card is 1.2.10's again, with an arrow on
+a bank, exchange or wallet line to show each account's balance when there's
+more than one; a banner above every page says it's a test version; on a Mac,
+BitcoinTX Preview's icon has a red PREVIEW band, and its first page says it
+starts empty, apart from your BitcoinTX and its ledger; the store listing's
+and the AI connector's descriptions are reworded. No figure changes. The way
+back to 1.x and what's in 2.0 are in alpha.1's notes. The AI connector is
+`btctx-mcp==2.0.0a2`.
+
 ### Changed
 - **"Minimalist" no longer describes BitcoinTX** (D1 of the docs overhaul,
   #673; the owner, 2026-10-24: "I no longer consider it minimalist and don't
