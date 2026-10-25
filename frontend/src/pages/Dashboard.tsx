@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
-import AccountCards from "../components/dashboard/AccountCards";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
 import HistoryQuestionCard from "../components/dashboard/HistoryQuestionCard";
 import IncomeFeesCard from "../components/dashboard/IncomeFeesCard";
@@ -9,7 +8,6 @@ import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { CARD_TITLES, NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
 import { useLivePrice } from "../components/dashboard/useLivePrice";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
@@ -18,7 +16,6 @@ const GRID_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Ga
 
 const Dashboard: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[] | null>(null);
-  const [totals, setTotals] = useState<AccountTotals>(NO_TOTALS);
   const [averageBtcCostBasis, setAverageBtcCostBasis] = useState<number | null>(null);
   const [gainsAndLosses, setGainsAndLosses] = useState<GainsAndLosses | null>(null);
 
@@ -92,11 +89,6 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!balances) return;
-    setTotals(accountTotals(balances));
-  }, [balances]);
-
-  useEffect(() => {
     api
       .get<GainsAndLossesRaw>("/calculations/gains-and-losses")
       .then((response) => {
@@ -121,11 +113,8 @@ const Dashboard: React.FC = () => {
   if (balances === null || gainsAndLosses === null) {
     return (
       <div className="dashboard" aria-busy="true">
-        <div className="account-cards">
-          {CARD_TITLES.map((title) => <LoadingCard key={title} title={title} className="account-card" />)}
-        </div>
         <div className="dashboard-grid">
-          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} className="dashboard-card-loading" />)}
+          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} />)}
         </div>
       </div>
     );
@@ -134,9 +123,8 @@ const Dashboard: React.FC = () => {
   return (
     <div className="dashboard">
       {unchosen ? <PriceSourceCard variant="first-run" /> : <HistoryQuestionCard />}
-      <AccountCards balances={balances} />
       <div className="dashboard-grid">
-        <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
+        <PortfolioOverview balances={balances} averageCostBasis={averageBtcCostBasis} price={price} />
         <BtcPriceCard price={price} blockHeight={blockHeight} />
         <RealizedGainsCard gains={gainsAndLosses} />
         <IncomeFeesCard gains={gainsAndLosses} price={price} />

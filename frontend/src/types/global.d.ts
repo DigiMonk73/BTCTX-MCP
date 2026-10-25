@@ -57,7 +57,7 @@ declare global {
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
-    kind: AccountKind | null; // the dashboard's cards go by kind (2.0 spec 5.13); null: no account the book lists
+    kind: AccountKind | null; // the dashboard's balances go by kind (2.0 spec 5.13); null: no account the book lists
     exchange_id: number | null; // an exchange's two accounts share it
     exchange: string | null; // that exchange's name
     hidden: boolean;

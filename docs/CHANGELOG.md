@@ -16,6 +16,21 @@ All notable changes to BitcoinTX are documented in this file.
   portfolio and tax tracker"; a test keeps the word out of everything that
   ships, in every language (this CHANGELOG keeps its history as written).
   GitHub's About for this repository follows when 2.0 replaces 1.x.
+- **The dashboard's balances are back in Portfolio Overview, with a caret
+  per kind** (#674, the owner's first finding from testing alpha.1). In
+  place of alpha.1's three cards (Bank, Exchange and Wallet, #356), the
+  dashboard is 1.x's again: one Portfolio Overview card with Bank (USD),
+  Exchange (USD), Exchange (BTC) and Wallet (BTC), each the total of all
+  its accounts, then Total BTC, Avg. Cost per BTC and Unrealized
+  Gains/Losses. A kind with more than one account, or a hidden one still
+  holding something, has a caret after its label (Settings' chevron,
+  the same for both, from one shared style): the whole line opens
+  and closes the list of its accounts under it, each with its amount
+  ("Hidden" noted), adding up to the line; Exchange (USD) lists each
+  exchange's dollars and Exchange (BTC) each one's bitcoin. Lines start
+  closed, and the ones opened stay open in that browser (an Exchange card
+  alpha.1 left open opens both exchange lines). With one account of each
+  kind the card is 1.2.10's. No figure changes.
 
 ### Fixed
 - **BitcoinTX Preview looks like a test version** (#670). The Mac app of

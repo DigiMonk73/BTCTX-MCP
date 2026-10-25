@@ -2,7 +2,7 @@
 B8's server half (2.0 spec 5.9, 5.13; card #356):
 
 - the balances route gives each account's kind, exchange and hidden, from
-  the account book, for the dashboard's cards by kind; the service it reads
+  the account book, for the dashboard's balances by kind; the service it reads
   (and so the reference figures) stays as it was;
 - a Ledger Review item, the hourly check's too, names its accounts (from
   then to, External never);

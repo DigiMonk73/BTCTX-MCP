@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  accountTotals, gainClass, kindCards, noPriceReason, openCardsAfter, priceSourceShort, priceSourceWords, readOpenCards,
-  toggleLabel,
+  OPEN_LINES_KEY, accountTotals, balanceLines, gainClass, listsAccounts, noPriceReason, openLinesAfter, priceSourceShort,
+  priceSourceWords, readOpenLines, type BalanceLine,
 } from "./dashboard";
 
 type Extra = Partial<Pick<AccountBalance, "exchange_id" | "exchange" | "hidden">>;
@@ -68,80 +68,111 @@ describe("accountTotals", () => {
   });
 });
 
-describe("kindCards: Bank, Exchange and Wallet as P7's mockups have them (#356)", () => {
-  it("one of each: three cards of one row each, no toggle", () => {
-    const cards = kindCards(ONE_OF_EACH);
-    expect(cards.map((c) => [c.title, c.usd, c.btc, c.rows.length])).toEqual([
-      ["Bank", 1500.25, 0, 1], ["Exchange", 20, 0.25, 1], ["Wallet", 0, 0.5, 1]]);
-    expect(cards.map((c) => toggleLabel(c, false))).toEqual([null, null, null]);
+const labels = (lines: BalanceLine[]) => lines.map((l) => l.label);
+const listed = (line: BalanceLine) => line.accounts.map((a) => [a.name, a.amount, a.hidden]);
+const lineOf = (lines: BalanceLine[], key: BalanceLine["key"]) => lines.find((l) => l.key === key)!;
+
+describe("balanceLines: Portfolio Overview's lines by kind, as 1.x has them (#674)", () => {
+  it("one of each: 1.x's four lines in its order, each with its one account and no caret", () => {
+    const lines = balanceLines(ONE_OF_EACH);
+    expect(lines.map((l) => [l.label, l.currency, l.total, l.accounts.length])).toEqual([
+      ["Bank (USD)", "USD", 1500.25, 1], ["Exchange (USD)", "USD", 20, 1],
+      ["Exchange (BTC)", "BTC", 0.25, 1], ["Wallet (BTC)", "BTC", 0.5, 1]]);
+    expect(lines.map(listsAccounts)).toEqual([false, false, false, false]);
   });
 
-  it("each exchange is one row, its dollars and bitcoin side by side, by its name", () => {
-    const exchange = kindCards(TWO_OF_EACH)[1];
-    expect(exchange.rows).toEqual([
-      { key: "exchange-1", name: "Exchange", usd: 20, btc: 0.25, hidden: false },
-      { key: "exchange-2", name: "Kraken", usd: 0, btc: 0.05, hidden: false },
-    ]);
-    expect([exchange.usd, exchange.btc]).toEqual([20, 0.3]);
+  it("each exchange's dollars under Exchange (USD) and its bitcoin under Exchange (BTC), by the exchange's name", () => {
+    const lines = balanceLines(TWO_OF_EACH);
+    expect(listed(lineOf(lines, "exchangeUsd"))).toEqual([["Exchange", 20, false], ["Kraken", 0, false]]);
+    expect(listed(lineOf(lines, "exchangeBtc"))).toEqual([["Exchange", 0.25, false], ["Kraken", 0.05, false]]);
+    expect(listsAccounts(lineOf(lines, "exchangeUsd"))).toBe(true);
+    expect(listsAccounts(lineOf(lines, "exchangeBtc"))).toBe(true);
   });
 
-  it("a hidden account with a zero balance is left out; one holding coins stays, marked", () => {
-    const wallet = kindCards(TWO_OF_EACH)[2];
-    expect(wallet.rows.map((r) => [r.name, r.btc, r.hidden])).toEqual([
-      ["Wallet", 0.5, false], ["Cold Storage", 0.25, false], ["Paper Wallet", 0.01, true]]);
-    expect(wallet.btc).toBe(0.76);
+  it("a hidden account holding nothing is left out; one still holding something is listed, marked", () => {
+    const wallet = lineOf(balanceLines(TWO_OF_EACH), "wallet");
+    expect(listed(wallet)).toEqual([["Wallet", 0.5, false], ["Cold Storage", 0.25, false], ["Paper Wallet", 0.01, true]]);
+    expect(wallet.total).toBe(0.76);
   });
 
-  it("a hidden exchange is left out only when both its accounts are zero", () => {
+  it("a hidden exchange is left out of a line where it holds nothing in that line's currency", () => {
     const hidden = { ...KRAKEN, hidden: true };
-    const cards = kindCards([...ONE_OF_EACH, balance(102, "Kraken USD", "exchange", "USD", "5.00", hidden),
+    const lines = balanceLines([...ONE_OF_EACH, balance(102, "Kraken USD", "exchange", "USD", "5.00", hidden),
       balance(103, "Kraken BTC", "exchange", "BTC", "0", hidden)]);
-    expect(cards[1].rows.map((r) => [r.name, r.hidden])).toEqual([["Exchange", false], ["Kraken", true]]);
-    const empty = kindCards([...ONE_OF_EACH, balance(102, "Kraken USD", "exchange", "USD", "0", hidden),
-      balance(103, "Kraken BTC", "exchange", "BTC", "0", hidden)]);
-    expect(empty[1].rows.map((r) => r.name)).toEqual(["Exchange"]);
+    expect(listed(lineOf(lines, "exchangeUsd"))).toEqual([["Exchange", 20, false], ["Kraken", 5, true]]);
+    expect(listed(lineOf(lines, "exchangeBtc"))).toEqual([["Exchange", 0.25, false]]);
+    expect(listsAccounts(lineOf(lines, "exchangeBtc"))).toBe(false);
   });
 
-  it("a renamed Wallet stays on the Wallet card, by its new name", () => {
+  it("a caret only where there's something to list: more than one account, or a hidden one still holding something", () => {
+    const [bank, exchangeUsd, exchangeBtc, wallet] = balanceLines(TWO_OF_EACH);
+    expect([bank, exchangeUsd, exchangeBtc, wallet].map(listsAccounts)).toEqual([true, true, true, true]);
+    // Your only bank hidden with dollars left in it: the line says so when opened
+    const hiddenBank = ONE_OF_EACH.map((b) => (b.account_id === 1 ? { ...b, hidden: true } : b));
+    expect(listsAccounts(lineOf(balanceLines(hiddenBank), "bank"))).toBe(true);
+    // A second wallet hidden and empty: nothing more to list
+    const emptyHidden = [...ONE_OF_EACH, balance(104, "Old Wallet", "wallet", "BTC", "0", { hidden: true })];
+    expect(listsAccounts(lineOf(balanceLines(emptyHidden), "wallet"))).toBe(false);
+  });
+
+  it("the listed amounts add up exactly to the line's total, in cents and in sats", () => {
+    const cents = (usd: number) => Math.round(usd * 100);
+    const sats = (btc: number) => Math.round(btc * 1e8);
+    const odd = [...TWO_OF_EACH, balance(106, "Savings", "bank", "USD", "0.10"), balance(107, "Brokerage", "bank", "USD", "0.20"),
+      balance(108, "Hot Wallet", "wallet", "BTC", "0.00000001")];
+    for (const line of balanceLines(odd)) {
+      const unit = line.currency === "USD" ? cents : sats;
+      expect(line.accounts.reduce((sum, a) => sum + unit(a.amount), 0), line.label).toBe(unit(line.total));
+    }
+    expect(lineOf(balanceLines(odd), "bank").total).toBeCloseTo(1750.55, 9);
+  });
+
+  it("the totals are accountTotals', line by line", () => {
+    const totals = accountTotals(TWO_OF_EACH);
+    expect(balanceLines(TWO_OF_EACH).map((l) => l.total))
+      .toEqual([totals.bank, totals.exchangeUsd, totals.exchangeBtc, totals.wallet]);
+  });
+
+  it("a renamed Wallet stays on Wallet (BTC), by its new name", () => {
     const renamed = ONE_OF_EACH.map((b) => (b.account_id === 2 ? { ...b, name: "Coldcard" } : b));
-    const wallet = kindCards(renamed)[2];
-    expect([wallet.title, wallet.btc, wallet.rows[0].name]).toEqual(["Wallet", 0.5, "Coldcard"]);
+    expect(listed(lineOf(balanceLines(renamed), "wallet"))).toEqual([["Coldcard", 0.5, false]]);
   });
 
-  it("the fee accounts are on no card", () => {
-    const names = kindCards(TWO_OF_EACH).flatMap((c) => c.rows.map((r) => r.name));
+  it("the fee accounts are on no line", () => {
+    const names = balanceLines(TWO_OF_EACH).flatMap((l) => l.accounts.map((a) => a.name));
     expect(names).not.toContain("BTC Fees");
     expect(names).not.toContain("USD Fees");
   });
 
-  it("a card with more than one row offers its toggle, with the count", () => {
-    const [bank, exchange, wallet] = kindCards(TWO_OF_EACH);
-    expect([toggleLabel(bank, false), toggleLabel(exchange, false), toggleLabel(wallet, false)])
-      .toEqual(["Show accounts (2)", "Show accounts (2)", "Show accounts (3)"]);
-    expect(toggleLabel(wallet, true)).toBe("Hide accounts");
-  });
-
-  it("a card with no account at all shows zero and no toggle", () => {
-    const cards = kindCards([]);
-    expect(cards.map((c) => [c.title, c.usd, c.btc, c.rows.length, toggleLabel(c, false)])).toEqual([
-      ["Bank", 0, 0, 0, null], ["Exchange", 0, 0, 0, null], ["Wallet", 0, 0, 0, null]]);
+  it("no account at all: the four lines at zero, no caret", () => {
+    const lines = balanceLines([]);
+    expect(labels(lines)).toEqual(["Bank (USD)", "Exchange (USD)", "Exchange (BTC)", "Wallet (BTC)"]);
+    expect(lines.map((l) => [l.total, l.accounts.length, listsAccounts(l)])).toEqual([
+      [0, 0, false], [0, 0, false], [0, 0, false], [0, 0, false]]);
   });
 });
 
-describe("the open cards, remembered per browser (P7)", () => {
-  it("reads what was stored, keeping only the three kinds, in the cards' order", () => {
-    expect(readOpenCards('["wallet","exchange","nope",3]')).toEqual(["exchange", "wallet"]);
+describe("the open lines, remembered on this device (#674)", () => {
+  it("reads what was stored, keeping only the four lines, in the card's order", () => {
+    expect(readOpenLines('["wallet","exchangeBtc","nope",3]')).toEqual(["exchangeBtc", "wallet"]);
+  });
+
+  it("reads alpha.1's open cards: Bank and Wallet stay open, Exchange opens both exchange lines", () => {
+    expect(OPEN_LINES_KEY).toBe("btctx.dashboard.openCards");
+    expect(readOpenLines('["exchange","wallet"]')).toEqual(["exchangeUsd", "exchangeBtc", "wallet"]);
+    expect(readOpenLines('["bank"]')).toEqual(["bank"]);
   });
 
   it("starts closed with nothing stored or something unreadable", () => {
-    expect(readOpenCards(null)).toEqual([]);
-    expect(readOpenCards("{not json")).toEqual([]);
-    expect(readOpenCards('{"wallet":true}')).toEqual([]);
+    expect(readOpenLines(null)).toEqual([]);
+    expect(readOpenLines("{not json")).toEqual([]);
+    expect(readOpenLines('{"wallet":true}')).toEqual([]);
+    expect(readOpenLines("null")).toEqual([]);
   });
 
-  it("opens and closes one card, leaving the others", () => {
-    expect(openCardsAfter(["bank"], "wallet")).toEqual(["bank", "wallet"]);
-    expect(openCardsAfter(["bank", "wallet"], "bank")).toEqual(["wallet"]);
+  it("opens and closes one line, leaving the others", () => {
+    expect(openLinesAfter(["bank"], "wallet")).toEqual(["bank", "wallet"]);
+    expect(openLinesAfter(["bank", "wallet"], "bank")).toEqual(["wallet"]);
   });
 });
 

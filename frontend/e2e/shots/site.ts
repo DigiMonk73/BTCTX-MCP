@@ -43,8 +43,8 @@ test("dashboard, transactions and reports", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
   await expect(page.locator(".btc-price-value")).toContainText("60,000");
   await expect(page.getByText("Rebates (received)")).toBeVisible();
-  // The Wallet card open on its two wallets: 2.0's accounts, as the README describes them
-  await page.getByRole("region", { name: "Wallet", exact: true }).getByRole("button", { name: "Show accounts (2)" }).click();
+  // Wallet (BTC) open on its two wallets: 2.0's accounts, as the README describes them (#674)
+  await page.locator(".portfolio-overview").getByRole("button", { name: /^Wallet \(BTC\)/ }).click();
   await shot(page, "dashboard");
 
   await page.getByRole("link", { name: "Transactions" }).click();
