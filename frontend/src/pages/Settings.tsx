@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import AboutSetting from "../components/AboutSetting";
 import AccountSettings from "../components/AccountSettings";
@@ -59,6 +59,17 @@ const Settings: React.FC = () => {
     document.getElementById(`settings-${scrollTo}-section`)?.scrollIntoView({ block: "start" });
     setScrollTo(null);
   }, [scrollTo, open]);
+
+  // Closed sections stay mounted, and two of them save transactions (the imports, Delete All): the accounts
+  // section reads the book again each time it opens, by its button or a link, as its rows offer Delete and Add
+  // its note by `in_use` (#720). Open as the page opens, it has the book useSettingsAccounts just read.
+  const accountsOpen = open === "accounts";
+  const accountsWereOpen = useRef(accountsOpen);
+  const { reload: readAccounts } = accounts;
+  useEffect(() => {
+    if (accountsOpen && !accountsWereOpen.current) void readAccounts();
+    accountsWereOpen.current = accountsOpen;
+  }, [accountsOpen, readAccounts]);
 
   const toggle = (id: SettingsSectionId) => {
     const next = toggled(open, id);

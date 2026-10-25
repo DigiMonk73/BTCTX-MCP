@@ -58,7 +58,8 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
       # Node runs the StartOS package's error-reading code in
-      # test_startos_action_errors_465.py (type stripping: 22.6 or later)
+      # test_startos_action_errors_465.py and test_startos_ai_preview_721.py
+      # (type stripping: 22.6 or later)
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
