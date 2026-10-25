@@ -21,6 +21,26 @@ All notable changes to BitcoinTX are documented in this file.
   one the save would refuse says why. No figure changes.
 
 ### Changed
+- **An exchange's file finds the trades you recorded in another exchange
+  before 2.0** (#707, found by Grok (Cursor) reading alpha.2; the owner's
+  decision, 2026-10-25). BitcoinTX 1.x kept one exchange, and its guide
+  had a second exchange's trades recorded in it. Add that exchange in 2.0
+  and import its file into it, and the duplicate check, which compares a
+  row only with transactions in the same exchange, found none of them:
+  each was saved a second time, unflagged. Now a row of the same kind,
+  bitcoin amount and minute as a transaction in another exchange (or
+  another wallet) is marked **Review** in the preview, ticked, its note
+  naming that account ("recorded into Exchange BTC, not Kraken BTC: it may
+  already be recorded in Exchange"): untick it to leave it out. Never left
+  out by itself: two exchanges' identical trades can be two trades. And
+  with more than one exchange, the importer no longer picks one for you
+  (it took your first): choose the exchange each file is from, unless one
+  of yours is named as the file's exchange ("River" for River's file),
+  which is chosen already. A line beside it says what to do if you
+  recorded that exchange's trades in another one before 2.0: untick them,
+  or move them to this exchange first. The AI connector's duplicate check
+  is unchanged. No figure changes: a Review row is imported unless you
+  untick it, as a new row was.
 - **Adding an exchange asks whether it sends a Form 1099-DA** (#708, found
   by Grok (Cursor) reading alpha.2). Settings' **Add an exchange** now asks
   "Does this exchange send you a Form 1099-DA?", **Yes** chosen, with the
