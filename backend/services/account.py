@@ -31,6 +31,7 @@ from backend.models.app_setting import AppSetting, save_setting
 from backend.models.exchange import Exchange
 from backend.models.transaction import LedgerEntry, Transaction
 from backend.models.user import User
+from backend.services.reports.safe_text import prints_in_reports
 
 YOUR_KINDS = ("bank", "wallet", "exchange")
 FEE_ACCOUNTS = (ACCOUNT_BTC_FEES, ACCOUNT_USD_FEES)
@@ -67,6 +68,10 @@ FEES_NOT_DELETED = "The fee accounts can't be deleted."
 FIRST_NOT_DELETED = "Your first bank, wallet and exchange can't be deleted. Hide one you don't use."
 IN_USE = "This account has transactions, so it can't be deleted. Hide it instead: its history stays."
 NO_1099DA = "Only an exchange's accounts have the 1099-DA setting."
+# The tax report names each account, in a font that draws Western European
+# letters only (safe_text.py; #722, the owner's choice: limit names)
+UNPRINTABLE = ("A name can use letters, digits and punctuation the tax report can print: no emoji, and no "
+               "letters outside Western European alphabets.")
 
 
 @dataclass(frozen=True)
@@ -327,7 +332,7 @@ def _lock(db: Session) -> None:
 
 
 def _one(db: Session, kind: str, name: str) -> Account:
-    _one_line(name, LONGEST_NAME)
+    _check_name(name, LONGEST_NAME)
     _free(db, name)
     account = Account(id=_next_id(db), user_id=_owner(db), name=name, kind=kind,
                       currency="BTC" if kind == "wallet" else "USD")
@@ -337,7 +342,7 @@ def _one(db: Session, kind: str, name: str) -> Account:
 
 
 def _exchange(db: Session, name: str, sends_1099da: bool | None) -> list[Account]:
-    _one_line(name, LONGEST_EXCHANGE_NAME)
+    _check_name(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name)
     for currency in ("USD", "BTC"):
         _free(db, f"{name} {currency}")
@@ -360,13 +365,13 @@ def _rename(db: Session, account: Account, name: str) -> None:
     exchange = db.get(Exchange, account.exchange_id) if account.exchange_id is not None else None
     if exchange is None:
         if name != account.name:
-            _one_line(name, LONGEST_NAME)
+            _check_name(name, LONGEST_NAME)
             _free(db, name, own=(account.id,))
             account.name = name
         return
     if name == exchange.name:
         return
-    _one_line(name, LONGEST_EXCHANGE_NAME)
+    _check_name(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name, own=exchange.id)
     halves = _with_its_pair(db, account)
     for half in halves:
@@ -376,10 +381,13 @@ def _rename(db: Session, account: Account, name: str) -> None:
         half.name = f"{name} {half.currency}"
 
 
-def _one_line(name: str, longest: int) -> None:
-    """1 to `longest` characters, with no control or format character (but the joiners)."""
+def _check_name(name: str, longest: int) -> None:
+    """1 to `longest` characters, with no control or format character (but
+    the joiners), each one the tax report can print."""
     if not 1 <= len(name) <= longest or any(_not_text(c) for c in name):
         raise HTTPException(status_code=400, detail=f"A name is 1 to {longest} characters on one line.")
+    if not prints_in_reports(name):
+        raise HTTPException(status_code=400, detail=UNPRINTABLE)
 
 
 def _free(db: Session, name: str, own: tuple[int, ...] = ()) -> None:

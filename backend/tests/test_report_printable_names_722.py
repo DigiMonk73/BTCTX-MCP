@@ -47,6 +47,7 @@ def add(client, kind: str, name: str):
     ("wallet", "Кошелёк"),
     ("bank", "Ledger ✓"),
     ("wallet", "Cold ❄️"),  # an emoji's variation selector
+    ("wallet", "\U0001f469‍\U0001f4bb wallet"),  # an emoji's joiner
     ("exchange", "Биржа"),
     ("exchange", "交易所"),
 ])

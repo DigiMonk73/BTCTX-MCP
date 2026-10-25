@@ -14,6 +14,11 @@ Ledger text on its way into the PDF and CSV reports.
   module must be imported before ReportLab opens anything: until then its
   own readers are in place, and they open a file's path whatever the trust
   settings say.
+- The built-in fonts draw Windows-1252 (WinAnsiEncoding) and nothing else:
+  any other character, an emoji or a Cyrillic letter, would print as a
+  black box. pdf_text() prints a "?" for each instead, and an account's
+  name is refused when it holds one (prints_in_reports, the account
+  service: #722, the owner's choice of a font file left unopened).
 - CSV: a spreadsheet runs a cell that starts with = + - @ (or a tab or a
   line break) as a formula. csv_text() puts a ' in front of such a text
   value, and of one that starts with ' before such a text (#380). Numbers
@@ -46,11 +51,25 @@ rl_utils.open_for_read_by_name = _read_nothing
 rl_utils.rlUrlRead = _read_nothing
 
 FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
+# What the reports' built-in Helvetica draws: ReportLab's WinAnsiEncoding,
+# whose glyphs are exactly Windows-1252's characters (control characters aside)
+REPORT_ENCODING = "cp1252"
 
 
 def pdf_text(value) -> str:
-    """Text for a Paragraph, shown as written (never read as markup)."""
-    return escape("" if value is None else str(value))
+    """Text for a Paragraph, shown as written (never read as markup), with a
+    "?" for each character the reports' font can't draw, never a black box."""
+    text = "" if value is None else str(value)
+    return escape(text.encode(REPORT_ENCODING, errors="replace").decode(REPORT_ENCODING))
+
+
+def prints_in_reports(text: str) -> bool:
+    """Whether the reports' font draws every character of `text`."""
+    try:
+        text.encode(REPORT_ENCODING)
+    except UnicodeEncodeError:
+        return False
+    return True
 
 
 def csv_text(value) -> str:
