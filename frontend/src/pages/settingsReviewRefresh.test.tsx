@@ -22,6 +22,7 @@ const WARNING: PastYearWarning = {
   detail: "This changes the figures of tax year 2025, which you may already have filed. " +
     "Confirm to save it: a copy of your ledger is made first.",
   years: [2025], changes: [], pending: [], recalc_error: null, exact: true, why_not_exact: null,
+  timezone: "UTC",
   confirm: "c".repeat(64),
 };
 

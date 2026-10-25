@@ -66,10 +66,11 @@ Confirm = Annotated[str | None, Field(
     description="Only after the user said yes to this change of an earlier tax year: the confirm this tool's "
                 "earlier answer gave (saved: false), with the same arguments as then. Never set it on your own.")]
 # A past-year warning as the tool answers it: what the user is asked about
-WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "confirm")
+WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "timezone",
+                  "confirm")
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
-              "Show the user detail, the years and the changes (and pending apart: rules fixed since those rows "
-              "were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
+              "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
+              "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
               "arguments and {param} set to this answer's confirm. A copy of the ledger is made first.")
 
 

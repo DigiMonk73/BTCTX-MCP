@@ -118,7 +118,8 @@ entries come out right.
 A save that would change the figures of an earlier tax year, one you may
 already have filed (an add dated in it, an edit, a delete, a change of the
 Tax Timezone or of an exchange's 1099-DA switch, an import), says which
-years and what changes, and asks first: **Save anyway** (for a delete,
+years and what changes (dated in your tax timezone, as Ledger Review is),
+and asks first: **Save anyway** (for a delete,
 **Delete anyway**) makes a copy of your ledger, then saves.
 
 ## Lots, gains and the holding period

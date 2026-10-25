@@ -38,6 +38,7 @@ function warning(years: number[], tag = "a", extra: Partial<PastYearWarning> = {
     recalc_error: null,
     exact: true,
     why_not_exact: null,
+    timezone: "UTC",
     confirm: `${tag}${years.join("")}`.padEnd(64, "0"),
     ...extra,
   };

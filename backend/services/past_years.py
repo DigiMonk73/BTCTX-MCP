@@ -379,6 +379,7 @@ def _warning(write: PastYearWrite, found: _Found, by_ai: bool, this_year: int, d
         "recalc_error": found.recalc_error,
         "exact": True,
         "why_not_exact": None,
+        "timezone": tz.key,  # the one its rows' dates are in, which no device's clock need match (#737)
     })
 
 
@@ -404,6 +405,7 @@ def _by_date(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int)
         "recalc_error": None,
         "exact": False,
         "why_not_exact": TOO_SLOW,
+        "timezone": tz.key,
     })
 
 
