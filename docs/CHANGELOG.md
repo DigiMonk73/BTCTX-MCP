@@ -42,8 +42,8 @@ All notable changes to BitcoinTX are documented in this file.
   the backup were lost, and a page still open on one of them could find
   the next mapping saved in its place. A restore now keeps the mappings
   you have and adds the backup's beside them, unless you already have one
-  with the same name, and a mapping that's gone is never replaced by
-  another under the same reference. A backup restored on a new install
+  with the same name, and a page still open on a mapping that's gone never
+  finds another in its place. A backup restored on a new install
   brings its mappings as they were; mappings in a backup this version
   can't read are left out, and never stop the restore. No figure
   changes.

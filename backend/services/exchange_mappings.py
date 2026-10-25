@@ -33,7 +33,8 @@ KINDS = (*EVENTS, DOLLARS, CONVERT, LEAVE_OUT)
 
 SETTING_KEY = "import_mappings"
 OWN_PREFIX = "own-"
-# The highest id number read: far past any install's saves, and well inside what int() writes
+# The highest id number read back (18 digits): far past any install's saves. No id past it is
+# handed out, since it would read back as none and be handed out again over a mapping
 MAX_ID = 10**18 - 1
 MAX_OWN_MAPPINGS = 50
 MAPPING_NOT_FOUND = "No such mapping."
@@ -41,6 +42,7 @@ TOO_MANY_MAPPINGS = f"You can save up to {MAX_OWN_MAPPINGS} mappings: delete one
 NAME_TAKEN = "A mapping of yours already has that name."
 READY_MADE_NAME = "A ready-made mapping has that name."
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
+NO_MORE_IDS = "No new mapping can be saved here: its numbers are used up. Replace one of yours instead."
 
 
 @dataclass(frozen=True)
@@ -291,6 +293,8 @@ def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) ->
         if mapping_id is None:
             if len(mappings) >= MAX_OWN_MAPPINGS:
                 raise HTTPException(status_code=409, detail=TOO_MANY_MAPPINGS)
+            if last_id >= MAX_ID:  # only a crafted backup's mapping gets there
+                raise HTTPException(status_code=409, detail=NO_MORE_IDS)
             last_id += 1
             mapping_id = f"{OWN_PREFIX}{last_id}"
         mappings[mapping_id] = own
@@ -330,7 +334,8 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
     one. The last id is the higher of the two, so no id handed out here is
     handed out again. With none here and none handed out, the backup's row
     stays as it is. They may then pass MAX_OWN_MAPPINGS: no new one is
-    saved until some are deleted.
+    saved until some are deleted. A backup's that would need an id past
+    MAX_ID (only a crafted backup's) stays behind.
     """
     own_last, mappings = _read(in_use)
     row = restored.get(AppSetting, SETTING_KEY)
@@ -343,6 +348,8 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
         if mapping.name.casefold() in taken:
             continue
         if _number(mapping_id) <= own_last:  # handed out here, or not an id this version gives
+            if last_id >= MAX_ID:  # none left to give (a crafted backup's): it stays behind
+                continue
             last_id += 1
             mapping_id = f"{OWN_PREFIX}{last_id}"
         mappings[mapping_id] = mapping
