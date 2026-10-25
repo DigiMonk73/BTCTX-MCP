@@ -28,6 +28,13 @@ All notable changes to BitcoinTX are documented in this file.
   also checks each exchange's Sells (Sales by exchange) and the coins held
   at each year's start, and agrees in every year. Test data only: nothing
   in the app changes.
+- **The independent figures read small amounts and fee-less spends**
+  (#703, found by the tax-engine tests, #687). `scripts/independent_figures.py`
+  wrote an amount under 100 sats as "1E-8 BTC" where the app writes
+  "0.00000001 BTC", so a ledger with a small network fee showed differences
+  that weren't there; and it stopped on a bitcoin spend with no network
+  fee, which has no fee value. A test tool only: no figure of the app's
+  changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 

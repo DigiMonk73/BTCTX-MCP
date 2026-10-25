@@ -566,7 +566,9 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     # received, and the two realize what was received (Treas. Reg.
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
-    fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
+    # A spend with no network fee has no fee value: the app stores none (#703)
+    fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+    fee_value = min(_money(tx["fee_usd"]), received) if fee else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
     _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
@@ -767,7 +769,8 @@ def _cents(value: Fraction, rounding: str) -> Decimal:
 
 
 def _btc(quantity: Fraction) -> str:
-    return str((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS))
+    """To the satoshi, fixed-point as the app writes it: str() would write 1 sat as "1E-8" (#703)."""
+    return format((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS), "f")
 
 
 def _usd(value) -> str | None:

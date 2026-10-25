@@ -50,3 +50,29 @@ def test_the_independent_calculation_uses_nothing_of_the_app():
         elif isinstance(node, ast.ImportFrom):
             imported.add((node.module or "").split(".")[0])
     assert not imported & {"backend", "btctx_mcp", "scripts"}, imported
+
+
+WALLET, EXTERNAL = 2, 99
+COINS = {"type": "Deposit", "timestamp": "2025-01-10T12:00:00Z", "from_account_id": EXTERNAL, "to_account_id": WALLET,
+         "amount": "0.001", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC", "cost_basis_usd": "100.00"}
+
+
+def test_amounts_under_100_sats_are_written_as_the_app_writes_them():
+    """#703: str() writes a Decimal under 0.000001 as "1E-8"; Form 8949's
+    column (a) reads "0.00000001 BTC", so a 1-sat spend and an 11-sat fee
+    showed as differences though every figure agreed."""
+    spend = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+             "to_account_id": EXTERNAL, "amount": "0.00000001", "fee_amount": "0.00000011", "fee_usd": "0.01",
+             "purpose": "Spent", "gross_proceeds_usd": "0.02"}
+    figures = independent.year_figures(independent.replay([COINS, spend]), 2025)
+    assert sorted(row["description"] for row in figures["form_8949"]) == ["0.00000001 BTC", "0.00000011 BTC"]
+    assert [lot["quantity"] for lot in figures["end_of_year_holdings"]] == ["0.00099988"]
+
+
+def test_a_spend_without_a_network_fee_needs_no_fee_value():
+    """#703: the app stores no fee_usd for a bitcoin spend with no fee, so a
+    ledger read back from it leaves the key out; the replay read it anyway."""
+    spend = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+             "to_account_id": EXTERNAL, "amount": "0.0005", "purpose": "Spent", "gross_proceeds_usd": "80.00"}
+    [row] = independent.year_figures(independent.replay([COINS, spend]), 2025)["form_8949"]
+    assert (row["proceeds"], row["cost"], row["gain_loss"]) == ("80.00", "50.00", "30.00")
