@@ -22,7 +22,7 @@ from backend.schemas.transaction import (
 from backend.services import past_years
 from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
-from backend.services import wipe
+from backend.services import transfer_coins, wipe
 from backend.services.account import account_book
 from backend.database import get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
@@ -107,6 +107,28 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
     return _attach_utc_and_build_read_model(new_tx, db)
+
+
+@router.post("/coins-moved")
+def coins_a_new_transfer_moves(tx: TransactionCreate, db: Session = Depends(get_db)):
+    """
+    Which coins a new Transfer would move, as its save would move them
+    (#706): the lots it would put in its To account, oldest first, each
+    with its date acquired, amount and cost, and the bitcoin its network
+    fee disposes of. Saves nothing; one its save would refuse answers that
+    refusal. Login only (never the AI key).
+    """
+    return transfer_coins.coins_moved(past_years.Write(past_years.ADD, tx.model_dump()), db)
+
+
+@router.post("/{transaction_id}/coins-moved")
+def coins_an_edited_transfer_moves(transaction_id: int, tx: TransactionUpdate, db: Session = Depends(get_db)):
+    """Which coins a Transfer would move with this edit, as its save would
+    (#706); as for a new one. 404 when the transaction doesn't exist."""
+    if not tx_service.get_transaction_by_id(db, transaction_id):
+        raise HTTPException(status_code=404, detail="Transaction not found.")
+    write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
+    return transfer_coins.coins_moved(write, db)
 
 
 @router.post("/recalculate")
