@@ -212,7 +212,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
 
           {failed && (currentType || transactionId) && <p className="field-error">{ACCOUNTS_FAILED}</p>}
-          {book && <TypeFields type={currentType} book={book} />}
+          {book && <TypeFields type={currentType} book={book} transactionId={transactionId} />}
         </div>
 
         {/* Hidden delete trigger for TransactionPanel */}

@@ -102,6 +102,9 @@ entries come out right.
   account, to itself) records only its network fee. A dollar transfer (between a bank and an exchange's USD
   account) is kept the other way round, like a withdrawal: its amount is
   what arrived, and its fee comes out of the sending account on top.
+  Between two of your bitcoin accounts, the form lists the coins that will
+  move before you save, oldest first: each one's date acquired, amount and
+  cost.
 - **Buy**: dollars from a bank or an exchange's USD account for bitcoin
   into an exchange's BTC account (an exchange's dollars buy only on that
   exchange).
