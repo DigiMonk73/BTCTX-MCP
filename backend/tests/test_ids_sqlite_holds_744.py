@@ -17,16 +17,17 @@ from backend.tests.conftest import default_login, stub_prices_at
 
 LARGEST = 2 ** 63 - 1
 
-# Each route with an id in its path that reaches a query, and a body it takes
+# Each route with an id in its path that reaches a query, a body it takes,
+# and what it answers for an id SQLite holds that names nothing
 ROUTES = [
-    ("GET", "/api/transactions/{id}", None),
-    ("PUT", "/api/transactions/{id}", {"amount": "1"}),
-    ("DELETE", "/api/transactions/{id}", None),
-    ("POST", "/api/transactions/{id}/coins-moved", {"amount": "1"}),
-    ("GET", "/api/accounts/{id}", None),
-    ("PUT", "/api/accounts/{id}", {"hidden": True}),
-    ("DELETE", "/api/accounts/{id}", None),
-    ("GET", "/api/calculations/account/{id}/balance", None),
+    ("GET", "/api/transactions/{id}", None, 404),
+    ("PUT", "/api/transactions/{id}", {"amount": "1"}, 404),
+    ("DELETE", "/api/transactions/{id}", None, 404),
+    ("POST", "/api/transactions/{id}/coins-moved", {"amount": "1"}, 404),
+    ("GET", "/api/accounts/{id}", None, 404),
+    ("PUT", "/api/accounts/{id}", {"hidden": True}, 404),
+    ("DELETE", "/api/accounts/{id}", None, 404),
+    ("GET", "/api/calculations/account/{id}/balance", None, 200),  # an account with nothing: 0
 ]
 
 
@@ -38,18 +39,18 @@ def owner(fresh_app, monkeypatch) -> TestClient:
     return client
 
 
-@pytest.mark.parametrize("method, path, body", ROUTES)
+@pytest.mark.parametrize("method, path, body, _named_nothing", ROUTES)
 @pytest.mark.parametrize("id_", [2 ** 70, -(2 ** 70), LARGEST + 1])
-def test_an_id_sqlite_cant_hold_is_a_plain_422(owner, method, path, body, id_):
+def test_an_id_sqlite_cant_hold_is_a_plain_422(owner, method, path, body, _named_nothing, id_):
     r = owner.request(method, path.format(id=id_), json=body)
     assert r.status_code == 422, r.text
     assert [problem["loc"][0] for problem in r.json()["detail"]] == ["path"]
 
 
-@pytest.mark.parametrize("method, path, body", ROUTES)
-def test_the_largest_id_it_holds_answers_as_before(owner, method, path, body):
+@pytest.mark.parametrize("method, path, body, named_nothing", ROUTES)
+def test_the_largest_id_it_holds_answers_as_before(owner, method, path, body, named_nothing):
     r = owner.request(method, path.format(id=LARGEST), json=body)
-    assert r.status_code == 404, r.text
+    assert r.status_code == named_nothing, r.text
 
 
 def test_a_users_id_too(owner):

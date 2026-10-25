@@ -12,7 +12,7 @@ from backend.schemas.account import AccountCreate, AccountUpdate, AccountRead
 from backend.services import account as account_service
 from backend.services import past_years
 from backend.services.past_year_writes import AccountChange
-from backend.database import get_db
+from backend.database import RowId, get_db
 
 router = APIRouter(tags=["accounts"])
 
@@ -24,7 +24,7 @@ def list_accounts(db: Session = Depends(get_db)):
 
 
 @router.get("/{account_id}", response_model=AccountRead)
-def get_account(account_id: int, db: Session = Depends(get_db)):
+def get_account(account_id: RowId, db: Session = Depends(get_db)):
     """One account, or 404."""
     return account_service.one(db, account_id)
 
@@ -40,7 +40,7 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{account_id}", response_model=AccountRead)
-def update_account(account_id: int, change: AccountUpdate, confirm: str | None = None,
+def update_account(account_id: RowId, change: AccountUpdate, confirm: str | None = None,
                    db: Session = Depends(get_db)):
     """
     Rename, hide or show an account (an exchange's: its exchange and both),
@@ -61,7 +61,7 @@ def update_account(account_id: int, change: AccountUpdate, confirm: str | None =
 
 
 @router.delete("/{account_id}", status_code=204)
-def delete_account(account_id: int, db: Session = Depends(get_db)):
+def delete_account(account_id: RowId, db: Session = Depends(get_db)):
     """204; 400 for your first bank, wallet or exchange and the fee
     accounts; 409 while a transaction or a ledger line names it; 404."""
     account_service.delete_account(db, account_id)

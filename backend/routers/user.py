@@ -18,7 +18,7 @@ from backend.services.user import (
     update_user as update_user_service,
 )
 from backend.session_auth import require_login, start_session
-from backend.database import get_db
+from backend.database import RowId, get_db
 from backend.models.user import User
 
 router = APIRouter(tags=["users"])
@@ -173,7 +173,7 @@ def get_users(request: Request, db: Session = Depends(get_db)):
 
 
 @router.patch("/{user_id}", response_model=UserRead)
-def patch_user(user_id: int, user_data: UserUpdate, request: Request, response: Response,
+def patch_user(user_id: RowId, user_data: UserUpdate, request: Request, response: Response,
                db: Session = Depends(get_db)):
     """
     Change your own username and/or password: PATCH /api/users/{user_id}.
@@ -196,7 +196,7 @@ def patch_user(user_id: int, user_data: UserUpdate, request: Request, response: 
 
 
 @router.delete("/{user_id}", status_code=204)
-def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
+def delete_user(user_id: RowId, request: Request, db: Session = Depends(get_db)):
     """
     BitcoinTX has exactly one account, which owns the ledger's accounts, so
     it can't be deleted (409, not a server error). Settings → Reset
