@@ -115,6 +115,22 @@ All notable changes to BitcoinTX are documented in this file.
   that weren't there; and it stopped on a bitcoin spend with no network
   fee, which has no fee value. A test tool only: no figure of the app's
   changes.
+- **The independent figures learn chosen coins** (#728, step C1 of
+  choosing which coins leave a wallet, #711). `scripts/independent_figures.py`,
+  the second calculation every figures check compares with the app's,
+  now follows specific identification (Treas. Reg. §1.1012-1(j)(2)) from
+  the rule, ahead of the app: a Transfer or Withdrawal from one of your
+  wallets may name the coins that leave, each by the key of the Buy or
+  Deposit that acquired them, together exactly what leaves; the network
+  fee takes the oldest of the chosen coins first, then the amount the
+  rest; and the coins keep their key when they move, so a later spend in
+  another wallet can choose them too. A choice the rules don't allow (on
+  an exchange, in a consolidation, not adding up, a key that names
+  nothing) or one the wallet doesn't hold when the coins leave stops the
+  calculation, naming the row. Its own tests work every figure out by
+  hand. No ledger chooses coins yet, so the reference ledger's figures
+  agree in every year as before. A test tool only: nothing in the app
+  changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
