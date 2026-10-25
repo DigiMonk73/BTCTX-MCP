@@ -24,6 +24,7 @@ takes coins from either.
 
 import importlib.util
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -320,6 +321,62 @@ def test_an_exchange_whose_accounts_disagree_on_a_note_stops_the_seed(tmp_path, 
     monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
     with pytest.raises(seed_ledger.SeedError, match=said):
         seed_ledger.ledger_accounts()
+
+
+# A choice's keys (#711, docs/temp/2.0-coin-choice.md 8.3): a row names the
+# coins it acquired, and a later row chooses them by that name
+OLDER = {"type": "Deposit", "timestamp": "2025-01-09T12:00:00Z", "from_account_id": EXTERNAL,
+         "to_account_id": WALLET, "amount": "0.01", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC",
+         "cost_basis_usd": "400.00", "acquired_at": "2023-01-09"}
+NEWER = {**OLDER, "timestamp": "2025-01-10T12:00:00Z", "cost_basis_usd": "900.00", "acquired_at": "2025-01-10"}
+
+
+def _spend(chosen: list[dict]) -> dict:
+    return {"type": "Withdrawal", "timestamp": "2025-03-10T12:00:00Z", "from_account_id": WALLET,
+            "to_account_id": EXTERNAL, "amount": "0.004", "fee_amount": "0", "fee_currency": "BTC",
+            "purpose": "Spent", "gross_proceeds_usd": "400.00", "chosen_coins": chosen}
+
+
+def test_a_choice_names_its_coins_by_the_id_their_row_got(owner):
+    """The key is never sent: the server is told the id it gave the key's
+    row, in a Delete All's ledger again too."""
+    c, Session = owner
+    sent = c.request
+    posted = []
+
+    def noted(method, url, **kwargs):
+        if (method, str(url).split("?")[0]) == ("POST", "/api/transactions"):
+            posted.append(kwargs.get("json"))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    rows = [OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])]
+    for _ in range(2):
+        assert seed_ledger.seed(c, rows) == 3
+        with Session() as db:
+            newer = db.query(Transaction).filter(Transaction.timestamp == NEWER["timestamp"].replace("Z", "")).one()
+            spend = db.query(Transaction).filter(Transaction.type == "Withdrawal").one()
+            assert [(coin.acquired_txn_id, str(coin.btc)) for coin in spend.chosen_coins] == [(newer.id, "0.00400000")]
+            # the newer coins' cost, $900 x 0.4, not the older ones' $160
+            assert [str(d.disposal_basis_usd) for d in spend.lot_disposals] == ["360.00"]
+        delete_all(c)
+    assert not [body for body in posted if "key" in body]
+    assert [line for body in posted for line in body.get("chosen_coins") or []] == [
+        {"acquired_txn_id": line_id, "btc": "0.004"} for line_id in (2, 2)]
+
+
+@pytest.mark.parametrize("rows, said", [
+    ([{**OLDER, "key": "k"}, {**NEWER, "key": "k"}], "row 2's key 'k' is row 1's too: a key names one Buy or Deposit"),
+    ([_spend([{"key": "k", "btc": "0.004"}]), {**NEWER, "key": "k"}],
+     "row 1 chooses coins by the key 'k', which no row before it has"),
+    ([NEWER, _spend([{"key": "z", "btc": "0.004"}])], "row 2 chooses coins by the key 'z', which no row before it has"),
+], ids=["a key twice", "a choice before its key", "a key no row has"])
+def test_a_key_the_seed_cant_follow_stops_it_before_anything_is_sent(owner, rows, said):
+    c, Session = owner
+    with pytest.raises(seed_ledger.SeedError, match=re.escape(said)):
+        seed_ledger.seed(c, rows)
+    with Session() as db:
+        assert db.query(Transaction).count() == 0
 
 
 def test_a_ledger_without_an_accounts_list_adds_none(tmp_path, monkeypatch):
