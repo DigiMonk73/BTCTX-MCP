@@ -27,7 +27,7 @@ const RiverAccountPickers: React.FC<RiverAccountPickersProps> = ({ choices, chos
         )}
         {choices.askWallet && (
           <RiverAccountPicker id="river-wallet" label="Wallet for sends and receives" blank="Choose a wallet"
-            hint="River's sends to your wallet go into it, and its receives come from it."
+            hint="This file's sends to your wallet go into it, and its receives come from it."
             choices={choices.wallets} value={chosen.wallet} disabled={disabled}
             onChange={(wallet) => onChange({ ...chosen, wallet })} />
         )}

@@ -26,6 +26,13 @@ const SOURCE_HINTS: Record<string, string> = {
     "of it is long-term however soon you sell, and Form 8949 says INHERITED instead of a date acquired " +
     "(IRC §1014, §1223(9)).",
 };
+// Coins of your own, the form's first choice included: the likeliest slip
+// once there's a second wallet, which would make a new lot here and leave
+// the coins where they were too (#705)
+const OWN_COINS = ["N/A", "MyBTC"];
+const TRANSFER_NOT_DEPOSIT =
+  "Coins moved here from another wallet or exchange you track in BitcoinTX are a Transfer, not a Deposit: " +
+  "a deposit would count them in both accounts.";
 
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115); a blank
  * value's price says where it comes from (`priced`, #208). */
@@ -127,6 +134,7 @@ const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
             <option value="Reward">Reward</option>
             <option value="Rebate">Rebate</option>
           </select>
+          {OWN_COINS.includes(source || "N/A") && <small className="field-hint">{TRANSFER_NOT_DEPOSIT}</small>}
           {source && SOURCE_HINTS[source] && <small className="field-hint">{SOURCE_HINTS[source]}</small>}
         </div>
       )}
