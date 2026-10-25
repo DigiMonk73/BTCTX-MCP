@@ -144,10 +144,11 @@ and the amount in its account's currency with its dollar value under it.
 **Edit** opens it in the form. Above the list:
 
 - **Add transaction** opens the form.
-- **All accounts** filters the list: by kind (**All wallets**, **All
-  exchanges**, **All banks**, once you have more than one of that kind), or
-  by one account (an exchange's two accounts together; a hidden one is
-  marked). A transfer shows under both of its accounts.
+- The account filter, on **All accounts** at first, narrows the list to a
+  kind (**All wallets**, **All exchanges**, **All banks**, once you have
+  more than one of that kind) or to one account (an exchange's two
+  accounts together; a hidden one is marked). A transfer shows under both
+  of its accounts.
 - **Sort by date** or **Last added**; under the list, **Items per page**.
 
 In the form you choose the **Transaction Type**, the **Date & Time**, the

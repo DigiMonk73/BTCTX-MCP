@@ -1598,8 +1598,8 @@ Start from the `clean` snapshot.
 
 2.0 can't be downgraded in place, and 1.x can't read a 2.0 database or
 backup, so what was entered in 2.0 is lost on the way back. These are the
-ways back the release notes (StartOS) and `docs/MAINTENANCE.md` (Docker,
-the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
+ways back the release notes (StartOS) and the README's "Going back to
+1.x" (Docker, the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
 StartOS backup's own way back, WAY-1's backup and WAY-3's restore, is
 recorded on #357 once tried).
 WAY-1 to WAY-5 run in order on one VM, from the `clean` snapshot, and need
