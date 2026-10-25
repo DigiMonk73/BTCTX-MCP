@@ -169,11 +169,12 @@ def _write_kept(own: str | None, notices: list[str], live: Session | None, resto
     the restored database before it replaces the live one, its tax
     timezone in place of a backup's tzdata doesn't name (added to
     `notices`, #407), and its import mappings beside the backup's (#656),
-    then read them back from the file, with its one login. They're read from the live database just before the swap, under
-    its write lock (services/backup.py), so a change saved while the restore
-    ran is kept. No live database to read them from (DATABASE_URL names
-    another), an error, or a value that doesn't read back as written, stops
-    the restore with the live database untouched (#201).
+    then read them back from the file, with its one login. They're read
+    from the live database just before the swap, under its write lock
+    (services/backup.py), so a change saved while the restore ran is kept.
+    No live database to read them from (DATABASE_URL names another), an
+    error, or a value that doesn't read back as written, stops the restore
+    with the live database untouched (#201).
     """
     if live is None:
         logger.error("Restore stopped: there's no database at DATABASE_FILE to keep this install's settings from")

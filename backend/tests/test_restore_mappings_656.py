@@ -119,7 +119,7 @@ def test_a_mapping_saved_while_the_restore_runs_is_kept(live, tmp_path, monkeypa
 
 # A backup's mappings row this version can't read (damaged, or a later one's shape) is none, never an error
 @pytest.mark.parametrize("stored", [
-    '{"last_id": 3, "mappings": [1, 2]}', '{"last_id": 3, "mappings": "own-1"}', '"text"', "not json",
+    '{"mappings": [1, 2]}', '{"mappings": "own-1"}', '"text"', "not json",
     "[" * 100_000 + "]" * 100_000, '{"last_id": true, "mappings": {}}',
 ], ids=["a list", "a string", "text", "not json", "too deep", "a last id that isn't one"])
 def test_a_backups_mappings_row_this_version_cant_read_is_none(live, tmp_path, stored):  # noqa: F811

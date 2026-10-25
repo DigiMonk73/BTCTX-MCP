@@ -322,9 +322,9 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
     this install's own (as the login is) nor the ledger's (no transaction
     names one), so a restore loses none. This install's (`in_use`, its
     row as the live database holds it) stay; the backup's are added unless
-    one here, or a ready-made one, has the name (as a save compares them),
-    each with its id unless this install has handed that id out, else a new
-    one. The last id is the higher of the two, so no id handed out here is
+    one here has the name (as a save compares them; one named like a
+    ready-made one comes too, saved before that one took the name), each
+    with its id unless this install has handed that id out, else a new one. The last id is the higher of the two, so no id handed out here is
     handed out again. With none here and none handed out, the backup's row
     stays as it is. They may then pass MAX_OWN_MAPPINGS: no new one is
     saved until some are deleted.
@@ -337,7 +337,7 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
     # An id's number above its row's last id (a row written by hand) still counts as handed out
     handed_here = max(own_last, *map(_number, mappings), 0)
     last_id = max(handed_here, backup_last, *map(_number, backups))
-    taken = {m.name.casefold() for m in (*mappings.values(), *READY_MADE.values())}
+    taken = {m.name.casefold() for m in mappings.values()}
     for mapping_id, mapping in backups.items():
         if mapping.name.casefold() in taken:
             continue
@@ -351,9 +351,12 @@ def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
 
 
 def _number(mapping_id: str) -> int:
-    """An own mapping's id's number; 0 for one this version doesn't give."""
+    """An own mapping's id's number; 0 for one this version doesn't give
+    (its digits ASCII, and few enough for int() to read: a backup's id may
+    be anything)."""
     number = mapping_id.removeprefix(OWN_PREFIX)
-    return int(number) if mapping_id.startswith(OWN_PREFIX) and number.isdecimal() else 0
+    readable = mapping_id.startswith(OWN_PREFIX) and number.isascii() and number.isdigit() and len(number) <= 18
+    return int(number) if readable else 0
 
 
 def _stored(db: Session) -> tuple[int, dict[str, OwnMapping]]:
@@ -367,17 +370,18 @@ def _read(value: str | None) -> tuple[int, dict[str, OwnMapping]]:
     from a later one) is left out, never an error."""
     try:
         stored = json.loads(value) if value is not None else {}
-    except ValueError:
+    except (ValueError, RecursionError):  # not JSON, or nested deeper than it reads
         stored = {}
     stored = stored if isinstance(stored, dict) else {}
+    listed = stored.get("mappings")
     mappings = {}
-    for mapping_id, fields in (stored.get("mappings") or {}).items():
+    for mapping_id, fields in (listed if isinstance(listed, dict) else {}).items():
         try:
             mappings[mapping_id] = OwnMapping.model_validate(fields)
         except ValueError:
             continue
     last_id = stored.get("last_id")
-    return (last_id if isinstance(last_id, int) else 0), mappings
+    return (last_id if isinstance(last_id, int) and not isinstance(last_id, bool) else 0), mappings
 
 
 def _store(db: Session, last_id: int, mappings: dict[str, OwnMapping]) -> None:

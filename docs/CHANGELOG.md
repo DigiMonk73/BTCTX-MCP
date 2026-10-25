@@ -41,9 +41,11 @@ All notable changes to BitcoinTX are documented in this file.
   and an in-app restore took the backup's set whole: mappings saved since
   the backup were lost, and the next one saved could get the id of one
   just dropped. A restore now keeps the mappings in use and adds the
-  backup's beside them, unless one here (or a ready-made one) has the
-  same name; a backup's mapping takes a new id if this install has
-  already handed its id out, and the higher of the two last ids is kept.
+  backup's beside them, unless you already have one with the same name;
+  a backup's mapping takes a new id if this install has already handed
+  its id out, and the higher of the two last ids is kept. A backup's
+  mappings row this version can't read counts as none, and never stops
+  the restore.
   A backup restored on a new install brings its mappings as they were. No
   figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
