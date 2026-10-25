@@ -51,6 +51,17 @@ All notable changes to BitcoinTX are documented in this file.
   now says under **Source** that coins moved from another wallet or
   exchange you track in BitcoinTX are a Transfer, not a Deposit: a deposit
   would count them in both accounts. Words only: no figure changes.
+- **StartOS's Connect an AI Assistant names a pre-release's connector apart,
+  as Settings does** (#721, found by the 2.0 testing plan's StartOS
+  session). On 2.0.0-alpha.2 the action named the server `bitcointx`, so
+  its Claude Desktop configuration or its `claude mcp add` command replaced
+  your AI app's entry for your own BitcoinTX with the test server. On an
+  alpha or a beta it now names it `bitcointx-preview`, as Settings →
+  Connect an AI Assistant does, and pins the connector as PyPI lists it
+  (`btctx-mcp==2.0.0a2`, where it wrote `2.0.0-alpha.2`, which uv read the
+  same way). A release keeps `bitcointx`. If you added the test server
+  from the action under `bitcointx`, add your own BitcoinTX back under
+  that name.
 
 ### Development
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0
