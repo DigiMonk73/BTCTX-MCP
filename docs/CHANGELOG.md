@@ -42,9 +42,9 @@ All notable changes to BitcoinTX are documented in this file.
   error: reading, editing or deleting a transaction, an edit naming such
   an account, the coins a Transfer moves, an account and its balance, and
   the AI connector's import (a row's `not_a_duplicate_of`). It now answers
-  422, naming the id, before anything is looked up. Only a hand-made request sends such an id: the
-  app, the connector and the imports send the ids the server gave. No
-  figure changes.
+  422, naming the id, before anything is looked up. Only a hand-made
+  request sends such an id: the app, the connector and the imports send
+  the ids the server gave. No figure changes.
 - **An account's name prints in the tax report** (#722, found by the 2.0
   testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
   lets you name your wallets, exchanges and banks, but the reports' fonts

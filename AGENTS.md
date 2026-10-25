@@ -723,8 +723,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   `database.RowId` (SQLite's 64-bit integers), or as tightly bound (Ledger
   Review's `ids`): one beyond is a 422 naming it, never bound into a query
   (an `OverflowError`'s 500, #744). A save a restore's swap refused
-  answers `REPLACED`
-  (503, `database.was_replaced`, Python 3.11+) and is logged as a
+  answers `REPLACED` (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
   (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
   pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
