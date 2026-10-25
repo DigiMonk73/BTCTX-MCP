@@ -163,7 +163,7 @@ if [ "${#APPS[@]}" = 1 ] && [ -d "$APP_PATH" ]; then
     echo ""
     # Never "open" it: that runs it on the installed app's data folder, a real ledger (#679)
     echo "To test, on its own data folder and port, never the installed app's ledger:"
-    echo "  $SCRIPT_DIR/run-test-build.sh"
+    printf '  %q\n' "$SCRIPT_DIR/run-test-build.sh"
     echo ""
 
     # Create DMG if create-dmg is available
