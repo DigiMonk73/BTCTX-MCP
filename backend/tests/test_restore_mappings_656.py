@@ -3,16 +3,17 @@ What a restore does with the exchange import's saved mappings (#656). They
 are the owner's tools, neither this install's own (the login, the AI key, the
 price choice a restore keeps) nor the ledger's (nothing in it names one): a
 restore loses none. This install's stay, the backup's are added unless one
-here (or a ready-made one) has the name, and no mapping id handed out here is
-handed out again.
+here has the name, and no mapping id handed out here is handed out again.
 """
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
 from backend.tests.test_exchange_import_567_own import MAPPING, own
+from backend.tests.test_restore_and_saves import _browser, _once_rebuilt
 from backend.tests.test_restore_checks import (  # noqa: F401  (live: fixture)
     OWNER, REFERENCE_1X, _backup, _restore, _sealed, live,
 )
@@ -55,8 +56,7 @@ def test_a_mapping_saved_since_stays_beside_the_backups(live, tmp_path):  # noqa
 
 def test_the_backups_mapping_whose_name_is_taken_here_stays_behind(live, tmp_path):  # noqa: F811
     _save(live.client, "Kraken export", zone="America/Chicago")
-    blob, _ = _backup(tmp_path, _in_backup(3, {"own-3": {"name": "KRAKEN export", "zone": "UTC"},
-                                               "own-2": {"name": "Kraken"}}))  # a ready-made one's name
+    blob, _ = _backup(tmp_path, _in_backup(3, {"own-3": {"name": "KRAKEN export", "zone": "UTC"}}))
     browser = _restored(live, blob)
     assert [(m["id"], m["name"], m["mapping"]["zone"]) for m in own(browser)] == [
         ("own-1", "Kraken export", "America/Chicago")]
@@ -96,3 +96,42 @@ def test_a_1x_backup_keeps_this_installs_mappings(live):  # noqa: F811
     browser = _restored(live, _sealed(REFERENCE_1X.read_bytes()))
     assert _listed(browser) == [("own-1", "Made here")]
     assert _save(browser, "Next") == "own-2"
+
+
+def test_a_backups_mapping_named_like_a_ready_made_one_comes_too(live, tmp_path):  # noqa: F811
+    """Saved before a later version's ready-made mapping took its name: a restore loses none."""
+    _save(live.client, "Made here")
+    blob, _ = _backup(tmp_path, _in_backup(2, {"own-2": {"name": "Kraken"}}))
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Made here"), ("own-2", "Kraken")]
+
+
+def test_a_mapping_saved_while_the_restore_runs_is_kept(live, tmp_path, monkeypatch):  # noqa: F811
+    """This install's mappings are read from the live database at the swap,
+    as its other kept settings are."""
+    blob, _ = _backup(tmp_path, _in_backup(1, {"own-1": {"name": "In the backup"}}))
+    other = _browser()
+    _once_rebuilt(monkeypatch, lambda: _save(other, "Meanwhile"))
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Meanwhile"), ("own-2", "In the backup")]
+    assert _save(browser, "Next") == "own-3"
+
+
+# A backup's mappings row this version can't read (damaged, or a later one's shape) is none, never an error
+@pytest.mark.parametrize("stored", [
+    '{"last_id": 3, "mappings": [1, 2]}', '{"last_id": 3, "mappings": "own-1"}', '"text"', "not json",
+    "[" * 100_000 + "]" * 100_000, '{"last_id": true, "mappings": {}}',
+], ids=["a list", "a string", "text", "not json", "too deep", "a last id that isn't one"])
+def test_a_backups_mappings_row_this_version_cant_read_is_none(live, tmp_path, stored):  # noqa: F811
+    _save(live.client, "Made here")
+    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('import_mappings', '{stored}')")
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Made here")]
+    assert _save(browser, "Next") == "own-2"
+
+
+def test_a_backups_id_no_number_can_hold_takes_a_new_one(live, tmp_path):  # noqa: F811
+    _save(live.client, "Made here")
+    blob, _ = _backup(tmp_path, _in_backup(3, {"own-" + "9" * 5000: {"name": "Far off"}}))
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Made here"), ("own-4", "Far off")]
