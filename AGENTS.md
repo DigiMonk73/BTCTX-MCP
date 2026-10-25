@@ -700,7 +700,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   command), takes a client's address from `X-Forwarded-For`
   (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
-  ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
+  ReportLab, which may open no file and fetch nothing; a character its
+  built-in font can't draw, outside Windows-1252, prints "?", and an
+  account's name is refused when it holds one, #722); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.

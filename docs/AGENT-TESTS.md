@@ -1447,8 +1447,10 @@ contradicts itself or the docs (`startos/instructions.md`, `docs/USING.md`,
 layout broken at phone width (375 px) and at 1440 px, keyboard-only use,
 double-clicks on Save, very long or odd input (emoji, 21,000,000 BTC,
 negative numbers, far-future dates; from 2.0, an account named with 40
-characters or with emoji, in the pickers, the dashboard's lists and the
-Complete Tax Report), and the back button mid-flow. Report
+characters, in the pickers, the dashboard's lists and the Complete Tax
+Report, and a name with an emoji or a letter outside Western European
+alphabets refused with the report's reason, #722), and the back button
+mid-flow. Report
 each finding with steps, what you expected and what happened, and a
 severity: blocker (wrong tax figure, data loss, security), major, or minor.
 
