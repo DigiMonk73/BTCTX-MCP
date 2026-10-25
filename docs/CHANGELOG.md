@@ -43,11 +43,21 @@ All notable changes to BitcoinTX are documented in this file.
   just dropped. A restore now keeps the mappings in use and adds the
   backup's beside them, unless you already have one with the same name;
   a backup's mapping takes a new id if this install has already handed
-  its id out, and the higher of the two last ids is kept. A backup's
-  mappings row this version can't read counts as none, and never stops
-  the restore.
-  A backup restored on a new install brings its mappings as they were. No
-  figure changes.
+  its id out, and the higher of the two last ids is kept. A backup
+  restored on a new install brings its mappings as they were, and a
+  backup's mappings row this version can't read counts as none, never
+  stopping the restore. No figure changes.
+- **Settings reads your accounts afresh, so Delete follows the server**
+  (#720, found by the StartOS tests, #691). The account book was read once
+  per page, so after a transaction into a new account (on the Transactions
+  page, or by an import in Settings), Settings still said "It has no
+  transactions." and offered Delete, and the server refused it. Settings
+  now reads the book again as it opens, each time its **Wallets, exchanges
+  and banks** section opens, and after a refused delete (an account the AI
+  connector used while the section stayed open): the row then says "This
+  account has transactions, so it can't be deleted. Hide it instead: its
+  history stays.", with the server's refusal below and the keyboard back
+  on the row. No figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins
@@ -77,6 +87,15 @@ All notable changes to BitcoinTX are documented in this file.
   you replaced it with the action's configuration, set it back.
 
 ### Development
+- **The release walk's steps match 2.0** (#723, found by the StartOS
+  tests, #691). `docs/AGENT-TESTS.md`: IMP-4b's Buy starts on **Bank**
+  (no earlier sale in its file leaves Kraken dollars, #655), so there's no
+  Bank to press; PRC-4c clears the Mempool address before choosing
+  **Nobody**, which hides the field and keeps an address left in it, and
+  so does MAC-7; REF-1's `settings.png` is about 1730 wide, its height
+  following the Connect an AI Assistant section it shows; and a published
+  pre-release is walked with the file at its own tag or commit. The app
+  doesn't change.
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0
   testing plan #686). 50 rows join the made-up ledger every figures check
   uses (191 in all), so each of 2.0's dimensions is filled:
