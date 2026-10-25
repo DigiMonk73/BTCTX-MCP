@@ -34,9 +34,9 @@ All notable changes to BitcoinTX are documented in this file.
   place on StartOS, after a StartOS backup, with no 1.x update offered
   until 2.0 is out; a new volume on Docker), that nothing entered in one
   goes back to 1.x, how to go back, and how to report what you find. 1.x
-  stays the version to use for your records. From v2.0.0-alpha.2 its Mac
-  line says the Preview's icon has a red PREVIEW band and a banner names
-  it (#670).
+  stays the version to use for your records. The section also says that
+  from v2.0.0-alpha.2 a banner above every page names the pre-release, and
+  that BitcoinTX Preview's icon has a red PREVIEW band (#670).
 
 ### Development
 - **The way to publish 2.0's alphas and betas** (2.0 plan 7.4, B10a,
