@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.services.exchange_mappings import NO_MORE_IDS
 from backend.tests.test_exchange_import_567_own import MAPPING, own
 from backend.tests.test_restore_and_saves import _browser, _once_rebuilt
 from backend.tests.test_restore_checks import (  # noqa: F401  (live: fixture)
@@ -159,3 +160,26 @@ def test_a_backups_last_id_no_number_can_hold_is_none(live, tmp_path):  # noqa: 
     browser = _restored(live, blob)
     assert _listed(browser) == [("own-1", "Made here"), ("own-2", "X")]
     assert _save(browser, "Next") == "own-3"
+
+
+# The top of the ids an install reads back (a crafted backup's): a save past
+# it would write an id read as none, then hand it out again over a mapping
+TOP = "own-" + "9" * 18
+
+
+def test_no_mapping_is_saved_past_the_top_id_and_none_is_overwritten(live, tmp_path):  # noqa: F811
+    blob, _ = _backup(tmp_path, _in_backup(0, {TOP: {"name": "A"}}))
+    browser = _restored(live, blob)
+    r = browser.post(URL, json={**MAPPING, "name": "B"})
+    assert (r.status_code, r.json()["detail"]) == (409, NO_MORE_IDS)
+    assert _listed(browser) == [(TOP, "A")]
+    assert browser.put(f"{URL}/{TOP}", json={**MAPPING, "name": "A, replaced"}).status_code == 200
+
+
+def test_a_backups_mapping_that_would_need_an_id_past_the_top_stays_behind(live, tmp_path):  # noqa: F811
+    _save(live.client, "Here")
+    blob, _ = _backup(tmp_path, _in_backup(0, {TOP: {"name": "X"}, "own-1": {"name": "Y"}}))
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Here"), (TOP, "X")]
+    assert browser.post(URL, json={**MAPPING, "name": "Z"}).status_code == 409
+    assert _listed(browser) == [("own-1", "Here"), (TOP, "X")]
