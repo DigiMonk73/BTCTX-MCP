@@ -135,3 +135,27 @@ def test_a_backups_id_no_number_can_hold_takes_a_new_one(live, tmp_path):  # noq
     blob, _ = _backup(tmp_path, _in_backup(3, {"own-" + "9" * 5000: {"name": "Far off"}}))
     browser = _restored(live, blob)
     assert _listed(browser) == [("own-1", "Made here"), ("own-4", "Far off")]
+
+
+# A row's last id that's missing or isn't one (damaged, or written by hand):
+# the ids' own numbers count, so the next save never takes a mapping's id
+@pytest.mark.parametrize("last_id", ["null", "true", '"2"', "0", "-5"])
+def test_a_last_id_that_isnt_one_never_hands_an_id_out_twice(live, tmp_path, last_id):  # noqa: F811
+    stored = json.dumps({"last_id": 0, "mappings": {"own-1": {**MAPPING, "name": "A"}, "own-2": {**MAPPING, "name": "B"}}})
+    stored = stored.replace('"last_id": 0', f'"last_id": {last_id}')
+    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('import_mappings', '{stored}')")
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "A"), ("own-2", "B")]
+    assert _save(browser, "C") == "own-3"
+    assert _listed(browser) == [("own-1", "A"), ("own-2", "B"), ("own-3", "C")]
+
+
+def test_a_backups_last_id_no_number_can_hold_is_none(live, tmp_path):  # noqa: F811
+    """JSON reads up to 4,300 digits; one more, the id after it, is past what int() writes."""
+    _save(live.client, "Made here")
+    stored = json.dumps({"last_id": 0, "mappings": {"own-1": {**MAPPING, "name": "X"}}})
+    stored = stored.replace('"last_id": 0', '"last_id": ' + "9" * 4300)
+    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('import_mappings', '{stored}')")
+    browser = _restored(live, blob)
+    assert _listed(browser) == [("own-1", "Made here"), ("own-2", "X")]
+    assert _save(browser, "Next") == "own-3"
