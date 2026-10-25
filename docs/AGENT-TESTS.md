@@ -166,8 +166,8 @@ account fits, and names accounts as Settings does (`Bank`, `Wallet`,
 | # | Date & Time | Transaction Type | Fields | Toast after saving |
 |---|---|---|---|---|
 | 1 | 2023-01-15 12:00 | Deposit | Account `Bank`, Amount `100000` | Transaction created successfully! |
-| 2 | 2023-02-01 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `23000`, Amount BTC `1` | Transaction created successfully! |
-| 3 | 2023-03-01 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `12000`, Amount BTC `0.5` | Transaction created successfully! |
+| 2 | 2023-02-01 12:00 | Buy | Paid from `Bank`, Amount USD `23000`, Amount BTC `1` | Transaction created successfully! |
+| 3 | 2023-03-01 12:00 | Buy | Paid from `Bank`, Amount USD `12000`, Amount BTC `0.5` | Transaction created successfully! |
 | 4 | 2023-06-01 12:00 | Transfer | From Account `Exchange BTC` (From Currency shows `BTC`), To Account `Wallet`, Amount (From) `0.6`, Amount (To) `0.5998`, Fee value (USD) `10`. Check: Fee (BTC) shows `0.0002` | Transaction created successfully! |
 | 5 | 2023-09-10 12:00 | Sell | Amount BTC `0.5`, Gross Proceeds (USD) `13000`, Fee (USD) `10` | Transaction created! Realized Gain: +$1,390.00 |
 | 6 | 2023-12-31 23:30 | Withdrawal | Account `Wallet`, Amount `0.01`, Purpose `Spent`, Proceeds (USD) `400` | … Realized Gain: +$170.00 |
@@ -175,7 +175,7 @@ account fits, and names accounts as Settings does (`Bank`, `Wallet`,
 | 8 | 2024-03-02 12:00 | Sell | Amount BTC `0.1`, Gross Proceeds (USD) `6000` | … Realized Gain: +$3,600.00 |
 | 9 | 2024-05-01 12:00 | Deposit | Account `Wallet`, Amount `0.02`, Source `Income`, Cost Basis (USD) `1000` | Transaction created successfully! |
 | 10 | 2024-06-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.1`, Purpose `Gift`, FMV (USD) `6700` | Transaction created successfully! |
-| 11 | 2025-01-10 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
+| 11 | 2025-01-10 12:00 | Buy | Paid from `Bank`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
 | 12 | 2025-04-01 12:00 | Sell | Amount BTC `0.05`, Gross Proceeds (USD) `4000` | … Realized Gain: −$1,000.00 |
 | 13 | 2025-05-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.1`, Purpose `Spent`, Proceeds (USD) `9000` | … Realized Gain: +$6,700.00 |
 | 14 | 2025-06-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$765.00 (the $5 fee comes off the proceeds, #157) |
@@ -631,8 +631,11 @@ exchanges and banks** reads its name, its kind and its balance.
   exchange? Choose that exchange's BTC account as To Account, after adding
   the exchange in Settings → Wallets, exchanges and banks if it isn't
   listed." Choose From Account `Wallet`: To Account is blank again, and
-  among its choices is `Wallet: consolidate / move within the same
-  wallet`. Close the panel with **Discard changes**.
+  among its choices is `Wallet: consolidate within the same wallet`.
+  Choose it. Expect under it, after the fee's line, "Moving coins to
+  another of your wallets? Choose that wallet as To Account, after adding
+  it in Settings → Wallets, exchanges and banks if it isn't listed."
+  Close the panel with **Discard changes**.
 
 ### MLT: a second exchange (2.0; price source Nobody)
 
@@ -645,8 +648,8 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
 - **MLT-1** Add a Buy dated 2025-02-01 12:00. Expect an **Exchange** field
   (with one exchange there is none), blank, offering `Exchange` and
   `Kraken`, and **Paid from** reading "Choose the exchange first". Choose
-  `Kraken`: **Paid from** offers `Kraken USD` and `Bank (auto-buy)`, blank.
-  Choose `Bank (auto-buy)`, Amount USD `6000`, Amount BTC `0.1`, and save.
+  `Kraken`: **Paid from** offers `Kraken USD` and `Bank`, blank.
+  Choose `Bank`, Amount USD `6000`, Amount BTC `0.1`, and save.
   Expect the dialog "This changes the figures of tax year 2025, which you
   may already have filed. Confirm to save it: a copy of your ledger is made
   first." with one line, `2025-02-01 12:00 · Buy · 0.10000000 BTC — Added:
@@ -668,7 +671,7 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
   line `2025-03-01 12:00 · Sell · 0.05000000 BTC — proceeds 4500.00 ->
   4600.00; gain 1500.00 -> 1600.00; taxable gain incl. network fees 1500.00
   -> 1600.00.`; **Save anyway**. Edit the Buy. Expect **Exchange**
-  `Kraken` and **Paid from** `Bank (auto-buy)`. Amount USD `6200`,
+  `Kraken` and **Paid from** `Bank`. Amount USD `6200`,
   **Update transaction**: two lines, `2025-02-01 12:00 · Buy · 0.10000000
   BTC — basis 6000.00 -> 6200.00; cost of the lots it made 6000.00 ->
   6200.00.` and `2025-03-01 12:00 · Sell · 0.05000000 BTC — basis 3000.00
@@ -1152,8 +1155,8 @@ Set `KEY` to the key from AI-3, and use
   and two wallets), **Exchange** with `Exchange` chosen and `Kraken`
   offered, "The exchange this file is from: its buys, sells and balances
   go there.", and **Wallet for sends and receives** with `Wallet` chosen
-  and `Coldcard` offered, "River's sends to your wallet go into it, and its
-  receives come from it."; leave both. River CSV file, then **Preview**.
+  and `Coldcard` offered, "This file's sends to your wallet go into it, and
+  its receives come from it."; leave both. River CSV file, then **Preview**.
   Expect: "3 new", "3 rows in file", and each Buy row showing the
   **Bank** / **Exchange USD** toggle. Click **Import 3 Transaction(s)**
   and confirm "Import 3 transaction(s) from River into your ledger?" (run
