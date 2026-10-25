@@ -19,7 +19,8 @@ export type CoinsState =
   | { kind: "refused"; status: number | undefined; reason: string };
 
 /** What the form shows: `stale` when it's the list for an earlier
- * question, kept while this one is asked, so the form doesn't jump. */
+ * question, kept while this one is asked so the form doesn't jump; only one
+ * from the same account, whose coins they were. */
 export interface CoinsShown {
   state: CoinsState;
   stale: boolean;
@@ -36,7 +37,9 @@ export function useCoinsMoved(payload: ICreateTransactionPayload | null, transac
   const url = coinsUrl(transactionId);
   const body = payload ? JSON.stringify(payload) : "";
   const question = body && `${url} ${body}`;
-  const [answered, setAnswered] = useState<{ question: string; state: CoinsState } | null>(null);
+  const from = payload?.from_account_id;
+  const [answered, setAnswered] = useState<{ question: string; url: string; from?: number; state: CoinsState } | null>(
+    null);
 
   useEffect(() => {
     if (!question) return;
@@ -50,17 +53,20 @@ export function useCoinsMoved(payload: ICreateTransactionPayload | null, transac
           reason: serverReason(error) ?? "",
         }))
         .then((state) => {
-          if (!controller.signal.aborted) setAnswered({ question, state });
+          if (!controller.signal.aborted) setAnswered({ question, url, from, state });
         });
     }, COINS_WAIT_MS);
     return () => {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [question, url, body]);
+  }, [question, url, body, from]);
 
   if (!question) return { state: { kind: "idle" }, stale: false };
   if (answered?.question === question) return { state: answered.state, stale: false };
-  if (answered?.state.kind === "listed" && answered.state.answer.coins) return { state: answered.state, stale: true };
+  const sameCoins = answered?.url === url && answered.from === from;
+  if (sameCoins && answered.state.kind === "listed" && answered.state.answer.coins) {
+    return { state: answered.state, stale: true };
+  }
   return { state: { kind: "asking" }, stale: false };
 }

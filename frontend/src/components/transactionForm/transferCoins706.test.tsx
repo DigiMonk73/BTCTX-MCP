@@ -82,17 +82,33 @@ describe("a Transfer between two of your bitcoin accounts", () => {
     expect(asked(form)[0].body).toMatchObject({ amount: 0.40015 });
   });
 
-  it("keeps the list shown, dimmed, while the changed transfer's is asked", async () => {
+  it("keeps the list shown, dimmed with its fee, while the changed transfer's is asked", async () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
     await sparrowToColdcard(form);
-    const list = () => screen.getByRole("table", { name: "Coins that will move" }).parentElement;
+    const list = () => screen.getByRole("table", { name: "Coins that will move" }).closest("[aria-busy]");
     expect(list()?.getAttribute("aria-busy")).toBe("false");
+    expect(list()?.textContent).toContain("The network fee");
+    expect(screen.getByRole("status").textContent).toBe("");
     await form.user.clear(screen.getByLabelText("Amount (To)"));
     await form.user.type(screen.getByLabelText("Amount (To)"), "0.3");
     expect(list()?.getAttribute("aria-busy")).toBe("true");
+    expect(screen.getByRole("status").textContent).toBe("Working out which coins move…");
     await waitForCoins(form);
     expect(list()?.getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByRole("status").textContent).toBe("");
     expect(asked(form)).toHaveLength(2);
+  });
+
+  it("never keeps another account's coins under the new From", async () => {
+    const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
+    await sparrowToColdcard(form);
+    await form.choose("From Account", "Kraken BTC");
+    expect(screen.getByText(/^Per-wallet FIFO: your oldest coins in Kraken BTC move first/)).toBeTruthy();
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.getByRole("status").textContent).toBe("Working out which coins move…");
+    await waitForCoins(form);
+    expect(asked(form).at(-1)?.body).toMatchObject({ from_account_id: 103, to_account_id: 100 });
+    expect(screen.getByRole("table", { name: "Coins that will move" })).toBeTruthy();
   });
 
   it("says the line before the amounts are there, and asks nothing yet", async () => {

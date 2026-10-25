@@ -18,6 +18,7 @@ from sqlalchemy import text
 from backend.main import app
 from backend.models.transaction import BitcoinLot, LotDisposal
 from backend.services import ai_key, past_years, transfer_coins
+from backend.services import transaction as tx_service
 from backend.tests.conftest import default_login, stub_prices_at
 
 WALLET, EXCHANGE_BTC, EXTERNAL = 2, 4, 99
@@ -223,7 +224,26 @@ def test_a_list_asked_for_again_stops_the_one_before(owner, monkeypatch):
     monkeypatch.setattr(transfer_coins, "_newest_from_now", lambda: lambda: True)  # one asked for meanwhile
     r = owner.post("/api/transactions/coins-moved", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated
     assert r.status_code == 200, r.text
-    assert r.json()["coins"] is None
+    assert r.json() == {"coins": None, "fee_btc": None, "detail": "A newer list was asked for meanwhile, perhaps "
+                        "in another window: change the transfer to ask again."}
+
+
+def test_a_list_asked_for_never_stops_a_save(owner, monkeypatch):
+    """Only a list's own replay stops for a newer list: a save's, an edit's
+    and Recalculate Ledger's go on while lists are asked for."""
+    replay = tx_service._replay
+
+    def asked_meanwhile(*args, **kwargs):
+        transfer_coins._newest_from_now()
+        return replay(*args, **kwargs)
+
+    monkeypatch.setattr(tx_service, "_replay", asked_meanwhile)
+    saved = owner.post("/api/transactions", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated: replayed
+    assert saved.status_code == 200, saved.text
+    assert owner.put(f"/api/transactions/{saved.json()['id']}", json=transfer("2024-01-01T12:00:00Z", "0.2")) \
+        .status_code == 200
+    assert owner.post("/api/transactions/recalculate").status_code == 200
+    assert saved_coins(owner, saved.json()["id"]) == [coin("2017-03-01", "0.20000000", "200.00")]
 
 
 def test_a_past_year_in_another_tax_timezone_lists_what_its_confirmed_save_moves(owner, tax_year):

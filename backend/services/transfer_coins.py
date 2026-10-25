@@ -28,6 +28,8 @@ from backend.services import transaction as tx_service
 ONLY_A_TRANSFER = "Only a Transfer moves coins between your accounts."
 NOT_FOUND = "Transaction not found."
 TOO_SLOW = "BitcoinTX couldn't work out in time which coins move. Saving isn't affected."
+# Seen only by a form whose list another window asked for after it
+ASKED_AGAIN = "A newer list was asked for meanwhile, perhaps in another window: change the transfer to ask again."
 
 # The lists asked for, numbered. BitcoinTX has one user, typing in one form
 # at a time: a list asked for before the newest is one the form gave up on
@@ -43,7 +45,7 @@ def coins_moved(write: past_years.Write, db: Session) -> dict:
     account, in the order its save takes them ({"acquired", "btc",
     "cost_usd", "inherited"} each), and the bitcoin its fee disposes of.
     Past the past-year dry run's time budget, or once a newer list is asked
-    for, coins and fee_btc are None and detail says why. A write its save
+    for, coins and fee_btc are None and detail says which. A write its save
     would refuse raises that refusal. Nothing is saved: the prices it needs
     are kept, as the save keeps them.
     """
@@ -60,7 +62,7 @@ def coins_moved(write: past_years.Write, db: Session) -> dict:
             scratch.flush()
             return _what_moved(moved, scratch)
     except tx_service.OutOfTime:
-        return {"coins": None, "fee_btc": None, "detail": TOO_SLOW}
+        return {"coins": None, "fee_btc": None, "detail": ASKED_AGAIN if superseded() else TOO_SLOW}
 
 
 def _check_a_transfer(write: past_years.Write, db: Session) -> None:
