@@ -96,6 +96,11 @@ def test_a_rename_is_refused_too(owner):
     ("Cold \u2744\ufe0f", "Cold \u2744"),
     ("\U0001f469\u200d\U0001f4bb wallet", "?? wallet"),
     ("soft\u00adhyphen", "soft\u00adhyphen"),
+    # a space of any kind is a gap, as it always was (a Mac's "10:00\u202fAM")
+    ("Coffee\u202fshop a\x0bb Gift\u3000Mom", "Coffee\u202fshop a\x0bb Gift\u3000Mom"),
+    # signs Symbol draws stay as they are, whatever else is in the text
+    ("x \u2329y\u232a", "x \u2329y\u232a"),
+    ("Кот \u2329y\u232a", "??? \u2329y\u232a"),
 ])
 def test_text_the_reports_cant_draw_is_a_question_mark(text, printed):
     assert pdf_text(text) == printed

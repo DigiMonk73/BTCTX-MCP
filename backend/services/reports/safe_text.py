@@ -59,20 +59,20 @@ FORMULA_START = ("=", "+", "-", "@", "\t", "\r", "\n")
 # The reports' font (pdf_layout.FONT): its encoding, Windows-1252, holds
 # the Western European letters an account's name keeps to (#722)
 REPORT_FONT, NAME_ENCODING = "Helvetica", "cp1252"
-# A Paragraph draws these as spaces
-SPACES = ("\t", "\n", "\r")
 # Variation selectors: they only choose how the character before them looks
 VARIATION_SELECTORS = ((0xFE00, 0xFE0F), (0xE0100, 0xE01EF))
 
 
 def pdf_text(value) -> str:
     """Text for a Paragraph, shown as written (never read as markup), with a
-    "?" for each character the reports' fonts can't draw, never a black box:
-    composed first (an accent typed apart joins its letter), and without what
-    nothing shows (a joiner, a variation selector), so it's one "?" for each
-    character seen."""
-    text = unicodedata.normalize("NFC", "" if value is None else str(value))
-    return escape("".join(c if _drawn(c) else "?" for c in text if not _unseen(c)))
+    "?" for each character the reports' fonts can't draw, never a black box.
+    Text they draw in full is as it always printed. Otherwise an accent typed
+    apart joins its letter first, and what nothing shows (a joiner, a
+    variation selector) is left out: one "?" for each character seen."""
+    text = "" if value is None else str(value)
+    if all(_drawn(c) for c in text):
+        return escape(text)
+    return escape("".join(c if _drawn(c) else "?" for c in _composed(text) if not _unseen(c)))
 
 
 def in_report_font(text: str) -> bool:
@@ -87,22 +87,39 @@ def in_report_font(text: str) -> bool:
     return True
 
 
-@cache
 def _drawn(c: str) -> bool:
-    """ReportLab's own rule (pdfmetrics.unicode2T1): the first of the font
-    and the fonts it falls back to whose encoding holds `c` draws it, a
-    black box when that encoding has no glyph there (a control character)."""
-    if c in SPACES:
-        return True
+    """A space (a Paragraph draws any as a gap), or, by ReportLab's own rule
+    (pdfmetrics.unicode2T1), a character the encoding of the font or of one
+    of the fonts it falls back to holds; anything else is a black box."""
+    return c.isspace() or any(_holds(encoding, c) for encoding in _encodings())
+
+
+@cache
+def _encodings() -> tuple[str, ...]:
+    """The encodings of the reports' font and of the fonts it falls back to
+    (Symbol, ZapfDingbats): built in, none of them a file."""
     font = pdfmetrics.getFont(REPORT_FONT)
-    for each in (font, *font.substitutionFonts):
-        try:
-            code = c.encode(each.encName)
-        except UnicodeEncodeError:
-            continue
-        vector = pdfmetrics.getEncoding(each.encName).vector
-        return all(vector[b] is not None for b in code)
-    return False
+    return tuple(f.encName for f in (font, *font.substitutionFonts))
+
+
+def _holds(encoding: str, c: str) -> bool:
+    try:
+        c.encode(encoding)
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
+def _composed(text: str) -> str:
+    """Each letter with the accents typed after it composed (NFC): only those,
+    as NFC would also turn signs the fonts draw (U+2329 〈) into ones they don't."""
+    clusters, start = [], 0
+    for i in range(1, len(text) + 1):
+        if i == len(text) or not unicodedata.combining(text[i]):
+            cluster = text[start:i]
+            clusters.append(unicodedata.normalize("NFC", cluster) if len(cluster) > 1 else cluster)
+            start = i
+    return "".join(clusters)
 
 
 def _unseen(c: str) -> bool:
