@@ -27,8 +27,8 @@ function loadAccounts(): Promise<AccountBook> {
 }
 
 /** The next useAccounts() asks the server again: for Settings as it opens
- * (an account may have been used since, #720) and once it adds, hides or
- * deletes one, and for tests between cases. */
+ * (an account may have been used since, #720) and each time it reads the
+ * book again (useSettingsAccounts' `reload`), and for tests between cases. */
 export function forgetAccounts(): void {
   loading = undefined;
 }

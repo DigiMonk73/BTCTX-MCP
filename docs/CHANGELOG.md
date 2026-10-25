@@ -44,8 +44,8 @@ All notable changes to BitcoinTX are documented in this file.
   and banks** section opens, and after a refused delete (an account the AI
   connector used while the section stayed open): the row then says "This
   account has transactions, so it can't be deleted. Hide it instead: its
-  history stays." beside the server's refusal, with the keyboard back on
-  it. No figure changes.
+  history stays.", with the server's refusal below and the keyboard back
+  on the row. No figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins

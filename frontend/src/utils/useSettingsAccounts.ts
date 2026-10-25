@@ -1,6 +1,7 @@
 // Settings changes the account book: it adds, hides, shows and deletes
-// accounts (#355). Its book is read afresh as it opens, then, after each
-// change it makes, the book as the server has it after that change.
+// accounts (#355). Its book is read afresh as it opens, and again (`reload`)
+// as its accounts section opens, after each change it makes and after a
+// refused delete (#720): the book as the server has it then.
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import api from "../api";
 import { forgetAccounts, useAccounts, type AccountsState } from "./useAccounts";
