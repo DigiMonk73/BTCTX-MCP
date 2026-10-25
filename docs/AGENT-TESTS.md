@@ -589,8 +589,12 @@ exchanges and banks** reads its name, its kind and its balance.
   wallets · 1 exchange · 1 bank".
 - **ACC-4** **Add an exchange**. Expect the help text "BitcoinTX keeps an
   exchange's dollars and bitcoin as two accounts, 'name USD' and 'name
-  BTC'." and the note of ACC-3 for an exchange (it begins "Years before you
-  add this exchange were figured with your exchange accounts together").
+  BTC'.", the question "Does this exchange send you a Form 1099-DA?" with
+  **Yes** chosen and **No** beside it, under them "An exchange in the US
+  sends one for your sales from 2025; one outside the US usually doesn't.
+  It decides the Form 8949 box, not the gain." (#708), and the note of
+  ACC-3 for an exchange (it begins "Years before you add this exchange
+  were figured with your exchange accounts together"). Leave **Yes**.
   Type `Kraken`: the help text reads "… two accounts, 'Kraken USD' and
   'Kraken BTC'." **Add**. Expect the row `Kraken` Exchange $0.00 ·
   0.00000000 BTC and the summary "2 wallets · 2 exchanges · 1 bank".

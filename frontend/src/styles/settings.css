@@ -187,6 +187,11 @@
   border-radius: var(--radius-control);
 }
 .ledger-add-form .input { max-width: 360px; }
+/* Add an exchange's 1099-DA question: its answers side by side, the help under them */
+.ledger-add-question { margin: 0; padding: 0; border: 0; min-width: 0; }
+.ledger-add-question legend { padding: 0; margin-bottom: 6px; }
+.ledger-add-answers { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-bottom: 6px; }
+.ledger-add-answers label { display: inline-flex; align-items: center; gap: var(--space-2); cursor: pointer; }
 /* A row's Rename: its name and the button side by side, the help under them */
 .ledger-rename-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .ledger-rename-row .input { flex: 1 1 200px; max-width: 360px; }

@@ -225,7 +225,8 @@ Transaction (user input)
 Accounts (2.0, #251; the account book, `services/account.py`, read once
 per request): your banks, wallets and exchanges, each exchange two
 accounts, "*name* USD" and "*name* BTC", of a row of `exchanges` with its
-1099-DA switch; the fee accounts BTC Fees 5 and USD Fees 6 (internal: no
+1099-DA switch (asked when it's added, on unless answered No: #708); the
+fee accounts BTC Fees 5 and USD Fees 6 (internal: no
 transaction names them); External 99 (no row). A new install's first of
 each keep their ids forever: Bank 1, Wallet 2, Exchange USD 3, Exchange
 BTC 4 (exchange 1, "Exchange"). New accounts take ids from 100, never one

@@ -31,8 +31,11 @@ def get_account(account_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=list[AccountRead], status_code=201)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    """A bank or a wallet (one account), or an exchange (its two); 400 for a name it refuses."""
-    made = account_service.add_account(db, account.kind, account.name)
+    """A bank or a wallet (one account), or an exchange (its two) with its
+    1099-DA switch (`sends_1099da`; left out, on); 400 for a name it
+    refuses, or a switch given with a bank or a wallet. A new exchange has
+    no sales, so its switch moves no figure: the past-year warning never asks."""
+    made = account_service.add_account(db, account.kind, account.name, account.sends_1099da)
     return account_service.listed(db, made)
 
 

@@ -4,6 +4,19 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Changed
+- **Adding an exchange asks whether it sends a Form 1099-DA** (#708, found
+  by Grok (Cursor) reading alpha.2). Settings' **Add an exchange** now asks
+  "Does this exchange send you a Form 1099-DA?", **Yes** chosen, with the
+  switch's own help (an exchange outside the US usually sends none), so
+  the answer is saved with the exchange, before any of its sales. Before,
+  a new exchange's switch was always on until turned off in its row, and
+  its sales went in the 1099-DA boxes (H/K, or G/J) meanwhile. The row's
+  switch still changes it later. The account API takes the answer as
+  `sends_1099da` with an exchange (left out: on, as before) and refuses it
+  with a bank or a wallet. No figure changes for an exchange answered as
+  before; one answered No puts its sales in boxes I/L from the start.
+
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
 **About this alpha.** BitcoinTX 2.0's second pre-release, for anyone who
