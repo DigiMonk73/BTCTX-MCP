@@ -28,7 +28,7 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import account as account_service, ai_key, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, exchange_mappings, first_run, outbound, tax_time
 from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
@@ -150,10 +150,12 @@ def _in_use(db: Session, own: str | None) -> dict:
     timezone is the backup's, unless tzdata doesn't name it: then this
     install's (#407). The last account id given: the higher of this
     install's and the backup's (2.0 spec 5.1, 5.11), so no id given here is
-    given again."""
+    given again. The exchange import's mappings: this install's and the
+    backup's together (exchange_mappings.kept_by_restore, #656)."""
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
-            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db)}
+            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db),
+            "mappings": _import_mappings(db)}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -164,10 +166,10 @@ def _login_in_use(db: Session) -> tuple | None:
 def _write_kept(own: str | None, notices: list[str], live: Session | None, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
-    the restored database before it replaces the live one, and its tax
+    the restored database before it replaces the live one, its tax
     timezone in place of a backup's tzdata doesn't name (added to
-    `notices`, #407), then read them back from the file, with its one
-    login. They're read from the live database just before the swap, under
+    `notices`, #407), and its import mappings beside the backup's (#656),
+    then read them back from the file, with its one login. They're read from the live database just before the swap, under
     its write lock (services/backup.py), so a change saved while the restore
     ran is kept. No live database to read them from (DATABASE_URL names
     another), an error, or a value that doesn't read back as written, stops
@@ -184,10 +186,12 @@ def _write_kept(own: str | None, notices: list[str], live: Session | None, resto
         session_auth.put_open_sessions(restored, kept["sessions"])
         zone = _known_tax_timezone(restored, kept["timezone"], notices)
         last_id = _keep_the_higher_last_id(restored, kept["last_id"])
+        mappings = exchange_mappings.kept_by_restore(restored, kept["mappings"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
         as_written = (restored.query(User).count() == 1
-                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id})
+                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id,
+                                                         "mappings": mappings})
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -241,7 +245,7 @@ def _as_stored(db: Session, kept: dict) -> dict:
     login = _login_in_use(db) if kept["login"] is not None else None
     return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
             "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db),
-            "last_id": _last_account_id(db)}
+            "last_id": _last_account_id(db), "mappings": _import_mappings(db)}
 
 
 def _rows(db: Session, keys) -> dict:
@@ -262,6 +266,11 @@ def _keep_the_higher_last_id(restored: Session, own: int | None) -> int | None:
     if higher is not None:
         save_setting(restored, account_service.LAST_ID_KEY, str(higher))
     return higher
+
+
+def _import_mappings(db: Session) -> str | None:
+    """The exchange import's mappings' row, as stored."""
+    return _rows(db, [exchange_mappings.SETTING_KEY])[exchange_mappings.SETTING_KEY]
 
 
 def _stored_tax_timezone(db: Session) -> str | None:

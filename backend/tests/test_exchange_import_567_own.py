@@ -3,8 +3,8 @@ The owner's own mapping, for any other exchange's file (B5b, #567): the
 columns route shows a file's columns and the words in each, so the screen
 can match them; a mapping is saved, listed, used, replaced and deleted, and
 refused when it can't read the file or isn't one. Saved mappings are one
-app_settings row (no migration), which a restore takes from the backup: a
-mapping describes a file's columns, not this install (B5b's decision 7).
+app_settings row (no migration); what a restore does with them is
+test_restore_mappings_656.py's.
 
 All rows are synthetic.
 """
@@ -14,11 +14,8 @@ import json
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
 
-from backend.main import app
 from backend.tests.conftest import stub_daily_prices
-from backend.tests.test_restore_checks import OWNER, _backup, _restore, live  # noqa: F401  (live: fixture)
 
 FILE = (
     "Exported by Example Exchange\n"
@@ -187,16 +184,3 @@ def test_no_more_than_fifty_mappings(client):
         assert client.post("/api/import/exchange/mappings", json={**MAPPING, "name": f"Exchange {n}"}).status_code == 200
     r = client.post("/api/import/exchange/mappings", json={**MAPPING, "name": "One more"})
     assert r.status_code == 409
-
-
-def test_a_restore_takes_the_backups_mappings(live, tmp_path):  # noqa: F811
-    """This install's mappings go, the backup's come: a mapping describes a
-    file's columns, and comes back with the rest of the backup's settings."""
-    assert live.client.post("/api/import/exchange/mappings", json={**MAPPING, "name": "Made here"}).status_code == 200
-    stored = json.dumps({"last_id": 7, "mappings": {"own-7": {**MAPPING, "name": "In the backup"}}})
-    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('import_mappings', '{stored}')")
-    assert _restore(live.client, blob).status_code == 200
-    browser = TestClient(app)
-    assert browser.post("/api/login", json=OWNER).status_code == 200
-    assert [(m["id"], m["name"]) for m in own(browser)] == [("own-7", "In the backup")]
-    assert browser.post("/api/import/exchange/mappings", json=MAPPING).json()["id"] == "own-8"

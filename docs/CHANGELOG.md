@@ -35,6 +35,17 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **A restore keeps your saved exchange-file mappings** (#656, found by
+  the 2.0 build's release tests; checked by the imports tests, #689).
+  Settings' **Import from an exchange** can save your own column mappings,
+  and an in-app restore took the backup's set whole: mappings saved since
+  the backup were lost, and the next one saved could get the id of one
+  just dropped. A restore now keeps the mappings in use and adds the
+  backup's beside them, unless one here (or a ready-made one) has the
+  same name; a backup's mapping takes a new id if this install has
+  already handed its id out, and the higher of the two last ids is kept.
+  A backup restored on a new install brings its mappings as they were. No
+  figure changes.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins

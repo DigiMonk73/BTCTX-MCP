@@ -225,7 +225,9 @@ sites, or nobody. Where the server sets that choice (on StartOS, the
 
 **Settings → Backup & Restore** downloads an encrypted backup of your
 ledger and restores one. A restore takes the backup's data but keeps your
-current login, AI key and price settings.
+current login, AI key and price settings. Your saved exchange-file
+mappings are kept, and the backup's are added beside them, unless you
+already have one with the same name.
 
 ## Disclaimer
 

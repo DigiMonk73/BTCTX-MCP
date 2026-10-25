@@ -274,8 +274,8 @@ def save_mapping(db: Session, own: OwnMapping, mapping_id: str | None = None) ->
     """Save the owner's mapping as `mapping_id` (a new one when None), under
     the write lock so two tabs saving at once both land; its id. This
     install's saves never hand an id out twice, so a page holding a deleted
-    one's id gets 404, not another mapping (a restore brings the backup's
-    mappings and ids, decision 7)."""
+    one's id gets 404, not another mapping (a restore keeps the higher last
+    id: kept_by_restore)."""
     if not take_write_lock(db):
         raise HTTPException(status_code=503, detail=BUSY)
     try:
@@ -315,20 +315,65 @@ def delete_mapping(db: Session, mapping_id: str) -> None:
         raise
 
 
+def kept_by_restore(restored: Session, in_use: str | None) -> str | None:
+    """
+    The mappings a restored database keeps (#656), written into it, as
+    stored, for the restore's read-back: they're the owner's tools, neither
+    this install's own (as the login is) nor the ledger's (no transaction
+    names one), so a restore loses none. This install's (`in_use`, its
+    row as the live database holds it) stay; the backup's are added unless
+    one here, or a ready-made one, has the name (as a save compares them),
+    each with its id unless this install has handed that id out, else a new
+    one. The last id is the higher of the two, so no id handed out here is
+    handed out again. With none here and none handed out, the backup's row
+    stays as it is. They may then pass MAX_OWN_MAPPINGS: no new one is
+    saved until some are deleted.
+    """
+    own_last, mappings = _read(in_use)
+    row = restored.get(AppSetting, SETTING_KEY)
+    if not mappings and own_last == 0:
+        return row.value if row is not None else None
+    backup_last, backups = _stored(restored)
+    # An id's number above its row's last id (a row written by hand) still counts as handed out
+    handed_here = max(own_last, *map(_number, mappings), 0)
+    last_id = max(handed_here, backup_last, *map(_number, backups))
+    taken = {m.name.casefold() for m in (*mappings.values(), *READY_MADE.values())}
+    for mapping_id, mapping in backups.items():
+        if mapping.name.casefold() in taken:
+            continue
+        if _number(mapping_id) <= handed_here:  # handed out here, or not an id this version gives
+            last_id += 1
+            mapping_id = f"{OWN_PREFIX}{last_id}"
+        mappings[mapping_id] = mapping
+        taken.add(mapping.name.casefold())
+    _store(restored, last_id, mappings)
+    return restored.get(AppSetting, SETTING_KEY).value
+
+
+def _number(mapping_id: str) -> int:
+    """An own mapping's id's number; 0 for one this version doesn't give."""
+    number = mapping_id.removeprefix(OWN_PREFIX)
+    return int(number) if mapping_id.startswith(OWN_PREFIX) and number.isdecimal() else 0
+
+
 def _stored(db: Session) -> tuple[int, dict[str, OwnMapping]]:
-    """(the last id's number handed out, the mappings by id). What this
-    version can't read (a restore's, from a later one) is left out, never
-    an error."""
+    """(the last id's number handed out, the mappings by id)."""
     row = db.get(AppSetting, SETTING_KEY)
+    return _read(row.value if row is not None else None)
+
+
+def _read(value: str | None) -> tuple[int, dict[str, OwnMapping]]:
+    """The row's value read. What this version can't read (a restore's,
+    from a later one) is left out, never an error."""
     try:
-        stored = json.loads(row.value) if row is not None else {}
+        stored = json.loads(value) if value is not None else {}
     except ValueError:
         stored = {}
     stored = stored if isinstance(stored, dict) else {}
     mappings = {}
-    for mapping_id, value in (stored.get("mappings") or {}).items():
+    for mapping_id, fields in (stored.get("mappings") or {}).items():
         try:
-            mappings[mapping_id] = OwnMapping.model_validate(value)
+            mappings[mapping_id] = OwnMapping.model_validate(fields)
         except ValueError:
             continue
     last_id = stored.get("last_id")
