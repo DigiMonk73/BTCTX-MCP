@@ -35,6 +35,7 @@ const WARNING = {
   exact: true,
   why_not_exact: null,
   timezone: "UTC",
+  coins_chosen: null,
   confirm: "ab".repeat(32),
 };
 
@@ -57,7 +58,7 @@ describe("pastYearWarning", () => {
     const read = pastYearWarning(failed(409, { detail: "Dated in 2024.", confirm: "c" }));
     expect(read).toEqual({
       detail: "Dated in 2024.", years: [], changes: [], pending: [], recalc_error: null,
-      exact: true, why_not_exact: null, timezone: null, confirm: "c",
+      exact: true, why_not_exact: null, timezone: null, coins_chosen: null, confirm: "c",
     });
   });
 

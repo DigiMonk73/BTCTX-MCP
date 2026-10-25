@@ -5,6 +5,26 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **The form chooses which coins leave a wallet** (#711, step C3, #731).
+  A Spent, Gift, Donation or Lost withdrawal from one of your wallets, or
+  a Transfer out of one, lists the coins that leave, the oldest first (the
+  IRS's default), and **Choose which coins leave** opens a line for each
+  purchase or deposit the wallet holds then: its date acquired, how and
+  where it was acquired, its bitcoin, their cost and their term on that
+  date, and a field for the bitcoin chosen from it, filled oldest first.
+  **Highest cost first** fills it the other way, only on a transaction
+  dated today (the owner's Q3), so the form never hands out a choice made
+  after the coins left. The rule is always beside it: a choice counts only
+  if you decided by the time the coins left and your records from then show
+  it (Treas. Reg. §1.1012-1(j)). The running total says what's chosen of
+  what leaves, Save waits until it adds up, and **Don't choose coins** goes
+  back to oldest first. An edit opens on the coins chosen, with the day
+  they were chosen (and says so when that's after the coins left), and
+  keeps them when the wallet's coins can't be listed in time. The
+  Transactions list marks such a row "Coins chosen", and the past-year
+  question says, beside a choice on a transaction in an earlier tax year,
+  when a choice counts. On a phone, each purchase is a card. **No figure
+  changes** for any transaction whose coins aren't chosen.
 - **Choosing which coins leave a wallet: the database, the engine and the
   API** (#711, step C2a, #729; the owner's decision 29, 2026-10-25). Within
   each of your wallets the IRS counts the oldest coins as the ones that

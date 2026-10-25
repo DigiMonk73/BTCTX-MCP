@@ -8,7 +8,7 @@ import type { AxiosRequestConfig, AxiosResponse } from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import api from "../../api";
 import type { CoinsMoved } from "../../utils/coinsMoved";
-import { COINS_WAIT_MS, useCoinsMoved } from "./useCoinsMoved";
+import { COINS_WAIT_MS, useCoinsMoved, type CoinsShown } from "./useCoinsMoved";
 
 const transfer = (amount: number) => ({
   type: "Transfer", timestamp: "2025-06-01T17:00:00.000Z", from_account_id: 2, to_account_id: 100, amount,
@@ -43,6 +43,9 @@ const waitToAsk = () => act(() => new Promise((resolve) => setTimeout(resolve, C
 
 afterEach(() => vi.restoreAllMocks());
 
+/** What the form shows: since #711 the hook also gives a retry. */
+const shown = ({ state, stale }: CoinsShown) => ({ state, stale });
+
 describe("the question the form asks now", () => {
   it("never shows a late answer to an older one", async () => {
     const asked = stubPost();
@@ -56,9 +59,9 @@ describe("the question the form asks now", () => {
     expect(asked[0].signal?.aborted).toBe(true);
 
     await act(async () => asked[1].answer(listOf("0.20000000")));
-    expect(result.current).toEqual({ state: { kind: "listed", answer: listOf("0.20000000") }, stale: false });
+    expect(shown(result.current)).toEqual({ state: { kind: "listed", answer: listOf("0.20000000") }, stale: false });
     await act(async () => asked[0].answer(listOf("0.10000000"))); // the older one, late
-    expect(result.current).toEqual({ state: { kind: "listed", answer: listOf("0.20000000") }, stale: false });
+    expect(shown(result.current)).toEqual({ state: { kind: "listed", answer: listOf("0.20000000") }, stale: false });
   });
 
   it("asks nothing without a transfer to ask about", async () => {
@@ -66,6 +69,6 @@ describe("the question the form asks now", () => {
     const { result } = renderHook(() => useCoinsMoved(null));
     await waitToAsk();
     expect(asked).toEqual([]);
-    expect(result.current).toEqual({ state: { kind: "idle" }, stale: false });
+    expect(shown(result.current)).toEqual({ state: { kind: "idle" }, stale: false });
   });
 });

@@ -241,10 +241,10 @@ def test_an_earlier_years_write_that_leaves_a_choice_as_it_is_brings_no_line(cho
                  spend(LEAVES, "0.1", "12000", "0.0001", coins((ids["A2"], "0.10010000")))):  # sent back unchanged
         asked = chose_a2.put(f"/api/transactions/{ids['S']}", json=body)
         assert asked.status_code == 409, asked.text
-        assert asked.json()["coins_chosen"] is None
+        assert asked.json().get("coins_chosen") is None
     asked = chose_a2.delete(f"/api/transactions/{ids['S']}")
     assert asked.status_code == 409, asked.text
-    assert asked.json()["coins_chosen"] is None
+    assert asked.json().get("coins_chosen") is None
 
 
 def test_setting_a_choice_back_to_oldest_first_brings_no_line(chose_a2, tax_year):  # noqa: F811
@@ -252,4 +252,4 @@ def test_setting_a_choice_back_to_oldest_first_brings_no_line(chose_a2, tax_year
     tax_year(2026)
     asked = chose_a2.put(f"/api/transactions/{chose_a2.ids['S']}", json={"chosen_coins": None})
     assert asked.status_code == 409, asked.text
-    assert asked.json()["coins_chosen"] is None
+    assert asked.json().get("coins_chosen") is None

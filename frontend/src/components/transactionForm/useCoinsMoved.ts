@@ -24,6 +24,8 @@ export type CoinsState =
 export interface CoinsShown {
   state: CoinsState;
   stale: boolean;
+  /** Ask the same question again (a list that couldn't be worked out in time, #711) */
+  retry: () => void;
 }
 
 /**
@@ -36,7 +38,9 @@ export interface CoinsShown {
 export function useCoinsMoved(payload: ICreateTransactionPayload | null, transactionId?: number | null): CoinsShown {
   const url = coinsUrl(transactionId);
   const body = payload ? JSON.stringify(payload) : "";
-  const question = body && `${url} ${body}`;
+  const [attempt, setAttempt] = useState(0);
+  const question = body && `${url} ${body} ${attempt}`;
+  const retry = () => setAttempt((n) => n + 1);
   const from = payload?.from_account_id;
   const [answered, setAnswered] = useState<{ question: string; url: string; from?: number; state: CoinsState } | null>(
     null);
@@ -62,11 +66,11 @@ export function useCoinsMoved(payload: ICreateTransactionPayload | null, transac
     };
   }, [question, url, body, from]);
 
-  if (!question) return { state: { kind: "idle" }, stale: false };
-  if (answered?.question === question) return { state: answered.state, stale: false };
+  if (!question) return { state: { kind: "idle" }, stale: false, retry };
+  if (answered?.question === question) return { state: answered.state, stale: false, retry };
   const sameCoins = answered?.url === url && answered.from === from;
-  if (sameCoins && answered.state.kind === "listed" && answered.state.answer.coins) {
-    return { state: answered.state, stale: true };
+  if (sameCoins && answered.state.kind === "listed" && (answered.state.answer.coins || answered.state.answer.held)) {
+    return { state: answered.state, stale: true, retry };
   }
-  return { state: { kind: "asking" }, stale: false };
+  return { state: { kind: "asking" }, stale: false, retry };
 }

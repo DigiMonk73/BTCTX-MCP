@@ -17,6 +17,39 @@ GOLDEN_ZONE = "America/New_York"
 RANDOM_ZONES = ("UTC", "America/Chicago", "Asia/Tokyo")
 ZONES = (GOLDEN_ZONE, *RANDOM_ZONES)
 
+# A ledger whose wallet chooses its coins (#711, from C3 on: plan 8.4), so
+# every later step proves it moves no chosen figure either. Its rows are
+# entered in order on a fresh database, so a choice names an earlier row by
+# its place (ids 1, 2, 3…). Compared against a build that takes choices
+# (C2a's merge, dc2cab07, or later): an older one refuses them.
+CHOSEN_LEDGER = [
+    # 1, 2: Wallet's two purchases (2017's coins, and 2025's at $90,000 a BTC)
+    dict(type="Deposit", timestamp="2023-01-10T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+         amount="0.3", fee_amount="0", fee_currency="BTC", source="MyBTC", cost_basis_usd="300",
+         acquired_at="2017-03-01"),
+    dict(type="Deposit", timestamp="2025-01-15T12:00:00Z", from_account_id=EXTERNAL, to_account_id=WALLET,
+         amount="0.5", fee_amount="0", fee_currency="BTC", source="MyBTC", cost_basis_usd="45000"),
+    # 3, 4: a Buy on the exchange, part of it moved to Wallet
+    dict(type="Buy", timestamp="2025-02-01T12:00:00Z", from_account_id=BANK, to_account_id=EXCH_BTC,
+         amount="1", cost_basis_usd="100000", fee_amount="0", fee_currency="USD"),
+    dict(type="Transfer", timestamp="2025-02-10T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=WALLET,
+         amount="0.3", fee_amount="0", fee_currency="BTC"),
+    # 5: a Spent choosing 2025's coins, its fee among them
+    dict(type="Withdrawal", timestamp="2025-06-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+         amount="0.1", fee_amount="0.0001", fee_currency="BTC", fee_usd="5.00", purpose="Spent",
+         proceeds_usd="10000", chosen_coins=[{"acquired_txn_id": 2, "btc": "0.1001"}]),
+    # 6: the Buy's coins chosen back to the exchange, then sold there oldest first
+    dict(type="Transfer", timestamp="2025-07-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXCH_BTC,
+         amount="0.2001", fee_amount="0.0001", fee_currency="BTC", fee_usd="6.00",
+         chosen_coins=[{"acquired_txn_id": 3, "btc": "0.2001"}]),
+    # 7: a Gift choosing across two purchases, both terms
+    dict(type="Withdrawal", timestamp="2025-08-01T12:00:00Z", from_account_id=WALLET, to_account_id=EXTERNAL,
+         amount="0.05", fee_amount="0", fee_currency="BTC", purpose="Gift", fmv_usd="4000",
+         chosen_coins=[{"acquired_txn_id": 1, "btc": "0.03"}, {"acquired_txn_id": 2, "btc": "0.02"}]),
+    dict(type="Sell", timestamp="2025-09-01T12:00:00Z", from_account_id=EXCH_BTC, to_account_id=EXCH_USD,
+         amount="0.9", gross_proceeds_usd="99000", fee_amount="0", fee_currency="USD"),
+]
+
 # Valid API payloads after the golden ledger's last transaction; the base for
 # the invalid ones.
 API_PAYLOADS = {

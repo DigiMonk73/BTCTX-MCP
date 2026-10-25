@@ -5,7 +5,8 @@
 // the webkit project runs only with E2E_WEBKIT=1.
 import { defineConfig, devices } from "@playwright/test";
 
-const tzSpecs = /(create|edit|transactions-list|sidebar-matrix)\.e2e\.ts/;
+// The coin picker says the day a choice was made on the device's clock (#711)
+const tzSpecs = /(create|edit|transactions-list|sidebar-matrix|chosen-coins-711)\.e2e\.ts/;
 
 export default defineConfig({
   testDir: "./e2e",

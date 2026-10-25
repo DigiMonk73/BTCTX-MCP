@@ -415,7 +415,7 @@ def _warning(write: PastYearWrite, found: _Found, by_ai: bool, this_year: int, d
         "exact": True,
         "why_not_exact": None,
         "timezone": tz.key,  # the one its rows' dates are in, which no device's clock need match (#737)
-        "coins_chosen": found.coins_chosen,
+        **_coins_chosen(found.coins_chosen),
     })
 
 
@@ -442,8 +442,14 @@ def _by_date(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int)
         "exact": False,
         "why_not_exact": TOO_SLOW,
         "timezone": tz.key,
-        "coins_chosen": write.coins_chosen(db, tz),
+        **_coins_chosen(write.coins_chosen(db, tz)),
     })
+
+
+def _coins_chosen(line: str | None) -> dict:
+    """The 409's line about a choice of coins, only when it has one: every
+    other 409, and its fingerprint, stays as it was."""
+    return {"coins_chosen": line} if line else {}
 
 
 def _with_fingerprint(write: PastYearWrite, body: dict) -> dict:
