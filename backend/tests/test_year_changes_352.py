@@ -195,3 +195,15 @@ def test_a_broker_choice_left_on_a_donation_moves_nothing_filed(client):
     deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
     donation = donate(client, "2025-07-01T12:00:00Z")
     assert changes_of(client, lambda: edit(client, donation, broker_reporting="basis")) == {}
+
+
+def test_a_spend_made_a_gift_names_its_own_rows_never_a_network_fees(client):
+    # Its Form 8949 rows before the edit were the spend's own; the gift's part says what it became
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    spend = save(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+                 timestamp="2025-07-01T12:00:00Z", purpose="Spent", proceeds_usd="3000")
+    moved = changes_of(client, lambda: edit(client, spend, purpose="Gift", fmv_usd="3000"))
+    words = year_changes.change_text(moved[spend]["diff"], figures(client)[spend])
+    assert "Form 8949 box I -> none" in words and "network fee's" not in words
+    assert "held" not in words and "date acquired none" not in words
+    assert words.endswith("gifts, donations and lost coins: none -> Gift 3000.00.")

@@ -205,12 +205,15 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
     money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *DATES)}
     parts = [review.change_text(money).rstrip(".")] if money else []
-    if "given_terms" in diff:
-        parts.append("held " + _moved_text(*([TERMS.get(term, "unknown") for term in side]
+    # A row made a gift or no longer one: its gift's part below says so
+    if _on_both_sides(diff.get("given_terms")):
+        parts.append("held " + _moved_text(*([TERMS[term or "SHORT"] for term in side]
                                              for side in diff["given_terms"])))
-    if "given_acquired" in diff:
+    if _on_both_sides(diff.get("given_acquired")):
         parts.append("date acquired " + _moved_text(*diff["given_acquired"]))
-    form = "network fee's Form 8949" if (row or {}).get("given") else "Form 8949"
+    # A gift's only Form 8949 rows are its network fee's, when it's a gift before and after
+    gift_throughout = bool((row or {}).get("given")) and None not in diff.get("given", ())
+    form = "network fee's Form 8949" if gift_throughout else "Form 8949"
     if "boxes" in diff:
         parts.append(f"{form} box " + _moved_text(*diff["boxes"]))
     if "acquired" in diff:
@@ -225,6 +228,11 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
     text = "; ".join(parts) + "."
     return text[:1].upper() + text[1:] if not money else text
+
+
+def _on_both_sides(moved: tuple[list, list] | None) -> bool:
+    """A list that moved and holds something before and after."""
+    return moved is not None and all(moved)
 
 
 def _received_text(received: tuple[str, str | None] | None) -> str:
