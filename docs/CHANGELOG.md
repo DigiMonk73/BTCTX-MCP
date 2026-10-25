@@ -92,6 +92,11 @@ All notable changes to BitcoinTX are documented in this file.
   back.
 
 ### Development
+- **`desktop/build-mac.sh` says to test a build with `run-test-build.sh`**
+  (#679, found by session 18 of the 2.0 build). It ended by suggesting
+  `open` on the app it built, which runs it on the installed app's data
+  folder, a real ledger; it now prints `desktop/run-test-build.sh`, which
+  runs the build on its own data folder and port 8766.
 - **The release walk's steps match 2.0** (#723, found by the StartOS
   tests, #691). `docs/AGENT-TESTS.md`: IMP-4b's Buy starts on **Bank**
   (no earlier sale in its file leaves Kraken dollars, #655), so there's no

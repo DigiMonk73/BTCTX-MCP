@@ -161,8 +161,9 @@ if [ "${#APPS[@]}" = 1 ] && [ -d "$APP_PATH" ]; then
     echo "  Application: $APP_PATH"
     echo "  Size: $APP_SIZE"
     echo ""
-    echo "To test:"
-    echo "  open $APP_PATH"
+    # Never "open" it: that runs it on the installed app's data folder, a real ledger (#679)
+    echo "To test, on its own data folder and port, never the installed app's ledger:"
+    echo "  $SCRIPT_DIR/run-test-build.sh"
     echo ""
 
     # Create DMG if create-dmg is available
