@@ -162,7 +162,9 @@ describe("no coins move", () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
     await form.pickType("Transfer");
     await form.choose("From Account", "Sparrow");
-    await form.choose("To Account", "Sparrow: consolidate / move within the same wallet");
+    // Sparrow sent to itself, by its id: the option's words are another test's
+    await form.user.selectOptions(screen.getByLabelText("To Account", { exact: true }), "2");
+    await form.settle();
     await form.user.type(screen.getByLabelText("Amount (From)"), "0.4001");
     await form.user.type(screen.getByLabelText("Amount (To)"), "0.4");
     await waitForCoins(form);
