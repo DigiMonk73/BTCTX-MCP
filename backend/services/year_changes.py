@@ -32,7 +32,9 @@ from backend.services.tax_time import format_tax_date, local_date
 # donations and lost coins (the purpose and value: a donation's can be a
 # charitable deduction; the build's lead, 2026-10-24)
 COLUMNS = ("boxes", "acquired", "given_terms", "given_acquired", "received", "given")
-TERMS = {"SHORT": "short-term", "LONG": "long-term"}
+# A gift's only Form 8949 rows are its network fee's: named so when it's a
+# gift on both sides of a change (the change's own, or a pending one)
+FEE_COLUMNS = {"boxes": "fee_boxes", "acquired": "fee_acquired"}
 # And, for a row with figures, its tax year; and its date where a filed
 # return prints it, even within its year (the build's lead, 2026-10-24): a
 # disposal's date sold (Form 8949's column (c)), an income's, rebate's or
@@ -132,6 +134,8 @@ def _row_diff(tx_id: int, old: dict | None, new: dict | None) -> dict[str, Any]:
         return {}
     diff = review.differences({tx_id: old}, {tx_id: new}).get(tx_id, {})
     diff.update({key: (old[key], new[key]) for key in COLUMNS if old[key] != new[key]})
+    if old["given"] is not None and new["given"] is not None:
+        diff.update({fee: diff.pop(key) for key, fee in FEE_COLUMNS.items() if key in diff})
     if old["date"] != new["date"] and (_date_printed(old) or _date_printed(new)):
         diff["date"] = (old["date"], new["date"])
     if old["year"] != new["year"]:
@@ -199,25 +203,13 @@ def change_text(diff: dict, row: dict | None = None) -> str:
     own coins' holding period and date acquired, the box and column (b) (a
     gift's network fee's, the only Form 8949 rows it has), income and
     rebates, gifts, the date and the tax year; an added or deleted row's
-    figures (`row`: its figures as the save leaves them)."""
+    figures (`row`)."""
     if diff.get("added") or diff.get("deleted"):
         named = [f"{review.FIGURE_NAMES[k]} {review.money(row[k])}" for k in NAMED if (row or {}).get(k) is not None]
         return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
-    money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *DATES)}
+    money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *FEE_COLUMNS.values(), *DATES)}
     parts = [review.change_text(money).rstrip(".")] if money else []
-    # A row made a gift or no longer one: its gift's part below says so
-    if _on_both_sides(diff.get("given_terms")):
-        parts.append("held " + _moved_text(*([TERMS[term or "SHORT"] for term in side]
-                                             for side in diff["given_terms"])))
-    if _on_both_sides(diff.get("given_acquired")):
-        parts.append("date acquired " + _moved_text(*diff["given_acquired"]))
-    # A gift's only Form 8949 rows are its network fee's, when it's a gift before and after
-    gift_throughout = bool((row or {}).get("given")) and None not in diff.get("given", ())
-    form = "network fee's Form 8949" if gift_throughout else "Form 8949"
-    if "boxes" in diff:
-        parts.append(f"{form} box " + _moved_text(*diff["boxes"]))
-    if "acquired" in diff:
-        parts.append(f"{form} column (b), date acquired " + _moved_text(*diff["acquired"]))
+    parts += _lots_text(diff)
     if "received" in diff:
         parts.append("income and rebates: " + " -> ".join(_received_text(side) for side in diff["received"]))
     if "given" in diff:
@@ -228,6 +220,31 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
     text = "; ".join(parts) + "."
     return text[:1].upper() + text[1:] if not money else text
+
+
+def _lots_text(diff: dict) -> list[str]:
+    """The lots' part: a gift's own coins' holding period and date acquired
+    (a row made a gift, or no longer one: its gift's part says so), then
+    the Form 8949 box and column (b), a gift's network fee's or any other
+    row's."""
+    parts = []
+    if _on_both_sides(diff.get("given_terms")):
+        parts.append("held " + _moved_text(*([_term(term) for term in side] for side in diff["given_terms"])))
+    if _on_both_sides(diff.get("given_acquired")):
+        parts.append("date acquired " + _moved_text(*diff["given_acquired"]))
+    for form, boxes, acquired in (("network fee's Form 8949", "fee_boxes", "fee_acquired"),
+                                  ("Form 8949", "boxes", "acquired")):
+        if boxes in diff:
+            parts.append(f"{form} box " + _moved_text(*diff[boxes]))
+        if acquired in diff:
+            parts.append(f"{form} column (b), date acquired " + _moved_text(*diff[acquired]))
+    return parts
+
+
+def _term(holding_period: str | None) -> str:
+    """ "long-term" or "short-term": a disposal with no term stored (before
+    0.7) is short-term, as the reports count it."""
+    return "long-term" if holding_period == "LONG" else "short-term"
 
 
 def _on_both_sides(moved: tuple[list, list] | None) -> bool:

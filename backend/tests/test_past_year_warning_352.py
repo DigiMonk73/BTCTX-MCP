@@ -465,6 +465,32 @@ def test_after_an_upgrade_the_first_confirm_saves(ledger):
     assert r.status_code == 204, r.text
 
 
+def test_a_pending_fix_on_a_spend_made_a_gift_names_its_own_rows_never_a_network_fees(fresh_app, monkeypatch,
+                                                                                         tax_year):
+    """The pending list compares the stored figures with a recalculation
+    without the write: there the row is a Spent on both sides, whatever the
+    write makes it, so its Form 8949 rows are its own (#736's re-check)."""
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    r = post(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+             timestamp="2025-07-01T12:00:00Z", purpose="Spent", proceeds_usd="3000")
+    assert r.status_code == 200, r.text
+    spend = r.json()["id"]
+    tax_year(2026)
+    with fresh_app() as db:  # a fix pending on the spend itself, as after an upgrade
+        db.execute(text("UPDATE lot_disposals SET holding_period = 'LONG' WHERE transaction_id = :id"), {"id": spend})
+        db.execute(text("DELETE FROM app_settings WHERE key = 'recalculated_by'"))
+        db.commit()
+    r = client.put(f"/api/transactions/{spend}", json={"purpose": "Gift", "fmv_usd": "3000"})
+    assert r.status_code == 409, r.text
+    pending = {item["id"]: item["change"] for item in r.json()["pending"]}
+    assert "Form 8949 box L -> I" in pending[spend] and "network fee's" not in pending[spend]
+    changes = {item["id"]: item["change"] for item in r.json()["changes"]}
+    assert "Form 8949 box I -> none" in changes[spend] and "network fee's" not in changes[spend]
+
+
 def test_past_the_budget_a_dollar_row_still_saves_at_once(ledger, monkeypatch):
     client, _ = ledger
     monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
