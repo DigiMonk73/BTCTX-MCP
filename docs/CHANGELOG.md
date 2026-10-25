@@ -53,7 +53,7 @@ All notable changes to BitcoinTX are documented in this file.
   would count them in both accounts. Words only: no figure changes.
 - **A Transfer's consolidation no longer becomes a move when its From
   Account changes** (#719, found by the 2.0 testing plan's StartOS run,
-  ACC-7, on alpha.2; in alpha.1 and alpha.2). With To Account on
+  ACC-7, on alpha.2; the bug is in alpha.1 and alpha.2). With To Account on
   "*Exchange*: consolidate within the same exchange" (or a wallet's),
   choosing another From Account kept the old account as the To, so the
   form then held a transfer into it, which moves your oldest coins, with
@@ -66,7 +66,8 @@ All notable changes to BitcoinTX are documented in this file.
   was saved without the Save click, and the field showed its new value: no
   figure changes. Testing an alpha? A Transfer you meant as a
   consolidation shows as "Consolidation" in the Transactions list; one
-  listed between two accounts moved coins, and can be edited back.
+  listed between two different accounts moved coins, and can be edited
+  back.
 
 ### Development
 - **The reference test ledger covers all of 2.0** (#702, for the 2.0

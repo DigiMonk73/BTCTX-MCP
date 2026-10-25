@@ -109,7 +109,10 @@ describe("a row saved unchanged keeps its accounts", () => {
     expect(shown("To Account")).toBe("Select To Account");
     await consolidation.save();
     expect(consolidation.sent()).toBeUndefined();
+    await consolidation.choose("From Account", "Wallet"); // put back: chosen again, never brought back
+    expect(shown("To Account")).toBe("Select To Account");
     // A To chosen since is a move into it, even back to the row's own From
+    await consolidation.choose("From Account", "Exchange BTC");
     await consolidation.choose("To Account", "Wallet");
     await consolidation.choose("From Account", "Wallet");
     expect(shown("To Account")).toBe("Select To Account");
