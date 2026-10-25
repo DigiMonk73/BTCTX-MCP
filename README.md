@@ -8,7 +8,7 @@ assistant can enter transactions for you. What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 It tracks BTC and USD balances with **double-entry accounting**, computes
-FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
+cost basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949**
 and **Schedule D**, including the Form 1099-DA boxes that start with tax year 2025.
 
 <img width="1000" alt="Dashboard: balances, cost basis, realized and unrealized gains, income and fees" src="docs/images/dashboard.png" />
@@ -40,10 +40,11 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   row's accounts as you named them and filters by account or by kind. Every
   edit or deletion, and every entry dated before your latest one,
   recalculates the whole ledger, so backdated entries come out right.
-- **FIFO lots per wallet and per exchange**: a transfer between your
+- **Cost basis is per-wallet FIFO**: each wallet and exchange uses its own
+  oldest coins first for a sale, spend or transfer. A transfer between your
   accounts keeps each lot's acquisition date and basis; a consolidation (a
   wallet, or an exchange's BTC account, to itself) records only its network
-  fee
+  fee.
 - **Earlier tax years ask first**: a save that would change the figures of
   a tax year before this one, which you may already have filed (an add, an
   edit or a delete, the tax timezone, an exchange's 1099-DA switch, an
@@ -125,11 +126,11 @@ runs: [docs/USING.md](docs/USING.md).
 > exchanges and banks. From 2025, cost basis is figured wallet by wallet and
 > account by account; unless you identify the coins you sell, first in,
 > first out within each, by the date first acquired (Treas. Reg.
-> §1.1012-1(j)). BitcoinTX keeps each wallet's and each exchange's own lots
-> and always sells them first in, first out. If you kept multiple wallets or
-> exchanges together in BitcoinTX 1.x, years before you added them were
-> figured together: ask a tax professional whether an earlier return needs
-> a change.
+> §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
+> uses its own oldest coins first for a sale, spend or transfer. If you kept
+> multiple wallets or exchanges together in BitcoinTX 1.x, years before you
+> added them were figured together: ask a tax professional whether an
+> earlier return needs a change.
 
 A new BitcoinTX starts with a **Bank**, a **Wallet** and an **Exchange**
 (its dollars, **Exchange USD**, and its bitcoin, **Exchange BTC**). Add more in Settings, under Wallets, exchanges and banks, and
@@ -148,9 +149,10 @@ rename, hide or delete them there:
 
 Coins move between your accounts by a Transfer, which keeps each lot's date
 and cost. A new account starts empty: move coins into it with a Transfer
-dated when they really moved (BitcoinTX moves the oldest coins first). A
-save that would change an earlier tax year's figures, one you may already
-have filed, shows which years and what changes, and asks before it saves.
+dated when they really moved (Per-wallet FIFO, in the box above, decides
+which coins move). A save that would change an earlier tax year's figures,
+one you may already have filed, shows which years and what changes, and
+asks before it saves.
 
 Hide an account you no longer use: its history stays, and the transaction
 form stops offering it. Delete one only while no transaction names it (your

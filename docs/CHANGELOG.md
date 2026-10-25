@@ -27,8 +27,14 @@ All notable changes to BitcoinTX are documented in this file.
   back to 1.x", moved from `docs/MAINTENANCE.md` (the pre-releases' notes
   link it there from their next one on; earlier notes keep their own
   tag's link). `docs/MACOS_DESKTOP_APP.md`'s user sections gain 2.0's
-  safety copies, the Preview's download name and its troubleshooting. No
-  figure changes.
+  safety copies, the Preview's download name and its troubleshooting.
+  BitcoinTX's cost-basis method is named in the owner's one wording
+  (decision 30, #713): "Per-wallet FIFO", or in full, "Cost basis is
+  per-wallet FIFO: each wallet and exchange uses its own oldest coins
+  first for a sale, spend or transfer." in the README, the user guide and
+  Settings › About BitcoinTX's notice, which is the README's box word for
+  word (it said "always sells them first in, first out"). No figure
+  changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 

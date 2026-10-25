@@ -8,8 +8,8 @@ covers it; elsewhere, the [README](../README.md#install).
 BitcoinTX is a self-hosted, single-user Bitcoin portfolio tracker and tax
 report generator for your self-custody wallets, exchange accounts and
 banks. It tracks BTC and USD balances with **double-entry accounting**,
-keeps each wallet's and each exchange's own cost-basis lots, computes FIFO
-cost basis and capital gains per account, and prints IRS **Form 8949** and
+keeps each wallet's and each exchange's own cost-basis lots, computes cost
+basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949** and
 **Schedule D**, including the Form 1099-DA boxes that start with tax year
 2025.
 
@@ -18,11 +18,11 @@ cost basis and capital gains per account, and prints IRS **Form 8949** and
 > exchanges and banks. From 2025, cost basis is figured wallet by wallet and
 > account by account; unless you identify the coins you sell, first in,
 > first out within each, by the date first acquired (Treas. Reg.
-> §1.1012-1(j)). BitcoinTX keeps each wallet's and each exchange's own lots
-> and always sells them first in, first out. If you kept multiple wallets or
-> exchanges together in BitcoinTX 1.x, years before you added them were
-> figured together: ask a tax professional whether an earlier return needs
-> a change.
+> §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
+> uses its own oldest coins first for a sale, spend or transfer. If you kept
+> multiple wallets or exchanges together in BitcoinTX 1.x, years before you
+> added them were figured together: ask a tax professional whether an
+> earlier return needs a change.
 
 On this page: [Wallets, exchanges and banks](#wallets-exchanges-and-banks) ·
 [Dashboard](#dashboard) · [Transactions](#transactions) · [A change to an
@@ -61,7 +61,8 @@ to open it.
   and click **Add**. Under the name, the form says what a wallet is, or
   what the exchange's two accounts will be called. A new account starts
   empty: move coins into it with a Transfer dated when they really moved
-  (BitcoinTX moves the oldest coins first). Adding a wallet or an exchange
+  (Per-wallet FIFO decides which coins move: [Lots, gains and the holding
+  period](#lots-gains-and-the-holding-period)). Adding a wallet or an exchange
   while another one of its kind has transactions shows a note: years
   before you added it were figured with the others together, as BitcoinTX
   1.x did. A Transfer dated in an earlier year can change that year's
@@ -175,8 +176,8 @@ entries come out right.
     **Gift** (the giver's cost) take the basis you enter. Their **Date
     originally acquired** (when you first got the coins; for a gift, when
     the giver did), if you give it, starts the holding period, sets their
-    place in FIFO and is Form 8949's date acquired; left blank, the
-    deposit's date is used.
+    place in Per-wallet FIFO's order and is Form 8949's date acquired; left
+    blank, the deposit's date is used.
   - **N/A** (no particular source) takes the basis you enter; its
     holding period starts on the deposit's date.
   - **Income**, **Interest** and **Reward** (mining, staking, a sign-up or
@@ -212,8 +213,9 @@ entries come out right.
   - For a bitcoin account, **To Account** also offers the account itself:
     "*wallet*: consolidate / move within the same wallet" or "*exchange*:
     consolidate within the same exchange". A consolidation records only its
-    network fee, a disposal of your oldest coins at the fee's value; your
-    coins, their dates and cost basis stay as they are.
+    network fee, a disposal (of that account's coins, by Per-wallet FIFO)
+    at the fee's value; your coins, their dates and cost basis stay as they
+    are.
   - Moving coins to another exchange is a Transfer into that exchange's BTC
     account (add the exchange in Settings first if it isn't listed): each
     exchange keeps its own lots.
@@ -278,8 +280,8 @@ changes now.
 
 ## Lots, gains and the holding period
 
-Each wallet and each exchange's BTC account keeps its own FIFO lots:
-whatever leaves an account takes its oldest coins first. A transfer
+Cost basis is per-wallet FIFO: each wallet and exchange uses its own
+oldest coins first for a sale, spend or transfer. A transfer
 between your accounts moves lots, each keeping its acquisition date and
 its share of the cost. A sale is long-term only when it comes after the
 first anniversary of its lot's acquisition date (the IRS's "more than one
