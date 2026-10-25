@@ -76,6 +76,9 @@ BOXES_2026 = {
     "06/16/2026": {"L"}, "06/17/2026": {"I"}, "06/23/2026": {"I"}, "06/25/2026": {"G"}, "08/06/2026": {"L"},
     "08/12/2026": {"K"}, "08/18/2026": {"H", "K"}, "08/20/2026": {"G"}, "08/21/2026": {"I"},
     **{day: {"I"} for day in ("06/30/2026", "07/02/2026", "08/10/2026", "08/25/2026")},
+    # #730's chosen coins: the fee of the Sparrow's move to the Jade (L), the Jade's spends of the inherited
+    # and the 2023 coins (L), the fee of its move to Kraken (L), and Kraken's sale of the coins moved in (K)
+    **{day: {"L"} for day in ("08/27/2026", "09/03/2026", "09/04/2026", "09/07/2026")}, "09/09/2026": {"K"},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own

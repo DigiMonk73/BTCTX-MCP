@@ -1,19 +1,22 @@
 """
 The reference ledger's 2.0 rows (2.0 spec 5.15; card B7a #354): its
 `accounts` list adds two of each kind (wallets Coldcard and Jade, exchanges
-Kraken and Overseas, banks Credit union and Savings), which
-scripts/seed_ledger.py makes through the account API before the rows, and
-its "since": "2.0" rows use only those (B7a's in 2026; #702's from 2022 to
-2026, each for the year it fills), but one: the split of a pooled wallet,
-a Transfer from Wallet to the Coldcard with no fee, after every row that
-takes coins from either.
+Kraken and Overseas, banks Credit union and Savings) and a fourth wallet,
+the Sparrow, which scripts/seed_ledger.py makes through the account API
+before the rows, and its "since": "2.0" rows use only those (B7a's in 2026;
+#702's from 2022 to 2026, each for the year it fills; #730's, which choose
+coins, in 2025 and 2026), but one: the split of a pooled wallet, a Transfer
+from Wallet to the Coldcard with no fee, after every row that takes coins
+from either.
 
 - Every old row keeps its figures with the new rows beside it
   (test_old_rows_keep_their_figures): 1.x's beside every 2.0 row
   (equivalence_check's ledgers leave those out, B1, so this is their
-  proof), and 1.x's and B7a's beside #702's ("added": "#702"), which go
+  proof); 1.x's and B7a's beside #702's and #730's (each "added"), which go
   into the same 2.0 accounts only after each one's last earlier disposal
-  (Kraken's and Overseas' bitcoin emptied by the end of 2025).
+  (Kraken's and Overseas' bitcoin emptied by the end of 2025); and 1.x's,
+  B7a's and #702's beside #730's, the Sparrow's, which send chosen coins
+  to the Jade and Kraken only after each one's last earlier row.
 - The split row moves only Wallet's and the Coldcard's year-end lots and
   balances.
 - The seed makes the accounts with the ids the ledger lists, uses again
@@ -41,7 +44,7 @@ from backend.services.tax_time import get_tax_timezone, local_date
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 WALLET, COLDCARD, EXTERNAL = 2, 100, 99
-NEW_ACCOUNTS = set(range(100, 108))
+NEW_ACCOUNTS = set(range(100, 109))
 USER, PASSWORD = "seed-user", "seed-password-123"
 
 
@@ -123,7 +126,8 @@ def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw
         return figures
 
 
-@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw], ids=["2.0", "#702"])
+@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw,
+                                   lambda raw: raw.get("added") == "#730"], ids=["2.0", "#702 on", "#730"])
 def test_old_rows_keep_their_figures(owner, newer):
     c, Session = owner
     with_new = old_rows_figures(Session, seed_without(c, lambda raw: False), newer)
@@ -354,7 +358,7 @@ def test_a_choice_names_its_coins_by_the_id_their_row_got(owner):
     for _ in range(2):
         assert seed_ledger.seed(c, rows) == 3
         with Session() as db:
-            newer = db.query(Transaction).filter(Transaction.timestamp == NEWER["timestamp"].replace("Z", "")).one()
+            _, newer = db.query(Transaction).filter(Transaction.type == "Deposit").order_by(Transaction.timestamp)
             spend = db.query(Transaction).filter(Transaction.type == "Withdrawal").one()
             assert [(coin.acquired_txn_id, str(coin.btc)) for coin in spend.chosen_coins] == [(newer.id, "0.00400000")]
             # the newer coins' cost, $900 x 0.4, not the older ones' $160

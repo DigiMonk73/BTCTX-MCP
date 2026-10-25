@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). 'added' names the change that added a 2.0 row (#702's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind and a fourth wallet (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). #730's, in 2025 and 2026, choose which coins leave a wallet (#711): a fourth wallet, the Sparrow, filled only from External, spends, gives, donates and loses chosen coins, and sends them to the Jade and to Kraken; a row names the coins it acquired with a 'key', and a later row chooses them by it ('chosen_coins'), which scripts/seed_ledger.py sends as the id the server gave that row. 'added' names the change that added a 2.0 row (#702's, #730's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), and #730's into the Jade and Kraken only after each one's last earlier row, so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
  "accounts": [
   {
    "id": 100,
@@ -67,6 +67,13 @@
    "kind": "bank",
    "currency": "USD",
    "why": "A third bank, so a bank sends to a bank."
+  },
+  {
+   "id": 108,
+   "name": "Sparrow",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A fourth wallet, for the rows that choose which coins leave (#711, #730): filled only from External, so no older row takes from it; it sends chosen coins to the Jade and to Kraken after each one's last earlier row."
   }
  ],
  "transactions": [
@@ -747,6 +754,38 @@
    "why": "A sale the broker didn't report, e.g. abroad: Box I."
   },
   {
+   "type": "Deposit",
+   "timestamp": "2025-01-14T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "500.00",
+   "acquired_at": "2023-03-10T12:00:00Z",
+   "key": "sparrow-mybtc-2023",
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins (#711, #730): the Sparrow's oldest coins, My BTC first acquired 2023-03-10, named by their key so later rows can choose them. The Sparrow is filled only from External, so no older row takes from it."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-01-15T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Gift",
+   "cost_basis_usd": "860.00",
+   "acquired_at": "2024-02-01T12:00:00Z",
+   "key": "sparrow-gift-2024",
+   "since": "2.0",
+   "added": "#730",
+   "why": "A gift into the Sparrow with the giver's basis and date (2024-02-01): long-term from 2025-02-02."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2025-01-20T09:00:00Z",
    "from_account_id": 2,
@@ -779,6 +818,38 @@
    "since": "2.0",
    "added": "#702",
    "why": "A Buy on Kraken in 2025: before 2026, so its basis isn't reported (not covered)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-04T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.03",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "3060.00",
+   "acquired_at": "2025-02-01T12:00:00Z",
+   "key": "sparrow-mybtc-2025",
+   "since": "2.0",
+   "added": "#730",
+   "why": "My BTC first acquired 2025-02-01: short-term through 2026-02-01."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-10T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "1060.00",
+   "acquired_at": "2025-01-20T12:00:00Z",
+   "key": "sparrow-inherited-2025",
+   "since": "2.0",
+   "added": "#730",
+   "why": "Inherited coins into the Sparrow, valued on the date of death (2025-01-20): long-term whenever they leave (INHERITED)."
   },
   {
    "type": "Deposit",
@@ -968,6 +1039,31 @@
    "fee_usd": "2.88"
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2025-06-16T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.012",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "10.60",
+   "gross_proceeds_usd": "1272.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-gift-2024",
+     "btc": "0.0051"
+    },
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.007"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend choosing coins that aren't the oldest (the 2023 coins stay), across both terms: the gift's (long-term, Box L) and the 2025 coins (short-term, Box I). Its network fee is paid by the chosen coins, the oldest of them first: the gift's (Box L)."
+  },
+  {
    "type": "Sell",
    "timestamp": "2025-07-01T14:00:00Z",
    "from_account_id": 4,
@@ -1008,6 +1104,27 @@
    "purpose": "Lost",
    "fmv_usd": "0.00",
    "fee_usd": "1.20"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-08-11T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.004",
+   "fee_amount": "0.00005",
+   "fee_currency": "BTC",
+   "fee_usd": "6.00",
+   "fmv_usd": "480.00",
+   "purpose": "Gift",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.00405"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A gift choosing the 2025 coins (short-term), not the oldest; its fee from them too (Box I)."
   },
   {
    "type": "Sell",
@@ -1104,6 +1221,30 @@
    "fee_usd": "3.38"
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2025-10-06T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.006",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "744.00",
+   "purpose": "Donation",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.003"
+    },
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.003"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A donation choosing coins of both terms: the 2023 coins (long-term) and the 2025 ones (short-term)."
+  },
+  {
    "type": "Sell",
    "timestamp": "2025-10-15T14:00:00Z",
    "from_account_id": 4,
@@ -1161,6 +1302,26 @@
    "fee_amount": "11.20",
    "fee_currency": "USD",
    "cost_basis_usd": "11211.20"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-11-17T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "184.00",
+   "purpose": "Lost",
+   "chosen_coins": [
+    {
+     "key": "sparrow-gift-2024",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Lost coins chosen: the gift's, not the oldest. Not a sale."
   },
   {
    "type": "Withdrawal",
@@ -2204,6 +2365,29 @@
   },
   {
    "type": "Transfer",
+   "timestamp": "2026-08-27T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 101,
+   "amount": "0.0061",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "11.20",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.0021"
+    },
+    {
+     "key": "sparrow-inherited-2025",
+     "btc": "0.004"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins to another wallet, after the Jade's last earlier row: the 2023 coins and the inherited ones arrive keeping their dates, costs and inheritance; the fee is paid by the oldest chosen, the 2023 coins (Box L)."
+  },
+  {
+   "type": "Transfer",
    "timestamp": "2026-08-28T12:00:00Z",
    "from_account_id": 4,
    "to_account_id": 4,
@@ -2226,6 +2410,24 @@
    "cost_basis_usd": "2100.00",
    "acquired_at": "2026-02-01T12:00:00Z",
    "why": "Inherited coins into the exchange: dated by the death (2026-02-01), they come before the 2026-03-20 coins left there, so the next sale takes them."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-08-31T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 101,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "More of the same 2023 coins to the Jade, so it holds that purchase in two lots."
   },
   {
    "type": "Withdrawal",
@@ -2253,6 +2455,46 @@
   },
   {
    "type": "Withdrawal",
+   "timestamp": "2026-09-03T14:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "gross_proceeds_usd": "224.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-inherited-2025",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend from the Jade choosing the inherited coins the Sparrow sent it (INHERITED, long-term, Box L), though the 2023 coins are older."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-09-04T14:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "gross_proceeds_usd": "336.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.003"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend from the Jade choosing the 2023 coins across both their lots, the first made first: also exactly what oldest first would take, so the same figures as no choice (Box L)."
+  },
+  {
+   "type": "Withdrawal",
    "timestamp": "2026-09-05T12:00:00Z",
    "from_account_id": 2,
    "to_account_id": 99,
@@ -2264,6 +2506,25 @@
    "purpose": "Donation"
   },
   {
+   "type": "Transfer",
+   "timestamp": "2026-09-07T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 103,
+   "amount": "0.0051",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "11.20",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.0051"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins to an exchange, after Kraken's last earlier row: the 2025 coins, not the 2023 ones; the fee is theirs (Box L)."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-09-08T12:00:00Z",
    "from_account_id": 2,
@@ -2273,6 +2534,19 @@
    "fee_currency": "BTC",
    "purpose": "Lost",
    "fmv_usd": "148.00"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-09-09T14:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.005",
+   "fee_amount": "2.80",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "560.00",
+   "since": "2.0",
+   "added": "#730",
+   "why": "An exchange's coins leave oldest first: the coins the Sparrow chose to send are Kraken's oldest, moved in and held more than a year (Box K)."
   },
   {
    "type": "Transfer",

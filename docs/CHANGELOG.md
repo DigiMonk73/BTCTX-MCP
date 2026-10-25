@@ -224,6 +224,24 @@ All notable changes to BitcoinTX are documented in this file.
   hand. No ledger chooses coins yet, so the reference ledger's figures
   agree in every year as before. A test tool only: nothing in the app
   changes.
+- **The reference test ledger chooses coins** (#730, step C2b of choosing
+  which coins leave a wallet, #711). 14 rows join the made-up ledger every
+  figures check uses (205 in all), in a fourth wallet, the Sparrow, filled
+  only from outside, so no older row takes from it. In 2025 it spends,
+  gives, donates and loses coins it chose, not its oldest, across both
+  terms, the network fee paid by the chosen coins; in 2026 it sends chosen
+  coins to the Jade, which then spends the inherited ones (INHERITED) and
+  one purchase across the two lots it arrived in (also exactly the oldest
+  coins, so the same figures as no choice), and to Kraken, which sells
+  them oldest first (Box K). A row names the coins it acquired by a key,
+  and `scripts/seed_ledger.py` sends a choice with the id the server gave
+  that row, never by position. Coverage tests in `test_seed_ledger.py`
+  fail if one of these goes; every older row keeps every figure
+  (`test_reference_ledger_354.py`), and the independent figures agree with
+  the app's in every year. Only the new rows' own figures move: 2025 gains
+  4 Form 8949 rows and 2026 gains 6. Until the CSV carries choices (C4),
+  the CSV round trip's check compares with the ledger taking the oldest
+  coins. Test data only: nothing in the app changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 

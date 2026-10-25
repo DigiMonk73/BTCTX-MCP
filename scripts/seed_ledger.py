@@ -27,8 +27,10 @@ accounts: its `accounts` list, which the account API makes first (the ids
 must come out as listed, so on a fresh install), the rows that use them
 ("since": "2.0"), and then each account named and hidden as the list has
 it (one made under an older name is renamed, as an owner renames or hides
-an account in use). backend/tests/test_seed_ledger.py checks it and its
-figures (testdata/reference_figures.json). Every USD value a price lookup
+an account in use). A row may name the coins it acquired (`key`), and a
+later row choose them by that name (`chosen_coins`, #711): the seed sends
+each as the id the server gave the row. backend/tests/test_seed_ledger.py
+checks it and its figures (testdata/reference_figures.json). Every USD value a price lookup
 would fill is given (network fees, gift and donation values), so it loads
 with the price source Off and contacts nothing but the server. Settings are
 left as they are. A test tool: it lives in scripts/, which no build ships.
@@ -43,6 +45,7 @@ import os
 import socket
 import ssl
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -67,6 +70,7 @@ class SeedError(Exception):
 # The ledger
 def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it
+    but for its keys, which create_rows turns into ids
     (testdata/reference_ledger.json without its notes: "why", "since",
     which marks a row 2.0 added, and "added", the change that added it)."""
     with open(LEDGER) as f:
@@ -182,16 +186,55 @@ def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] |
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     if rows is None:
         rows, accounts = ledger_rows(), ledger_accounts() if accounts is None else accounts
+    check_keys(rows)
     for account in accounts or []:
         make_account(c, account)
-    for n, row in enumerate(rows, start=1):
-        r = send_confirmed(c, "POST", "/api/transactions", row)
-        if r.status_code != 200:
-            raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
-                            f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    create_rows(rows, lambda n, row: _post_row(c, n, row))
     for account in accounts or []:
         finish_account(c, account)
     return len(rows)
+
+
+def check_keys(rows: list[dict]) -> None:
+    """Each key on one row, before every row whose choice names it, so the
+    seed can follow them: checked before anything is sent."""
+    defined: dict[str, int] = {}
+    for n, row in enumerate(rows, start=1):
+        for line in row.get("chosen_coins") or []:
+            if line["key"] not in defined:
+                raise SeedError(f"row {n} chooses coins by the key {line['key']!r}, which no row before it has: "
+                                "a key is defined once, before the rows that choose by it")
+        key = row.get("key")
+        if key is not None and key in defined:
+            raise SeedError(f"row {n}'s key {key!r} is row {defined[key]}'s too: a key names one Buy or Deposit")
+        if key is not None:
+            defined[key] = n
+
+
+def create_rows(rows: list[dict], create: Callable[[int, dict], int]) -> None:
+    """Each row created in order by `create` (its number and the row as the
+    API takes it, returning the id the server gave it). A row's `key` names
+    the coins it acquired, and a later row's chosen coins name them by it
+    (#711, docs/temp/2.0-coin-choice.md 8.3), never by position: the file
+    is kept in time order, so a row put in later would move every number
+    after it. The key isn't sent; a choice is sent with the id its row got."""
+    ids: dict[str, int] = {}
+    for n, row in enumerate(rows, start=1):
+        sent = {field: value for field, value in row.items() if field != "key"}
+        if row.get("chosen_coins"):
+            sent["chosen_coins"] = [{"acquired_txn_id": ids[line["key"]], "btc": line["btc"]}
+                                    for line in row["chosen_coins"]]
+        made = create(n, sent)
+        if row.get("key") is not None:
+            ids[row["key"]] = made
+
+
+def _post_row(c: httpx.Client, n: int, row: dict) -> int:
+    r = send_confirmed(c, "POST", "/api/transactions", row)
+    if r.status_code != 200:
+        raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
+                        f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    return r.json()["id"]
 
 
 def make_account(c: httpx.Client, account: dict) -> None:
