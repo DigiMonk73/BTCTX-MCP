@@ -29,7 +29,8 @@ The first says the file is the one the release lists (`--ignore-missing`
 leaves out the release's other files, the ones you didn't download); the
 second (the GitHub CLI, signed in) that this repository's release workflow
 built it. If either reports a mismatch, don't open it: download it again
-from the release page.
+from the release page. A 2.0 pre-release's file is
+`BitcoinTX-Preview-macOS.dmg` (or `.zip`), checked the same way.
 
 ## How it works
 
@@ -117,11 +118,14 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
 | `setup-code.txt` | The one-time first-run setup code, mode 600, only while the login is still `admin` / `password` ("First start") |
 | `btc-prices/` | The hourly BTC price history (one `YYYY.csv` per year, about 3 MB), downloaded once from Bitstamp when your price choice allows public price sites, each year checked against a fingerprint; deleting it only means it's downloaded again |
-| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-….db`, newest 5 kept, apart), and the AI copies: those the AI connector's `backup_ledger` asks for, and one before the AI key's first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
+| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-….db`, newest 5 kept, apart), before a change to an earlier tax year you confirmed with **Save anyway** or **Delete anyway** (`btctx-pre-change-past-year-….db`, newest 5 kept, plus, for a week, the first of each day), the copy of a 1.x database made when 2.0 first opened it (`btctx-pre-2.0-from-….db`, never deleted by BitcoinTX: the way back to 1.x, README "Going back to 1.x"), and the AI copies: those the AI connector's `backup_ledger` asks for, one before each change to an earlier tax year it confirms, and one before the AI key's first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
 A new app version upgrades the database schema on first launch (after copying
 it into `backups/`). Opening an older app version on a database a newer one
-already upgraded is refused with an error instead of risking your data.
+already upgraded is refused with an error instead of risking your data: 1.x
+can't open a database 2.0 upgraded, nor restore a 2.0 backup. The way back
+from 2.0 to 1.x, with the copy above, is the README's
+[Going back to 1.x](../README.md#going-back-to-1x).
 
 The desktop app does not hardcode a secret key. `backend/secret_key.py` uses
 `SECRET_KEY` from the environment if set (and not a known public default or
@@ -358,6 +362,13 @@ If the backend doesn't answer within 30 seconds the app logs
 session" banner, another program had port 8765 when it started: quit
 BitcoinTX, close that program (`lsof -nP -iTCP:8765 -sTCP:LISTEN` names it) and
 reopen. The log records each attempt ("Port 8765 unavailable … EADDRINUSE").
+
+**BitcoinTX Preview.** The same, with its own names: its log is
+`~/Library/Logs/BitcoinTX Preview/BitcoinTX.log`, the installed app is
+`/Applications/BitcoinTX Preview.app` (to run it from Terminal, put
+"BitcoinTX Preview" in both of the command's names above), and its port
+is 8767. Its empty ledger is its own, not your BitcoinTX reset: BitcoinTX
+and its ledger are as they were ("BitcoinTX Preview" above).
 
 **Debugging PyInstaller:** `pyinstaller --debug=imports BitcoinTX.spec`.
 
