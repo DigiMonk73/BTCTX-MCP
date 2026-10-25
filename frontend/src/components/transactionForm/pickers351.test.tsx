@@ -108,6 +108,40 @@ describe("with more accounts", () => {
     expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
   });
 
+  // A consolidation records only its fee; the same To after another From
+  // would move coins into the old From's lots (#719)
+  it("never turns a consolidation into a transfer into the old From", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "River BTC");
+    await form.choose("To Account", "River: consolidate within the same exchange");
+    await form.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Select To Account");
+    await form.choose("To Account", "Sparrow: consolidate within the same wallet");
+    await form.choose("From Account", "River BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+    expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
+  });
+
+  it("nor when the From is blank on the way", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Coldcard");
+    await form.choose("To Account", "Coldcard: consolidate within the same wallet");
+    await form.choose("From Account", "Select From Account");
+    await form.choose("From Account", "Kraken BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+  });
+
+  it("keeps a To that still means the same move", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "River BTC");
+    await form.choose("To Account", "Coldcard");
+    await form.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Coldcard");
+  });
+
   it("never fills a consolidation, even when it's the only To that fits", async () => {
     const exchangeHidden = ONE_OF_EACH.map((a) => (a.id === 4 ? { ...a, hidden: true } : a));
     const form = await renderForm({ book: exchangeHidden });
