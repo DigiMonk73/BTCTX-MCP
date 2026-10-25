@@ -13,6 +13,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
 
 
@@ -31,9 +33,10 @@ def test_an_independent_calculation_gives_the_apps_figures():
     # The script shares three conventions with the app on purpose (its
     # docstring): a lot's cost and a disposal's proceeds shared as running
     # totals (#100, #297), and an exact half cent rounded up. With those,
-    # every Form 8949 row, Schedule D line, box total, gains summary, income
-    # figure, rebate, gift and year-end lot of every year must be the same,
-    # in the ledger's accounts (its accounts list adds 2.0's, #354).
+    # every Form 8949 row, Schedule D line, box total, exchange's Sells,
+    # gains summary, income figure, rebate, gift and lot held at the year's
+    # start and end of every year must be the same, in the ledger's
+    # accounts (its accounts list adds 2.0's, #354; #702).
     ledger = independent.replay_ledger(json.loads(independent.LEDGER.read_text()), independent.ROUNDING["half-up"])
     saved = json.loads(independent.FIGURES.read_text())["years"]
     found = [f"{year}: {line}" for year, figures in saved.items()
@@ -49,3 +52,42 @@ def test_the_independent_calculation_uses_nothing_of_the_app():
         elif isinstance(node, ast.ImportFrom):
             imported.add((node.module or "").split(".")[0])
     assert not imported & {"backend", "btctx_mcp", "scripts"}, imported
+
+
+WALLET, EXTERNAL = 2, 99
+COINS = {"type": "Deposit", "timestamp": "2025-01-10T12:00:00Z", "from_account_id": EXTERNAL, "to_account_id": WALLET,
+         "amount": "0.001", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC", "cost_basis_usd": "100.00"}
+
+
+def test_amounts_under_100_sats_are_written_as_the_app_writes_them():
+    """#703: str() writes a Decimal under 0.000001 as "1E-8"; Form 8949's
+    column (a) reads "0.00000001 BTC", so a 1-sat spend and an 11-sat fee
+    showed as differences though every figure agreed."""
+    spend = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+             "to_account_id": EXTERNAL, "amount": "0.00000001", "fee_amount": "0.00000011", "fee_usd": "0.01",
+             "purpose": "Spent", "gross_proceeds_usd": "0.02"}
+    figures = independent.year_figures(independent.replay([COINS, spend]), 2025)
+    assert sorted(row["description"] for row in figures["form_8949"]) == ["0.00000001 BTC", "0.00000011 BTC"]
+    assert [lot["quantity"] for lot in figures["end_of_year_holdings"]] == ["0.00099988"]
+
+
+def test_a_spend_without_a_network_fee_needs_no_fee_value():
+    """#703: the app stores no fee_usd for a bitcoin spend with no fee, so a
+    ledger read back from it leaves the key out; the replay read it anyway."""
+    spend = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+             "to_account_id": EXTERNAL, "amount": "0.0005", "purpose": "Spent", "gross_proceeds_usd": "80.00"}
+    [row] = independent.year_figures(independent.replay([COINS, spend]), 2025)["form_8949"]
+    assert (row["proceeds"], row["cost"], row["gain_loss"]) == ("80.00", "50.00", "30.00")
+
+
+@pytest.mark.parametrize("given", [{"fee_usd": None}, {"fee_usd": ""}, {}], ids=["null", "blank", "missing"])
+@pytest.mark.parametrize("purpose", ["Spent", "Gift"])
+def test_a_network_fee_without_a_value_stops_the_replay(given, purpose):
+    """The re-check of #702: a fee with no USD value was counted as $0,
+    though the app prices it or refuses the row, never $0. Guessing would
+    hide a difference, so it stops, naming the row."""
+    out = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+           "to_account_id": EXTERNAL, "amount": "0.0005", "fee_amount": "0.00001", "purpose": purpose,
+           "gross_proceeds_usd": "80.00", "fmv_usd": "80.00", **given}
+    with pytest.raises(ValueError, match="Withdrawal of 2025-02-10T12:00:00Z pays a network fee with no USD value"):
+        independent.replay([COINS, out])

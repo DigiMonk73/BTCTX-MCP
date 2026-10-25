@@ -15,7 +15,41 @@ All notable changes to BitcoinTX are documented in this file.
   switch still changes it later. The account API takes the answer as
   `sends_1099da` with an exchange (left out: on, as before) and refuses it
   with a bank or a wallet. No figure changes for an exchange answered as
-  before; one answered No puts its sales in boxes I/L from the start.
+  before; one answered No puts its sales from 2025 in boxes I/L from the
+  start.
+
+### Development
+- **The reference test ledger covers all of 2.0** (#702, for the 2.0
+  testing plan #686). 50 rows join the made-up ledger every figures check
+  uses (191 in all), so each of 2.0's dimensions is filled:
+  - every deposit source and withdrawal purpose in more than one wallet
+    and more than one exchange, and every route between more than one
+    pair of accounts;
+  - each exchange's sales in the boxes its 1099-DA switch gives (Kraken's
+    H and K, Overseas' I and L, a coin bought on Overseas in 2026 in I, not
+    G), and every Broker form choice against each switch, a spend's fee
+    following it;
+  - short- and long-term gains and losses, and inherited coins sold, in
+    2024, 2025 and 2026; holdings at the start of 2023;
+  - a hidden account still holding coins and a renamed exchange on the
+    dashboard (`scripts/seed_ledger.py` renames and hides after the rows);
+  - the rows Ledger Review lists ($0 cost, a $0 Buy, $0 proceeds).
+
+  New coverage tests in `test_seed_ledger.py` fail if a dimension ever
+  empties. The rows go only into 2.0's accounts, each after that
+  account's last earlier disposal, so no older row's figure moves (a test
+  compares every one); the test figures move only by the new rows' own
+  (`testdata/reference_figures.json`). `scripts/independent_figures.py`
+  also checks each exchange's Sells (Sales by exchange) and the coins held
+  at each year's start, and agrees in every year. Test data only: nothing
+  in the app changes.
+- **The independent figures read small amounts and fee-less spends**
+  (#703, found by the tax-engine tests, #687). `scripts/independent_figures.py`
+  wrote an amount under 100 sats as "1E-8 BTC" where the app writes
+  "0.00000001 BTC", so a ledger with a small network fee showed differences
+  that weren't there; and it stopped on a bitcoin spend with no network
+  fee, which has no fee value. A test tool only: no figure of the app's
+  changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
