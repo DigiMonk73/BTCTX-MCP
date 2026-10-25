@@ -56,6 +56,13 @@ All notable changes to BitcoinTX are documented in this file.
   with a bank or a wallet. No figure changes for an exchange answered as
   before; one answered No puts its sales from 2025 in boxes I/L from the
   start.
+- **Every box that opens has the app's one chevron** (#681, found in #678's
+  review). Settings → Connect an AI Assistant → **Set it up yourself**,
+  and the error page's **Error details** (shown only in a development
+  build), still showed the browser's own triangle, left of the words, and
+  a different one in Safari (the Mac app) and Chrome. They now have the
+  chevron Settings' sections and the dashboard's lines have, after the
+  words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
 - **A restore keeps your saved exchange-file mappings** (#656, found by
@@ -168,6 +175,12 @@ All notable changes to BitcoinTX are documented in this file.
   Words only: no figure changes.
 
 ### Development
+- **`desktop/build-mac.sh` says to test a build with `run-test-build.sh`**
+  (#679, found by session 18 of the 2.0 build). It ended by suggesting
+  `open` on the app it built, which runs it on the installed app's data
+  folder, a real ledger; it now prints the full path of
+  `desktop/run-test-build.sh`, which runs the build on its own data folder
+  and port 8766.
 - **The release walk's steps match 2.0** (#723, found by the StartOS
   tests, #691). `docs/AGENT-TESTS.md`: IMP-4b's Buy starts on **Bank**
   (no earlier sale in its file leaves Kraken dollars, #655), so there's no

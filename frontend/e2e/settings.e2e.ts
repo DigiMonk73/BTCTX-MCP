@@ -407,6 +407,21 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
   });
 });
 
+test("Set it up yourself opens with the app's one chevron, never the browser's triangle (#681)", async ({
+  authedPage: page,
+}) => {
+  await openSettings(page, "Connect an AI Assistant");
+  const summary = page.locator("summary", { hasText: "Set it up yourself" });
+  // Chromium and today's WebKit draw a summary's marker only for a list item (Safari 15's
+  // ::-webkit-details-marker, hidden too, isn't one these engines report)
+  expect(await summary.evaluate((el) => [getComputedStyle(el).display, getComputedStyle(el).listStyleType]))
+    .toEqual(["flex", "none"]);
+  const chevron = summary.locator(".chevron");
+  await expect(chevron).toHaveCSS("transform", "none");
+  await summary.click();
+  await expect(chevron).not.toHaveCSS("transform", "none"); // turned over while open, as Settings' sections
+});
+
 test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
   await page.getByRole("link", { name: "Settings" }).click();
   const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
