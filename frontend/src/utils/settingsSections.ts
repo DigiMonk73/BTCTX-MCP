@@ -83,3 +83,13 @@ export function reviewSummary(
   const toCheck = `${review.total} transaction${review.total === 1 ? "" : "s"} to check`;
   return stops ? `${toCheck}; Recalculate Ledger would stop` : toCheck;
 }
+
+/** Connect an AI Assistant's summary, by edition, as `aiSetup`'s `keyMode`
+ * says (undefined: not known yet): the Mac app makes its own key, Docker and
+ * StartOS have the owner create one (#724). Before the edition is known it
+ * names no key, rather than one that may be wrong. */
+export function aiSummary(keyMode: boolean | undefined): string {
+  const what = "An AI app that reads your ledger and enters transactions";
+  if (keyMode === undefined) return what;
+  return keyMode ? `${what}, with a key BitcoinTX keeps for it` : `${what}, with a key you create`;
+}

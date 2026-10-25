@@ -13,7 +13,7 @@ import RiverImport from "../components/RiverImport";
 import SettingsSection from "../components/SettingsSection";
 import { accountsSummary } from "../utils/ledgerAccounts";
 import {
-  browserStore, initiallyOpen, linkedSection, rememberOpen, reviewSummary, toggled, type SettingsSectionId,
+  aiSummary, browserStore, initiallyOpen, linkedSection, rememberOpen, reviewSummary, toggled, type SettingsSectionId,
 } from "../utils/settingsSections";
 import { useSettingsAccounts } from "../utils/useSettingsAccounts";
 import "../styles/settings.css";
@@ -37,6 +37,8 @@ const Settings: React.FC = () => {
   // Ledger Review asked again once another section saved what it reads (#645)
   const [reviewRound, setReviewRound] = useState(0);
   const reviewAgain = () => setReviewRound((n) => n + 1);
+  // The AI section's edition (the Mac app makes its own key), once it has asked (#724)
+  const [aiKeyMode, setAiKeyMode] = useState<boolean>();
   const accounts = useSettingsAccounts();
   const section = { loading, setLoading, setMessage };
 
@@ -85,9 +87,8 @@ const Settings: React.FC = () => {
           summary="Where BitcoinTX asks for bitcoin prices, and through what">
           <PriceSourceCard variant="settings" />
         </SettingsSection>
-        <SettingsSection {...props("ai")} title="Connect an AI Assistant"
-          summary="An AI app that reads your ledger and enters transactions, with a key you create">
-          <ConnectAiSetting />
+        <SettingsSection {...props("ai")} title="Connect an AI Assistant" summary={aiSummary(aiKeyMode)}>
+          <ConnectAiSetting onKeyMode={setAiKeyMode} />
         </SettingsSection>
         <SettingsSection {...props("data")} title="Data Management"
           summary="Delete all transactions, or import a CSV file into an empty ledger">
