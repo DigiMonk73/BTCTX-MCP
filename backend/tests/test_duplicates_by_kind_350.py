@@ -6,7 +6,8 @@ the two name different accounts of the same kind and currency (two wallets,
 two exchanges' BTC or USD accounts, two banks); External, or accounts of
 different kinds, still match as before. It holds for River's rows and the
 AI's (5.11); River's are only similar to such a transaction at the same
-minute (the owner's decision, 2026-10-25, #707: test_across_accounts_707). River's guessed wallet (the owner's decision, 2026-10-16): a
+minute (the owner's decision, 2026-10-25, #707: test_across_accounts_707).
+River's guessed wallet (the owner's decision, 2026-10-16): a
 send's or receive's wallet is the file's choice, not River's word, so a
 copy that differs only there is never paired and never in the rough pass,
 but offered to the similar pass: marked Review, ticked, its note naming the

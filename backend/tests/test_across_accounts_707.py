@@ -12,10 +12,14 @@ that account. The exact pass keeps to the row's own account, and the AI's
 rows keep their own rule.
 """
 
+from datetime import datetime, timezone
+from decimal import Decimal
+
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.services.river_import import RiverProposal, annotate_duplicates
 from backend.tests.account_pairs import add_them
 from backend.tests.conftest import default_login, stub_daily_prices, stub_prices_at
 
@@ -161,6 +165,38 @@ def test_a_move_between_two_wallets_is_never_the_files_send(client):
     record(client, "Transfer", COLD, WALLET, "0.001005", fee_amount="0.000005", fee_currency="BTC")
     [send] = into_kraken(client, SEND, wallet=COLD)
     assert found(send) == ("new", None, False)
+
+
+def test_a_move_into_the_files_exchange_is_never_its_send(client):
+    """Going the same way (the review's finding): coins moved from Exchange
+    into Kraken at that minute aren't Kraken's send, nor coins moved from
+    Kraken into Exchange its receive."""
+    record(client, "Transfer", EXCHANGE_BTC, KRAKEN_BTC, "0.001005", fee_amount="0.000005", fee_currency="BTC")
+    record(client, "Transfer", KRAKEN_BTC, EXCHANGE_BTC, "0.0006")
+    send, receive = into_kraken(client, SEND, RECEIVE)
+    assert found(send) == ("new", None, False) and found(receive) == ("new", None, False)
+
+
+def test_a_hidden_exchange_is_still_named(client):
+    """A hidden account is still yours: the pooled trade recorded there is found."""
+    tx = record(client, "Buy", BANK, EXCHANGE_BTC, "0.03", cost_basis_usd="1500")
+    assert client.put(f"/api/accounts/{EXCHANGE_BTC}", json={"hidden": True}).status_code == 200
+    [buy] = into_kraken(client, BUY)
+    assert found(buy) == ("discrepancy", tx, False)
+    assert buy["discrepancy"].endswith("it may already be recorded in Exchange")
+
+
+def test_a_dollar_row_is_never_flagged_this_way(fresh_app, client):
+    """Bitcoin amounts only (the owner's words): a dollar deposit into
+    Kraken USD beside one into Exchange USD stays new (an exchange's file
+    can hold one: dollars in, #581)."""
+    record(client, "Deposit", EXTERNAL, EXCHANGE_USD, "500")
+    with fresh_app() as db:
+        row = RiverProposal(row_number=2, timestamp=datetime(2026, 4, 7, 10, tzinfo=timezone.utc), river_tag=None,
+                            type="Deposit", from_account_id=EXTERNAL, to_account_id=KRAKEN_USD,
+                            amount=Decimal("500"))
+        annotate_duplicates([row], db)
+    assert (row.status, row.matched_tx_id) == ("new", None)
 
 
 def test_the_rows_own_accounts_come_first(client):

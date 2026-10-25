@@ -164,9 +164,9 @@ then, the IRS's draft of that year is a preview, marked DRAFT — DO NOT FILE.
   chosen for you unless one is named as the file's exchange. It adds to a
   ledger in use: the preview leaves out the rows already in it (the same
   kind, bitcoin amount and minute), flags those that only look like one
-  you recorded, or that you recorded in another exchange or wallet (as
-  BitcoinTX 1.x had you record a second exchange's trades in its one
-  exchange), and names
+  you recorded, or that you recorded at the same minute and amount in
+  another exchange or wallet (as BitcoinTX 1.x had you record a second
+  exchange's trades in its one exchange), and names
   every row it didn't read and why (another coin, dollars alone, a row not
   completed, a trade of bitcoin for another coin, which you add by hand).
   A buy's cost and a sell's proceeds are recorded before the fee, with the

@@ -868,14 +868,18 @@ def _in_another_account(proposal: RiverProposal, tx: Transaction, book: AccountB
     same kind and currency on a side (another exchange's, another wallet:
     the owner's decision, 2026-10-25, #707), as 1.x's guide had a second
     exchange's trades and a second wallet's coins recorded in the first.
-    The guessed wallet counts only beside the row's own account, one like
-    it or External, never a move between two of the owner's wallets
-    (_beside_its_own); a bank River never names is no other account."""
+    Going the same way: never into the account the row's coins left, nor
+    out of the one they went into (a move from Exchange into Kraken isn't
+    Kraken's send). The guessed wallet counts only beside the row's own
+    account, one like it or External, never a move between two of the
+    owner's wallets (_beside_its_own); a bank River never names is no other
+    account."""
     alike = _accounts_alike_named(proposal, tx, book)
     opposite = "from" if proposal.guessed == "to" else "to"
     return (
         bool(alike)
         and tx.type in _COMPATIBLE_TYPES.get(proposal.type, (proposal.type,))
+        and tx.to_account_id != proposal.from_account_id and tx.from_account_id != proposal.to_account_id
         and not _in_dollars(proposal, book) and not _in_dollars(tx, book)
         and (proposal.guessed not in alike or _beside_its_own(proposal, tx) or opposite in alike)
     )
