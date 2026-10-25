@@ -73,6 +73,11 @@ the published files are the ones you tested.
 GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 1.2.10 when 2.0.0 comes out.
 
+To walk a published pre-release (or any build that isn't the tip), use
+this file as it is at that build's tag (`git show
+v2.0.0-alpha.N:docs/AGENT-TESTS.md`): its steps quote that build's screens,
+and a later commit can change both together.
+
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
@@ -930,8 +935,9 @@ attach btctx -n btctx -- sh -c 'ls -t /data/backups | head -1'`.
     trusting is a FAIL.
   - **Forget this server's certificate**: the certificate message comes
     back.
-  - Afterwards choose **Nobody** in **Privacy & Network**, clear the
-    address, and save: PRC-5 expects the app's own choice to be Nobody (from
+  - Afterwards, in **Privacy & Network**, clear the address, then choose
+    **Nobody** (which hides the address field, and keeps an address left
+    in it), and save: PRC-5 expects the app's own choice to be Nobody (from
     AUTH-4) and a blank address.
 - **PRC-5** Action: **Decide in BitcoinTX instead**. Expect: Settings'
   **Privacy & Network** is editable again and shows the app's own choice
@@ -1198,11 +1204,12 @@ Set `KEY` to the key from AI-3, and use
   In **Import from an exchange** choose **Exchange** `Kraken` and **Wallet for
   sends and receives** `Coldcard`, then the file, then **Preview**.
   Expect "3 new", "3 rows in file", and the rows: the Buy with the **Bank**
-  / **Kraken USD** toggle (Kraken USD pressed) and "→ Kraken BTC"; the
-  Sell "Kraken BTC → Kraken USD"; the send a Transfer, "Kraken BTC →
-  Coldcard". Press **Bank** on the Buy, then **Import 3 Transaction(s)**
-  and confirm (the past-year dialog too, in a year after 2026). Expect
-  "Imported 3 transaction(s)." and the Sell at Gain +$13.33: River's
+  / **Kraken USD** toggle (**Bank** pressed: no earlier sale in the file
+  leaves Kraken dollars to pay it, #655) and "→ Kraken BTC"; the Sell
+  "Kraken BTC → Kraken USD"; the send a Transfer, "Kraken BTC → Coldcard".
+  Click **Import 3 Transaction(s)** and confirm (the past-year dialog too,
+  in a year after 2026). Expect "Imported 3 transaction(s)." and the Sell
+  at Gain +$13.33: River's
   $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
   lot ($148.50 plus its $1.50 fee), where IMP-4's same sale at the
   Exchange took lot C (+$5.00). Dashboard: Wallet (BTC) lists `Coldcard`
@@ -1897,7 +1904,8 @@ page's pictures".
 - **REF-1** The landing page's pictures:
   `make site-shots SITE_SHOTS_DIR=LAB/runs/site-shots-X.Y.Z`. Expect four
   PNGs: `dashboard.png`, `transactions.png` and `reports.png` at 2940 ×
-  1734, and `settings.png` at about 1730 × 1570. Settings shows
+  1734, and `settings.png` about 1730 wide (its height follows what
+  Settings shows: about 1475 at 2.0.0-alpha.2). Settings shows
   `btctx-mcp==X.Y.Z` and `~/Library/Application Support/BitcoinTX/mcp.json`.
   The Dashboard's Income & Fees card has every line the app's card has.
   Compare each with DigiMonk73/btctx-site's `img/` (`cmp`) and list which
