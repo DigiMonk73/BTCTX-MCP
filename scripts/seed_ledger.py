@@ -30,10 +30,11 @@ it (one made under an older name is renamed, as an owner renames or hides
 an account in use). A row may name the coins it acquired (`key`), and a
 later row choose them by that name (`chosen_coins`, #711): the seed sends
 each as the id the server gave the row. backend/tests/test_seed_ledger.py
-checks it and its figures (testdata/reference_figures.json). Every USD value a price lookup
-would fill is given (network fees, gift and donation values), so it loads
-with the price source Off and contacts nothing but the server. Settings are
-left as they are. A test tool: it lives in scripts/, which no build ships.
+checks it and its figures (testdata/reference_figures.json). Every USD
+value a price lookup would fill is given (network fees, gift and donation
+values), so it loads with the price source Off and contacts nothing but the
+server. Settings are left as they are. A test tool: it lives in scripts/,
+which no build ships.
 """
 
 from __future__ import annotations
@@ -201,9 +202,12 @@ def check_keys(rows: list[dict]) -> None:
     defined: dict[str, int] = {}
     for n, row in enumerate(rows, start=1):
         for line in row.get("chosen_coins") or []:
-            if line.get("key") not in defined:
-                raise SeedError(f"row {n} chooses coins by the key {line.get('key')!r}, which no row before it "
-                                "has: a key is defined once, before the rows that choose by it")
+            if "key" not in line:
+                raise SeedError(f"row {n} chooses coins without a key: each line names its coins by the key of "
+                                "the row that acquired them")
+            if line["key"] not in defined:
+                raise SeedError(f"row {n} chooses coins by the key {line['key']!r}, which no row before it has: "
+                                "a key is defined once, before the rows that choose by it")
         key = row.get("key")
         if key is None:
             continue

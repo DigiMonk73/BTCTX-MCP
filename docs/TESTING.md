@@ -239,9 +239,10 @@ the coins it acquired with a `key`, and a later row chooses them by it
 (`"chosen_coins": [{"key": …, "btc": …}]`): the seed sends each as the id
 the server gave that row, never by position, and stops before sending
 anything if a key is defined twice or chosen before its row.
-`test_seed_ledger.py` fails if one empties: each deposit source and withdrawal purpose in more than one
-wallet and exchange, each account route between more than one pair of
-accounts, each exchange's sales in the boxes its 1099-DA switch gives
+`test_seed_ledger.py` fails if one empties: each deposit source and
+withdrawal purpose in more than one wallet and exchange, each account
+route between more than one pair of accounts, each exchange's sales in the
+boxes its 1099-DA switch gives
 (`SALES_BOXES`), every Broker form choice against each switch (a spend's
 fee following it), gains and losses of both terms and inherited coins sold
 in each forms year (2024 to 2026), holdings at each year's start, a hidden

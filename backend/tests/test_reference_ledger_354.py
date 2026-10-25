@@ -387,8 +387,7 @@ def test_a_choice_is_sent_with_the_id_the_server_gave_never_the_rows_place():
     ([_spend([{"key": "k", "btc": "0.004"}]), {**NEWER, "key": "k"}],
      "row 1 chooses coins by the key 'k', which no row before it has"),
     ([NEWER, _spend([{"key": "z", "btc": "0.004"}])], "row 2 chooses coins by the key 'z', which no row before it has"),
-    ([NEWER, _spend([{"acquired_txn_id": 1, "btc": "0.004"}])],
-     "row 2 chooses coins by the key None, which no row before it has"),
+    ([NEWER, _spend([{"acquired_txn_id": 1, "btc": "0.004"}])], "row 2 chooses coins without a key"),
     ([NEWER, {**_spend([]), "key": "s"}], "row 2 is a Withdrawal with a key: only a Buy or a Deposit acquires coins"),
 ], ids=["a key twice", "a choice before its key", "a key no row has", "a line without a key", "a key on a spend"])
 def test_a_key_the_seed_cant_follow_stops_it_before_anything_is_sent(owner, rows, said):
