@@ -13,6 +13,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "independent_figures.py"
 
 
@@ -76,3 +78,16 @@ def test_a_spend_without_a_network_fee_needs_no_fee_value():
              "to_account_id": EXTERNAL, "amount": "0.0005", "purpose": "Spent", "gross_proceeds_usd": "80.00"}
     [row] = independent.year_figures(independent.replay([COINS, spend]), 2025)["form_8949"]
     assert (row["proceeds"], row["cost"], row["gain_loss"]) == ("80.00", "50.00", "30.00")
+
+
+@pytest.mark.parametrize("given", [{"fee_usd": None}, {"fee_usd": ""}, {}], ids=["null", "blank", "missing"])
+@pytest.mark.parametrize("purpose", ["Spent", "Gift"])
+def test_a_network_fee_without_a_value_stops_the_replay(given, purpose):
+    """The re-check of #702: a fee with no USD value was counted as $0,
+    though the app prices it or refuses the row, never $0. Guessing would
+    hide a difference, so it stops, naming the row."""
+    out = {**COINS, "type": "Withdrawal", "timestamp": "2025-02-10T12:00:00Z", "from_account_id": WALLET,
+           "to_account_id": EXTERNAL, "amount": "0.0005", "fee_amount": "0.00001", "purpose": purpose,
+           "gross_proceeds_usd": "80.00", "fmv_usd": "80.00", **given}
+    with pytest.raises(ValueError, match="Withdrawal of 2025-02-10T12:00:00Z pays a network fee with no USD value"):
+        independent.replay([COINS, out])

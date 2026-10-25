@@ -568,7 +568,7 @@ def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     received = _gross_proceeds(tx)
     # A spend with no network fee has no fee value: the app stores none (#703)
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
-    fee_value = min(_money(tx["fee_usd"]), received) if fee else Fraction(0)
+    fee_value = min(_fee_value(tx), received) if fee else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
     _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
@@ -622,8 +622,17 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
     fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
     if fee:
         pieces = ledger.take(account, fee)
-        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, reporting)
+        _dispose(ledger, "fee", pieces, _fee_value(tx) if value is None else value, when, reporting)
     return fee
+
+
+def _fee_value(tx: dict) -> Fraction:
+    """A bitcoin fee's USD value. The app prices a fee that has none, or
+    refuses the row; it never counts one as $0, so one missing here stops
+    the replay instead of being guessed."""
+    if tx.get("fee_usd") in (None, ""):
+        raise ValueError(f"The {tx['type']} of {tx['timestamp']} pays a network fee with no USD value (fee_usd).")
+    return _money(tx["fee_usd"])
 
 
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,

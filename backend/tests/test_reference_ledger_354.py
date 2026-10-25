@@ -94,8 +94,9 @@ def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw
     """Each row's figures but those `newer` picks (1.x's by default), in the
     ledger's order: its own stored ones (a deposit's value at receipt is
     its income), every disposal it made (BTC, proceeds, basis, gain, term,
-    box) and every lot it made (BTC, date, cost; not what's left of it,
-    which the split row, and later rows taking from it, change)."""
+    box, and its lot's date acquired: Form 8949's column (b)) and every lot
+    it made (BTC, date, cost; not what's left of it, which the split row,
+    and later rows taking from it, change)."""
     with Session() as db:
         book, tz = account_book(db), get_tax_timezone(db)
         txs = db.query(Transaction).order_by(Transaction.id).all()
@@ -113,7 +114,8 @@ def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw
                                                          "realized_gain_usd", "holding_period", "fee_usd", "fmv_usd")],
                 "disposals": sorted((str(d.disposed_btc), str(d.proceeds_usd_for_that_portion),
                                      str(d.disposal_basis_usd), str(d.realized_gain_usd), d.holding_period,
-                                     bool(d.is_fee), disposal_box(d, year, tz, book)) for d in disposals),
+                                     bool(d.is_fee), disposal_box(d, year, tz, book), d.lot.acquired_date.isoformat())
+                                    for d in disposals),
                 "lots": sorted((str(lot.total_btc), lot.acquired_date.isoformat(), str(lot.cost_basis_usd))
                                for lot in lots),
             })
@@ -137,6 +139,7 @@ def test_the_new_rows_use_only_new_accounts_but_the_split():
     row's figures (test_old_rows_keep_their_figures)."""
     new = [r for r in raw_rows() if "since" in r]
     assert {r["since"] for r in new} == {"2.0"}
+    assert all("since" in r for r in raw_rows() if "added" in r)  # so a 1.x release never gets one
     assert all({r["from_account_id"], r["to_account_id"]} <= NEW_ACCOUNTS | {EXTERNAL} for r in new if r != split_row())
     assert (split_row()["to_account_id"], split_row()["fee_amount"]) == (COLDCARD, "0")
 
