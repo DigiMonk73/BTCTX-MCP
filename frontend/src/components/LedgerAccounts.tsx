@@ -8,7 +8,7 @@ import PastYearDialog from "./PastYearDialog";
 import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 
 interface LedgerAccountsProps extends AccountsState {
-  /** Ask the server for the book again, after a change made here; settles once it's there. */
+  /** Ask the server for the book again, after a change made here or a delete refused; settles once it's there. */
   reload: () => Promise<void>;
   /** A change here moved figures: the 1099-DA switch moves Form 8949 boxes, which Ledger Review reads. */
   onFiguresChanged?: () => void;
@@ -79,9 +79,16 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     void change(row, () => api.put(`/accounts/${row.id}`, { hidden }));
   };
 
+  // Refused, the book may be out of date (the account used since it was read, by the AI connector or another tab,
+  // #720, or deleted there): it and the balances are read again, so the row says what the server has and offers
+  // Delete only if it still may; the keyboard goes back to the row, its Delete button perhaps gone
   const remove = (row: AccountRow) => {
     if (!window.confirm(`Delete ${row.name}? It has no transactions.`)) return;
-    void change(row, () => api.delete(`/accounts/${row.id}`));
+    void change(row, () => api.delete(`/accounts/${row.id}`)).then(async (deleted) => {
+      if (deleted) return;
+      await Promise.all([reload(), loadBalances()]);
+      setRefocus(row);
+    });
   };
 
   // A new exchange has no sales, so its 1099-DA answer moves no figure: one request, no past-year warning

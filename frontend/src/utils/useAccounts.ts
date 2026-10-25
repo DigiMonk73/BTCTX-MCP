@@ -1,5 +1,6 @@
 // The account book, loaded once per page (2.0 spec 5.4): every form and
-// list on the page shares one GET /api/accounts/.
+// list on the page shares one GET /api/accounts/, until Settings asks again
+// (as it opens, and after it changes an account: useSettingsAccounts).
 import { useEffect, useState } from "react";
 import api from "../api";
 
@@ -25,8 +26,9 @@ function loadAccounts(): Promise<AccountBook> {
   return request;
 }
 
-/** The next useAccounts() asks the server again: for Settings once it adds,
- * hides or deletes an account, and for tests between cases. */
+/** The next useAccounts() asks the server again: for Settings as it opens
+ * (an account may have been used since, #720) and each time it reads the
+ * book again (useSettingsAccounts' `reload`), and for tests between cases. */
 export function forgetAccounts(): void {
   loading = undefined;
 }
