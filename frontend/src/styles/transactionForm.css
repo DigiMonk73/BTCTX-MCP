@@ -44,7 +44,10 @@
   border-radius: var(--radius-control);
 }
 .coins-picker legend { padding: 0 var(--space-1); }
-.coins-picker-table .input { width: 9rem; text-align: right; }
+.coins-picker-table .input { width: 7rem; text-align: right; }
+.coins-picker-table td { vertical-align: top; }
+.coins-picker-stack { display: flex; flex-direction: column; gap: 2px; }
+.coins-picker-stack .nowrap { white-space: nowrap; }
 .coins-picker-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .coins-picker-unlisted { margin: 0; padding-left: var(--space-4); }
 
@@ -54,6 +57,7 @@
   .form-fields-grid { grid-template-columns: minmax(0, 1fr); }
   /* Each purchase a card: its cells one under another, each named by its column (P7, #572) */
   .coins-picker-table thead { display: none; }
+  .coins-picker-table caption { display: block; }
   .coins-picker-table,
   .coins-picker-table tbody,
   .coins-picker-table tr,
@@ -66,6 +70,7 @@
   }
   .coins-picker-table td { display: flex; justify-content: space-between; gap: var(--space-2); text-align: right; }
   .coins-picker-table td::before { content: attr(data-label); color: var(--color-text-muted); text-align: left; }
+  .coins-picker-stack { align-items: flex-end; }
   .coins-picker-table .input { width: 100%; max-width: 12rem; height: 44px; }
   .coins-picker-actions .btn { min-height: 44px; }
 }

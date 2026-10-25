@@ -128,10 +128,10 @@ describe("a Spent from one of your wallets", () => {
     const table = screen.getByRole("table", { name: "Coins in Sparrow then" });
     const cells = within(table).getAllByRole("row").map((row) =>
       [...row.querySelectorAll("th, td")].map((cell) => cell.textContent ?? ""));
-    expect(cells[0]).toEqual(["Acquired", "How", "Held (BTC)", "Cost (USD)", "Term", "Chosen (BTC)"]);
-    expect(cells[1].slice(0, 5)).toEqual(["Mar 1, 2017", "My BTC · Sparrow · Mar 1, 2017", "0.30000000", "$300.00",
-                                          "Long-term"]);
-    expect(cells[2][4]).toBe("Short-term");
+    expect(cells[0]).toEqual(["Acquired", "Held (BTC)", "Chosen (BTC)"]);
+    expect(cells[1].slice(0, 2)).toEqual(["Mar 1, 2017Long-term · My BTC · Sparrow · Mar 1, 2017",
+                                          "0.30000000cost $300.00"]);
+    expect(cells[2][0]).toBe("Jan 15, 2025Short-term · My BTC · Sparrow · Jan 15, 2025");
   });
 });
 

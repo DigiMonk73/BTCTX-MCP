@@ -24,8 +24,9 @@ function fieldLabels(held: HeldLine[]): string[] {
 
 /**
  * What a wallet holds when the transaction comes, one purchase (or
- * deposit) a row, each with how and where it was acquired, its BTC, their
- * cost and term then, and the BTC chosen from it (#711). The rows keep the
+ * deposit) a row: its coins' date acquired, under it their term then and
+ * how and where they were acquired; their BTC, their cost under it; and the
+ * BTC chosen from it (#711). Three columns, to fit the form's panel; the rows keep the
  * server's order, oldest first, as the save takes them; on a phone, each
  * row is a card (transactionForm.css).
  */
@@ -47,21 +48,25 @@ const ChosenCoinsTable: React.FC<Props> = ({ held, lines, wallet, onChange }) =>
         <thead>
           <tr>
             <th scope="col">Acquired</th>
-            <th scope="col">How</th>
             <th scope="col" className="num">Held (BTC)</th>
-            <th scope="col" className="num">Cost (USD)</th>
-            <th scope="col">Term</th>
             <th scope="col" className="num">Chosen (BTC)</th>
           </tr>
         </thead>
         <tbody>
           {held.map((line, i) => (
             <tr key={line.acquired_txn_id ?? `lot-${i}`}>
-              <td data-label="Acquired">{acquiredText(line)}</td>
-              <td data-label="How">{howAcquired(line)}</td>
-              <td data-label="Held (BTC)" className="num">{line.btc}</td>
-              <td data-label="Cost (USD)" className="num">{formatUsd(parseDecimal(line.cost_usd))}</td>
-              <td data-label="Term">{TERM[line.term]}</td>
+              <td data-label="Acquired">
+                <span className="coins-picker-stack">
+                  <span>{acquiredText(line)}</span>
+                  <small className="field-hint"><span className="nowrap">{TERM[line.term]}</span> · {howAcquired(line)}</small>
+                </span>
+              </td>
+              <td data-label="Held (BTC)" className="num">
+                <span className="coins-picker-stack">
+                  <span>{line.btc}</span>
+                  <small className="field-hint nowrap">cost {formatUsd(parseDecimal(line.cost_usd))}</small>
+                </span>
+              </td>
               <td data-label="Chosen (BTC)" className="num">
                 {line.acquired_txn_id !== null && (
                   <input type="text" inputMode="decimal" className="input" aria-label={labels[i]}
