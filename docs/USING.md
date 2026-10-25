@@ -31,7 +31,8 @@ merchants, an account you don't track.
 **Settings → Wallets, exchanges and banks** lists your accounts by kind,
 each with its balance:
 
-- **Add a wallet**, **Add an exchange** or **Add a bank**: a name. A wallet
+- **Add a wallet**, **Add an exchange** or **Add a bank**: a name (an
+  exchange also asks whether it sends you a Form 1099-DA). A wallet
   is one set of keys: every address it makes is part of it, and a backup of
   the same keys isn't a second wallet. An exchange keeps its dollars and its
   bitcoin as two accounts, "*name* USD" and "*name* BTC". A new account

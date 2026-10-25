@@ -221,6 +221,7 @@
   .ledger-add-form .input,
   .ledger-rename-row .input,
   .ledger-rename-row .btn { height: 44px; }
+  .ledger-add-answers label { min-height: 44px; }
   .ledger-rename-row .btn { flex: 1 1 100%; }
   .ai-copy-block { flex-direction: column; align-items: stretch; }
 }
