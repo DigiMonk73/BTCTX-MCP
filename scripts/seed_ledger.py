@@ -24,8 +24,10 @@ and sells), every report has entries in each part, every Form 8949 box of
 2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone, with rebates
 and dates originally acquired; and from 2.0 multiple wallets, exchanges or
 accounts: its `accounts` list, which the account API makes first (the ids
-must come out as listed, so on a fresh install), and the rows that use them
-("since": "2.0"). backend/tests/test_seed_ledger.py checks it and its
+must come out as listed, so on a fresh install), the rows that use them
+("since": "2.0"), and then each account named and hidden as the list has
+it (one made under an older name is renamed, as an owner renames or hides
+an account in use). backend/tests/test_seed_ledger.py checks it and its
 figures (testdata/reference_figures.json). Every USD value a price lookup
 would fill is given (network fees, gift and donation values), so it loads
 with the price source Off and contacts nothing but the server. Settings are
@@ -76,10 +78,11 @@ def ledger_accounts() -> list[dict]:
     """The accounts the ledger adds to the fixed ones (its `accounts` list,
     2.0 spec 5.15), as the account API adds them: a bank or a wallet by its
     name, an exchange by its own (its accounts "<name> USD" and "<name> BTC"),
-    each with the ids it must get and, for an exchange, its 1099-DA switch.
-    A ledger with such a list also sets 1.x's first exchange's switch (on,
-    unless the list says otherwise), so a reseed puts back one changed by
-    hand; one without (1.x's) adds nothing."""
+    each with the ids it must get, whether it ends hidden, the name it's
+    made under when it's renamed after the rows (`renamed_from`) and, for an
+    exchange, its 1099-DA switch. A ledger with such a list also sets 1.x's
+    first exchange's switch (on, unless the list says otherwise), so a
+    reseed puts back one changed by hand; one without (1.x's) adds nothing."""
     with open(LEDGER) as f:
         listed = json.load(f).get("accounts", [])
     added, exchanges = [], {}
@@ -87,7 +90,9 @@ def ledger_accounts() -> list[dict]:
         if account["kind"] not in ADDED_AS:
             raise SeedError(f"account {account['id']} is a {account['kind']!r} account, which the API doesn't add")
         if account["kind"] != "exchange":
-            added.append({"kind": account["kind"], "name": account["name"], "ids": [account["id"]]})
+            added.append({"kind": account["kind"], "name": account["name"], "ids": [account["id"]],
+                          "hidden": account.get("hidden", False),
+                          "made_as": account.get("renamed_from", account["name"])})
             continue
         pair = exchanges.setdefault(account["exchange_id"], {})
         pair[account["currency"]] = account
@@ -99,14 +104,20 @@ def ledger_accounts() -> list[dict]:
 
 def _exchange(exchange_id: int, pair: dict[str, dict]) -> dict:
     """An exchange of the accounts list, from its two accounts, which must
-    be named after it and agree on its switch."""
+    be named after it (now and, renamed, before) and agree on its switch
+    and on being hidden."""
     usd, btc = pair.get("USD"), pair.get("BTC")
     name = usd["name"].removesuffix(" USD") if usd else None
     if not (usd and btc and btc["name"] == f"{name} BTC"):
         raise SeedError(f"exchange {exchange_id} needs a '<name> USD' and a '<name> BTC' account")
-    if usd.get("sends_1099da", True) != btc.get("sends_1099da", True):
-        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on its 1099-DA switch")
-    return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True)}
+    made_as = usd.get("renamed_from", usd["name"]).removesuffix(" USD")
+    if btc.get("renamed_from", btc["name"]) != f"{made_as} BTC":
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on the name it had (renamed_from)")
+    for note, default in (("sends_1099da", True), ("hidden", False)):
+        if usd.get(note, default) != btc.get(note, default):
+            raise SeedError(f"exchange {exchange_id}'s two accounts disagree on {note}")
+    return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True),
+            "hidden": usd.get("hidden", False), "made_as": made_as}
 
 
 # The server
@@ -156,11 +167,13 @@ def log_in(c: httpx.Client, user: str, password: str, setup_code: str | None) ->
 
 
 def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] | None = None) -> int:
-    """Create every row on a logged-in client, after the accounts they use:
-    the reference ledger's rows and accounts when no rows are given; given
-    rows (a 1.x release's, make_reference_1x_db.py) need only the accounts
-    given, and none calls the account API, which a 1.x release lacks.
-    Refuses a ledger that isn't empty. Returns how many rows were created."""
+    """Create every row on a logged-in client, after the accounts they use,
+    then name and hide those accounts as the ledger has them, as an owner
+    renames or hides an account in use: the reference ledger's rows and
+    accounts when no rows are given; given rows (a 1.x release's,
+    make_reference_1x_db.py) need only the accounts given, and none calls
+    the account API, which a 1.x release lacks. Refuses a ledger that isn't
+    empty. Returns how many rows were created."""
     r = c.get("/api/transactions")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the ledger: {r.status_code} {r.text[:300]}")
@@ -175,6 +188,8 @@ def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] |
         if r.status_code != 200:
             raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
                             f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    for account in accounts or []:
+        finish_account(c, account)
     return len(rows)
 
 
@@ -187,11 +202,12 @@ def make_account(c: httpx.Client, account: dict) -> None:
     r = c.get("/api/accounts/")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the accounts: {r.status_code} {r.text[:300]}")
-    names = ([f"{account['name']} {currency}" for currency in ("USD", "BTC")] if account["kind"] == "exchange"
-             else [account["name"]])
-    found = [a for name in names for a in r.json() if a["name"].casefold() == name.casefold()]
+    found = []
+    for name in dict.fromkeys((account["name"], account.get("made_as", account["name"]))):  # renamed: either name
+        names = [f"{name} {currency}" for currency in ("USD", "BTC")] if account["kind"] == "exchange" else [name]
+        found = found or [a for each in names for a in r.json() if a["name"].casefold() == each.casefold()]
     if not found:
-        r = c.post("/api/accounts/", json={"kind": account["kind"], "name": account["name"]})
+        r = c.post("/api/accounts/", json={"kind": account["kind"], "name": account.get("made_as", account["name"])})
         if r.status_code != 201:
             raise SeedError(f"adding {account['name']} failed: {r.status_code} {r.text[:300]}")
         found = r.json()
@@ -203,6 +219,17 @@ def make_account(c: httpx.Client, account: dict) -> None:
         r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": account["sends_1099da"]})
         if r.status_code != 200:
             raise SeedError(f"setting {account['name']}'s 1099-DA switch failed: {r.status_code} {r.text[:300]}")
+
+
+def finish_account(c: httpx.Client, account: dict) -> None:
+    """One of ledger_accounts() named and hidden (or shown) as the ledger
+    has it, once the rows are in: one made under another name is renamed
+    (an exchange's: the exchange and both its accounts), and one changed by
+    hand is put back. A name or hidden alone moves no figure, so it never
+    meets the past-year warning."""
+    r = c.put(f"/api/accounts/{account['ids'][0]}", json={"name": account["name"], "hidden": account.get("hidden", False)})
+    if r.status_code != 200:
+        raise SeedError(f"naming or hiding {account['name']} failed: {r.status_code} {r.text[:300]}")
 
 
 def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:

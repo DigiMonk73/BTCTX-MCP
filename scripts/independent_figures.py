@@ -12,9 +12,9 @@ its accounts (the six fixed accounts and External, and those its
 `accounts` list adds: each bitcoin account its own FIFO pile, each
 exchange its own 1099-DA switch)
 and its tax timezone (`tax_timezone`, else UTC), and gives each year's
-Form 8949 rows, Schedule D lines, box totals, gains summary, income,
-rebates, gifts (with the cost basis and term of what each took from its
-lots) and year-end lots:
+Form 8949 rows, Schedule D lines, box totals, gains summary, each
+exchange's Sells (Sales by exchange), income, rebates, gifts (with the
+cost basis and term of what each took from its lots) and year-end lots:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
@@ -81,9 +81,11 @@ EXTERNAL = 99
 KIND_CURRENCIES = {"bank": ("USD",), "wallet": ("BTC",), "exchange": ("USD", "BTC"), "fee": ("USD", "BTC"),
                    "external": (None,)}
 ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
-# `hidden` only keeps an account out of the pickers, and `why` and `since`
-# say what a test row is for and from which version: none changes a figure.
-NOTES = ("hidden", "why", "since")
+# `hidden` only keeps an account out of the pickers, `renamed_from` is the
+# name it had before the owner renamed it (the seed makes it so), and `why`
+# and `since` say what a test row is for and from which version: none
+# changes a figure.
+NOTES = ("hidden", "renamed_from", "why", "since")
 OPTIONAL_FIELDS = ("exchange_id", "sends_1099da") + NOTES
 INCOME_SOURCES = ("Income", "Interest", "Reward")
 NOT_SALES = ("Gift", "Donation", "Lost")
@@ -164,6 +166,7 @@ class Row:
     broker_reporting: str | None
     inherited: bool = False
     on_1099da: bool = False  # sold from an account whose exchange sends a 1099-DA
+    account: int | None = None  # a sale's exchange account
 
 
 @dataclass(kw_only=True)
@@ -280,6 +283,7 @@ def year_figures(ledger: Ledger, year: int) -> dict:
         "form_8949": rows,
         "schedule_d": _schedule_d(rows),
         "boxes": _box_totals(rows),
+        "sales_by_exchange": _sales_by_exchange(ledger, year),
         "gains": _gains_summary(rows),
         "income": _income(ledger, year),
         "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(_cents(value, ledger.rounding))}
@@ -302,6 +306,9 @@ def differences(mine: dict, app: dict) -> list[str]:
     found += _unmatched("box total", mine["boxes"], [
         {"box": b["box"], "line": b["line"], "rows": b["rows"], **{c: _usd(b[c]) for c in COLUMNS}}
         for b in report["form_8949_boxes"]])
+    found += _compare("sales by exchange", mine["sales_by_exchange"], [
+        {"exchange": s["exchange"], "sends_1099da": s["sends_1099da"], "boxes": s["boxes"], "rows": s["rows"],
+         **{c: _usd(s[c]) for c in COLUMNS}} for s in report["sales_by_exchange"]])
     found += _compare("gains summary", mine["gains"], _app_gains(report["capital_gains_summary"]))
     found += _compare("income", mine["income"], {k: _usd(v) for k, v in report["income_summary"].items()})
     found += _unmatched("rebate", mine["rebates"], [
@@ -530,7 +537,7 @@ def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
     proceeds = _gross_proceeds(tx) - _money(tx["fee_amount"])
     pieces = ledger.take(tx["from_account_id"], _money(tx["amount"]))
     _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"),
-             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da)
+             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da, account=tx["from_account_id"])
 
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -607,7 +614,7 @@ def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
 
 
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
-             when: datetime, reporting: str | None, *, on_1099da: bool = False) -> None:
+             when: datetime, reporting: str | None, *, on_1099da: bool = False, account: int | None = None) -> None:
     """One row per lot, each with its share of the proceeds as a running
     total in cents: the proceeds for the BTC so far with this lot, less
     without it. So the rows report all of the proceeds (the amount realized)
@@ -617,7 +624,8 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
         share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
         before += quantity
         ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, covered=lot.covered,
-                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da))
+                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da,
+                               account=account))
 
 
 def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
@@ -683,6 +691,25 @@ def _box_totals(rows: list[dict]) -> list[dict]:
         box["rows"] += 1
         _add(box, row)
     return list(boxes.values())
+
+
+def _sales_by_exchange(ledger: Ledger, year: int) -> list[dict]:
+    """Each exchange with Sells in the year, by its id (2.0 spec 5.7): its
+    name (its accounts are "<name> USD" and "<name> BTC", 5.1), whether it
+    sends a 1099-DA, and its Sells' boxes, rows and totals, to set beside
+    the form it sends. Sells only: a network fee is on no 1099-DA by itself."""
+    exchanges: dict[int, dict] = {}
+    for row in ledger.rows:
+        if row.kind != "sale" or ledger.tax_year(row.sold) != year:
+            continue
+        account, form = ledger.accounts[row.account], _form_row(row, year, ledger)
+        sales = exchanges.setdefault(account.exchange_id, {
+            "exchange": account.name.removesuffix(" BTC"), "sends_1099da": account.sends_1099da,
+            "boxes": set(), "rows": 0, **_zero()})
+        sales["boxes"].add(form["box"])
+        sales["rows"] += 1
+        _add(sales, form)
+    return [{**sales, "boxes": sorted(sales["boxes"])} for _, sales in sorted(exchanges.items())]
 
 
 def _gains_summary(rows: list[dict]) -> dict:
