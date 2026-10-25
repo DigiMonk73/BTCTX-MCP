@@ -4,6 +4,22 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Added
+- **The Transfer form shows which coins will move, before it saves** (#706;
+  found by Grok (Cursor) reading alpha.2; the owner's decision,
+  2026-10-25). A Transfer out of a wallet or exchange moves that account's
+  oldest coins first (first in, first out: the IRS default when you don't
+  identify the coins, Treas. Reg. §1.1012-1(j)), but the form never said
+  so, so someone moving "the 2024 coins" to a new wallet moved the 2017
+  ones. Between two of your bitcoin accounts, the form now says "Per-wallet
+  FIFO: your oldest coins in *From* move first (the IRS default when you
+  don't pick specific coins)", and lists the coins that will move, each
+  with its date acquired, amount and cost, and the network fee, which is
+  paid from the oldest coins first. The list is the save's own: BitcoinTX
+  works the transfer out as its save would, on a copy of your ledger, so a
+  transfer dated in the past and an edit show what their save will do, and
+  one the save would refuse says why. No figure changes.
+
 ### Fixed
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read

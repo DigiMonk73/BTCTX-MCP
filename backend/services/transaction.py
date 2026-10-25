@@ -2138,11 +2138,16 @@ def recalculate_ledger(db: Session) -> None:
 # the past-year warning's dry run on a scratch copy (its time budget, 2.0
 # spec 5.8): past it, the replay raises OutOfTime
 DEADLINE = "btctx_replay_deadline"
+# Session.info key: a callable a replay on a scratch copy asks before each
+# row, true once its answer is no longer wanted (a list of the coins a
+# Transfer moves that the form has asked again for, #706): it raises
+# OutOfTime, and leaves the time to the newer one
+SUPERSEDED = "btctx_replay_superseded"
 
 
 class OutOfTime(Exception):
-    """A replay ran past its session's DEADLINE: what it left is thrown away
-    with the scratch copy it ran on."""
+    """A replay ran past its session's DEADLINE, or was SUPERSEDED: what it
+    left is thrown away with the scratch copy it ran on."""
 
 
 def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
@@ -2170,8 +2175,9 @@ def recalculate_all_transactions(db: Session, until: datetime | None = None, *,
     all_txs = query.order_by(Transaction.timestamp.asc(), Transaction.id.asc()).all()
     known = known_accounts(db)
     deadline = db.info.get(DEADLINE)
+    superseded = db.info.get(SUPERSEDED, lambda: False)
     for rec_tx in all_txs:
-        if deadline is not None and time.monotonic() >= deadline:
+        if (deadline is not None and time.monotonic() >= deadline) or superseded():
             raise OutOfTime
         _replay(rec_tx, db, known, past_missing)
     if until is None and not past_missing:  # the whole ledger, every row through its own checks
