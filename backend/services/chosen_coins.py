@@ -202,9 +202,19 @@ class NotHeld(HTTPException):
         }
         super().__init__(status_code=400, detail=NOT_HELD.format(**self.parts))
 
-    def of_this_one(self) -> HTTPException:
+    def of_this_one(self) -> "NotHeldHere":
         """Its words for the transaction being saved, which chose them."""
-        return HTTPException(status_code=400, detail=NOT_HELD_HERE.format(**self.parts))
+        return NotHeldHere(self.tx_id, NOT_HELD_HERE.format(**self.parts))
+
+
+class NotHeldHere(HTTPException):
+    """The transaction being saved chose coins its wallet doesn't hold on
+    its date: a 400, which the form's list of coins answers with what the
+    wallet does hold, so the picker can show it."""
+
+    def __init__(self, tx_id: int, detail: str):
+        self.tx_id = tx_id
+        super().__init__(status_code=400, detail=detail)
 
 
 def _check_where(data: dict, book: AccountBook) -> None:

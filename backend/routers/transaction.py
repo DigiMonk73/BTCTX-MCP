@@ -111,18 +111,22 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
 
 def _require_login_to_list_coins(request: Request) -> None:
     if not request.session.get("user_id"):  # never the AI key
-        raise HTTPException(status_code=403, detail="Listing the coins a Transfer moves needs a login.")
+        raise HTTPException(status_code=403, detail="Listing the coins a transaction moves needs a login.")
 
 
 @router.post("/coins-moved")
 def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Session = Depends(get_db)):
     """
-    Which coins a new Transfer would move, as its save would move them
-    (#706), given the body its save is sent: the lots it would put in its
-    To account, in the order its save takes them, each with its date
-    acquired, amount and cost, and the bitcoin its network fee disposes of.
-    Saves nothing; one its save would refuse answers that refusal. Login
-    only (never the AI key).
+    Which coins a new Transfer, or a bitcoin Withdrawal from one of your
+    wallets, would move, as its save would (#706, #711), given the body its
+    save is sent: what it takes from its From account in the order its save
+    takes it, each with its date acquired, amount, cost and acquisition, and
+    the bitcoin its network fee disposes of; from a wallet, what the wallet
+    holds then, one line per acquisition, for the form's coin picker; and
+    whether it's dated today in the tax timezone. Saves nothing; one its
+    save would refuse answers that refusal, but a choice of coins its wallet
+    doesn't hold then answers with what it holds. Login only (never the AI
+    key).
     """
     _require_login_to_list_coins(request)
     return transfer_coins.coins_moved(past_years.Write(past_years.ADD, tx.model_dump()), db)
@@ -131,8 +135,9 @@ def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Sess
 @router.post("/{transaction_id}/coins-moved")
 def coins_an_edited_transfer_moves(transaction_id: int, tx: TransactionUpdate, request: Request,
                                    db: Session = Depends(get_db)):
-    """Which coins a Transfer would move with this edit, as its save would
-    (#706); as for a new one. 404 when the transaction doesn't exist."""
+    """Which coins a Transfer or a Withdrawal from a wallet would move with
+    this edit, as its save would (#706, #711); as for a new one. 404 when
+    the transaction doesn't exist."""
     _require_login_to_list_coins(request)
     write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
     return transfer_coins.coins_moved(write, db)
