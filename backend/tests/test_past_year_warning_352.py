@@ -117,6 +117,7 @@ def test_an_add_an_edit_or_a_delete_that_changes_an_earlier_year_asks_and_saves_
     assert body["changes"] and all(set(i["years"]) & set(years) for i in body["changes"])
     assert body["pending"] == [] and body["recalc_error"] is None
     assert body["exact"] is True and body["why_not_exact"] is None
+    assert body["timezone"] == "UTC"  # the zone its rows' dates are in, the tax timezone (#737)
     assert re.fullmatch(r"[0-9a-f]{64}", body["confirm"])
     assert stored(client) == before
     assert copies(client, PRE_CHANGE_KIND) == []
@@ -326,7 +327,7 @@ def test_past_the_time_budget_the_years_come_from_its_date(ledger, monkeypatch):
     assert body["detail"] == ("This is dated in 2024, so it can change 2024's figures and later years you may "
                               "have filed. Save it? A copy of your ledger is made first.")
     assert (body["years"], body["changes"], body["pending"], body["exact"]) == ([2024, 2025], [], [], False)
-    assert body["why_not_exact"]
+    assert body["why_not_exact"] and body["timezone"] == "UTC"
     r = WRITES["edit"](client, rows, {"confirm": body["confirm"]})
     assert r.status_code == 200, r.text
     assert len(copies(client, PRE_CHANGE_KIND)) == 1
