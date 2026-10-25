@@ -10,6 +10,24 @@ const CA_FILE = 'btctx-root-ca.crt'
 // This action never reads or shows the login: no password goes to an AI app.
 const KEY_PLACEHOLDER = 'YOUR_BITCOINTX_AI_KEY'
 
+// A 2.0 pre-release, x.y.z-alpha.N or x.y.z-beta.N, as the app reads it
+// (frontend/src/utils/prereleaseVersion.ts; its Settings: aiSetup.ts): its
+// connector is on PyPI in PEP 440's form, x.y.zaN or x.y.zbN, and its server
+// has a name of its own, or the AI app's entry for the tester's own
+// BitcoinTX would be replaced (#721)
+const PRERELEASE = /^(\d+\.\d+\.\d+)-(alpha|beta)\.([1-9]\d*)$/
+
+/** The name the AI app knows this BitcoinTX by, and the connector it runs, pinned to `version`. */
+function aiConnector(version: string): { serverName: string; pkg: string } {
+  const pre = PRERELEASE.exec(version)
+  if (!pre) return { serverName: 'bitcointx', pkg: `btctx-mcp==${version}` }
+  const stage = pre[2] === 'alpha' ? 'a' : 'b'
+  return {
+    serverName: 'bitcointx-preview',
+    pkg: `btctx-mcp==${pre[1]}${stage}${pre[3]}`,
+  }
+}
+
 /** https addresses of the MCP API interface, .local first. */
 async function mcpUrls(effects: T.Effects): Promise<string[]> {
   const host = await sdk.host.getOwn(effects, hostId).once()
@@ -88,7 +106,9 @@ export const connectAi = sdk.Action.withoutInput(
     const ca = await rootCa(effects)
     // The connector from PyPI, pinned to this package's release: the AI app
     // runs exactly that version.
-    const pkg = `btctx-mcp==${current.options.version.split(':')[0]}`
+    const { serverName, pkg } = aiConnector(
+      current.options.version.split(':')[0],
+    )
 
     const env: Record<string, string> = {
       BTCTX_URL: url,
@@ -98,7 +118,7 @@ export const connectAi = sdk.Action.withoutInput(
     const desktopConfig = JSON.stringify(
       {
         mcpServers: {
-          bitcointx: {
+          [serverName]: {
             command: 'uvx',
             args: [pkg],
             env,
@@ -110,7 +130,7 @@ export const connectAi = sdk.Action.withoutInput(
     )
     const q = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
     const claudeCode = [
-      'claude mcp add --scope user bitcointx',
+      `claude mcp add --scope user ${serverName}`,
       ...Object.entries(env).map(([k, v]) => `-e ${k}=${q(v)}`),
       `-- uvx ${q(pkg)}`,
     ].join(' ')
