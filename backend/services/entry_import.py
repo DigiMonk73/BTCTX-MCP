@@ -42,6 +42,7 @@ from backend.schemas.entry_import import (
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
 from backend.services.past_year_writes import Rows
+from backend.services.chosen_coins import AI_CANT_CHOOSE
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -186,6 +187,8 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | Non
         # its date there (#185); every row's own date is already in UTC
         tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz, book)
         error_msgs = [e.message for e in errors]
+        if "chosen_coins" in row.model_fields_set:  # until the connector can choose coins (#711, Q4)
+            error_msgs.append(AI_CANT_CHOOSE)
 
         if tx_data is not None and row.fee_usd is not None:
             fee_usd = _parse_decimal(number_text(row.fee_usd), USD_PLACES)
