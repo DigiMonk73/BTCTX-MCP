@@ -109,24 +109,31 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
     return _attach_utc_and_build_read_model(new_tx, db)
 
 
+def _require_login_to_list_coins(request: Request) -> None:
+    if not request.session.get("user_id"):  # never the AI key
+        raise HTTPException(status_code=403, detail="Listing the coins a Transfer moves needs a login.")
+
+
 @router.post("/coins-moved")
-def coins_a_new_transfer_moves(tx: TransactionCreate, db: Session = Depends(get_db)):
+def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Session = Depends(get_db)):
     """
     Which coins a new Transfer would move, as its save would move them
-    (#706): the lots it would put in its To account, oldest first, each
-    with its date acquired, amount and cost, and the bitcoin its network
-    fee disposes of. Saves nothing; one its save would refuse answers that
-    refusal. Login only (never the AI key).
+    (#706), given the body its save is sent: the lots it would put in its
+    To account, in the order its save takes them, each with its date
+    acquired, amount and cost, and the bitcoin its network fee disposes of.
+    Saves nothing; one its save would refuse answers that refusal. Login
+    only (never the AI key).
     """
+    _require_login_to_list_coins(request)
     return transfer_coins.coins_moved(past_years.Write(past_years.ADD, tx.model_dump()), db)
 
 
 @router.post("/{transaction_id}/coins-moved")
-def coins_an_edited_transfer_moves(transaction_id: int, tx: TransactionUpdate, db: Session = Depends(get_db)):
+def coins_an_edited_transfer_moves(transaction_id: int, tx: TransactionUpdate, request: Request,
+                                   db: Session = Depends(get_db)):
     """Which coins a Transfer would move with this edit, as its save would
     (#706); as for a new one. 404 when the transaction doesn't exist."""
-    if not tx_service.get_transaction_by_id(db, transaction_id):
-        raise HTTPException(status_code=404, detail="Transaction not found.")
+    _require_login_to_list_coins(request)
     write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
     return transfer_coins.coins_moved(write, db)
 

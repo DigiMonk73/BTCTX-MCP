@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 from backend.main import app
 from backend.models.transaction import BitcoinLot, LotDisposal
-from backend.services import ai_key, past_years
+from backend.services import ai_key, past_years, transfer_coins
 from backend.tests.conftest import default_login, stub_prices_at
 
 WALLET, EXCHANGE_BTC, EXTERNAL = 2, 4, 99
@@ -162,6 +162,26 @@ def test_only_a_transfer_moves_coins(owner):
     assert r.json()["detail"] == "Only a Transfer moves coins between your accounts."
 
 
+def test_another_type_is_refused_before_any_replay(owner):
+    """A Buy is asked about no further: not the Buy's own refusal (no cost
+    basis), and no replay of the ledger for nothing."""
+    r = owner.post("/api/transactions/coins-moved", json={
+        "type": "Buy", "timestamp": "2024-01-01T12:00:00Z", "from_account_id": 1, "to_account_id": EXCHANGE_BTC,
+        "amount": "0.1", "fee_amount": "0", "fee_currency": "USD"})
+    assert r.status_code == 422
+    assert r.json()["detail"] == "Only a Transfer moves coins between your accounts."
+
+
+def test_a_row_deleted_meanwhile_is_not_found(owner, monkeypatch):
+    """The edited row gone between the check and the replay: 404, never an unexpected error."""
+    saved = owner.post("/api/transactions", json=transfer("2025-06-01T12:00:00Z", "0.1"))
+    assert saved.status_code == 200, saved.text
+    monkeypatch.setattr(past_years.Write, "apply", lambda self, db: None)
+    r = owner.post(f"/api/transactions/{saved.json()['id']}/coins-moved", json=transfer("2025-06-01T12:00:00Z", "0.2"))
+    assert r.status_code == 404
+    assert r.json()["detail"] == "Transaction not found."
+
+
 def test_a_move_within_one_wallet_moves_no_coins(owner):
     """A consolidation records only its fee (#159): no coin changes account."""
     r = owner.post("/api/transactions/coins-moved", json=transfer("2025-06-01T12:00:00Z", "0.4", "0.0001", WALLET))
@@ -188,7 +208,49 @@ def test_past_the_time_budget_it_says_so(owner, monkeypatch):
     r = owner.post("/api/transactions/coins-moved", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated
     assert r.status_code == 200, r.text
     assert r.json() == {"coins": None, "fee_btc": None,
-                        "detail": "BitcoinTX couldn't work out quickly enough here which coins move."}
+                        "detail": "BitcoinTX couldn't work out in time which coins move. Saving isn't affected."}
+
+
+def test_a_list_asked_for_again_stops_the_one_before(owner, monkeypatch):
+    """The form cancels a request once its transfer changes, but the server
+    never hears of it: the older list's replay stops as soon as a newer one
+    is asked for, and leaves the time to it."""
+    first = transfer_coins._newest_from_now()
+    assert not first()
+    second = transfer_coins._newest_from_now()
+    assert first() and not second()
+
+    monkeypatch.setattr(transfer_coins, "_newest_from_now", lambda: lambda: True)  # one asked for meanwhile
+    r = owner.post("/api/transactions/coins-moved", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated
+    assert r.status_code == 200, r.text
+    assert r.json()["coins"] is None
+
+
+def test_a_past_year_in_another_tax_timezone_lists_what_its_confirmed_save_moves(owner, tax_year):
+    """In Chicago, a lot whose deposit is 03:00 UTC on May 2 was acquired on
+    May 1, as Form 8949 prints it; and a transfer dated in an earlier tax
+    year lists what its save makes once confirmed."""
+    assert owner.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}) \
+        .status_code == 200
+    r = owner.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2024-05-02T03:00:00Z", "from_account_id": EXTERNAL, "to_account_id": WALLET,
+        "amount": "0.2", "fee_amount": "0", "source": "MyBTC", "cost_basis_usd": "12000"})
+    assert r.status_code == 200, r.text
+    tax_year(2026)
+    body = transfer("2025-06-01T12:00:00Z", "0.9001", fee="0.0001")
+    listed = owner.post("/api/transactions/coins-moved", json=body)
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["coins"] == [coin("2017-03-01", "0.29990000", "299.90"),
+                                      coin("2024-05-01", "0.50000000", "30000.00"),
+                                      coin("2024-05-01", "0.10010000", "6006.00")]
+    asked = owner.post("/api/transactions", json=body)
+    assert asked.status_code == 409, asked.text
+    saved = owner.post("/api/transactions", json=body, params={"confirm": asked.json()["confirm"]})
+    assert saved.status_code == 200, saved.text
+    with owner.Session() as db:
+        lots = db.query(BitcoinLot).filter(BitcoinLot.created_txn_id == saved.json()["id"]).order_by(BitcoinLot.id)
+        assert [(f"{lot.total_btc:.8f}", f"{lot.cost_basis_usd:.2f}") for lot in lots] == [
+            (c["btc"], c["cost_usd"]) for c in listed.json()["coins"]]
 
 
 def test_the_ai_key_cant_ask(owner):
@@ -197,7 +259,10 @@ def test_the_ai_key_cant_ask(owner):
         key = {"Authorization": f"Bearer {ai_key.create_key(db)}"}
     anyone = TestClient(app)
     body = transfer("2025-06-01T12:00:00Z", "0.1")
-    assert anyone.post("/api/transactions/coins-moved", json=body, headers=key).status_code == 403
-    assert anyone.post("/api/transactions/coins-moved", json=body).status_code == 401
+    saved = owner.post("/api/transactions", json=body)
+    assert saved.status_code == 200, saved.text
+    for route in ("/api/transactions/coins-moved", f"/api/transactions/{saved.json()['id']}/coins-moved"):
+        assert anyone.post(route, json=body, headers=key).status_code == 403
+        assert anyone.post(route, json=body).status_code == 401
     with owner.Session() as db:
-        assert db.execute(text("SELECT count(*) FROM transactions")).scalar() == 2
+        assert db.execute(text("SELECT count(*) FROM transactions")).scalar() == 3
