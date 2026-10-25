@@ -44,6 +44,8 @@ export interface PastYearWarning {
    * and names every year the write can reach instead */
   exact: boolean;
   why_not_exact: string | null;
+  /** The timezone its rows' dates are in: the tax timezone, the one being saved for a timezone */
+  timezone: string | null;
   confirm: string;
 }
 
@@ -66,6 +68,7 @@ export function pastYearWarning(err: unknown): PastYearWarning | null {
     recalc_error: textOrNull(data.recalc_error),
     exact: data.exact !== false,
     why_not_exact: textOrNull(data.why_not_exact),
+    timezone: textOrNull(data.timezone),
     confirm,
   };
 }

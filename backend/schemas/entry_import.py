@@ -123,7 +123,8 @@ class PastYearWarning(BaseModel):
     Ledger Review lists them, each with what moves and its tax years;
     `pending`, apart, what a save that recalculates also applies (with the
     AI key); `exact` false when the server ran out of time to work out
-    exactly what moves, and names every year the rows can reach instead.
+    exactly what moves, and names every year the rows can reach instead;
+    `timezone` the one the rows' dates are in.
     """
     detail: str
     years: list[int]
@@ -132,6 +133,7 @@ class PastYearWarning(BaseModel):
     recalc_error: str | None = None
     exact: bool
     why_not_exact: str | None = None
+    timezone: str
     confirm: str
 
 

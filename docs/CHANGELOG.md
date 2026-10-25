@@ -84,6 +84,24 @@ All notable changes to BitcoinTX are documented in this file.
   account has transactions, so it can't be deleted. Hide it instead: its
   history stays.", with the server's refusal below and the keyboard back
   on the row. No figure changes.
+- **The past-year question words a gift's coins as what they are, and names
+  its dates' timezone** (#736, #737, found by the 2.0 testing plan's
+  past-year run, T7, #693; in alpha.2 too). When a save moved the coins a
+  gift, donation or lost-coins withdrawal took, the question named their
+  "Form 8949 box" and "Form 8949 column (b)", though those coins are on no
+  Form 8949 (only their network fee is): it now says what moved for them,
+  "held short-term -> long-term" and "date acquired 01/01/2025 ->
+  01/01/2023", and calls the network fee's rows the network fee's Form 8949.
+  It still asks whenever those move (a donation's deduction turns on both).
+  An edit that only changes a gift's broker choice (one the API or the AI
+  connector left there: the form sends none for a gift) no longer asks: it
+  moved only a box those coins don't have. And the question's rows are dated
+  in your tax timezone, as Ledger Review's are, not in this device's clock
+  like the form behind it, so a Buy typed at 10:00 AM in Chicago showed as
+  16:00 with nothing to say why: it now says "Dates in UTC." (or your zone;
+  for a new tax timezone, the one being saved). The question's answer to the
+  AI connector names the zone too (`timezone`). No figure changes, and
+  nothing is saved without the confirm.
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read
   "consolidate / move within the same wallet", though it moves no coins

@@ -1,9 +1,10 @@
 """
 What a write changes, tax year by tax year (2.0 spec 5.8): for each
 transaction, Ledger Review's snapshot of its stored figures, its lot
-disposals' Form 8949 boxes and column (b), what the year's report counts as
-income or a rebate and as a gift, donation or lost coins, and its date and
-tax year. The boxes and
+disposals' Form 8949 boxes and column (b) (a gift's, donation's or lost
+coins' own: their holding period and date acquired, on no Form 8949),
+what the year's report counts as income or a rebate and as a gift, donation
+or lost coins, and its date and tax year. The boxes and
 dates are compared even when every dollar matches: a covered sale can turn
 noncovered with the same gain (G to H), and two lots of the same cost and
 term can swap; and a date a filed return prints (Form 8949's column (c),
@@ -19,16 +20,21 @@ from backend.constants import GIFT_LIKE_PURPOSES, INCOME_SOURCES, REBATE_SOURCE,
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.services import review
 from backend.services.account import AccountBook, account_book
-from backend.services.reports.form_8949 import acquired_text, disposal_box
+from backend.services.reports.form_8949 import acquired_text, disposal_box, on_form_8949
 from backend.services.tax_time import format_tax_date, local_date
 
 # Compared beside Ledger Review's figures: each disposal's box and column
-# (b), in the order they were made, what the year's report counts as income
-# or a rebate (the source and value: a deposit made income keeps its basis,
-# so no stored figure shows it), and its gifts, donations and lost coins
-# (the purpose and value: a donation's can be a charitable deduction; the
-# build's lead, 2026-10-24)
-COLUMNS = ("boxes", "acquired", "received", "given")
+# (b), in the order they were made; a gift's, donation's or lost coins' own,
+# which no Form 8949 lists, by their holding period and date acquired
+# instead (a donation's deduction turns on both, #736); what the year's
+# report counts as income or a rebate (the source and value: a deposit made
+# income keeps its basis, so no stored figure shows it), and its gifts,
+# donations and lost coins (the purpose and value: a donation's can be a
+# charitable deduction; the build's lead, 2026-10-24)
+COLUMNS = ("boxes", "acquired", "given_terms", "given_acquired", "received", "given")
+# A gift's only Form 8949 rows are its network fee's: named so when it's a
+# gift on both sides of a change (the change's own, or a pending one)
+FEE_COLUMNS = {"boxes": "fee_boxes", "acquired": "fee_acquired"}
 # And, for a row with figures, its tax year; and its date where a filed
 # return prints it, even within its year (the build's lead, 2026-10-24): a
 # disposal's date sold (Form 8949's column (c)), an income's, rebate's or
@@ -46,20 +52,25 @@ PENDING = "Stored figures differ from what the current rules give."
 
 def figures(db: Session, tz) -> dict[int, dict[str, Any]]:
     """Each transaction's stored figures (review.snapshot), its disposals'
-    Form 8949 boxes and column (b), what it brings as income or a rebate
-    and what it gives, donates or loses, its date and tax year (tax
-    timezone), and whether it's dollars only."""
+    Form 8949 boxes and column (b) (a gift's own coins' holding period and
+    date acquired), what it brings as income or a rebate and what it gives,
+    donates or loses, its date and tax year (tax timezone), and whether
+    it's dollars only."""
     found = review.snapshot(db, tz)
     book = account_book(db)
     for t in db.query(Transaction):
         dollars = moves_only_dollars(t.type, (t.from_account_id, t.to_account_id), book)
         found[t.id].update(date=format_tax_date(t.timestamp, tz), year=local_date(t.timestamp, tz).year,
-                           dollars=dollars, boxes=[], acquired=[], received=_received(t, book),
-                           given=_given(t, book), priced=_valued_from_the_price(t))
+                           dollars=dollars, boxes=[], acquired=[], given_terms=[], given_acquired=[],
+                           received=_received(t, book), given=_given(t, book), priced=_valued_from_the_price(t))
     for disposal in _disposals(db):
         row = found[disposal.transaction_id]
-        row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
-        row["acquired"].append(acquired_text(disposal, tz))
+        if on_form_8949(disposal):
+            row["boxes"].append(disposal_box(disposal, row["year"], tz, book))
+            row["acquired"].append(acquired_text(disposal, tz))
+        else:
+            row["given_terms"].append(disposal.holding_period)
+            row["given_acquired"].append(acquired_text(disposal, tz))
     return found
 
 
@@ -123,6 +134,8 @@ def _row_diff(tx_id: int, old: dict | None, new: dict | None) -> dict[str, Any]:
         return {}
     diff = review.differences({tx_id: old}, {tx_id: new}).get(tx_id, {})
     diff.update({key: (old[key], new[key]) for key in COLUMNS if old[key] != new[key]})
+    if old["given"] is not None and new["given"] is not None:
+        diff.update({fee: diff.pop(key) for key, fee in FEE_COLUMNS.items() if key in diff})
     if old["date"] != new["date"] and (_date_printed(old) or _date_printed(new)):
         diff["date"] = (old["date"], new["date"])
     if old["year"] != new["year"]:
@@ -186,18 +199,17 @@ def items(changes: dict, rows: dict, db: Session, tz, book: AccountBook, issue: 
 
 
 def change_text(diff: dict, row: dict | None = None) -> str:
-    """What moves, in words: Ledger Review's for the figures, then the box,
-    column (b), income and rebates, gifts, the date and the tax year; an
-    added or deleted row's figures (`row`)."""
+    """What moves, in words: Ledger Review's for the figures, then a gift's
+    own coins' holding period and date acquired, the box and column (b) (a
+    gift's network fee's, the only Form 8949 rows it has), income and
+    rebates, gifts, the date and the tax year; an added or deleted row's
+    figures (`row`)."""
     if diff.get("added") or diff.get("deleted"):
         named = [f"{review.FIGURE_NAMES[k]} {review.money(row[k])}" for k in NAMED if (row or {}).get(k) is not None]
         return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
-    money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *DATES)}
+    money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *FEE_COLUMNS.values(), *DATES)}
     parts = [review.change_text(money).rstrip(".")] if money else []
-    if "boxes" in diff:
-        parts.append("Form 8949 box " + _moved_text(*diff["boxes"]))
-    if "acquired" in diff:
-        parts.append("Form 8949 column (b), date acquired " + _moved_text(*diff["acquired"]))
+    parts += _lots_text(diff)
     if "received" in diff:
         parts.append("income and rebates: " + " -> ".join(_received_text(side) for side in diff["received"]))
     if "given" in diff:
@@ -208,6 +220,36 @@ def change_text(diff: dict, row: dict | None = None) -> str:
         parts.append(f"tax year {diff['year'][0]} -> {diff['year'][1]}")
     text = "; ".join(parts) + "."
     return text[:1].upper() + text[1:] if not money else text
+
+
+def _lots_text(diff: dict) -> list[str]:
+    """The lots' part: a gift's own coins' holding period and date acquired
+    (a row made a gift, or no longer one: its gift's part says so), then
+    the Form 8949 box and column (b), a gift's network fee's or any other
+    row's."""
+    parts = []
+    if _on_both_sides(diff.get("given_terms")):
+        parts.append("held " + _moved_text(*([_term(term) for term in side] for side in diff["given_terms"])))
+    if _on_both_sides(diff.get("given_acquired")):
+        parts.append("date acquired " + _moved_text(*diff["given_acquired"]))
+    for form, boxes, acquired in (("network fee's Form 8949", "fee_boxes", "fee_acquired"),
+                                  ("Form 8949", "boxes", "acquired")):
+        if boxes in diff:
+            parts.append(f"{form} box " + _moved_text(*diff[boxes]))
+        if acquired in diff:
+            parts.append(f"{form} column (b), date acquired " + _moved_text(*diff[acquired]))
+    return parts
+
+
+def _term(holding_period: str | None) -> str:
+    """ "long-term" or "short-term": a disposal with no term stored (before
+    0.7) is short-term, as the reports count it."""
+    return "long-term" if holding_period == "LONG" else "short-term"
+
+
+def _on_both_sides(moved: tuple[list, list] | None) -> bool:
+    """A list that moved and holds something before and after."""
+    return moved is not None and all(moved)
 
 
 def _received_text(received: tuple[str, str | None] | None) -> str:

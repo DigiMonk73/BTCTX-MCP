@@ -117,6 +117,7 @@ def test_an_add_an_edit_or_a_delete_that_changes_an_earlier_year_asks_and_saves_
     assert body["changes"] and all(set(i["years"]) & set(years) for i in body["changes"])
     assert body["pending"] == [] and body["recalc_error"] is None
     assert body["exact"] is True and body["why_not_exact"] is None
+    assert body["timezone"] == "UTC"  # the zone its rows' dates are in, the tax timezone (#737)
     assert re.fullmatch(r"[0-9a-f]{64}", body["confirm"])
     assert stored(client) == before
     assert copies(client, PRE_CHANGE_KIND) == []
@@ -326,7 +327,7 @@ def test_past_the_time_budget_the_years_come_from_its_date(ledger, monkeypatch):
     assert body["detail"] == ("This is dated in 2024, so it can change 2024's figures and later years you may "
                               "have filed. Save it? A copy of your ledger is made first.")
     assert (body["years"], body["changes"], body["pending"], body["exact"]) == ([2024, 2025], [], [], False)
-    assert body["why_not_exact"]
+    assert body["why_not_exact"] and body["timezone"] == "UTC"
     r = WRITES["edit"](client, rows, {"confirm": body["confirm"]})
     assert r.status_code == 200, r.text
     assert len(copies(client, PRE_CHANGE_KIND)) == 1
@@ -462,6 +463,55 @@ def test_after_an_upgrade_the_first_confirm_saves(ledger):
     assert asked.status_code == 409, asked.text
     r = client.delete(f"/api/transactions/{rows['sale 2024']}", params={"confirm": asked.json()["confirm"]})
     assert r.status_code == 204, r.text
+
+
+def test_a_pending_fix_on_a_spend_made_a_gift_names_its_own_rows_never_a_network_fees(fresh_app, monkeypatch,
+                                                                                         tax_year):
+    """The pending list compares the stored figures with a recalculation
+    without the write: there the row is a Spent on both sides, whatever the
+    write makes it, so its Form 8949 rows are its own (#736's re-check)."""
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    r = post(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+             timestamp="2025-07-01T12:00:00Z", purpose="Spent", proceeds_usd="3000")
+    assert r.status_code == 200, r.text
+    spend = r.json()["id"]
+    tax_year(2026)
+    with fresh_app() as db:  # a fix pending on the spend itself, as after an upgrade
+        db.execute(text("UPDATE lot_disposals SET holding_period = 'LONG' WHERE transaction_id = :id"), {"id": spend})
+        db.execute(text("DELETE FROM app_settings WHERE key = 'recalculated_by'"))
+        db.commit()
+    r = client.put(f"/api/transactions/{spend}", json={"purpose": "Gift", "fmv_usd": "3000"})
+    assert r.status_code == 409, r.text
+    pending = {item["id"]: item["change"] for item in r.json()["pending"]}
+    assert "Form 8949 box L -> I" in pending[spend] and "network fee's" not in pending[spend]
+    changes = {item["id"]: item["change"] for item in r.json()["changes"]}
+    assert "Form 8949 box I -> none" in changes[spend] and "network fee's" not in changes[spend]
+
+
+def test_a_pending_fix_on_a_gift_made_a_spend_names_its_fees_rows(fresh_app, monkeypatch, tax_year):
+    """The other way round: the pending list's gift is a gift on both sides,
+    so its only Form 8949 rows are its network fee's."""
+    stub_prices_at(monkeypatch, lambda when: Decimal("50000"))
+    client = TestClient(app)
+    assert client.post("/api/login", json=default_login()).status_code == 200
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    r = post(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+             timestamp="2025-07-01T12:00:00Z", purpose="Gift", fmv_usd="3000", fee_amount="0.0001",
+             fee_currency="BTC")
+    assert r.status_code == 200, r.text
+    gift = r.json()["id"]
+    tax_year(2026)
+    with fresh_app() as db:  # a fix pending on the gift itself, as after an upgrade
+        db.execute(text("UPDATE lot_disposals SET holding_period = 'LONG' WHERE transaction_id = :id"), {"id": gift})
+        db.execute(text("DELETE FROM app_settings WHERE key = 'recalculated_by'"))
+        db.commit()
+    r = client.put(f"/api/transactions/{gift}", json={"purpose": "Spent", "proceeds_usd": "3000"})
+    assert r.status_code == 409, r.text
+    pending = {item["id"]: item["change"] for item in r.json()["pending"]}
+    assert "held long-term -> short-term" in pending[gift] and "network fee's Form 8949 box L -> I" in pending[gift]
 
 
 def test_past_the_budget_a_dollar_row_still_saves_at_once(ledger, monkeypatch):
