@@ -1,13 +1,12 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
-import {
-  accountKind, accountName, buyExchanges, buyPayers, chosenId, exchangeCount, exchangeName,
-} from "../../utils/accounts";
+import { buyExchanges, buyPayers, chosenId, exchangeCount, exchangeName } from "../../utils/accounts";
 import AccountPicker from "./AccountPicker";
 
 /**
  * A Buy: the exchange whose BTC account the bitcoin goes into, then the
- * dollars that paid for it, that exchange's or a bank's (an auto-buy): an
+ * dollars that paid for it, that exchange's or a bank's (each by its own
+ * name: a bank pays for a one-off buy as well as a recurring one, #705): an
  * exchange's dollars buy only on that exchange (5.5, Q15). With one
  * exchange its choice isn't shown, as in 1.x.
  */
@@ -36,7 +35,6 @@ const BuyFields: React.FC<{ book: AccountBook }> = ({ book }) => {
         choices={(saved) => buyPayers(book, exchangeId, saved)}
         placeholder={exchangeId === undefined ? "Choose the exchange first" : "Select Account"}
         requiredMessage="Please select an account"
-        optionLabel={(id) => (accountKind(book, id) === "bank" ? `${accountName(book, id)} (auto-buy)` : accountName(book, id))}
       >
         <small className="field-hint">
           Select where the USD is coming from.
