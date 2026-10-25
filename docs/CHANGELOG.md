@@ -35,6 +35,17 @@ All notable changes to BitcoinTX are documented in this file.
   start.
 
 ### Fixed
+- **Settings reads your accounts afresh, so Delete follows the server**
+  (#720, found by the StartOS tests, #691). The account book was read once
+  per page, so after a transaction into a new account (on the Transactions
+  page, or by an import in Settings), Settings still said "It has no
+  transactions." and offered Delete, and the server refused it. Settings
+  now reads the book again as it opens, each time its **Wallets, exchanges
+  and banks** section opens, and after a refused delete (an account the AI
+  connector used while the section stayed open): the row then says "This
+  account has transactions, so it can't be deleted. Hide it instead: its
+  history stays.", with the server's refusal below and the keyboard back
+  on the row. No figure changes.
 - **The past-year question words a gift's coins as what they are, and names
   its dates' timezone** (#736, #737, found by the 2.0 testing plan's
   past-year run, T7, #693; in alpha.2 too). When a save moved the coins a
