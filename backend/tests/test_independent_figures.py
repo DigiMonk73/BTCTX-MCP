@@ -273,9 +273,11 @@ def test_one_purchase_in_two_lots_is_chosen_across_both_the_first_made_first():
 
 def test_choosing_the_oldest_coins_gives_the_figures_of_no_choice():
     """Oldest first is a way of identifying too ((j)(4)): choosing exactly
-    the coins it would take changes nothing, nor does a key no row names."""
+    the coins it would take gives the figures of a ledger with no choice and
+    no keys (C's key names coins no row chooses)."""
     fee = {"fee_amount": "0.0001", "fee_usd": "10.00"}
-    oldest = independent.replay([A, B, C, _spend("2025-09-01", "0.015", "1500.00", **fee)])
+    unnamed = [{field: value for field, value in row.items() if field != "key"} for row in (A, B, C)]
+    oldest = independent.replay([*unnamed, _spend("2025-09-01", "0.015", "1500.00", **fee)])
     chosen = independent.replay([A, B, C, _spend("2025-09-01", "0.015", "1500.00", _chosen(a="0.01", b="0.0051"),
                                                  **fee)])
     for year in (2023, 2024, 2025):

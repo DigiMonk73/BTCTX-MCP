@@ -520,15 +520,20 @@ def _check_choices(transactions: list[dict], accounts: dict[int, Account]) -> No
     read one way stops here, before any figure, never skipped."""
     keys = _keys(transactions, accounts)
     for position, tx in enumerate(transactions, start=1):
-        if tx.get("chosen_coins") not in (None, []):  # nothing chosen: oldest first
+        if _chooses(tx):
             _check_choice(_number(position, tx), tx, accounts, keys)
+
+
+def _chooses(tx: dict) -> bool:
+    """Whether a row chose its coins: nothing chosen (none, or an empty list) is oldest first."""
+    return tx.get("chosen_coins") not in (None, [])
 
 
 def _keys(transactions: list[dict], accounts: dict[int, Account]) -> set[str]:
     """Every key, each on the one Buy, or Deposit into a bitcoin account, whose coins it names."""
     rows: dict[str, int] = {}
     for position, tx in enumerate(transactions, start=1):
-        if "key" not in tx:
+        if tx.get("key") is None:  # no key, like no choice: nothing names its coins
             continue
         number, key = _number(position, tx), tx["key"]
         if not isinstance(key, str) or not key.strip():
@@ -719,7 +724,7 @@ def _choice(ledger: Ledger, tx: dict, account: int) -> dict[str, Fraction] | Non
     """A row's chosen coins, as the BTC still to take of each acquisition,
     once the wallet is seen to hold them all as the coins leave ((j)(2): the
     units identified are units in the wallet). None: oldest first."""
-    if tx.get("chosen_coins") in (None, []):
+    if not _chooses(tx):
         return None
     choice = {line["key"]: _money(line["btc"]) for line in tx["chosen_coins"]}
     for key, btc in choice.items():
