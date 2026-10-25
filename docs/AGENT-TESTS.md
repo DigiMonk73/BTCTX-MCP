@@ -409,7 +409,10 @@ Start from the `clean` snapshot.
   holds: the page wasn't reloaded since). Expect: every golden figure is
   back, Wallet 0.39970000.
 - **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
-  on `2025-04-01`, cost basis `500`. Expect a **Date originally acquired**
+  on `2025-04-01`, cost basis `500`. Expect under Source "Coins moved here
+  from another wallet or exchange you track in BitcoinTX are a Transfer,
+  not a Deposit: a deposit would count them in both accounts." (#705), and
+  a **Date originally acquired**
   field (it isn't there for Income or for a Bank deposit); enter
   `2023-03-14` and save. Edit it: the field shows 03/14/2023 (the date
   entered, #185), and saving the edit unchanged keeps it. Ledger Review shows "Nothing to review." and no
@@ -419,7 +422,8 @@ Start from the `clean` snapshot.
   transaction**, Deposit, and pick Account `Wallet`: expect the hint "A
   wallet is one set of keys: add each one you use in Settings → Wallets,
   exchanges and banks." under it. Switch to Account `Exchange BTC`
-  (Currency shows `BTC`; the hint goes), Source **Rebate**, `0.0001` BTC on
+  (Currency shows `BTC`; the wallet hint goes), Source **Rebate** (the line
+  under Source about a Transfer goes too), `0.0001` BTC on
   `2025-04-01`, cost basis `6`, and save. Expect: Exchange (BTC)
   0.15010000 BTC, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged

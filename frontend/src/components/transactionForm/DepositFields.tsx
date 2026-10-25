@@ -31,7 +31,7 @@ const SOURCE_HINTS: Record<string, string> = {
 // the coins where they were too (#705)
 const OWN_COINS = ["N/A", "MyBTC"];
 const TRANSFER_NOT_DEPOSIT =
-  "Coins moved here from another wallet or exchange you keep in BitcoinTX are a Transfer, not a Deposit: " +
+  "Coins moved here from another wallet or exchange you track in BitcoinTX are a Transfer, not a Deposit: " +
   "a deposit would count them in both accounts.";
 
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115); a blank

@@ -11,7 +11,7 @@ import { riverChoices } from "../utils/riverImport";
 import RiverAccountPickers from "./riverImport/RiverAccountPickers";
 
 const TRANSFER_NOT_DEPOSIT =
-  "Coins moved here from another wallet or exchange you keep in BitcoinTX are a Transfer, not a Deposit: " +
+  "Coins moved here from another wallet or exchange you track in BitcoinTX are a Transfer, not a Deposit: " +
   "a deposit would count them in both accounts.";
 
 describe("a wallet sent to itself", () => {

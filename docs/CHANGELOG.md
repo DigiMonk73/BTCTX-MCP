@@ -16,9 +16,10 @@ All notable changes to BitcoinTX are documented in this file.
   was from: it now says "This file's sends to your wallet go into it, and
   its receives come from it." A Buy's **Paid from** called every bank
   "(auto-buy)", 1.x's word for River's recurring buy: each bank is now
-  listed by its own name, a one-off buy's as well. And a bitcoin Deposit
+  listed by its own name, for a one-off buy as well as a recurring one.
+  And a bitcoin Deposit
   whose source is MyBTC (or N/A, the first choice) now says under
-  **Source** that coins moved from another wallet or exchange you keep in
+  **Source** that coins moved from another wallet or exchange you track in
   BitcoinTX are a Transfer, not a Deposit: a deposit would count them in
   both accounts. Words only: no figure changes.
 
