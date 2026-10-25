@@ -3,9 +3,10 @@ The reference ledger's 2.0 rows (2.0 spec 5.15; card B7a #354): its
 `accounts` list adds two of each kind (wallets Coldcard and Jade, exchanges
 Kraken and Overseas, banks Credit union and Savings), which
 scripts/seed_ledger.py makes through the account API before the rows, and
-its "since": "2.0" rows use only those, in 2026, but one: the split of a
-pooled wallet, a Transfer from Wallet to the Coldcard with no fee, after
-every row that takes coins from either.
+its "since": "2.0" rows use only those (B7a's in 2026; #702's from 2022 to
+2026, each for the year it fills), but one: the split of a pooled wallet,
+a Transfer from Wallet to the Coldcard with no fee, after every row that
+takes coins from either.
 
 - Every old row keeps its figures with the new rows beside it
   (test_old_rows_keep_their_figures): equivalence_check's ledgers leave the
@@ -126,12 +127,13 @@ def test_old_rows_keep_their_figures(owner):
 
 def test_the_new_rows_use_only_new_accounts_but_the_split():
     """2.0 spec 5.15: deposits from External fund them; the one exception
-    is the split, from Wallet (and its date is checked, not trusted)."""
+    is the split, from Wallet (and its date is checked, not trusted). Each
+    account is its own pile, so a new row in any year moves no old row's
+    figure (test_old_rows_keep_their_figures), only its year's totals."""
     new = [r for r in raw_rows() if "since" in r]
     assert {r["since"] for r in new} == {"2.0"}
     assert all({r["from_account_id"], r["to_account_id"]} <= NEW_ACCOUNTS | {EXTERNAL} for r in new if r != split_row())
     assert (split_row()["to_account_id"], split_row()["fee_amount"]) == (COLDCARD, "0")
-    assert all(r["timestamp"].startswith("2026-") for r in new)  # so only 2026's figures move
 
 
 def test_the_split_is_the_last_row_wallet_or_the_coldcard_names():
@@ -214,10 +216,47 @@ def test_seeding_again_puts_a_switch_changed_by_hand_back(owner):
             "Exchange": True, "Kraken": True, "Overseas": False}
 
 
+def test_an_account_is_made_under_its_old_name_and_renamed_after_the_rows(owner):
+    """#702: Overseas is made as "Offshore" and renamed once its rows are in
+    (the exchange and both its accounts), and the Jade is hidden then,
+    still holding coins: as an owner renames or hides an account in use."""
+    c, Session = owner
+    sent = c.request
+    writes = []
+
+    def noted(method, url, **kwargs):
+        if "/api/accounts" in str(url) and method in ("POST", "PUT"):
+            writes.append((method, str(url), kwargs.get("json")))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    seed_ledger.seed(c)
+    made = [body["name"] for method, _, body in writes if method == "POST"]
+    assert "Offshore" in made and "Overseas" not in made
+    renamed = [(url, body) for method, url, body in writes if method == "PUT" and body.get("name") == "Overseas"]
+    assert renamed == [("/api/accounts/104", {"name": "Overseas", "hidden": False})]
+    with Session() as db:
+        assert dict(db.query(Exchange.id, Exchange.name)) == {1: "Exchange", 2: "Kraken", 3: "Overseas"}
+    accounts = {a["id"]: a for a in c.get("/api/accounts/").json()}
+    assert (accounts[104]["name"], accounts[105]["name"]) == ("Overseas USD", "Overseas BTC")
+    assert [i for i, a in accounts.items() if a["hidden"]] == [101]
+    assert c.get("/api/calculations/account/101/balance").json()["balance"] > 0
+
+
+def test_seeding_again_puts_back_an_account_hidden_or_shown_by_hand(owner):
+    c, _ = owner
+    seed_ledger.seed(c)
+    for account, hidden in ((101, False), (107, True)):  # the Jade shown, Savings hidden
+        assert c.put(f"/api/accounts/{account}", json={"hidden": hidden}).status_code == 200
+    delete_all(c)
+    seed_ledger.seed(c)
+    assert [a["id"] for a in c.get("/api/accounts/").json() if a["hidden"]] == [101]
+
+
 def test_accounts_given_with_the_ledgers_rows_are_the_ones_made(owner):
     """None given: none made, so the first row into a new account is refused."""
     c, _ = owner
-    with pytest.raises(seed_ledger.SeedError, match="Unknown account id 106"):
+    with pytest.raises(seed_ledger.SeedError, match="Unknown account id 103"):  # 2022's deposit into Kraken
         seed_ledger.seed(c, accounts=[])
 
 
@@ -255,6 +294,21 @@ def test_an_exchange_whose_accounts_disagree_on_its_switch_stops_the_seed(tmp_pa
          "sends_1099da": False}], "transactions": []}))
     monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
     with pytest.raises(seed_ledger.SeedError, match="disagree on its 1099-DA switch"):
+        seed_ledger.ledger_accounts()
+
+
+@pytest.mark.parametrize("note, usd, btc, said", [
+    ("hidden", True, False, "disagree on whether it's hidden"),
+    ("renamed_from", "Old USD", "Older BTC", "disagree on the name it had"),
+])
+def test_an_exchange_whose_accounts_disagree_on_a_note_stops_the_seed(tmp_path, monkeypatch, note, usd, btc, said):
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps({"accounts": [
+        {"id": 102, "name": "Kraken USD", "kind": "exchange", "currency": "USD", "exchange_id": 2, note: usd},
+        {"id": 103, "name": "Kraken BTC", "kind": "exchange", "currency": "BTC", "exchange_id": 2, note: btc}],
+        "transactions": []}))
+    monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
+    with pytest.raises(seed_ledger.SeedError, match=said):
         seed_ledger.ledger_accounts()
 
 

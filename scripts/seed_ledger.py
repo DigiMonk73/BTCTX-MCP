@@ -113,9 +113,10 @@ def _exchange(exchange_id: int, pair: dict[str, dict]) -> dict:
     made_as = usd.get("renamed_from", usd["name"]).removesuffix(" USD")
     if btc.get("renamed_from", btc["name"]) != f"{made_as} BTC":
         raise SeedError(f"exchange {exchange_id}'s two accounts disagree on the name it had (renamed_from)")
-    for note, default in (("sends_1099da", True), ("hidden", False)):
-        if usd.get(note, default) != btc.get(note, default):
-            raise SeedError(f"exchange {exchange_id}'s two accounts disagree on {note}")
+    if usd.get("sends_1099da", True) != btc.get("sends_1099da", True):
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on its 1099-DA switch")
+    if usd.get("hidden", False) != btc.get("hidden", False):
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on whether it's hidden")
     return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True),
             "hidden": usd.get("hidden", False), "made_as": made_as}
 
@@ -224,9 +225,9 @@ def make_account(c: httpx.Client, account: dict) -> None:
 def finish_account(c: httpx.Client, account: dict) -> None:
     """One of ledger_accounts() named and hidden (or shown) as the ledger
     has it, once the rows are in: one made under another name is renamed
-    (an exchange's: the exchange and both its accounts), and one changed by
-    hand is put back. A name or hidden alone moves no figure, so it never
-    meets the past-year warning."""
+    (an exchange's: the exchange and both its accounts), and one hidden or
+    shown by hand is put back. A name or hidden alone moves no figure, so
+    it never meets the past-year warning."""
     r = c.put(f"/api/accounts/{account['ids'][0]}", json={"name": account["name"], "hidden": account.get("hidden", False)})
     if r.status_code != 200:
         raise SeedError(f"naming or hiding {account['name']} failed: {r.status_code} {r.text[:300]}")

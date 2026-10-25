@@ -65,6 +65,12 @@ BOXES_2026 = {
     "02/16/2026": {"G"}, "03/23/2026": {"H"}, "05/11/2026": {"I"},
     **{day: {"I"} for day in ("03/02/2026", "04/06/2026", "04/20/2026", "06/03/2026", "06/10/2026", "06/24/2026",
                               "07/07/2026", "07/21/2026")},
+    # #702's: Overseas' gift held since 2023 (L), its own coins (I: the switch is off), its sale with basis
+    # reported (G by the override), Kraken's long-term coins (K), its covered coins with proceeds only
+    # (H), its spends' choices (G, I), the Jade's donation fee (L), and the network fees and the $0 spend (I)
+    "06/16/2026": {"L"}, "06/17/2026": {"I"}, "06/23/2026": {"I"}, "06/25/2026": {"G"}, "08/06/2026": {"L"},
+    "08/12/2026": {"K"}, "08/18/2026": {"H", "K"}, "08/20/2026": {"G"}, "08/21/2026": {"I"},
+    **{day: {"I"} for day in ("06/30/2026", "07/02/2026", "08/10/2026", "08/25/2026")},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own

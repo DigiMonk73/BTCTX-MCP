@@ -4,6 +4,30 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Development
+- **The reference test ledger covers all of 2.0** (#702, for the 2.0
+  testing plan #686). 50 rows join the made-up ledger every figures check
+  uses (191 in all), so each of 2.0's dimensions is filled:
+  - every deposit source and withdrawal purpose in more than one wallet
+    and more than one exchange, and every route between more than one
+    pair of accounts;
+  - each exchange's sales in the boxes its 1099-DA switch gives (Kraken's
+    H and K, Overseas' I and L, a coin bought on Overseas in 2026 in I, not
+    G), and every Broker form choice against each switch, a spend's fee
+    following it;
+  - short- and long-term gains and losses, and inherited coins sold, in
+    2024, 2025 and 2026; holdings at the start of 2023;
+  - a hidden account still holding coins and a renamed exchange on the
+    dashboard (`scripts/seed_ledger.py` renames and hides after the rows);
+  - the rows Ledger Review lists ($0 cost, a $0 Buy, $0 proceeds).
+
+  New coverage tests in `test_seed_ledger.py` fail if a dimension ever
+  empties. Each account is its own pile, so no older row's figure moves;
+  the test figures move only by the new rows' own
+  (`testdata/reference_figures.json`). `scripts/independent_figures.py`
+  also checks each exchange's Sells (Sales by exchange) and agrees in every
+  year. Test data only: nothing in the app changes.
+
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
 **About this alpha.** BitcoinTX 2.0's second pre-release, for anyone who
