@@ -123,6 +123,14 @@ All notable changes to BitcoinTX are documented in this file.
   consolidation shows as "Consolidation" in the Transactions list; one
   listed between two different accounts moved coins, and can be edited
   back.
+- **Settings sums up the AI section as your edition has it** (#724, found
+  by the 2.0 testing plan's Mac app run on alpha.2). Closed, **Connect an
+  AI Assistant** said "…with a key you create" everywhere, but the Mac app
+  makes its own key, as the open section says. On the Mac it now reads
+  "An AI app that reads your ledger and enters transactions, with a key
+  BitcoinTX keeps for it"; Docker and StartOS keep "with a key you
+  create"; and until the server has said which it is, it names no key.
+  Words only: no figure changes.
 
 ### Development
 - **The release walk's steps match 2.0** (#723, found by the StartOS

@@ -2,8 +2,8 @@
 // a link that opens one.
 import { describe, expect, it } from "vitest";
 import {
-  OPEN_SECTION_KEY, SETTINGS_SECTIONS, initiallyOpen, linkedSection, rememberOpen, rememberedOpen, reviewSummary,
-  toggled,
+  OPEN_SECTION_KEY, SETTINGS_SECTIONS, aiSummary, initiallyOpen, linkedSection, rememberOpen, rememberedOpen,
+  reviewSummary, toggled,
 } from "./settingsSections";
 
 function store(initial: Record<string, string> = {}) {
@@ -90,5 +90,14 @@ describe("Ledger Review's summary", () => {
     expect(reviewSummary({ total: 2, reminders: 0, recalc_error: stops }))
       .toBe("2 transactions to check; Recalculate Ledger would stop");
     expect(reviewSummary({ total: 0, reminders: 0, recalc_error: null })).toBe("Nothing to review");
+  });
+});
+
+describe("Connect an AI Assistant's summary", () => {
+  it("words the key by edition (#724), and names none before it's known", () => {
+    const what = "An AI app that reads your ledger and enters transactions";
+    expect(aiSummary(true)).toBe(`${what}, with a key BitcoinTX keeps for it`);
+    expect(aiSummary(false)).toBe(`${what}, with a key you create`);
+    expect(aiSummary(undefined)).toBe(what);
   });
 });
