@@ -4,7 +4,7 @@
 import "../../test/setup";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { AxiosResponse } from "axios";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import api from "../../api";
 import { ToastContext } from "../../contexts/useToast";
 import type { ToastContextValue } from "../../contexts/ToastContext";
@@ -25,6 +25,13 @@ const PREVIEW = {
 function answered<T>(data: T): AxiosResponse<T> {
   return { data, status: 200, statusText: "OK", headers: {}, config: {} as AxiosResponse["config"] };
 }
+
+// The card asks for the saved mappings when it shows (#683): River's alone here
+beforeEach(() => {
+  vi.spyOn(api, "get").mockResolvedValue(answered({ mappings: [
+    { id: "river", name: "River", ready_made: true, help: "", checked: true },
+  ] }));
+});
 
 const River: React.FC<{ book?: AccountBook }> = ({ book }) => (
   <ToastContext.Provider value={toast}><RiverImport onPreviewShown={() => {}} book={book} /></ToastContext.Provider>

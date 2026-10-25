@@ -8,7 +8,7 @@ import "../test/setup";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AxiosError, type AxiosRequestConfig, type AxiosResponse } from "axios";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import api from "../api";
 import { ToastProvider, type Toast } from "../contexts/ToastContext";
 import ToastLog from "../test/ToastLog";
@@ -45,6 +45,13 @@ function refused(data: unknown): AxiosError {
   const response = { data, status: 409, statusText: "", headers: {}, config: {} } as AxiosResponse;
   return new AxiosError("Request failed with status code 409", "ERR_BAD_REQUEST", undefined, undefined, response);
 }
+
+// The card asks for the saved mappings when it shows (#683): River's alone here
+beforeEach(() => {
+  vi.spyOn(api, "get").mockResolvedValue({ data: { mappings: [
+    { id: "river", name: "River", ready_made: true, help: "", checked: true },
+  ] } });
+});
 
 /** The confirm a request was sent with, if any. */
 const confirmOf = (config?: AxiosRequestConfig): unknown => (config?.params as { confirm?: string } | undefined)?.confirm;
