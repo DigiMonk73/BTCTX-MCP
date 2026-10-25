@@ -132,7 +132,7 @@ test("your accounts by kind, each with its kind and balance, its details behind 
   await expect(details).toHaveCount(0);
 });
 
-test("add a wallet and an exchange: their help texts, Q5's note, the server's refusal, the new rows", async ({
+test("add a wallet and an exchange: their help texts, Q5's note, the 1099-DA question, the server's refusal, the new rows", async ({
   authedPage: page,
 }) => {
   await seedKnownLedger(page.request);
@@ -146,6 +146,7 @@ test("add a wallet and an exchange: their help texts, Q5's note, the server's re
   await expect(addWallet.getByLabel("Name")).toBeFocused();
   await expect(addWallet).toContainText(WALLET_HELP);
   await expect(addWallet).toContainText(POOLED_WALLET); // Wallet has transactions
+  await expect(addWallet.getByRole("group")).toHaveCount(0); // no 1099-DA question (#708)
   await addWallet.getByLabel("Name").fill("wallet");
   await addWallet.getByRole("button", { name: "Add", exact: true }).click();
   await expect(section.getByRole("alert")).toHaveText(
@@ -167,24 +168,44 @@ test("add a wallet and an exchange: their help texts, Q5's note, the server's re
     "BitcoinTX keeps an exchange's dollars and bitcoin as two accounts, 'name USD' and 'name BTC'.",
   );
   await expect(addExchange).toContainText(POOLED_EXCHANGE);
+  // Asked whether it sends a Form 1099-DA before any sale is saved (#708), Yes chosen, in 5.9's help
+  const question = addExchange.getByRole("group", { name: "Does this exchange send you a Form 1099-DA?" });
+  await expect(question.getByRole("radio", { name: "Yes" })).toBeChecked();
+  await expect(question.getByRole("radio", { name: "No" })).not.toBeChecked();
+  await expect(question).toHaveAccessibleDescription(
+    "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
+    "It decides the Form 8949 box, not the gain.",
+  );
   await addExchange.getByLabel("Name").fill("Kraken");
   await expect(addExchange).toContainText("two accounts, 'Kraken USD' and 'Kraken BTC'.");
   await addExchange.getByRole("button", { name: "Add", exact: true }).click();
   await expect(row(exchanges, "Kraken")).toHaveAccessibleName("Kraken Exchange $0.00 · 0.00000000 BTC");
+  // Another, answered No: its switch is off from the start
+  await exchanges.getByRole("button", { name: "Add an exchange" }).click();
+  await addExchange.getByLabel("Name").fill("Abroad");
+  await addExchange.getByRole("radio", { name: "No" }).check();
+  await addExchange.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(addExchange).toHaveCount(0);
+  await row(exchanges, "Abroad").click();
+  await expect(section.getByRole("region", { name: "Abroad" }).getByLabel("This exchange sends me a Form 1099-DA"))
+    .not.toBeChecked();
 
   const added = (await listed(page)).filter((a) => a.id >= 100);
-  expect(added.map((a) => [a.id, a.name, a.kind, a.currency])).toEqual([
-    [100, "Coldcard", "wallet", "BTC"], [101, "Kraken USD", "exchange", "USD"], [102, "Kraken BTC", "exchange", "BTC"],
+  expect(added.map((a) => [a.id, a.name, a.kind, a.currency, a.sends_1099da])).toEqual([
+    [100, "Coldcard", "wallet", "BTC", null], [101, "Kraken USD", "exchange", "USD", true],
+    [102, "Kraken BTC", "exchange", "BTC", true], [103, "Abroad USD", "exchange", "USD", false],
+    [104, "Abroad BTC", "exchange", "BTC", false],
   ]);
 
-  // A bank: no help text, no note; Cancel adds nothing
+  // A bank: no help text, no note, no 1099-DA question; Cancel adds nothing
   await group(section, "Banks").getByRole("button", { name: "Add a bank" }).click();
   const addBank = section.getByRole("form", { name: "Add a bank" });
   await expect(addBank.getByRole("note")).toHaveCount(0);
+  await expect(addBank.getByRole("group")).toHaveCount(0);
   await addBank.getByRole("button", { name: "Cancel" }).click();
   await expect(addBank).toHaveCount(0);
   await expect(group(section, "Banks").getByRole("button", { name: "Add a bank" })).toBeFocused();
-  expect(await listed(page)).toHaveLength(9);
+  expect(await listed(page)).toHaveLength(11);
 });
 
 test("a new user's second wallet, before any transaction, gets no note", async ({ authedPage: page }) => {

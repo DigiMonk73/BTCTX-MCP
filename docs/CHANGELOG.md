@@ -20,6 +20,20 @@ All notable changes to BitcoinTX are documented in this file.
   transfer dated in the past and an edit show what their save will do, and
   one the save would refuse says why. No figure changes.
 
+### Changed
+- **Adding an exchange asks whether it sends a Form 1099-DA** (#708, found
+  by Grok (Cursor) reading alpha.2). Settings' **Add an exchange** now asks
+  "Does this exchange send you a Form 1099-DA?", **Yes** chosen, with the
+  switch's own help (an exchange outside the US usually sends none), so
+  the answer is saved with the exchange, before any of its sales. Before,
+  a new exchange's switch was always on until turned off in its row, and
+  its sales went in the 1099-DA boxes (H/K, or G/J) meanwhile. The row's
+  switch still changes it later. The account API takes the answer as
+  `sends_1099da` with an exchange (left out: on, as before) and refuses it
+  with a bank or a wallet. No figure changes for an exchange answered as
+  before; one answered No puts its sales from 2025 in boxes I/L from the
+  start.
+
 ### Fixed
 - **Four words that misled at the moment of saving** (#705, found by Grok
   (Cursor) reading alpha.2). A Transfer from a wallet to itself read

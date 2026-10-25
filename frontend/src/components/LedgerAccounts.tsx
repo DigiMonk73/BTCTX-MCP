@@ -84,7 +84,9 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     void change(row, () => api.delete(`/accounts/${row.id}`));
   };
 
-  const add = (kind: YourKind, name: string) => change(null, () => api.post("/accounts/", { kind, name }));
+  // A new exchange has no sales, so its 1099-DA answer moves no figure: one request, no past-year warning
+  const add = (kind: YourKind, name: string, sends1099da?: boolean) => change(null, () =>
+    api.post("/accounts/", sends1099da === undefined ? { kind, name } : { kind, name, sends_1099da: sends1099da }));
 
   // A name moves no figure, so the server never asks (B6c's save): one request
   const rename = (row: AccountRow, name: string) => {

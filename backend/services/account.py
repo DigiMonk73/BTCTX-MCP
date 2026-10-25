@@ -209,13 +209,18 @@ def read_last_id(value: str | None) -> int | None:
     return int(value) if isinstance(value, str) and LAST_ID.fullmatch(value) else None
 
 
-def add_account(db: Session, kind: str, name: str) -> list[Account]:
-    """A bank or a wallet, or an exchange and its two accounts. The names
-    are checked and the ids worked out under the write lock, so what another
-    tab added meanwhile is seen, and two adds at once get two ids."""
+def add_account(db: Session, kind: str, name: str, sends_1099da: bool | None = None) -> list[Account]:
+    """A bank or a wallet, or an exchange and its two accounts, with its
+    1099-DA switch when given (on when not); 400 for a switch given with a
+    bank or a wallet. The names are checked and the ids worked out under the
+    write lock, so what another tab added meanwhile is seen, and two adds at
+    once get two ids."""
+    if sends_1099da is not None and kind != "exchange":
+        raise HTTPException(status_code=400, detail=NO_1099DA)
     _lock(db)
     try:
-        made = _exchange(db, clean_name(name)) if kind == "exchange" else [_one(db, kind, clean_name(name))]
+        made = (_exchange(db, clean_name(name), sends_1099da) if kind == "exchange"
+                else [_one(db, kind, clean_name(name))])
         save_setting(db, LAST_ID_KEY, str(max(a.id for a in made)))
         db.commit()
     except BaseException:
@@ -331,12 +336,13 @@ def _one(db: Session, kind: str, name: str) -> Account:
     return account
 
 
-def _exchange(db: Session, name: str) -> list[Account]:
+def _exchange(db: Session, name: str, sends_1099da: bool | None) -> list[Account]:
     _one_line(name, LONGEST_EXCHANGE_NAME)
     _free_exchange(db, name)
     for currency in ("USD", "BTC"):
         _free(db, f"{name} {currency}")
-    exchange = Exchange(name=name)
+    # Its sales' Form 8949 boxes follow the switch: asked when it's added (#708), on unless the owner says no
+    exchange = Exchange(name=name, sends_1099da=sends_1099da is not False)
     db.add(exchange)
     db.flush()
     first, owner = _next_id(db), _owner(db)

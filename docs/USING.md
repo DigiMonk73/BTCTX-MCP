@@ -31,7 +31,8 @@ merchants, an account you don't track.
 **Settings → Wallets, exchanges and banks** lists your accounts by kind,
 each with its balance:
 
-- **Add a wallet**, **Add an exchange** or **Add a bank**: a name. A wallet
+- **Add a wallet**, **Add an exchange** or **Add a bank**: a name (an
+  exchange also asks whether it sends you a Form 1099-DA). A wallet
   is one set of keys: every address it makes is part of it, and a backup of
   the same keys isn't a second wallet. An exchange keeps its dollars and its
   bitcoin as two accounts, "*name* USD" and "*name* BTC". A new account
@@ -41,9 +42,11 @@ each with its balance:
   **Hide** one you no longer use (its history stays; Show brings it back),
   or **Delete** one no transaction names. Your first bank, wallet and
   exchange can't be deleted.
-- Each exchange's **This exchange sends me a Form 1099-DA** switch, on by
-  default: turn it off for an exchange that sends none (usually one outside
-  the US), and its sales go in the Form 8949 boxes for no broker form.
+- Each exchange's **This exchange sends me a Form 1099-DA** switch: adding
+  an exchange asks "Does this exchange send you a Form 1099-DA?" (Yes
+  unless you choose No), and its row's switch changes it later. Off, for
+  an exchange that sends none (usually one outside the US), its sales go
+  in the Form 8949 boxes for no broker form.
 
 The **Dashboard**'s Portfolio Overview shows what your banks, your
 exchanges (their dollars and their bitcoin) and your wallets hold, each
