@@ -85,6 +85,16 @@ All notable changes to BitcoinTX are documented in this file.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
+- **An id too big for the database is refused plainly** (#744, found by the
+  2.0 testing plan's coin-choice session). A request naming a transaction
+  or an account by a number beyond the database's integers (2⁶³ or more,
+  or below −2⁶³) answered "Something unexpected went wrong" and logged an
+  error: reading, editing or deleting a transaction, an edit naming such
+  an account, the coins a Transfer moves, an account and its balance, and
+  the AI connector's import (a row's `not_a_duplicate_of`). It now answers
+  422, naming the id, before anything is looked up. Only a hand-made
+  request sends such an id: the app, the connector and the imports send
+  the ids the server gave. No figure changes.
 - **A restore keeps your saved exchange-file mappings** (#656, found by
   the 2.0 build's release tests; checked by the imports tests, #689).
   Settings' **Import from an exchange** can save your own column mappings,
