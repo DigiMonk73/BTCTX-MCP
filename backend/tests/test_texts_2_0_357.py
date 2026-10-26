@@ -28,6 +28,8 @@ WALLET_HELP_RULE = "since 2025 the IRS figures cost basis wallet by wallet."
 # What BitcoinTX does, in the owner's two wordings (decision 30, #713): the
 # short one for labels, the full one for help text. The rule above states the law.
 METHOD_SHORT = "Per-wallet FIFO"
+# The short one in the store listing's other four languages (es, de, pl, fr: startos/startos/manifest/i18n.ts)
+METHOD_SHORT_TRANSLATED = ("FIFO por monedero", "FIFO pro Wallet", "FIFO dla każdego portfela", "FIFO par portefeuille")
 METHOD_FULL = ("Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
                "spend or transfer, unless you choose other coins in one of your own wallets.")  # Q5's ending (#711)
 # The report's method line in a year with chosen coins (#711, Q5)
@@ -43,8 +45,6 @@ USER_CODE = ("frontend/src/", "backend/", "mcp_server/btctx_mcp/", "startos/star
 METHOD_NOT_YET = {
     "mcp_server/btctx_mcp/guide.py": "D3, #699", "mcp_server/btctx_mcp/server.py": "D3, #699",
     "mcp_server/README.md": "D3, #699",
-    "startos/README.md": "D4, #700", "startos/instructions.md": "D4, #700",
-    "startos/startos/manifest/i18n.ts": "D4, #700",
 }
 
 # Where the rule is stated, each in the one wording
@@ -169,7 +169,8 @@ def other_method_words(text: str) -> list[str]:
         text = text.replace(allowed, " ")
     full_start = METHOD_FULL.split(":")[0]
     found = [text[hit.start():hit.end() + 80] for hit in re.finditer(re.escape(full_start), text, re.I)]
-    text = re.sub(re.escape(METHOD_SHORT), " ", text, flags=re.I)
+    for short in (METHOD_SHORT, *METHOD_SHORT_TRANSLATED):
+        text = re.sub(re.escape(short), " ", text, flags=re.I)
     return found + [text[max(0, hit.start() - 50):hit.end() + 30] for hit in METHOD_WORDS.finditer(text)]
 
 
@@ -187,9 +188,12 @@ def test_other_wordings_of_the_method_are_found():
     assert other_method_words(flat(sentence)) == []
     bold = "- **Cost basis is per-wallet FIFO**: " + METHOD_FULL.split(": ", 1)[1]
     assert other_method_words(flat(bold)) == []
+    listing = "con coste base FIFO por monedero; Anschaffungskosten nach FIFO pro Wallet; FIFO par portefeuille"
+    assert other_method_words(flat(listing)) == []
     for old in ("Realized Gains/Losses (FIFO)", "First in, first out (FIFO), for each account",
                 "BitcoinTX uses first in, first out in each wallet", "always sells them first-in, first-out",
-                "Cost basis is per-wallet FIFO: each wallet uses its oldest coins."):
+                "Cost basis is per-wallet FIFO: each wallet uses its oldest coins.",
+                "mit FIFO-Anschaffungskosten pro Konto", "un coût d’acquisition FIFO par compte"):
         assert other_method_words(flat(old)), old
 
 
