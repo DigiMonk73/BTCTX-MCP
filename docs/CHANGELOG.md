@@ -59,6 +59,26 @@ All notable changes to BitcoinTX are documented in this file.
   introduce the AI connection, they call it optional, off until you turn
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
+- **StartOS's documents and store listing describe 2.0** (D4 of the docs
+  overhaul, #700), under Start9's packaging guide. The store listing's
+  short description is the owner's (#251, 2026-10-25): "Bitcoin tax
+  tracker for multiple wallets and exchanges, with optional AI entry", in
+  all five languages. Its long description gains the importer for any
+  exchange's CSV export and the question before a change to an earlier tax
+  year, names the method "per-wallet FIFO" (decision 30), adds that in a
+  self-custody wallet you can choose which coins leave, if you chose them
+  when they left (the owner, 2026-10-26), and calls AI entry optional, off
+  until you turn it on (decision 31), every language within Start9's 2,000
+  characters. `startos/instructions.md` says the
+  same of the method and the AI, and that a new account starts empty; the
+  MCP API interface's description says AI access is off until you turn it
+  on (it said nothing used it until you set up an AI app), in all five
+  languages; `startos/README.md` says the same of the AI and lists the
+  AI's copy before a confirmed change to an earlier tax year;
+  `startos/AGENTS.md` sends package changes to `staging`, not `develop`.
+  Decision 30's test now holds these three files (off `METHOD_NOT_YET`),
+  with the listing's four translations of "Per-wallet FIFO". No figure
+  changes.
 
 ### Fixed
 - **A dialog's buttons fit a phone's screen** (#769, found by the screens
