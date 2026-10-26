@@ -49,6 +49,13 @@ All notable changes to BitcoinTX are documented in this file.
   receipt, and takes either fee column. What it read before, it reads as
   before; the mapping is still to be checked against a real export.
 
+### Development
+- **The request-limit tests no longer depend on how fast the test machine
+  is** (#781, a CI run at 1.77 s against a 1.3 s bound). They check that a
+  request gave up at its deadline by what only the deadline does (its slow
+  answer left unfinished, its lookup cancelled, its thread ended), and the
+  waiters' "at once" checks have room against a longer limit.
+
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
 **About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who

@@ -6,8 +6,12 @@ timeout), and an answer over MAX_ANSWER_BYTES is refused before it is read
 whole; either is a failed request, handled as any other (the backup, "no
 price", trying again later). A lookup from sync code (price_history._run)
 returns at its limit, with its thread ended. The answers here arrive in
-small parts, each well within the timeout: from a real local server for the
-live price, faked otherwise.
+small parts, each well within the timeout, from a real local server for the
+live price, faked otherwise: so only the deadline can end a request before
+its whole answer is in. Each test checks that it did (the answer left
+unfinished, the lookup cancelled), never how close to the deadline a busy
+test machine got there (#781): a time bound is only "long before the whole
+answer would have arrived".
 """
 
 import asyncio
@@ -34,7 +38,7 @@ from backend.services.price_history import find_prices as real_find_prices
 NODE = "http://umbrel.local:3006"
 PRICE = b'{"time":1,"USD":61234}'
 GAP = 0.05  # seconds between the parts of an answer arriving in parts: well within each wait's limit here
-MARGIN = 1.0  # seconds a lookup may end after its deadline (a slow test machine)
+LONG = b" " * 600  # after an answer: 30 s more in parts, far past any deadline here (JSON allows it)
 DAY = date(2023, 3, 3)
 
 
@@ -43,7 +47,7 @@ def use(**settings):
     bitcoin._price_cache.update(settings=None)
 
 
-def wait_until(check, seconds: float = 2.0) -> bool:
+def wait_until(check, seconds: float = 10.0) -> bool:
     end = time.monotonic() + seconds
     while not check() and time.monotonic() < end:
         time.sleep(0.01)
@@ -89,9 +93,9 @@ def db(test_engine):
 @pytest.fixture
 def mempool_in_parts():
     """A real local mempool server: its first answer arrives a byte every GAP
-    seconds (over 4 seconds in all), every later one at once. Yields its
-    address and the bytes each answer got out."""
-    body = PRICE + b" " * 60
+    seconds (over 30 seconds in all), every later one at once. Yields its
+    address, the bytes each answer got out and the answer's size."""
+    body = PRICE + LONG
     answers, stop = [], threading.Event()
 
     class Mempool(http.server.BaseHTTPRequestHandler):
@@ -132,7 +136,6 @@ def test_the_live_price_gives_up_at_the_deadline_and_frees_its_lock(monkeypatch,
     url, answers, size = mempool_in_parts
     monkeypatch.setattr(outbound, "_transport", None)  # a real request
     monkeypatch.setattr(outbound, "TIMEOUT", 0.2)  # each wait: well over GAP, so only the deadline ends it
-    deadline = outbound.WAITS * outbound.TIMEOUT
     use(price_source="mempool", mempool_url=url)
 
     async def timed(lookup):
@@ -150,16 +153,18 @@ def test_the_live_price_gives_up_at_the_deadline_and_frees_its_lock(monkeypatch,
         return [(result, at - start) for result, at in (await first, second)]
 
     (first, first_took), (second, second_took) = asyncio.run(two_lookups())
-    assert first == 502 and first_took < deadline + MARGIN  # no backup: "Your Mempool didn't answer"
-    assert second["USD"] == 61234 and second["source"] == "mempool" and second_took < deadline + MARGIN
-    assert answers[0] < size  # the first answer was left unfinished
+    whole = size * GAP / 2  # long before the first answer would have arrived whole
+    assert first == 502 and first_took < whole  # no backup: "Your Mempool didn't answer"
+    assert answers[0] < size  # it gave up with its answer unfinished: only the deadline does that
+    # and freed the lock: the second didn't wait for the first's whole answer
+    assert second["USD"] == 61234 and second["source"] == "mempool" and second_took < whole
 
 
 def test_a_past_price_lookup_gives_up_at_the_deadline_and_its_thread_ends(monkeypatch, db):
     """A save needing a past price waits in a worker thread: it's free again by the deadline."""
     midnight = int(datetime(DAY.year, DAY.month, DAY.day, tzinfo=timezone.utc).timestamp())
     rows = [{"time": t, "USD": 30000} for t in (midnight - 3600, midnight, midnight + 3600)]
-    answer = InParts(json.dumps({"prices": rows, "exchangeRates": {}}).encode())
+    answer = InParts(json.dumps({"prices": rows, "exchangeRates": {}}).encode() + LONG)
     monkeypatch.setattr(outbound, "_transport", answering(answer))
     monkeypatch.setattr(outbound, "HISTORY_TIMEOUT", 0.1)
     monkeypatch.setattr(price_history, "find_prices", real_find_prices)
@@ -167,8 +172,9 @@ def test_a_past_price_lookup_gives_up_at_the_deadline_and_its_thread_ends(monkey
     threads, start = threading.active_count(), time.monotonic()
     with pytest.raises(HTTPException) as e:
         price_history.daily_price(db, DAY)
-    assert e.value.status_code == 422 and time.monotonic() - start < outbound.WAITS * 0.1 + MARGIN
-    assert answer.sent < len(answer.body)
+    # Given up with its answer unfinished (whole, it would have given the day's price): only the deadline does that
+    assert e.value.status_code == 422 and answer.sent < len(answer.body)
+    assert time.monotonic() - start < len(answer.body) * GAP / 2
     assert wait_until(lambda: threading.active_count() == threads)  # the lookup's own thread has ended
 
 
@@ -176,30 +182,31 @@ def test_a_lookup_from_sync_code_returns_at_its_limit_and_its_thread_ends(monkey
     """With result(timeout=1), it returned after 4 s: the executor's `with`
     waited for the thread."""
     monkeypatch.setattr(price_history, "LOOKUP_SECONDS", 0.3)
-    ended = []
+    runs, cancelled = 30, []
 
     async def longer():
         try:
-            await asyncio.sleep(3)
-        finally:
-            ended.append(time.monotonic())
+            await asyncio.sleep(runs)
+        except asyncio.CancelledError:
+            cancelled.append(True)
+            raise
 
     threads, start = threading.active_count(), time.monotonic()
     with pytest.raises(TimeoutError):
         price_history._run(longer())
-    assert time.monotonic() - start < 0.3 + MARGIN
-    assert wait_until(lambda: ended and threading.active_count() == threads)
-    assert ended[0] - start < 0.3 + MARGIN  # cancelled at the limit, not left running
+    assert time.monotonic() - start < runs / 2  # it returned long before the lookup would have ended
+    # cancelled at the limit, not left running, and its thread gone
+    assert wait_until(lambda: cancelled == [True] and threading.active_count() == threads)
 
 
 def test_a_years_download_that_never_ends_stops_at_its_deadline(sites, monkeypatch):  # noqa: F811
     """The hourly history's download runs in its own thread: it ends as a
     failed download (tried again later) instead of running on."""
-    monkeypatch.setattr(outbound, "_transport", answering(InParts(b" " * 400)))
+    monkeypatch.setattr(outbound, "_transport", answering(InParts(LONG)))
     monkeypatch.setattr(outbound, "HISTORY_TIMEOUT", 0.1)
     assert hp.start_download()
-    with hp._changed:
-        assert hp._changed.wait_for(lambda: not hp._state["running"], timeout=outbound.WAITS * 0.1 + MARGIN)
+    with hp._changed:  # ended long before its answer would have arrived whole
+        assert hp._changed.wait_for(lambda: not hp._state["running"], timeout=len(LONG) * GAP / 2)
     assert hp.download_status()["state"] == "failed"
 
 
