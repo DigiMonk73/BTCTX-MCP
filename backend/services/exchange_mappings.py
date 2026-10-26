@@ -54,8 +54,9 @@ class Columns:
     amount are needed; a fee is read from `fee` (in `fee_currency`'s
     currency, else the kind's), or from `fee_usd` and `fee_btc` apart. With
     `before_fee`, the dollars before the fee beside `usd` after it (the
-    mapping's `after_fee`), a buy's or sell's fee is the gap between them,
-    whatever a fee column says (Coinbase's, #789).
+    mapping's `after_fee`), a buy's or sell's fee is the gap between them
+    (a buy paying more, a sale bringing less; never below 0), whatever a fee
+    column says, and a payout's value is `before_fee` (Coinbase's, #789).
     """
     date: tuple[str, ...]
     btc: tuple[str, ...]
