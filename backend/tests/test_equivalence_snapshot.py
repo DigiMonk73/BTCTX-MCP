@@ -92,3 +92,26 @@ def test_settings_1x_never_writes_are_left_out_of_the_database_rows(tmp_path):
             con.execute(text("INSERT INTO app_settings VALUES (:k, 'x')"), {"k": key})
     assert [row["key"] for row in snapshot.database_rows(engine)["app_settings"]] == ["tax_timezone"]
     engine.dispose()
+
+
+# A CSV export's moment of saving (#763): since C4 the export carries each
+# row's coins_chosen_at, the moment the snapshot seeded the choice, which
+# masked only in JSON made every comparison differ on that column.
+EXPORTED = ("id,timestamp,coins_chosen_at,amount\r\n"
+            "1,2025-03-01T12:00:00Z,2026-10-26T12:20:14Z,0.1\r\n"
+            "2,2025-03-02T12:00:00Z,,0.2\r\n")
+
+
+def test_a_csvs_moment_of_saving_is_masked_its_column_and_blanks_kept():
+    assert snapshot.masked_csv(EXPORTED) == (
+        "id,timestamp,coins_chosen_at,amount\r\n"
+        "1,2025-03-01T12:00:00Z,<volatile>,0.1\r\n"
+        "2,2025-03-02T12:00:00Z,,0.2\r\n")
+    assert snapshot.masked_csv("id,amount\n1,0.1\n") == "id,amount\n1,0.1\n"  # nothing volatile: as it was
+
+
+def test_a_csv_answer_is_kept_masked():
+    import httpx
+
+    response = httpx.Response(200, headers={"content-type": "text/csv; charset=utf-8"}, text=EXPORTED)
+    assert snapshot.answer(response)["body"] == snapshot.masked_csv(EXPORTED)
