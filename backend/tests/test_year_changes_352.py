@@ -222,6 +222,10 @@ def test_an_added_or_deleted_row_names_what_the_years_report_counts(client):
                        timestamp="2025-06-17T12:00:00Z", source="Rebate", cost_basis_usd="6.00"),
         "donation": dict(type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.01",
                          timestamp="2025-06-18T12:00:00Z", purpose="Donation", fmv_usd="600"),
+        "interest": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0001",
+                         timestamp="2025-06-19T12:00:00Z", source="Interest", cost_basis_usd="5.00"),
+        "lost": dict(type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.001",
+                     timestamp="2025-06-20T12:00:00Z", purpose="Lost", fmv_usd="60"),
     }.items():
         added = {}
         moved = changes_of(client, lambda body=body: added.setdefault("id", save(client, **body)))
@@ -230,6 +234,8 @@ def test_an_added_or_deleted_row_names_what_the_years_report_counts(client):
     assert words["income"].startswith("Added: income 20.00; basis 20.00;")
     assert words["rebate"].startswith("Added: rebate 6.00; basis 6.00;")
     assert words["donation"].startswith("Added: donation 600.00; ")
+    assert words["interest"].startswith("Added: income (Interest) 5.00; basis 5.00;")
+    assert words["lost"].startswith("Added: lost coins 60.00; ")
     rebate = next(tx for tx, row in figures(client).items() if (row["received"] or ("",))[0] == "Rebate")
     before = figures(client)
     r = client.delete(f"/api/transactions/{rebate}")
