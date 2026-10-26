@@ -116,8 +116,9 @@ describe("a Spent from one of your wallets", () => {
     const today = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: { ...LISTED, dated_today: true } }) });
     await spentFromSparrow(today);
     await today.user.click(screen.getByRole("button", { name: "Choose which coins leave" }));
-    // Opening it asks again (the choice is in the question): never offered from the answer before it
-    expect(screen.queryByRole("button", { name: "Highest cost first" })).toBeNull();
+    // Opening it asks again (the choice is in the question): never filled from the answer before it
+    expect((screen.getByRole("button", { name: "Highest cost first" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Oldest first" }) as HTMLButtonElement).disabled).toBe(true);
     await waitForCoins(today);
     await today.user.click(screen.getByRole("button", { name: "Highest cost first" }));
     expect((chosenField("Jan 15, 2025") as HTMLInputElement).value).toBe("0.1001");

@@ -35,11 +35,13 @@ interface PickerParts {
 }
 
 /** Shut: the button that opens it, filled oldest first, once the wallet's
- * coins are listed; or "Try again" when they couldn't be in time. */
-const ShutPicker: React.FC<PickerParts> = ({ held, answer, set, retry }) => {
+ * coins are listed (waiting, never filled from the answer for the
+ * transaction as it was a moment ago); or "Try again" when they couldn't
+ * be in time. */
+const ShutPicker: React.FC<PickerParts> = ({ held, answer, stale, set, retry }) => {
   if (held?.length) {
     return <div className="coins-picker-open"><button type="button" className="btn btn-secondary btn-sm"
-      onClick={() => set(asTyped(oldestFirst(held)))}>Choose which coins leave</button></div>;
+      disabled={stale} onClick={() => set(asTyped(oldestFirst(held)))}>Choose which coins leave</button></div>;
   }
   return answer && answer.coins === null && !held
     ? <div className="coins-picker-open">
@@ -49,18 +51,20 @@ const ShutPicker: React.FC<PickerParts> = ({ held, answer, set, retry }) => {
 };
 
 /** The quick fills (Q3: "Highest cost first" only on a transaction dated
- * today, never from the answer for the transaction as it was a moment
- * ago, whose date may have been today), "Try again" when the coins
- * couldn't be listed, and shutting it. */
+ * today), waiting while the answer is for the transaction as it was a
+ * moment ago (its date may have been today, its coins others): disabled,
+ * never hidden, so nothing moves under the pointer. "Try again" when the
+ * coins couldn't be listed, and shutting it. */
 const PickerActions: React.FC<PickerParts & { leaves: Leaving }> = ({ held, answer, stale, set, retry, leaves }) => (
   <div className="coins-picker-actions">
     {held && (
-      <button type="button" className="btn btn-quiet btn-sm" onClick={() => set(asTyped(oldestFirst(held)))}>
+      <button type="button" className="btn btn-quiet btn-sm" disabled={stale}
+        onClick={() => set(asTyped(oldestFirst(held)))}>
         Oldest first
       </button>
     )}
-    {held && answer?.dated_today && !stale && (
-      <button type="button" className="btn btn-quiet btn-sm"
+    {held && answer?.dated_today && (
+      <button type="button" className="btn btn-quiet btn-sm" disabled={stale}
         onClick={() => set(asTyped(highestCostFirst(held, leaves)))}>Highest cost first</button>
     )}
     {answer && !held && <button type="button" className="btn btn-quiet btn-sm" onClick={retry}>Try again</button>}
