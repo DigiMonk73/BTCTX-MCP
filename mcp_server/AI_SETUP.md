@@ -13,7 +13,8 @@ ledger (transactions, balances, cost basis, gains) and whatever they paste.
 If you run on a cloud model, that data goes to your provider's servers. To
 keep it on their computer they can use an app with a local model instead,
 such as LM Studio or Goose with Ollama ([README](README.md#privacy-cloud-or-local-model)).
-Go on only when they confirm. Don't repeat this later in the conversation.
+Connecting is optional: BitcoinTX's AI access stays off until they turn it
+on. Go on only when they confirm. Don't repeat this later in the conversation.
 
 **Which setup?** Their BitcoinTX (**Settings → Connect an AI Assistant**) gave
 them a prompt. Either way, BitcoinTX uses an **AI key**, never their
@@ -46,7 +47,10 @@ configuration file intact.
 **A BitcoinTX 2.0 alpha or beta** (its prompt names the server
 `bitcointx-preview` and the connector `btctx-mcp==2.0.0aN` or `2.0.0bN`):
 - a `bitcointx-preview` server already there: change only the version in
-  its arguments, as below;
+  its arguments (in Claude Code, `mcpServers.bitcointx-preview.args` in
+  `~/.claude.json`; [Updating](README.md#updating) names each app's file),
+  keep its key and certificate path, and restart the app; never touch the
+  `bitcointx` server;
 - only on StartOS (the prompt's `BTCTX_URL` is a StartOS server's MCP
   address, `https://…/api`), where the pre-release updated the user's
   BitcoinTX in place: a `bitcointx` server that reaches that same StartOS
@@ -62,8 +66,8 @@ configuration file intact.
   open, and its prompt has no address: never change a `bitcointx` server
   in either.
 
-**Already set up?** (A release; for a 2.0 alpha or beta, the rule just
-above.) If their AI app already has a `bitcointx` server, don't add it
+**Already set up?** For a release only, never a 2.0 alpha or beta (the rule
+just above). If their AI app already has a `bitcointx` server, don't add it
 again: change only the version in its arguments to
 `btctx-mcp==X.Y.Z`, keep its key and certificate path, and restart the app
 ([Updating](README.md#updating)).
@@ -82,12 +86,15 @@ again: change only the version in its arguments to
    `BTCTX_CA_BUNDLE` is that file's full path. The same action also shows a
    ready-made configuration (with the key placeholder), which can be used
    instead of section 2B.
-3. **BitcoinTX is reachable**: `curl -s <BTCTX_URL without a trailing /api>/api/health`
-   should return JSON with `"status": "ok"` and a `version` of 1.0.3 or later
-   (0.9.2 or later for the Mac app).
+3. **BitcoinTX is reachable** (Docker and StartOS only: the Mac app's prompt
+   has no address): `curl -s <BTCTX_URL without a trailing /api>/api/health`
+   should return JSON with `"status": "ok"` and a `version` of 1.0.3 or later.
    Add `--cacert <certificate file>` for a StartOS address. If it doesn't
-   answer: the Mac app must be open; Docker and StartOS must be running and
-   reachable from this computer.
+   answer: BitcoinTX must be running and reachable from this computer.
+
+The Mac app: BitcoinTX (a 2.0 alpha's or beta's: BitcoinTX Preview) must be
+open, and there is no address to check. The server finds the app by itself;
+section 4's check covers it.
 
 If you can't run commands (a chat app without a terminal), skip to section 2A or 2B
 and give the user the steps to follow.
@@ -109,6 +116,12 @@ any `bitcointx` server, which stays as it is.
   path), then quit and reopen it.
 - **Any other MCP client:** command `uvx`, arguments
   `["btctx-mcp==X.Y.Z"]`, no environment variables.
+
+Then, before section 4: start a new session (Claude Code, Grok Build) or
+quit and reopen the app (Claude Desktop, any other). A session that is
+already running doesn't get the tools of a server added during it. If you
+can't restart yourself, tell the user to, and to ask you in the new session
+to check it works.
 
 If the user had set it up with a password before (the server answers every
 tool with a refusal, sending nothing, while `BTCTX_PASSWORD` is set): remove the
@@ -174,8 +187,8 @@ claude mcp add --scope user bitcointx \
 ```
 
 Keep the name before the `-e` flags. The server is saved in `~/.claude.json`
-under `mcpServers.bitcointx.env`; the user replaces the placeholder there,
-then restarts Claude Code (or reconnects it with `/mcp`).
+under `mcpServers.bitcointx.env` (`mcpServers.bitcointx-preview.env` for a
+2.0 alpha or beta); the user replaces the placeholder there.
 
 ### Grok Build
 
@@ -195,6 +208,10 @@ the user's computer or network: use an app that runs on their computer.
 A local stdio server: command `uvx`, arguments
 `["btctx-mcp==X.Y.Z"]`, and the environment variables
 above.
+
+Then, before section 4 and once the key is in the file: start a new session
+(Claude Code, Grok Build) or quit and reopen the app (Claude Desktop, LM
+Studio, any other), as in section 2A.
 
 ## 3. The AI key (Docker and StartOS only)
 
@@ -216,8 +233,8 @@ since the old one sat in a plain-text file.
 
 ## 4. Check it works
 
-After the app has restarted, call `get_portfolio` (read-only). Balances back
-means it works. Before entering any transaction, read `get_ledger_guide`, and
+In the new session (or the reopened app), call `get_portfolio` (read-only).
+Balances back means it works. Before entering any transaction, read `get_ledger_guide`, and
 always `preview_transactions` before `add_transactions`. `review_ledger`
 (read-only) lists saved transactions worth a second look, useful after a
 BitcoinTX upgrade.
@@ -231,6 +248,7 @@ BitcoinTX upgrade.
 | `… the AI key can't do this …` | On purpose (logging in, passwords, restore, imports, delete-all, settings): the user does it in BitcoinTX itself |
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | `… no /api/import/entries endpoint`, or a 404 from `review_ledger` or `backup_ledger` | BitcoinTX is older than the server: update BitcoinTX, or pin the server to its version |
+| `This AI connector is older than BitcoinTX 2.0 …` | The ledger has more than one wallet, or more than one exchange (a hidden one counted), and the server's version is older than 2.0: change it to the version the prompt gives (the rules above) and restart the app. Reads still work until then |
 | `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself. If it's open, it may not have been able to write its key file when it started: the user presses **Reset key** in **Settings → Connect an AI Assistant** |
 | The app doesn't list the server | It wasn't restarted, or it can't find `uvx` (use the full path) |
 | `current Python version (3.10…) does not satisfy Python>=3.11` | The machine's only Python is 3.10, which the server no longer supports: run `uv python install 3.13` once, then restart the AI app |

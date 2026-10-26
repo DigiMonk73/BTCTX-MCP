@@ -32,9 +32,9 @@ def flat(text: str) -> str:
 def section(text: str, heading: str) -> str:
     """A markdown section: from its heading to the next of its level or above."""
     level = heading.split(" ")[0]
-    start = text.index(heading)
-    ends = [m.start() for m in re.finditer(rf"^#{{1,{len(level)}}} ", text[start + 1:], re.M)]
-    return text[start:start + 1 + ends[0]] if ends else text[start:]
+    start = text.index(heading) + len(heading)
+    end = re.search(rf"^#{{1,{len(level)}}} ", text[start:], re.M)
+    return text[start - len(heading):start + end.start()] if end else text[start - len(heading):]
 
 
 # AI_SETUP.md (#676)

@@ -100,6 +100,9 @@ export function buildAiPrompt(input: AiSetupInput): string {
   ];
   const outro = [
     "",
+    // Off in a new install: the first try failed with "AI access is turned off" (#676)
+    'AI access is off until I turn it on: before you check it works, ask me to turn on ' +
+      '"Let AI assistants use BitcoinTX" in BitcoinTX Settings → Connect an AI Assistant.',
     "If you can't change your own configuration, give me the exact steps instead. " +
       "Once it's connected, call get_portfolio to confirm it works" +
       (input.keyMode ? ` (${macApp(input.version)} must be open).` : "."),
