@@ -308,7 +308,7 @@ jobs:
 
           - **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta of 2.0), installed beside BitcoinTX, with its own ledger, folder and port: your BitcoinTX and its ledger are never opened. Its icon is BitcoinTX's with a red PREVIEW band, and a banner above every page names the pre-release. It starts empty, and its ledger carries from one pre-release to the next. To try your records, download a backup in BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX Preview's Settings.
           - **StartOS:** it updates your BitcoinTX in place. **Make a StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x, uninstall BitcoinTX (which deletes its data) and restore that backup.
-          - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/docs/MAINTENANCE.md#going-back-to-1x).
+          - **Docker:** start it on a new volume and restore a backup into it. Started on your 1.x volume, it upgrades that ledger, and going back takes the steps in [Going back to 1.x]($REPO_URL/blob/$TAG/README.md#going-back-to-1x).
 
           What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0 database or backup. Report what you find with the [2.0 pre-release report]($REPO_URL/issues/new?template=prerelease_report.yml), from a test ledger, never your real data; a security problem privately ([SECURITY.md]($REPO_URL/blob/main/SECURITY.md)). A fix comes in the next pre-release: until 2.0 is out, a StartOS server running one is offered no 1.x update.
 
