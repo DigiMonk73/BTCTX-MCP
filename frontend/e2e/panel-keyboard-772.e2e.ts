@@ -74,8 +74,8 @@ test("after an edit is saved, its row reloaded away, the keyboard is on Add tran
   });
   await page.goto("/transactions");
   await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
-  // Opened by the keyboard, so Edit is what opened it in every engine: a click focuses no button in
-  // WebKit, and Linux WebKit's focus stayed on the Sort select, where it then went back (#793)
+  // Opened by the keyboard, so Edit is what opened it in every engine: on CI's Linux WebKit a click
+  // left focus on another control on the page, where it then rightly went back (#793)
   const edit = page.getByRole("listitem").first().getByRole("button", { name: "Edit" });
   await edit.focus();
   await page.keyboard.press("Enter");
