@@ -2,8 +2,9 @@
 // Each account's own cost on Portfolio Overview (#709, the owner's decision
 // of 2026-10-25): an opened Wallet (BTC) or Exchange (BTC) line shows each
 // account's cost basis, the server's figure as it gave it, and, with a
-// price, its unrealized gain beside its amount. The totals stay as they
-// are, and with one account of each kind the card is still 1.2.10's.
+// price, its unrealized gain beside its amount. Total BTC and the average
+// cost stay as they are, the card's gain is the accounts' added up (#770),
+// and with one account of each kind there's no list.
 import "../../test/setup";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -104,7 +105,7 @@ describe("each account's cost when a bitcoin line is opened", () => {
 });
 
 describe("with one account of each kind", () => {
-  it("is 1.2.10's card still: no list, no cost lines", () => {
+  it("has 1.2.10's lines still: no list, no cost lines", () => {
     const { container } = mount(ONE_OF_EACH);
     expect([...container.querySelectorAll(".portfolio-overview p")].map((p) => p.textContent)).toEqual([
       "Bank (USD)$1,500.25", "Exchange (USD)$20.00", "Exchange (BTC)0.25000000 BTC", "Wallet (BTC)0.50000000 BTC",

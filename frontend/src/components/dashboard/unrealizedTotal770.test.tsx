@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 // Portfolio Overview's Unrealized Gains/Losses (#770): the bitcoin accounts'
 // own gains added up, each its BTC's value at today's price to the cent less
-// its cost, so the opened lines add up to it exactly. It was (price − the
-// average cost rounded to the cent) × Total BTC, a few cents off them. The
-// average cost shown stays as the server gives it.
+// its cost, so the opened lines add up to it exactly, never (price − the
+// average cost rounded to the cent) × Total BTC. The average cost shown
+// stays as the server gives it.
 import "../../test/setup";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

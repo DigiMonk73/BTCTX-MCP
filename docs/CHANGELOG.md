@@ -15,7 +15,8 @@ All notable changes to BitcoinTX are documented in this file.
   price, each account's to the cent, less what it cost (its coins' cost
   left), the same figures each account shows, so they add up to it
   exactly. Avg. Cost per BTC is as before. Only this dashboard figure
-  moves, by cents on some ledgers: no form, report or stored figure
+  moves, by cents on some ledgers, with one account of each kind too (so it
+  can differ by cents from 1.2.10's): no form, report or stored figure
   changes.
 - **The README and the user guide describe all of 2.0** (D2 of the docs
   overhaul, #698; the owner, 2026-10-24: "very thorough docs ... to reflect
@@ -80,9 +81,9 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   Complete Tax Report's holdings have it) and, with a price, its unrealized
   gain or loss at today's price. The accounts' costs add up exactly to the
   total cost behind Avg. Cost per BTC, which is now worked out from the same
-  sums. Total BTC and Avg. Cost per BTC don't change (Unrealized
-  Gains/Losses is the accounts' gains added up, #770), and with one account
-  of each kind the card is still 1.2.10's.
+  sums. The card's totals don't change (its Unrealized Gains/Losses is from
+  the rounded average, so the accounts' gains can differ from it by a cent
+  or two), and with one account of each kind the card is still 1.2.10's.
   An account holding no bitcoin shows no cost. The balances route
   (`/api/calculations/accounts/balances`) gives each bitcoin account its
   `cost_basis`. **No figure changes.**

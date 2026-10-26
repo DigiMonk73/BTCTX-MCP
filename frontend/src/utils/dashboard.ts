@@ -161,8 +161,9 @@ export function unrealizedGain(price: number | null, balances: AccountBalance[])
   for (const { account, balance } of readable(balances)) {
     const line = lineOf(account);
     if (line !== "wallet" && line !== "exchangeBtc") continue;
-    if (account.cost_basis === null) return null;
-    cents += gainCents(price, balance, account.cost_basis);
+    const cost = account.cost_basis ?? null; // as lineAccount reads it
+    if (cost === null) return null;
+    cents += gainCents(price, balance, cost);
   }
   return cents / 100;
 }
