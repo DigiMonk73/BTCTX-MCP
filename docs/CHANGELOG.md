@@ -5,6 +5,19 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Added
+- **Each wallet's and exchange's own cost on the dashboard** (#709; found
+  by Grok (Cursor) reading alpha.2; the owner's decision, 2026-10-25). 2.0
+  keeps each wallet's and exchange's own cost basis, but Portfolio Overview
+  showed one average cost and one unrealized gain for all your bitcoin.
+  Opening Wallet (BTC) or Exchange (BTC) now shows, under each account's
+  amount, what the bitcoin it holds cost (its coins' cost left, as the
+  Complete Tax Report's holdings have it) and, with a price, its unrealized
+  gain or loss at today's price. The accounts' costs add up exactly to the
+  total cost behind Avg. Cost per BTC, which is now worked out from the same
+  sums. The card's totals don't change, and with one account of each kind
+  the card is still 1.2.10's. The balances route
+  (`/api/calculations/accounts/balances`) gives each bitcoin account its
+  `cost_basis`. **No figure changes.**
 - **Choosing which coins leave a wallet: the database, the engine and the
   API** (#711, step C2a, #729; the owner's decision 29, 2026-10-25). Within
   each of your wallets the IRS counts the oldest coins as the ones that

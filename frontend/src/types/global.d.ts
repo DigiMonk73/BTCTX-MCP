@@ -61,6 +61,7 @@ declare global {
     exchange_id: number | null; // an exchange's two accounts share it
     exchange: string | null; // that exchange's name
     hidden: boolean;
+    cost_basis: number | null; // what the BTC a bitcoin account holds cost (#709); null: a dollar or fee account
   }
 
   interface AverageCostBasis {

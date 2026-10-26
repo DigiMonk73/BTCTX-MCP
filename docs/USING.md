@@ -53,7 +53,8 @@ each with its balance:
 The **Dashboard**'s Portfolio Overview shows what your banks, your
 exchanges (their dollars and their bitcoin) and your wallets hold, each
 kind's total on a line; a kind with more than one account has a caret on
-its line, which lists them under it.
+its line, which lists them under it, each wallet's and each exchange's
+bitcoin with what it cost and, with a price, its unrealized gain or loss.
 
 BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
 cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
