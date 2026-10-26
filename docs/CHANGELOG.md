@@ -45,6 +45,15 @@ All notable changes to BitcoinTX are documented in this file.
   buttons now wrap where they don't fit on one line, and on a phone each
   fills its line, its words wrapping on the narrowest screens. No figure
   changes.
+- **Coinbase's file: Advance Trade, Reward Income and its older fee
+  column** (#765, found by the 2.0 testing plan's import run, T3, #689).
+  The ready-made Coinbase mapping left out "Advance Trade Buy" and
+  "Advance Trade Sell" rows (it read only "Advanced Trade …") and "Reward
+  Income" (only "Rewards Income"), each named in a warning, and refused an
+  older "Transaction history" whose fee column is "Fees". It now reads
+  them as a Buy, a Sell and a Reward deposit at Coinbase's value at
+  receipt, and takes either fee column. What it read before, it reads as
+  before; the mapping is still to be checked against a real export.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
