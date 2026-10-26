@@ -2,7 +2,7 @@
 
 ## Documentation
 
-- [Using BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/USING.md) — what BitcoinTX does: transactions, lots, tax forms, imports, Ledger Review
+- [Using BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/USING.md) — what BitcoinTX does: your wallets, exchanges and banks, transactions, lots, tax forms, imports, Ledger Review
 - [BitcoinTX MCP server](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md) — connecting an AI assistant
 
 The MCP server page's Mac app, Docker and source steps don't apply here;
@@ -11,7 +11,7 @@ on StartOS, follow this page.
 ## What you get on StartOS
 
 - **Web UI**: the BitcoinTX app, behind your login.
-- **MCP API**: the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
+- **MCP API**, optional and off until you turn it on: the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
 - **A generated login**: StartOS creates your login with a random password; the app's default one never works.
 - **Prices from your own Mempool**, if you run it on this server: no address to copy, no certificate, and nothing is contacted until you choose.
 - **Backups**: your database, your login and BitcoinTX's own safety copies of the database are in every StartOS backup.
@@ -22,8 +22,8 @@ on StartOS, follow this page.
 2. Run **Price Source & Privacy** when prompted. BitcoinTX starts once you've chosen who it asks for newer Bitcoin prices: **My Mempool on this server** if you run Mempool here (or install it), **Public price sites** (optionally through Tor), **Nobody**, or **Decide in BitcoinTX instead** to choose in the app. See Privacy below.
 3. Start the service and open the **Web UI**. Log in with those credentials.
 4. In **Settings > Account**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
-5. In **Settings > Wallets, exchanges and banks**, add each wallet, exchange and bank you use: BitcoinTX starts with one of each (**Bank**, **Wallet**, and **Exchange** with its **Exchange USD** and **Exchange BTC**). A wallet is one set of keys; a backup of the same keys isn't a second wallet. For an exchange that sends no Form 1099-DA (usually one outside the US), turn off **This exchange sends me a Form 1099-DA**.
-6. Add your transactions by hand, import an exchange's CSV export in **Settings > Import from an exchange** (ready-made for River, Coinbase, Kraken, Strike, Swan and Cash App; any other exchange's once you match its columns), import BitcoinTX's own CSV (only into an empty ledger), or connect an AI assistant (below).
+5. In **Settings > Wallets, exchanges and banks**, add each wallet, exchange and bank you use: BitcoinTX starts with one of each (**Bank**, **Wallet**, and **Exchange** with its **Exchange USD** and **Exchange BTC**). A wallet is one set of keys; a backup of the same keys isn't a second wallet. For an exchange that sends no Form 1099-DA (usually one outside the US), turn off **This exchange sends me a Form 1099-DA**. A new account starts empty: move coins into it with a Transfer dated when they really moved.
+6. Add your transactions by hand, import an exchange's CSV export in **Settings > Import from an exchange** (ready-made for River, Coinbase, Kraken, Strike, Swan and Cash App; any other exchange's once you match its columns), import BitcoinTX's own CSV (only into an empty ledger), or connect an AI assistant (optional, below).
 
 You can change the username and password inside BitcoinTX (**Settings > Account > Reset Username & Password**).
 
@@ -31,7 +31,7 @@ You can change the username and password inside BitcoinTX (**Settings > Account 
 
 ### Web interface
 
-Record deposits, withdrawals, transfers, buys and sells in each of your wallets, exchanges and banks. Each wallet and each exchange keeps its own lots, first in, first out, and a transfer between them keeps each lot's date and cost. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. A change that would alter the figures of an earlier tax year, one you may already have filed, shows which years and what changes, and asks first; BitcoinTX makes a copy of your ledger before it saves. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, each exchange's sales go into the boxes its own Form 1099-DA uses; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
+Record deposits, withdrawals, transfers, buys and sells in each of your wallets, exchanges and banks. Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, spend or transfer. A transfer between your accounts keeps each lot's acquisition date and its share of the cost. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. A change that would alter the figures of an earlier tax year, one you may already have filed, shows which years and what changes, and asks first; BitcoinTX makes a copy of your ledger before it saves. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, each exchange's sales go into the boxes its own Form 1099-DA uses; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
 
 BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 
@@ -50,7 +50,7 @@ The card's status line says where newer prices came from and when, or why there'
 
 ### Connecting an AI assistant
 
-AI entry is optional: nothing uses the MCP API until you turn on AI access and create an AI key in BitcoinTX (**Settings > Connect an AI Assistant**). The key is not your password: it can read your ledger, add, change or delete single entries and make a backup, but it can't log in, change your password, restore or delete everything. Turn AI access off or revoke the key there at any time.
+AI entry is optional, and off until you turn it on: nothing uses the MCP API until you turn on AI access and create an AI key in BitcoinTX (**Settings > Connect an AI Assistant**). The key is not your password: it can read your ledger, add, change or delete single entries and make a backup, but it can't log in, change your password, restore or delete everything. Turn AI access off or revoke the key there at any time.
 
 **Privacy first:** once connected, the AI's model reads your transactions, balances and gains, and anything you paste. With a cloud AI (Claude, Grok and most others) that data goes to the provider's servers. To keep it private, use an app that runs a local model, such as LM Studio or Goose with Ollama ([setup](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model)).
 
