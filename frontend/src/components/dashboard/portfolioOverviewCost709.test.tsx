@@ -29,11 +29,12 @@ const ONE_OF_EACH = [
   balance(6, "USD Fees", "fee", "USD", "12.00", null),
 ];
 
-/** Two wallets (and a hidden one still holding coins, at a loss) and two exchanges. */
-const SEVERAL = [
+/** Multiple wallets (a hidden one still holding coins, at a loss; an empty one) and two exchanges. */
+const MULTIPLE = [
   ...ONE_OF_EACH,
   balance(100, "Coldcard", "wallet", "BTC", "0.25000000", 5000.5),
   balance(103, "Paper Wallet", "wallet", "BTC", "0.01000000", 900, { hidden: true }),
+  balance(104, "Jade", "wallet", "BTC", "0.00000000", 0),
   balance(101, "Kraken USD", "exchange", "USD", "0.00", null, KRAKEN),
   balance(102, "Kraken BTC", "exchange", "BTC", "0.05000000", 1234.56, KRAKEN),
 ];
@@ -57,26 +58,27 @@ afterEach(() => window.localStorage.clear());
 
 describe("each account's cost when a bitcoin line is opened", () => {
   it("Wallet (BTC): each wallet's cost basis as the server gave it, and its gain at today's price", async () => {
-    mount(SEVERAL);
+    mount(MULTIPLE);
     const items = await opened("Wallet (BTC)");
     expect(items.map(words)).toEqual([
       "Cost basis $9,000.01Unrealized +$20,999.99", // 0.5 BTC at $60,000 is $30,000.00
       "Cost basis $5,000.50Unrealized +$9,999.50",
       "Cost basis $900.00Unrealized −$300.00",
+      null, // the empty Jade: nothing to cost
     ]);
     // Beside its amount, name and amount as before
     expect(items[1].textContent).toBe("Coldcard0.25000000 BTCCost basis $5,000.50Unrealized +$9,999.50");
   });
 
   it("colours a gain green and a loss red", async () => {
-    mount(SEVERAL);
+    mount(MULTIPLE);
     const items = await opened("Wallet (BTC)");
     expect(within(items[0]).getByText("+$20,999.99").className).toBe("text-gain");
     expect(within(items[2]).getByText("−$300.00").className).toBe("text-loss");
   });
 
   it("Exchange (BTC): each exchange's bitcoin with its cost; Exchange (USD)'s dollars have none", async () => {
-    mount(SEVERAL);
+    mount(MULTIPLE);
     expect((await opened("Exchange (BTC)")).map(words)).toEqual([
       "Cost basis $6,000.00Unrealized +$9,000.00", "Cost basis $1,234.56Unrealized +$1,765.44"]);
     expect((await opened("Exchange (USD)")).map(words)).toEqual([null, null]);
@@ -85,15 +87,15 @@ describe("each account's cost when a bitcoin line is opened", () => {
   it("without a price, the cost only: nothing is guessed", async () => {
     for (const price of [{ loading: false, value: null, off: true }, { loading: true, value: null, off: false }]) {
       window.localStorage.clear();
-      const { unmount } = mount(SEVERAL, price);
+      const { unmount } = mount(MULTIPLE, price);
       expect((await opened("Wallet (BTC)")).map(words)).toEqual([
-        "Cost basis $9,000.01", "Cost basis $5,000.50", "Cost basis $900.00"]);
+        "Cost basis $9,000.01", "Cost basis $5,000.50", "Cost basis $900.00", null]);
       unmount();
     }
   });
 
   it("the totals stay as they are: Total BTC, the average cost and the card's gain from it", async () => {
-    const { container } = mount(SEVERAL);
+    const { container } = mount(MULTIPLE);
     await opened("Wallet (BTC)");
     const totals = [...container.querySelectorAll(".portfolio-overview > hr ~ p")].map((p) => p.textContent);
     expect(totals).toEqual([

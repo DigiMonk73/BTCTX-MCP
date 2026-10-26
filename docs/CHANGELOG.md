@@ -14,8 +14,10 @@ All notable changes to BitcoinTX are documented in this file.
   Complete Tax Report's holdings have it) and, with a price, its unrealized
   gain or loss at today's price. The accounts' costs add up exactly to the
   total cost behind Avg. Cost per BTC, which is now worked out from the same
-  sums. The card's totals don't change, and with one account of each kind
-  the card is still 1.2.10's. The balances route
+  sums. The card's totals don't change (its Unrealized Gains/Losses is from
+  the rounded average, so the accounts' gains can differ from it by a cent
+  or two), and with one account of each kind the card is still 1.2.10's.
+  An account holding no bitcoin shows no cost. The balances route
   (`/api/calculations/accounts/balances`) gives each bitcoin account its
   `cost_basis`. **No figure changes.**
 - **Choosing which coins leave a wallet: the database, the engine and the

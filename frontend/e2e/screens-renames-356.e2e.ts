@@ -41,9 +41,9 @@ test("a kind with more than one account has a caret that lists them, and stays o
   const list = accounts(page, "Wallet (BTC)");
   await expect(list).toBeVisible();
   await expect(toggle).toHaveAttribute("aria-controls", (await list.getAttribute("id"))!);
-  // Each with what its BTC cost (#709): the empty Coldcard's nothing
+  // The Wallet with what its BTC cost (#709); the empty Coldcard with nothing to cost
   await expect(list.getByRole("listitem")).toHaveText([/^Wallet\s*0\.50990000 BTC\s*Cost basis \$[\d,]+\.\d\d/,
-    /^Coldcard\s*0\.00000000 BTC\s*Cost basis \$0\.00/]);
+    /^Coldcard\s*0\.00000000 BTC$/]);
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
 
   await page.reload(); // remembered in this browser
@@ -65,7 +65,7 @@ test("each exchange's dollars under Exchange (USD), its bitcoin under Exchange (
   await expect(accounts(page, "Exchange (USD)").getByRole("listitem")).toHaveText([
     /^Exchange\s*\$15,980\.00$/, /^Kraken\s*\$250\.50$/]);
   await expect(accounts(page, "Exchange (BTC)").getByRole("listitem")).toHaveText([
-    /^Exchange\s*0\.15000000 BTC\s*Cost basis \$[\d,]+\.\d\d/, /^Kraken\s*0\.00000000 BTC\s*Cost basis \$0\.00/]);
+    /^Exchange\s*0\.15000000 BTC\s*Cost basis \$[\d,]+\.\d\d/, /^Kraken\s*0\.00000000 BTC$/]);
   const sum = (figures: number[], unit: number) => figures.reduce((total, f) => total + Math.round(f * unit), 0);
   expect(sum(await listed(accounts(page, "Exchange (USD)")), 100)).toBe(Math.round((await figure(page, "Exchange (USD)")) * 100));
   expect(sum(await listed(accounts(page, "Exchange (BTC)")), 1e8)).toBe(Math.round((await figure(page, "Exchange (BTC)")) * 1e8));

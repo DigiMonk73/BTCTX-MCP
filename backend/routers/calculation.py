@@ -39,7 +39,7 @@ def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
     results = get_all_account_balances(db)
     for item in results:
         account_id = item["account_id"]
-        _, cost = held.get(account_id, (None, Decimal("0")))
+        _, cost = held.get(account_id, (Decimal("0"), Decimal("0")))
         item.update(balance=float(item["balance"]), kind=book.kind(account_id), exchange_id=book.exchange_of(account_id),
                     exchange=book.exchange_name(account_id), hidden=book.hidden(account_id),
                     cost_basis=float(cost) if book.is_btc(account_id) else None)

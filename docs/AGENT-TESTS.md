@@ -634,12 +634,15 @@ exchanges and banks** reads its name, its kind and its balance.
   BTC with a caret after its label, Settings' chevron: pressed (anywhere
   on the line), the caret turns over as a Settings section's does, and the
   line lists `Wallet` 0.39970000 BTC and `Coldcard` 0.00000000 BTC under
-  it, each with "Cost basis" under its amount (`Coldcard`'s $0.00) and,
-  with a price, "Unrealized" and its gain (#709). Exchange (USD) $37,990.00 with a
-  caret, listing `Exchange` $37,990.00 and `Kraken` $0.00, with no cost;
-  Exchange (BTC) 0.15000000 BTC with a caret, listing `Exchange` 0.15000000
-  BTC and `Kraken` 0.00000000 BTC, each with its cost basis. `Wallet`'s and
-  `Exchange`'s costs add up to $24,733.10 (Avg. Cost per BTC × Total BTC).
+  it, `Wallet` with "Cost basis" under its amount and, with a price,
+  "Unrealized" and its gain (#709); `Coldcard`, holding none, with no cost.
+  Exchange (USD) $37,990.00 with a caret, listing `Exchange` $37,990.00 and
+  `Kraken` $0.00, with no cost; Exchange (BTC) 0.15000000 BTC with a caret,
+  listing `Exchange` 0.15000000 BTC with its cost basis and `Kraken`
+  0.00000000 BTC. `Wallet`'s and `Exchange`'s costs add up to $24,733.10,
+  Avg. Cost per BTC × Total BTC to the cent; their gains may differ from
+  Unrealized Gains/Losses by a cent or two (the card's is from the rounded
+  average).
   Bank (USD) $45,000.00, with no caret. Reload: the open lines stay open.
   Every golden figure.
 - **ACC-7** **Add transaction**, Transfer, From Account `Exchange BTC`.

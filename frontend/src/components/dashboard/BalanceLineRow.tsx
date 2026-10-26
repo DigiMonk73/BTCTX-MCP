@@ -13,9 +13,10 @@ interface BalanceLineRowProps {
 }
 
 /** Under a bitcoin account's amount (#709): what its BTC cost and, with a
- * price, what it would gain or lose. */
+ * price, what it would gain or lose. None for one that holds no BTC: there's
+ * nothing to cost. */
 const AccountCost: React.FC<{ account: LineAccount; price: number | null }> = ({ account, price }) => {
-  if (account.cost === null) return null;
+  if (account.cost === null || account.amount === 0) return null;
   const gain = accountGain(price, account);
   return (
     <span className="balance-line-cost">
@@ -27,8 +28,8 @@ const AccountCost: React.FC<{ account: LineAccount; price: number | null }> = ({
 
 /** A kind's line on Portfolio Overview (#674): its label and total, as 1.x
  * has them. Where it has accounts to list, the whole line is a button, a
- * caret (Settings' chevron) after its label, that opens them under it, a
- * bitcoin account's with its cost (#709). */
+ * caret (Settings' chevron) after its label, that opens them under it; each
+ * bitcoin account shows its own cost under its amount (#709). */
 const BalanceLineRow: React.FC<BalanceLineRowProps> = ({ line, open, onToggle, price }) => {
   const id = useId();
   const figure = line.currency === "USD" ? formatUsd : formatBtc;
