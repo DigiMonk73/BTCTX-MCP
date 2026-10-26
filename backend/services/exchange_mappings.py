@@ -141,19 +141,23 @@ RIVER = Mapping(
 
 # Coinbase's "Transaction history" (2021 to 2023, and from 2024 with an ID
 # column first), several lines above its header. Subtotal is what the coins
-# cost or brought before the fee, "Fees and/or Spread" the fee in dollars
-# (Total is Subtotal plus it on a buy, less on a sell); a send's network fee
+# cost or brought before the fee, "Fees and/or Spread" (an older file's
+# "Fees") the fee in dollars (Total is Subtotal plus it on a buy, less on a
+# sell); a send's network fee
 # isn't in the file in bitcoin. Built from Coinbase's published columns:
 # check against a real export.
 COINBASE = Mapping(
     id="coinbase", name="Coinbase",
     columns=Columns(
         date=("Timestamp",), kind=("Transaction Type",), btc=("Quantity Transacted",),
-        usd=("Subtotal", "USD Subtotal"), fee_usd=("Fees and/or Spread", "USD Fees"), asset=("Asset",),
+        usd=("Subtotal", "USD Subtotal"), fee_usd=("Fees and/or Spread", "USD Fees", "Fees"), asset=("Asset",),
         row_id=("ID",),
     ),
-    kinds={"buy": BUY, "advanced trade buy": BUY, "sell": SELL, "advanced trade sell": SELL,
-           "send": SEND, "receive": RECEIVE, "rewards income": "reward", "staking income": "reward",
+    # Coinbase writes "Advance Trade" as well as "Advanced Trade", and
+    # "Reward Income" as well as "Rewards Income" (#765)
+    kinds={"buy": BUY, "advanced trade buy": BUY, "advance trade buy": BUY, "sell": SELL,
+           "advanced trade sell": SELL, "advance trade sell": SELL, "send": SEND, "receive": RECEIVE,
+           "rewards income": "reward", "reward income": "reward", "staking income": "reward",
            "inflation reward": "reward", "coinbase earn": "income", "learning reward": "income",
            "convert": CONVERT, "deposit": DOLLARS, "withdrawal": DOLLARS,
            "pro withdrawal": LEAVE_OUT, "pro deposit": LEAVE_OUT, "exchange deposit": LEAVE_OUT,
