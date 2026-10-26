@@ -46,7 +46,7 @@ from backend.schemas.entry_import import (
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
 from backend.services.past_year_writes import Rows
-from backend.services.chosen_coins import HELD_HOOK, Held, lots_lack_acquisition
+from backend.services.chosen_coins import HELD_HOOK, Held
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -73,7 +73,6 @@ from backend.services.transaction import (
     find_prices_first,
     holding_period,
     price_used,
-    recalculate_all_transactions,
     values_from_price,
 )
 
@@ -98,6 +97,9 @@ SIMULATION_BUSY = "BitcoinTX was busy saving something else: preview again in a 
 # A row leaving a wallet: the acquisitions the preview lists of what the
 # wallet holds (#711, 6.5), so its answer stays small with years of buys
 MOST_HELD = 200
+COINS_NOT_LISTED = ("BitcoinTX can't list this wallet's coins by purchase yet: some were recorded before it kept "
+                    "which purchase coins came from, and the ledger hasn't been recalculated since (Recalculate "
+                    "Ledger, or a save that chooses coins, does it). Until then this row takes the oldest coins.")
 ADD_BUSY = "Not added: BitcoinTX was busy saving something else, and nothing was saved. Try again."
 
 
@@ -607,11 +609,6 @@ def _dry_run(
     book = account_book(db)
     from_a_wallet = any(_leaves_a_wallet(p.tx_data["type"], p.tx_data["from_account_id"],
                                          p.tx_data["to_account_id"], book) for p in ordered)
-    if from_a_wallet and lots_lack_acquisition(db):
-        # Call (j), #711: lots made before migration 0101 don't know their
-        # acquisition, and would be listed as one, dated as the first; the
-        # replay gives each its own, as a save of a choice would
-        recalculate_all_transactions(db)
     before = _gain_snapshot(db)
     held = _listen_for_coins_held(db) if from_a_wallet else {}
     try:
@@ -631,7 +628,7 @@ def _dry_run(
                 fmv_usd=tx.fmv_usd,
                 fee_usd=tx.fee_usd if (tx.fee_currency or "").upper() == "BTC" else None,
                 from_price=from_price(tx, db, years),
-                coins=_coins_seen(tx, held.get(tx.id), rows_of, db),
+                coins=_coins_seen(p, tx, held.get(tx.id), rows_of, db),
             )
         if failed_at is not None:
             return [], []
@@ -652,9 +649,11 @@ def _leaves_a_wallet(kind: str, from_id: int, to_id: int, book: AccountBook) -> 
 def _listen_for_coins_held(db: Session) -> dict[int, list[Held]]:
     """What a new row's account holds before it takes any (#711): the engine
     hands it over on every path, a replay's included, so the last word for a
-    row is the ledger as the save leaves it. Only the rows this dry run
-    creates are kept (ids past the ledger's newest): a replay hands over
-    every transaction's."""
+    row is the ledger as the save leaves it (a backdated row, or one
+    choosing coins while a lot doesn't know its acquisition, replays: call
+    (j); every row of the request is handed over again then). Only the rows
+    this dry run creates are kept (ids past the ledger's newest): a replay
+    hands over every transaction's."""
     held: dict[int, list[Held]] = {}
     newest = db.query(func.max(Transaction.id)).scalar() or 0
 
@@ -666,13 +665,19 @@ def _listen_for_coins_held(db: Session) -> dict[int, list[Held]]:
     return held
 
 
-def _coins_seen(tx: Transaction, held: list[Held] | None, rows_of: dict[int, int], db: Session) -> CoinsSeen | None:
+def _coins_seen(p: PreparedRow, tx: Transaction, held: list[Held] | None, rows_of: dict[int, int],
+                db: Session) -> CoinsSeen | None:
     """A row leaving one of the user's wallets: the coins it takes and those
     the wallet held before it took any, so the AI can show the user the
     purchases they say they sent coins from (#711, Q4). None for any other
-    row."""
+    row, and for one whose wallet holds lots that don't know their
+    acquisition (made before migration 0101, with nothing replayed since):
+    they'd be listed as one, dated as the first, so the row says why."""
     book = account_book(db)
     if held is None or not _leaves_a_wallet(tx.type, tx.from_account_id, tx.to_account_id, book):
+        return None
+    if any(h.acquired_txn_id is None for h in held):
+        p.result.warnings.append(COINS_NOT_LISTED)
         return None
     tz = get_tax_timezone(db)
     named = [h.acquired_txn_id for h in held[:MOST_HELD] if h.acquired_txn_id is not None]

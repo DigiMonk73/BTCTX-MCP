@@ -8,8 +8,9 @@ then, and its edit takes them too (a list, or null for oldest first). An
 edit that changes what leaves without them says what to send, and says so
 to the connector (a header), which answers it as the tool's own answer. A
 row choosing coins while a lot doesn't know its acquisition replays the
-whole ledger (call (j)), so it counts as a replaying one for the AI's copy,
-its replay budget and the past-year question.
+whole ledger (call (j)), so it counts as a replaying one for the AI's copy
+and the past-year question; it replays once, before any other row of the
+request, so the replay budget always allows it.
 """
 
 from datetime import timezone
@@ -185,13 +186,14 @@ def test_a_row_dated_last_choosing_coins_replays_while_a_lot_lacks_its_acquisiti
         assert entry_router._recalculates(plain, db) is False
 
 
-def test_one_replay_for_a_choice_is_always_within_the_ai_budget(owner, ai, monkeypatch):  # noqa: F811
-    """The first row choosing coins while a lot doesn't know its acquisition
-    replays the ledger once, before any other row of the request does, and
-    gives every lot its own: the second doesn't replay. One replay is
-    always allowed, so such rows never meet the budget by themselves."""
-    rows = [{**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))},
-            {**SPENT, "date": "2025-07-02T12:00:00Z", "chosen_coins": coins((owner.ids["A2"], "0.0101"))}]
+def test_a_choice_replays_nothing_more_beside_a_backdated_row(owner, ai, monkeypatch):  # noqa: F811
+    """A row dated before the ledger's latest sorts before every row dated
+    after it and replays the ledger, which gives every lot its acquisition:
+    a row choosing coins after it then replays nothing more (call (j)), so
+    the AI's budget counts one replay, not two."""
+    backdated = {"date": "2024-06-01T12:00:00Z", "type": "Deposit", "amount": "0.01", "from_account": "External",
+                 "to_account": "Wallet", "source": "MyBTC", "cost_basis_usd": "700"}
+    rows = [backdated, {**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))}]
     _forget_acquisitions(owner)
     replay, replays = tx_service.recalculate_all_transactions, []
     monkeypatch.setattr(tx_service, "recalculate_all_transactions",
@@ -206,15 +208,28 @@ def test_one_replay_for_a_choice_is_always_within_the_ai_budget(owner, ai, monke
     assert r.status_code == 200, r.text
 
 
-def test_the_preview_replays_first_while_a_lot_lacks_its_acquisition(owner, ai):  # noqa: F811
-    """Call (j): lots made before migration 0101 don't know their
-    acquisition. Without a replay first, the preview would list them as one,
-    dated as the first: the 2025 coins long-term."""
+def test_no_coins_are_listed_while_a_lot_lacks_its_acquisition_and_nothing_replays(owner, ai):  # noqa: F811
+    """Lots made before migration 0101 don't know their acquisition: listed,
+    they'd be one line, dated as the first (the 2025 coins long-term). A
+    preview that replays nothing says so instead, and its figures are the
+    save's (no replay of its own: a recalculation could move them)."""
     _forget_acquisitions(owner)
-    r = ai.post("/api/import/entries/preview", json={"rows": [SPENT]})
-    held = r.json()["results"][0]["simulated"]["coins"]["held"]
-    assert [(line["acquired_txn_id"], line["acquired"], line["term"]) for line in held] == [
-        (owner.ids["A1"], "2017-03-01", "LONG"), (owner.ids["A2"], "2025-01-15", "SHORT")]
+    [result] = ai.post("/api/import/entries/preview", json={"rows": [SPENT]}).json()["results"]
+    assert result["simulated"]["coins"] is None
+    assert entry_import.COINS_NOT_LISTED in result["warnings"]
+
+
+def test_a_choice_that_replays_lists_the_rows_before_it_too(owner, ai):  # noqa: F811
+    """Call (j): the row choosing coins replays the ledger, which hands every
+    row of the request over again, with each lot's own acquisition."""
+    _forget_acquisitions(owner)
+    rows = [SPENT, {**SPENT, "date": "2025-07-02T12:00:00Z", "chosen_coins": coins((owner.ids["A2"], "0.0101"))}]
+    first, second = ai.post("/api/import/entries/preview", json={"rows": rows}).json()["results"]
+    for result in (first, second):
+        held = result["simulated"]["coins"]["held"]
+        assert [(line["acquired_txn_id"], line["term"]) for line in held] == [
+            (owner.ids["A1"], "LONG"), (owner.ids["A2"], "SHORT")], result
+    assert entry_import.COINS_NOT_LISTED not in first["warnings"]
 
 
 def test_a_transfer_takes_inherited_coins_it_chose_its_fee_from_the_oldest_chosen(owner, ai):  # noqa: F811

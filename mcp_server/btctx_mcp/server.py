@@ -71,8 +71,8 @@ WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exac
 TO_CHOOSE_AGAIN = ("Nothing was saved: this transaction's coins were chosen, and this changes what leaves. Ask "
                    "the user which coins they sent by the time they left, as their records from then show, and "
                    "call update_transaction again with the same changes and chosen_coins (their choice, adding up "
-                   "to what leaves now), or chosen_coins [] to send the oldest coins first. Never pick coins for "
-                   "them.")
+                   "to what leaves now), or chosen_coins [] (BitcoinTX's null) to send the oldest coins first. "
+                   "Never pick coins for them.")
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
               "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
               "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
