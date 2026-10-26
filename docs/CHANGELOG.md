@@ -4,6 +4,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
+
+**About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who
+chooses to try 2.0 before it's released: never for real records. New since
+[v2.0.0-alpha.2](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.2):
+a Spent, Gift, Donation or Lost withdrawal from a wallet, or a Transfer out
+of one, can choose which coins leave (Choose which coins leave), purchase by
+purchase. Choose coins only if you decided which ones to send by the time
+they left, and your records show it; otherwise the oldest coins leave
+(Treas. Reg. §1.1012-1(j)). Exchanges stay oldest first. The choice is kept
+by an edit, Recalculate Ledger, a backup and the CSV, and the Complete Tax
+Report lists it; its wording is still being finished. Portfolio Overview
+shows each wallet's and exchange's own cost, and fixes found in alpha.2
+are in. Updating from alpha.2 changes no figure (migration 0101 adds coin
+choice, after the usual copy into backups/). The way back to 1.x and
+what's in 2.0 are in alpha.1's notes. The AI connector is
+`btctx-mcp==2.0.0a3`.
+
 ### Added
 - **Each wallet's and exchange's own cost on the dashboard** (#709; found
   by Grok (Cursor) reading alpha.2; the owner's decision, 2026-10-25). 2.0
