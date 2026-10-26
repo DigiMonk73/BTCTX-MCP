@@ -11,7 +11,7 @@ from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import (
@@ -22,7 +22,7 @@ from backend.models.transaction import (
 from backend.database import scratch_copy
 from backend.models.account import Account
 from backend.services.account import AccountBook, account_book
-from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, tax_year_bounds
+from backend.services.tax_time import get_tax_timezone, get_tax_timezone_name, local_date, tax_year_bounds
 from backend.services.reports.form_8949 import (
     INHERITED, SCHEDULE_D_LINE_FOR_BOX, build_form_8949_and_schedule_d, disposal_box, taxable_disposals,
 )
@@ -97,6 +97,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
     txns = (
         db.query(Transaction)
+        .options(selectinload(Transaction.chosen_coins))
         .filter(Transaction.timestamp >= start_dt, Transaction.timestamp < end_dt)
         .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
         .all()
@@ -114,6 +115,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
     income_txs        = _build_income_transactions(txns, book)
     rebates           = _build_rebates(txns, book)
     gifts_lost        = _build_gifts_donations_lost(txns, book)
+    coins_chosen      = _build_coins_you_chose(txns, get_tax_timezone(db), book)
     priced_values     = _build_priced_values(txns, get_tax_timezone(db), book, db)
     data_sources_list = _gather_data_sources(txns)
 
@@ -139,6 +141,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
         "income_transactions": income_txs,
         "rebates": rebates,
         "gifts_donations_lost": gifts_lost,
+        "coins_you_chose": coins_chosen,
         "priced_values": priced_values,
         "data_sources": data_sources_list,
     }
@@ -507,6 +510,54 @@ def _build_gifts_donations_lost(txns: list[Transaction], book: AccountBook) -> l
             }
             results.append(row)
     return results
+
+
+def _build_coins_you_chose(txns: list[Transaction], tz, book: AccountBook) -> list[dict[str, Any]]:
+    """
+    Each transaction of the year whose coins were chosen (#711): the record
+    of a specific identification (Treas. Reg. §1.1012-1(j)(2)), for the
+    owner's preparer. Its date, wallet, kind and the BTC that left; the coins
+    taken from each purchase or deposit (date acquired, or INHERITED; BTC;
+    cost); and the day the choice was saved in the tax timezone (`chosen_on`,
+    which reference_figures leaves out: a seeded ledger's is the day it was
+    seeded), marked when it's after the day the coins left (Q1).
+    """
+    rows = []
+    for tx in txns:
+        if not tx.chosen_coins:
+            continue
+        chosen_on = local_date(tx.coins_chosen_at, tz) if tx.coins_chosen_at else None
+        rows.append({
+            "date": tx.timestamp.isoformat(),
+            "wallet": book.name(tx.from_account_id),
+            "kind": f"Transfer to {book.name(tx.to_account_id)}" if tx.type == "Transfer"
+                    else listed_spelling(tx.purpose, WITHDRAWAL_PURPOSES),
+            "btc": float(sum(Decimal(line.btc) for line in tx.chosen_coins)),
+            "coins": _coins_taken(tx, tz),
+            "chosen_on": chosen_on.isoformat() if chosen_on else None,
+            "chosen_later": chosen_on is not None and chosen_on > local_date(tx.timestamp, tz),
+        })
+    return rows
+
+
+def _coins_taken(tx: Transaction, tz) -> list[dict[str, Any]]:
+    """What a transaction took of each acquisition, in the order taken: its
+    disposals (a network fee's included) and, for a Transfer, the lots it
+    moved, with their cost."""
+    pieces = [(d.lot, d.disposed_btc, d.disposal_basis_usd) for d in sorted(tx.lot_disposals, key=lambda d: d.id)]
+    if tx.type == "Transfer":
+        pieces += [(lot, lot.total_btc, lot.cost_basis_usd)
+                   for lot in sorted(tx.bitcoin_lots_created, key=lambda lot: lot.id)]
+    # By acquisition, which the report names by its date acquired (an id
+    # would follow a row put in the ledger later)
+    taken: dict[int | None, dict[str, Any]] = {}
+    for lot, btc, cost in pieces:
+        line = taken.setdefault(lot.acquired_txn_id, {
+            "btc": Decimal(0), "cost": Decimal(0),
+            "acquired": INHERITED if lot.inherited else local_date(lot.acquired_date, tz).isoformat()})
+        line["btc"] += Decimal(btc or 0)
+        line["cost"] += Decimal(cost or 0)
+    return [{**line, "btc": float(line["btc"]), "cost": float(line["cost"])} for line in taken.values()]
 
 
 def _lots_by_term(tx: Transaction) -> list[dict[str, Any]]:

@@ -19,7 +19,7 @@ from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models.app_setting import AppSetting, save_setting
@@ -28,7 +28,7 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import account as account_service, ai_key, exchange_mappings, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, csv_choices, exchange_mappings, first_run, outbound, tax_time
 from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
@@ -391,7 +391,7 @@ def export_transactions_csv(
 
     # Same-time transactions in the order they were saved, as the ledger
     # replays them: a round trip gives the same FIFO results.
-    transactions = db.query(Transaction).order_by(
+    transactions = db.query(Transaction).options(selectinload(Transaction.chosen_coins)).order_by(
         Transaction.timestamp.asc(),
         Transaction.id.asc()
     ).all()
@@ -467,6 +467,7 @@ def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
+        **csv_choices.export_cells(txn),  # its id, the coins it chose and when (#711)
     }
 
 

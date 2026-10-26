@@ -586,12 +586,15 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   must send the coins again, or null (`SendAgain`, its 422 naming the
   transaction in `X-BitcoinTX-Choose-Again`, which the AI connector answers
   as `saved: false`). `coins_chosen_at` is when the choice was saved, kept
-  while it's sent back unchanged. The AI key sends a choice too (the
-  owner's Q4: only coins the user says they chose at the time, its guide's
-  rule, #733): its preview lists the coins a row leaving a wallet takes and
-  holds (`HELD_HOOK`; none for a row whose wallet holds a lot that
-  doesn't know its acquisition while nothing replays), and a write that
-  replays for a choice
+  while it's sent back unchanged. The CSV carries a choice by its rows'
+  ids, never their positions (`csv_choices.py`, #732); the tax report
+  prints "Coins you chose", with the day each was saved, and Ledger Review
+  lists those saved after their coins left (`coins_chosen_later`). The AI
+  key sends a choice too (the owner's Q4: only coins the user says they
+  chose at the time, its guide's rule, #733): its preview lists the coins a
+  row leaving a wallet takes and holds (`HELD_HOOK`; none for a row whose
+  wallet holds a lot that doesn't know its acquisition while nothing
+  replays), and a write that replays for a choice
   (`chosen_coins.replays_first`) counts as replaying for its copy and the
   past-year question.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
@@ -644,7 +647,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
-| `backend/services/river_import.py`, `csv_import.py` | file imports |
+| `backend/services/river_import.py`, `csv_import.py`, `csv_choices.py` | file imports; the CSV's chosen-coins columns (#711) |
 | `backend/services/exchange_import.py`, `exchange_mappings.py`, `exchange_cells.py`, `exchange_kraken.py` | any exchange's CSV (B5b): the mappings (ready-made, the owner's own in `app_settings`), each read into River's rows; what isn't read is named by reason |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |

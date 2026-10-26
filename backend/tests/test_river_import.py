@@ -19,6 +19,7 @@ from fastapi.testclient import TestClient
 
 from backend.tests.conftest import stub_daily_prices, stub_prices_at
 from backend.services.river_import import (
+    OLDEST_FROM_THE_WALLET,
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
     adapt_river_rows,
@@ -228,7 +229,7 @@ class TestRiverAdapter:
         assert p.amount == Decimal("0.00001234")
         assert p.source == "Reward"
         assert p.cost_basis_usd is None  # the value at receipt, filled by the router
-        assert not warnings
+        assert [w.message for w in warnings] == [OLDEST_FROM_THE_WALLET]  # the receive's (#711)
 
     def test_unknown_pattern_warns_and_skips(self):
         proposals, _, warnings = adapt(["2026-01-01 10:00:00,10.00,USD,,,,,"])
@@ -238,7 +239,7 @@ class TestRiverAdapter:
     def test_all_synthetic_rows_covered(self):
         proposals, errors, warnings = adapt(SYNTHETIC_ROWS)
         assert len(proposals) == len(SYNTHETIC_ROWS)
-        assert not errors and not warnings
+        assert not errors and [w.message for w in warnings] == [OLDEST_FROM_THE_WALLET]  # the receive's (#711)
 
 
 # ---------------------------------------------------------------------------

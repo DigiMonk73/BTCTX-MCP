@@ -36,7 +36,8 @@ ROOT = Path(__file__).resolve().parent.parent
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 YEARS = (2023, 2024, 2025, 2026)
 # Depend on when they are computed, not on the ledger
-VOLATILE = {"report_date", "year_to_date_capital_gains"}
+# (and the day a choice of coins was saved: a seeded ledger's is the day it was seeded, #711)
+VOLATILE = {"report_date", "year_to_date_capital_gains", "chosen_on"}
 
 
 def figures(db) -> dict:

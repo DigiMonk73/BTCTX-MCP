@@ -196,6 +196,7 @@ hidden_imports = [
     "backend.services.past_year_writes",
     "backend.services.transfer_coins",
     "backend.services.chosen_coins",
+    "backend.services.csv_choices",
     "socksio",
     "httpcore._async.socks_proxy",
     "backend.secret_key",
