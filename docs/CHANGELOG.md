@@ -15,9 +15,11 @@ purchase. Choose coins only if you decided which ones to send by the time
 they left, and your records show it; otherwise the oldest coins leave
 (Treas. Reg. §1.1012-1(j)). Exchanges stay oldest first. The choice is kept
 by an edit, Recalculate Ledger, a backup and the CSV, and the Complete Tax
-Report lists it; its wording is still being finished. Portfolio Overview
-shows each wallet's and exchange's own cost, and fixes found in alpha.2
-are in. Updating from alpha.2 changes no figure (migration 0101 adds coin
+Report lists it; some other texts (the disclaimer, the report's Using
+these forms) still say the oldest coins always leave, until a later
+alpha. Portfolio Overview shows each wallet's and exchange's own cost,
+and fixes found in alpha.2 are in: if you tested alpha.1 or alpha.2,
+#719 and #721 below say what to check. Updating from alpha.2 changes no figure (migration 0101 adds coin
 choice, after the usual copy into backups/). The way back to 1.x and
 what's in 2.0 are in alpha.1's notes. The AI connector is
 `btctx-mcp==2.0.0a3`.
