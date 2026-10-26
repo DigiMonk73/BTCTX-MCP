@@ -112,6 +112,17 @@ All notable changes to BitcoinTX are documented in this file.
   changes.
 
 ### Fixed
+- **The transaction panel takes the keyboard** (#772, found by the screens
+  tests, #695; the same in 1.x). "Add transaction" or a row's Edit opened
+  the panel over the page, but focus stayed behind it, Tab walked the page
+  underneath, and a screen reader wasn't told it opened. The panel is now
+  a named dialog: focus moves into it as it opens, Tab and Shift+Tab stay
+  in it (or in "Discard changes?", which takes focus on Go back), and
+  focus goes back to the button that opened it as it closes, or to "Add
+  transaction" when that button is gone (an edited row reloaded) or never
+  had focus (a click in Safari focuses no button). In Safari, whose Tab
+  skips buttons by default (the Mac app too), Tab now stays in every
+  dialog. No figure changes.
 - **The importer asks for the file's exchange before Preview** (#773,
   found by the 2.0 testing plan's screens session). With more than one
   exchange, Preview waits until you choose the exchange the file is from
