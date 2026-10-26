@@ -20,10 +20,14 @@ async function openByKeyboard(page: Page) {
 test("the panel takes the keyboard as it opens, keeps it, and gives it back on Escape", async ({ authedPage: page }) => {
   const { add, panel } = await openByKeyboard(page);
   // Polled: in WebKit (Safari tabs to text fields only) the trap brings focus back a moment after the Tab
+  const reached = new Set<string>();
   for (const key of [...Array(30).fill("Tab"), ...Array(10).fill("Shift+Tab")]) {
     await page.keyboard.press(key);
     await expect.poll(() => holdsFocus(panel), { message: `after ${key}` }).toBe(true);
+    reached.add(await page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.id ?? ""));
   }
+  expect(reached.has("Close")).toBe(true); // Tab moved focus round the panel's controls, not left it pinned
+  expect(reached.size).toBeGreaterThan(1);
   await page.keyboard.press("Escape");
   await expect(panel).toHaveCount(0);
   await expect(add).toBeFocused();

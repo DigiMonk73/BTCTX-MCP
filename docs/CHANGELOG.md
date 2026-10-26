@@ -68,7 +68,8 @@ All notable changes to BitcoinTX are documented in this file.
   a named dialog: focus moves into it as it opens, Tab and Shift+Tab stay
   in it (or in "Discard changes?", which takes focus on Go back), and
   focus goes back to the button that opened it as it closes, or to "Add
-  transaction" when the edited row has reloaded. In Safari, whose Tab
+  transaction" when that button is gone (an edited row reloaded) or never
+  had focus (a click in Safari focuses no button). In Safari, whose Tab
   skips buttons by default (the Mac app too), Tab now stays in every
   dialog. No figure changes.
 - **A dialog's buttons fit a phone's screen** (#769, found by the screens

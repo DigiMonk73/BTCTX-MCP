@@ -4,7 +4,8 @@
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** A control shown, so it can take focus (a hidden trigger can't, #772's review). */
+/** A control shown, so it can take focus (a hidden trigger can't, #772's review): its own
+ * display only, which is how the dialogs hide one (Safari 15 has no checkVisibility). */
 const shown = (item: HTMLElement) => getComputedStyle(item).display !== "none";
 
 /** On Tab: wraps focus around `container`'s controls. */
