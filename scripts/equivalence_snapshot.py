@@ -247,14 +247,11 @@ def masked_csv(text: str) -> str:
     seeded the choice (#763). The column stays, and an empty cell stays
     empty, so a column or a choice that comes or goes still shows."""
     rows = list(csv.reader(io.StringIO(text, newline="")))
-    volatile: list[int] = []
-    for row in rows:
-        if any(cell in VOLATILE_KEYS for cell in row):  # the header, wherever it is
-            volatile = [i for i, cell in enumerate(row) if cell in VOLATILE_KEYS]
-        elif volatile:
-            row[:] = ["<volatile>" if i in volatile and cell else cell for i, cell in enumerate(row)]
+    volatile = [i for i, cell in enumerate(rows[0]) if cell in VOLATILE_KEYS] if rows else []
     if not volatile:
         return text
+    for row in rows[1:]:
+        row[:] = ["<volatile>" if i in volatile and cell else cell for i, cell in enumerate(row)]
     out = io.StringIO()
     csv.writer(out, lineterminator="\r\n" if "\r\n" in text else "\n").writerows(rows)
     return out.getvalue()

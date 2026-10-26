@@ -14,6 +14,7 @@ from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import httpx
 from pypdf import PdfReader
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -108,10 +109,11 @@ def test_a_csvs_moment_of_saving_is_masked_its_column_and_blanks_kept():
         "1,2025-03-01T12:00:00Z,<volatile>,0.1\r\n"
         "2,2025-03-02T12:00:00Z,,0.2\r\n")
     assert snapshot.masked_csv("id,amount\n1,0.1\n") == "id,amount\n1,0.1\n"  # nothing volatile: as it was
+    # Only the first row is the header: a cell naming a volatile key further down is data
+    assert snapshot.masked_csv("id,notes,coins_chosen_at\n1,created_at,2026-10-26T12:20:14Z\n2,x,\n") == (
+        "id,notes,coins_chosen_at\n1,created_at,<volatile>\n2,x,\n")
 
 
 def test_a_csv_answer_is_kept_masked():
-    import httpx
-
     response = httpx.Response(200, headers={"content-type": "text/csv; charset=utf-8"}, text=EXPORTED)
     assert snapshot.answer(response)["body"] == snapshot.masked_csv(EXPORTED)
