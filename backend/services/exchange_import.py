@@ -368,12 +368,14 @@ def file_row(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseErr
                          mapping.day_first, row.header.name(columns.date) or "Date")
     btc = _number(row, columns.btc, mapping, "BTC")[0]
     btc = to_sats(abs(btc), row.number, row.header.name(columns.btc), warnings) if btc is not None else None
-    usd = _number(row, columns.usd, mapping, "USD")[0]
-    usd = to_cents(abs(usd), row.header.name(columns.usd)) if usd is not None else None
+    # A payout's value at receipt is its coins at the price, before anything taken (Coinbase's Subtotal, #789)
+    dollars = columns.before_fee if kind in PAYOUT_SOURCES and columns.before_fee else columns.usd
+    usd = _number(row, dollars, mapping, "USD")[0]
+    usd = to_cents(abs(usd), row.header.name(dollars)) if usd is not None else None
     fee = _gap_fee(row, kind, mapping, usd)
     if fee is None and kind in (BUY, SELL, SEND):
         fee = _fee(row, kind, mapping, warnings)
-    fee = fee or None  # no gap: no fee, never a fee column's spread
+    fee = fee or None  # no gap (or a fee of $0.00): no fee, never a fee column's spread
     if kind in mapping.after_fee and usd is not None and fee is not None:
         usd = usd - fee if kind == BUY else usd + fee
     if kind == SEND and mapping.send_fee_included and btc is not None and fee is not None:
@@ -407,15 +409,17 @@ def _gap_fee(row: Cells, kind: str, mapping: Mapping, usd: Decimal | None) -> De
     """A buy's or sell's fee as the gap between its dollars after the fee
     (`usd`, the mapping's `after_fee`) and before it (`before_fee`), so its
     basis is what was paid and its net proceeds what arrived (Coinbase's
-    Total and Subtotal, #789): 0 when they're equal; None when the file
-    gives no such pair."""
+    Total and Subtotal, #789). Only a buy's paying more or a sale's
+    bringing in less is a fee: the other way it's 0, as when they're equal,
+    never a fee made up; None when the file gives no such pair."""
     columns = mapping.columns
     if kind not in (BUY, SELL) or kind not in mapping.after_fee or usd is None or not columns.before_fee:
         return None
     before = _number(row, columns.before_fee, mapping, "USD")[0]
     if before is None:
         return None
-    return abs(usd - to_cents(abs(before), row.header.name(columns.before_fee)))
+    before = to_cents(abs(before), row.header.name(columns.before_fee))
+    return max(Decimal(0), usd - before if kind == BUY else before - usd)
 
 
 def _fee(row: Cells, kind: str, mapping: Mapping, warnings: list[CSVParseError]) -> Decimal | None:

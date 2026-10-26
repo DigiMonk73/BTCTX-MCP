@@ -119,6 +119,11 @@ def test_coinbase_a_buys_basis_is_its_total_and_a_sales_proceeds_what_arrived(cl
         row(6, "Sell", EX_BTC, EX_USD, "0.0002", at(2026, 3, 1, 10), proceeds="16.40", fee="0.49"),
         # Total = Subtotal: no fee, never the 0.05 spread beside them (paid from the sale's dollars, #655)
         row(7, "Buy", EX_USD, EX_BTC, "0.0001", at(2026, 3, 15, 10), cost="8.00"),
+        # A reward's value at receipt is Subtotal, the coins at the price, never Total
+        row(8, "Deposit", EXTERNAL, EX_BTC, "0.0000037", at(2026, 3, 20, 10), cost="0.30", source="Reward"),
+        # A buy for less than Subtotal, a sale for more: what was paid or arrived, and no fee made up
+        row(9, "Buy", BANK, EX_BTC, "0.000125", at(2026, 3, 25, 10), cost="9.90"),  # $7.91 left at Coinbase: the bank
+        row(10, "Sell", EX_BTC, EX_USD, "0.0002", at(2026, 3, 30, 10), proceeds="16.50"),
     ]
     assert answer["errors"] == []
 
