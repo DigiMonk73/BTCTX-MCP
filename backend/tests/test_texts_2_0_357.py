@@ -123,11 +123,15 @@ def test_no_other_wording_of_the_rule():
 
 def python_words(source: str) -> str:
     """A Python file's strings, what it shows or sends: never a comment, a
-    docstring or a column's doc= (both for developers)."""
+    developer's docstring or a column's doc=. An MCP tool's, an API route's
+    and a pydantic schema's docstrings are users' (CODE_STYLE.md, rule 4):
+    a decorated function's, a class's with a base."""
     tree = ast.parse(source)
     for_developers = [node.body[0].value for node in ast.walk(tree)
                       if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
-                      and node.body and isinstance(node.body[0], ast.Expr)]
+                      and not getattr(node, "decorator_list", None) and not getattr(node, "bases", None)
+                      and node.body and isinstance(node.body[0], ast.Expr)
+                      and isinstance(node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str)]
     for_developers += [keyword.value for keyword in ast.walk(tree) if isinstance(keyword, ast.keyword) and keyword.arg == "doc"]
     left_out = {id(text) for node in for_developers for text in ast.walk(node)}
     return " ".join(node.value for node in ast.walk(tree)

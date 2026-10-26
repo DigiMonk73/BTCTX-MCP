@@ -588,8 +588,9 @@ exchanges and banks** reads its name, its kind and its balance.
   since 2025 the IRS figures cost basis wallet by wallet." and, since
   Wallet has transactions, the note "Years before you add this wallet were
   figured with your wallets together, as BitcoinTX 1.x did. Move coins
-  into it with a Transfer dated when they really moved: BitcoinTX moves
-  the oldest coins first. A Transfer dated in an earlier year can change
+  into it with a Transfer dated when they really moved. Cost basis is
+  per-wallet FIFO: each wallet and exchange uses its own oldest coins
+  first for a sale, spend or transfer. A Transfer dated in an earlier year can change
   that year's figures and later ones (BitcoinTX shows which years before
   it saves), and BitcoinTX doesn't allocate your cost basis to each wallet
   as of January 1, 2025 (Rev. Proc. 2024-28), nor record an allocation you
