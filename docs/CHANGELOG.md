@@ -5,6 +5,28 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **The app's own words say what 2.0 does** (D5, #701; words only, no
+  figure moves).
+  - **Per-wallet FIFO**, the owner's one wording for the method (decision
+    30, #713): the dashboard's "Realized Gains/Losses (Per-wallet FIFO)",
+    the Complete Tax Report's "Cost basis method" and notes ("Cost basis
+    is per-wallet FIFO: each wallet and exchange uses its own oldest coins
+    first for a sale, spend or transfer."), a new wallet's or exchange's
+    note, an inherited deposit's date hint and the CSV guide. A test keeps
+    every other wording of FIFO out of what users read.
+  - The empty Transactions list points to an exchange's file, not River's;
+    Recalculate Ledger's line says to open Ledger Review first after an
+    upgrade; "Privacy & Network" as the screen says it; Data Management
+    names the CSV it imports and what a full reset deletes.
+  - A consolidation without its fee is "A consolidation within the same
+    wallet or exchange…", never a "move" (#705); the Transfer's hint for
+    another wallet or exchange says to show a hidden one; the CSV guide
+    and template drop 1.x's "auto-buy".
+  - A backup that can't be decrypted says "Wrong password, or the file is
+    damaged or isn't a BitcoinTX backup.", never only "Wrong password?"
+    (#690): its check can't tell them apart.
+  - Connect an AI Assistant's summary starts "Optional and off until you
+    turn it on" (the owner's decision 31).
 - **The dashboard's Unrealized Gains/Losses is your accounts' own gains
   added up** (#770; found by Claude testing the screens, 2026-10-26). It was
   (today's price − Avg. Cost per BTC, rounded to the cent) × Total BTC, so
@@ -50,6 +72,17 @@ All notable changes to BitcoinTX are documented in this file.
   introduce the AI connection, they call it optional, off until you turn
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
+
+### Fixed
+- **Coinbase's file: Advance Trade, Reward Income and its older fee
+  column** (#765, found by the 2.0 testing plan's import run, T3, #689).
+  The ready-made Coinbase mapping left out "Advance Trade Buy" and
+  "Advance Trade Sell" rows (it read only "Advanced Trade …") and "Reward
+  Income" (only "Rewards Income"), each named in a warning, and refused an
+  older "Transaction history" whose fee column is "Fees". It now reads
+  them as a Buy, a Sell and a Reward deposit at Coinbase's value at
+  receipt, and takes either fee column. What it read before, it reads as
+  before; the mapping is still to be checked against a real export.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 

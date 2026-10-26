@@ -22,11 +22,11 @@ const WITHIN_HINT =
 // a consolidation: each keeps its own lots (2.0 spec 5.5)
 const MOVE_ELSEWHERE_HINT: Partial<Record<AccountKind, string>> = {
   wallet:
-    "Moving coins to another of your wallets? Choose that wallet as To Account, after adding it in " +
-    "Settings → Wallets, exchanges and banks if it isn't listed.",
+    "Moving coins to another of your wallets? Choose that wallet as To Account. Not listed? Add it, or show it " +
+    "if it's hidden, in Settings → Wallets, exchanges and banks.",
   exchange:
-    "Moving coins to another exchange? Choose that exchange's BTC account as To Account, after adding the " +
-    "exchange in Settings → Wallets, exchanges and banks if it isn't listed.",
+    "Moving coins to another exchange? Choose that exchange's BTC account as To Account. Not listed? Add the " +
+    "exchange, or show it if it's hidden, in Settings → Wallets, exchanges and banks.",
 };
 
 /** The destination: an account of the From's currency, or the From itself

@@ -88,7 +88,7 @@ def test_a_blank_fee_currency_and_a_transfers_fee_are_the_books():
     consolidation = "2024-01-05T10:00:00Z,Transfer,0.1,Bank,Bank,,,,,,"
     [error] = parse_csv_file(csv(consolidation), book=SWAPPED).errors
     assert (error.column, error.message) == (
-        "fee_amount", "A move within the same account records only its network fee: enter the fee.")
+        "fee_amount", "A consolidation within the same wallet or exchange records only its network fee: enter the fee.")
 
 
 def test_a_deposits_basis_rules_are_the_books():

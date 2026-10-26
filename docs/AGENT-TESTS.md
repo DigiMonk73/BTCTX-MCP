@@ -199,7 +199,7 @@ it's long-term. #14's fee is its own disposal.
 |---|---|
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 (with one account of each kind, no line has a caret; with more, the totals stay these) |
 | … Unrealized Gains/Losses (needs a price) | current price × 0.5497 − 24,733.10, within $0.01 (each account's value to the cent less its cost, #770) |
-| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
+| Dashboard > Realized Gains/Losses (Per-wallet FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
@@ -486,8 +486,9 @@ Start from the `clean` snapshot.
   filing", the bullet "From 2025, cost basis is figured wallet by wallet
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
-  §1.1012-1(j)). BitcoinTX uses first in, first out in each wallet and
-  exchange account and records no Rev. Proc. 2024-28 allocation." (1.x's
+  §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
+  uses its own oldest coins first for a sale, spend or transfer. BitcoinTX
+  records no Rev. Proc. 2024-28 allocation." (1.x's
   one-wallet bullet is gone), and the disclaimer; in 7, "Notes", "Coins you
   identified on your own books, or an exchange's own order of coins, can
   give other figures." Section 2 of each report
@@ -587,8 +588,9 @@ exchanges and banks** reads its name, its kind and its balance.
   since 2025 the IRS figures cost basis wallet by wallet." and, since
   Wallet has transactions, the note "Years before you add this wallet were
   figured with your wallets together, as BitcoinTX 1.x did. Move coins
-  into it with a Transfer dated when they really moved: BitcoinTX moves
-  the oldest coins first. A Transfer dated in an earlier year can change
+  into it with a Transfer dated when they really moved. Cost basis is
+  per-wallet FIFO: each wallet and exchange uses its own oldest coins
+  first for a sale, spend or transfer. A Transfer dated in an earlier year can change
   that year's figures and later ones (BitcoinTX shows which years before
   it saves), and BitcoinTX doesn't allocate your cost basis to each wallet
   as of January 1, 2025 (Rev. Proc. 2024-28), nor record an allocation you
@@ -651,13 +653,14 @@ exchanges and banks** reads its name, its kind and its balance.
   network fee is recorded: it's a disposal of your oldest coins at the
   fee's value (Form 8949, box I or L; C or F before 2025). Your coins, their
   dates and cost basis stay as they are." and "Moving coins to another
-  exchange? Choose that exchange's BTC account as To Account, after adding
-  the exchange in Settings → Wallets, exchanges and banks if it isn't
-  listed." Choose From Account `Wallet`: To Account is blank again, and
+  exchange? Choose that exchange's BTC account as To Account. Not listed?
+  Add the exchange, or show it if it's hidden, in Settings → Wallets,
+  exchanges and banks." Choose From Account `Wallet`: To Account is blank again, and
   among its choices is `Wallet: consolidate within the same wallet`.
   Choose it. Expect under it, after the fee's line, "Moving coins to
-  another of your wallets? Choose that wallet as To Account, after adding
-  it in Settings → Wallets, exchanges and banks if it isn't listed."
+  another of your wallets? Choose that wallet as To Account. Not listed?
+  Add it, or show it if it's hidden, in Settings → Wallets, exchanges and
+  banks."
   Close the panel with **Discard changes**.
 
 ### MLT: a second exchange (2.0; price source Nobody)
@@ -1161,7 +1164,8 @@ Set `KEY` to the key from AI-3, and use
   key** and keep the new key (the backup holds an older one). In **Backup &
   Restore**, **Restore from Backup** with BAK-2's file and
   the password `wrong-pass`. Expect "Restore failed: ❌ Failed to decrypt
-  backup. Wrong password?" with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
+  backup. Wrong password, or the file is damaged or isn't a BitcoinTX
+  backup." with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
   successfully restored. Log in again with your current username and
   password.", then the login page. Log in with the login in use before the
   restore (a restore never brings back the backup's password).

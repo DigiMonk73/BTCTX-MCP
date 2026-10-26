@@ -103,11 +103,11 @@ DATE_FORMATS = [
 
 EXAMPLES = [
     ("Buy from Exchange USD:", "2024-01-15T10:30:00Z,Buy,0.012,Exchange USD,Exchange BTC,500.00,,5.00,USD,,,"),
-    ("Buy from Bank (auto-buy):", "2024-01-20T08:00:00Z,Buy,0.05,Bank,Exchange BTC,2500.00,,10.00,USD,,,"),
+    ("Buy paid from a bank:", "2024-01-20T08:00:00Z,Buy,0.05,Bank,Exchange BTC,2500.00,,10.00,USD,,,"),
     ("Sell (selling BTC on exchange):", "2024-02-15T11:30:00Z,Sell,0.3,Exchange BTC,Exchange USD,,15000.00,10.00,USD,,,"),
     ("Deposit (BTC entering your wallet):", "2024-01-20T14:00:00Z,Deposit,0.5,External,Wallet,21000.00,,,,Income,,"),
     ("Withdrawal (spending BTC):", "2024-03-01T09:00:00Z,Withdrawal,0.1,Wallet,External,,5500.00,,,,Spent,"),
-    ("Transfer (moving between wallets):", "2024-02-01T16:45:00Z,Transfer,1.0,Exchange BTC,Wallet,,,0.0001,BTC,,,"),
+    ("Transfer (moving between your accounts):", "2024-02-01T16:45:00Z,Transfer,1.0,Exchange BTC,Wallet,,,0.0001,BTC,,,"),
     ("Transfer of USD with a fee ($1,000 left the bank, $990 arrived: amount 990, the $10 fee on top):",
      "2024-02-03T12:00:00Z,Transfer,990.00,Bank,Exchange USD,,,10.00,USD,,,"),
     ("Transfer within the wallet (a consolidation: only the fee):",
@@ -127,7 +127,7 @@ COMMON_ERRORS = [
     ["\"A Sell is from an exchange's BTC account\"", "Sell must be: from an exchange's BTC, to the same exchange's USD"],
     ["\"A Deposit comes from External\"", "Deposit must be: from External, to one of your accounts"],
     ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only a wallet or an exchange's BTC can send to itself (a consolidation); a dollar account can't"],
-    ["\"A move within the same account records only its network fee\"", "A transfer from a wallet (or an exchange's BTC) to itself needs its fee_amount in BTC"],
+    ["\"A consolidation within the same wallet or exchange records only its network fee\"", "A transfer from a wallet (or an exchange's BTC) to itself needs its fee_amount in BTC"],
 ]
 
 TABLE_STYLE = TableStyle([
@@ -228,7 +228,7 @@ class _Guide:
             Paragraph("• Restoring from a CSV backup", self.bullet),
             Paragraph(
                 "<b>Important:</b> The database must be empty before importing. "
-                "This ensures clean FIFO cost basis calculations. If you have existing "
+                "Then every cost basis is figured from one complete history. If you have existing "
                 "transactions, delete them first from the Settings page. To add an exchange's "
                 "own CSV export to a ledger in use, use Settings → Import from an exchange instead.",
                 self.warning

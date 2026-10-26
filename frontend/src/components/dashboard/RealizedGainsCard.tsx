@@ -3,11 +3,11 @@ import { gainClass } from "../../utils/dashboard";
 import { formatSignedUsd, formatUsd } from "../../utils/format";
 import FigureRow from "./FigureRow";
 
-/** Realized gains and losses (FIFO), short and long term, all time and this
+/** Realized gains and losses (per-wallet FIFO), short and long term, all time and this
  * year. */
 const RealizedGainsCard: React.FC<{ gains: GainsAndLosses }> = ({ gains }) => (
   <div className="card realized-gains-container">
-    <h3 className="card-title">Realized Gains/Losses (FIFO)</h3>
+    <h3 className="card-title">Realized Gains/Losses (Per-wallet FIFO)</h3>
 
     <FigureRow label="Short-Term Gains" className={gains.short_term_gains > 0 ? "text-gain" : ""}>
       {formatSignedUsd(gains.short_term_gains)}

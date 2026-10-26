@@ -105,6 +105,30 @@ def test_coinbase_transaction_history_before_2024(client):
     ]
 
 
+def test_coinbase_advance_trade_and_reward_income(client):
+    """Coinbase also writes "Advance Trade Buy/Sell" (no "d") and "Reward
+    Income" (#765: BittyTax's parser and other open-source fixtures read
+    them); each was left out as a kind the mapping doesn't read."""
+    answer = preview(client, "coinbase", "coinbase_advance_trade.csv")
+    assert rows(answer) == [
+        row(4, "Buy", BANK, EX_BTC, "0.001", at(2025, 3, 18, 11, 49, 37), cost="80.00", fee="0.48"),
+        row(5, "Sell", EX_BTC, EX_USD, "0.0005", at(2025, 3, 19, 11, 49, 37), proceeds="41.00", fee="0.25"),
+        # Income at Coinbase's value at receipt, as its other rewards
+        row(6, "Deposit", EXTERNAL, EX_BTC, "0.00001", at(2025, 3, 20, 11, 49, 37), cost="0.82", source="Reward"),
+    ]
+    assert answer["errors"] == [] and "left out" not in warned(answer)
+
+
+def test_coinbase_transaction_history_with_its_older_fee_column(client):
+    """An older "Transaction history" names the total "Total (inclusive of
+    fees)" and its fee column "Fees" (#765); the file was refused."""
+    answer = preview(client, "coinbase", "coinbase_2021.csv")
+    assert rows(answer) == [
+        row(2, "Buy", BANK, EX_BTC, "0.002", at(2021, 5, 3, 15), cost="110.00", fee="1.99"),
+        row(3, "Sell", EX_BTC, EX_USD, "0.001", at(2021, 6, 1, 15), proceeds="36.00", fee="0.53"),
+    ]
+
+
 def test_kraken_ledger(client):
     answer = preview(client, "kraken", "kraken_ledgers.csv")
     assert rows(answer) == [
@@ -228,7 +252,8 @@ def test_another_exchanges_file_is_said_to_be_one(client, mapping_id, name):
 
 
 @pytest.mark.parametrize("name, expected", [
-    ("coinbase_2024.csv", "coinbase"), ("coinbase_2022.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
+    ("coinbase_2024.csv", "coinbase"), ("coinbase_2022.csv", "coinbase"), ("coinbase_2021.csv", "coinbase"),
+    ("coinbase_advance_trade.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
     ("swan_deposits_and_purchases.csv", "swan"), ("swan_withdrawals.csv", "swan-withdrawals"),
     ("cash_app_bitcoin.csv", "cash-app"), ("cash_app_activity.csv", "cash-app"),
 ])

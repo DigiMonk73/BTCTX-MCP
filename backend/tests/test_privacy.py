@@ -206,18 +206,19 @@ def test_wrong_password_and_tampering_are_caught(tmp_path):
     out = tmp_path / "b.btx"
     backup.make_backup("pw", out, db_path=_db(tmp_path / "live.db"))
     blob = out.read_bytes()
-    with pytest.raises(ValueError, match="Wrong password"):
-        backup.decrypt_backup(blob, "not-it")
     tampered = blob[:40] + bytes([blob[40] ^ 1]) + blob[41:]
-    with pytest.raises(ValueError, match="Wrong password"):
-        backup.decrypt_backup(tampered, "pw")
+    # #690: a damaged or foreign file is never only "Wrong password?", which sends the owner hunting for one
+    for refused, password in ((blob, "not-it"), (tampered, "pw"), (blob[:len(blob) // 2], "pw"), (os.urandom(4096), "pw")):
+        with pytest.raises(ValueError) as caught:
+            backup.decrypt_backup(refused, password)
+        assert str(caught.value) == backup.CANT_DECRYPT
 
 
 def test_backups_made_before_0_9_2_still_restore(tmp_path):
     live = _db(tmp_path / "live.db")
     v1 = _legacy_v1_backup(live.read_bytes(), "old-pw")
     assert backup.decrypt_backup(v1, "old-pw") == live.read_bytes()
-    with pytest.raises(ValueError, match="Wrong password"):
+    with pytest.raises(ValueError, match=re.escape(backup.CANT_DECRYPT)):
         backup.decrypt_backup(v1, "nope")
 
 
@@ -240,7 +241,7 @@ def test_a_v1_wrong_password_that_happens_to_unpad_is_still_caught():
     salt, iv = b"s" * backup.SALT_LENGTH, b"i" * backup.IV_LENGTH
     key = backup._derive_key("pw", salt, backup.LEGACY_ITERATIONS)
     v1 = salt + iv + backup._encrypt_data(b"not a database" * 8, key, iv)
-    with pytest.raises(ValueError, match="Wrong password"):
+    with pytest.raises(ValueError, match=re.escape(backup.CANT_DECRYPT)):
         backup.decrypt_backup(v1, "pw")
 
 
