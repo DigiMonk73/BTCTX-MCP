@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.models.transaction import Transaction
 from backend.services import account as account_service
-from backend.services import hourly_prices, recalculated_by, tax_time
+from backend.services import chosen_coins, hourly_prices, recalculated_by, tax_time
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
 from backend.services.past_years import PastYearWrite
@@ -74,9 +74,11 @@ class Rows(PastYearWrite):
             return None
 
     def appends(self, db: Session) -> bool:
+        kept = self.kept(db)
+        if chosen_coins.replays_first(kept, db):  # call (j), #711
+            return False
         latest = db.query(func.max(Transaction.timestamp)).scalar()
-        return latest is None or all(tax_time.as_utc(row["timestamp"]) >= tax_time.as_utc(latest)
-                                     for row in self.kept(db))
+        return latest is None or all(tax_time.as_utc(row["timestamp"]) >= tax_time.as_utc(latest) for row in kept)
 
     def moves_no_figure(self, db: Session) -> bool:
         book = account_book(db)

@@ -186,8 +186,13 @@ def test_a_row_dated_last_choosing_coins_replays_while_a_lot_lacks_its_acquisiti
 
 def test_rows_choosing_coins_count_toward_the_ai_replay_budget_while_a_lot_lacks_its_acquisition(
         owner, ai, monkeypatch):  # noqa: F811
+    """The first such row replays the ledger, and gives every lot its
+    acquisition, so a second one doesn't: one replay, beside a row dated
+    before the ledger's latest, which replays too."""
     monkeypatch.setattr(entry_router, "AI_MAX_REPLAYED", 1)  # one replaying row a request
-    rows = [{**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))},
+    backdated = {"date": "2024-06-01T12:00:00Z", "type": "Deposit", "amount": "0.01", "from_account": "External",
+                 "to_account": "Wallet", "source": "MyBTC", "cost_basis_usd": "700"}
+    rows = [backdated, {**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))},
             {**SPENT, "date": "2025-07-02T12:00:00Z", "chosen_coins": coins((owner.ids["A2"], "0.0101"))}]
     assert ai.post("/api/import/entries/preview", json={"rows": rows}).status_code == 200
     _forget_acquisitions(owner)

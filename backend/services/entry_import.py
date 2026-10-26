@@ -30,19 +30,22 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.database import is_busy, take_write_lock
-from backend.models.transaction import Transaction
+from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
     AffectedTransaction,
+    CoinLine,
+    CoinsSeen,
     EntryResult,
     EntryRow,
     FromPrice,
+    HeldCoins,
     SimulatedResult,
 )
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
 from backend.services.past_year_writes import Rows
-from backend.services.chosen_coins import AI_CANT_CHOOSE
+from backend.services.chosen_coins import HELD_HOOK, Held
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -67,6 +70,7 @@ from backend.services.transaction import (
     date_of_death,
     date_of_death_price,
     find_prices_first,
+    holding_period,
     price_used,
     values_from_price,
 )
@@ -89,6 +93,9 @@ WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
 # the error's own text (SQL, a path, a date), which the AI would pass on (#204)
 SIMULATION_FAILED = "Unexpected error: the dry run stopped at this row. BitcoinTX's log says what."
 SIMULATION_BUSY = "BitcoinTX was busy saving something else: preview again in a moment."
+# A row leaving a wallet: the acquisitions the preview lists of what the
+# wallet holds (#711, 6.5), so its answer stays small with years of buys
+MOST_HELD = 200
 ADD_BUSY = "Not added: BitcoinTX was busy saving something else, and nothing was saved. Try again."
 
 
@@ -187,8 +194,8 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | Non
         # its date there (#185); every row's own date is already in UTC
         tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz, book)
         error_msgs = [e.message for e in errors]
-        if "chosen_coins" in row.model_fields_set:  # until the connector can choose coins (#711, Q4)
-            error_msgs.append(AI_CANT_CHOOSE)
+        if tx_data is not None and row.chosen_coins:  # the coins the user chose (#711, Q4): the save checks them
+            tx_data["chosen_coins"] = [line.model_dump() for line in row.chosen_coins]
 
         if tx_data is not None and row.fee_usd is not None:
             fee_usd = _parse_decimal(number_text(row.fee_usd), USD_PLACES)
@@ -593,12 +600,18 @@ def _dry_run(
 ) -> tuple[list[AffectedTransaction], list[AccountBalance]]:
     find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
     before = _gain_snapshot(db)
+    # What each transaction's account holds before it takes any (#711): the
+    # engine hands it over on every path, a replay's included, so the last
+    # word for a transaction is the ledger as the save leaves it
+    held: dict[int, list[Held]] = {}
+    db.info[HELD_HOOK] = lambda tx, lines: held.__setitem__(tx.id, lines)
     try:
         created, failed_at = _create_until_refused(ordered, db)
         if failed_at is None:
             db.flush()
         else:
             _mark_not_simulated(ordered[failed_at + 1:])
+        rows_of = {tx.id: p.row for p, tx in created}
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,
@@ -609,12 +622,69 @@ def _dry_run(
                 fmv_usd=tx.fmv_usd,
                 fee_usd=tx.fee_usd if (tx.fee_currency or "").upper() == "BTC" else None,
                 from_price=from_price(tx, db, years),
+                coins=_coins_seen(tx, held.get(tx.id), rows_of, db),
             )
         if failed_at is not None:
             return [], []
         return _affected(before, db), _balances(db)
     finally:
+        db.info.pop(HELD_HOOK, None)
         db.rollback()
+
+
+def _coins_seen(tx: Transaction, held: list[Held] | None, rows_of: dict[int, int], db: Session) -> CoinsSeen | None:
+    """A row leaving one of the user's wallets (a Transfer to another
+    account, or a Withdrawal): the coins it takes and those the wallet held
+    before it took any, so the AI can show the user what they may choose
+    from (#711, Q4). None for any other row: an exchange's coins leave
+    oldest first (#711's call (g)), and nothing else leaves a wallet."""
+    book = account_book(db)
+    leaves = tx.type == "Withdrawal" or (tx.type == "Transfer" and tx.to_account_id != tx.from_account_id)
+    if not leaves or book.kind(tx.from_account_id) != "wallet" or held is None:
+        return None
+    tz = get_tax_timezone(db)
+    named = [h.acquired_txn_id for h in held[:MOST_HELD] if h.acquired_txn_id is not None]
+    acquired_by = {t.id: t for t in db.query(Transaction).filter(Transaction.id.in_(named))}
+    return CoinsSeen(
+        takes=[CoinLine(**_by_id_or_row(acquired, rows_of), btc=btc) for acquired, btc in _taken(tx, db).items()],
+        held=[_held_line(h, tx, acquired_by.get(h.acquired_txn_id), rows_of, tz, book) for h in held[:MOST_HELD]],
+        held_not_listed=max(0, len(held) - MOST_HELD),
+    )
+
+
+def _taken(tx: Transaction, db: Session) -> dict[int | None, Decimal]:
+    """The BTC a transaction took, by acquisition, in the order taken: its
+    disposals (a network fee's, a spend's or a gift's) and, for a Transfer,
+    the lots it put in its To account."""
+    taken: dict[int | None, Decimal] = {}
+    pieces = [(d.lot.acquired_txn_id, d.disposed_btc) for d in
+              db.query(LotDisposal).filter(LotDisposal.transaction_id == tx.id).order_by(LotDisposal.id)]
+    if tx.type == "Transfer":
+        pieces += [(lot.acquired_txn_id, lot.total_btc) for lot in
+                   db.query(BitcoinLot).filter(BitcoinLot.created_txn_id == tx.id).order_by(BitcoinLot.id)]
+    for acquired, btc in pieces:
+        taken[acquired] = taken.get(acquired, Decimal(0)) + Decimal(btc)
+    return taken
+
+
+def _by_id_or_row(acquired: int | None, rows_of: dict[int, int]) -> dict:
+    """A row of this request has no id the AI can name yet: its row number instead."""
+    return {"row": rows_of[acquired]} if acquired in rows_of else {"acquired_txn_id": acquired}
+
+
+def _held_line(h: Held, tx: Transaction, acquired_by: Transaction | None, rows_of: dict[int, int], tz,
+               book: AccountBook) -> HeldCoins:
+    how = None
+    if acquired_by is not None:
+        source = f" ({acquired_by.source})" if acquired_by.type == "Deposit" and acquired_by.source else ""
+        how = (f"a {acquired_by.type}{source} of {local_date(acquired_by.timestamp, tz).isoformat()} into "
+               f"{book.name(acquired_by.to_account_id)}")
+    return HeldCoins(
+        **_by_id_or_row(h.acquired_txn_id, rows_of), btc=h.btc, how=how, cost_usd=h.cost_usd,
+        acquired="INHERITED" if h.inherited else local_date(h.acquired, tz).isoformat(),
+        # Inherited coins are long-term whenever they leave (IRC §1223(9))
+        term="LONG" if h.inherited else holding_period(h.acquired, tx.timestamp, tz),
+    )
 
 
 def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromPrice | None:
