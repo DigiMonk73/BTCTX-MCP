@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Development
+- **Two click-through tests no longer depend on timing or engine** (#793).
+  The panel's "after an edit is saved" test opens Edit by the keyboard: in
+  Linux WebKit a click on Edit left focus on another control, where it
+  rightly went back. The price card's link test waits for the card,
+  which once in about 40 runs wasn't there yet. Tests only: the app doesn't change.
+
 ## [v2.0.0-beta.1] - 2026-10-26 - 2.0's first beta: all of 2.0, described in full
 
 **About this beta.** BitcoinTX 2.0's first beta, for anyone who chooses to

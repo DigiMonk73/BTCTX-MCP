@@ -74,7 +74,11 @@ test("after an edit is saved, its row reloaded away, the keyboard is on Add tran
   });
   await page.goto("/transactions");
   await page.getByLabel("Sort transactions").selectOption("CREATION_DESC");
-  await page.getByRole("listitem").first().getByRole("button", { name: "Edit" }).click();
+  // Opened by the keyboard, so Edit is what opened it in every engine: on CI's Linux WebKit a click
+  // left focus on another control on the page, where it then rightly went back (#793)
+  const edit = page.getByRole("listitem").first().getByRole("button", { name: "Edit" });
+  await edit.focus();
+  await page.keyboard.press("Enter");
   const panel = page.getByRole("dialog", { name: "Edit Transaction" });
   await panel.getByLabel("Amount", { exact: true }).fill("60");
   await panel.getByRole("button", { name: "Update transaction" }).click();
