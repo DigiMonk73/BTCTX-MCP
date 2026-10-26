@@ -58,6 +58,15 @@ def coin(acquired: str, btc: str, cost: str, inherited: bool = False) -> dict:
     return {"acquired": acquired, "btc": btc, "cost_usd": cost, "inherited": inherited}
 
 
+def as_706(answer: dict) -> dict:
+    """The list as #706 gives it: since #711 each coin also names its
+    acquisition, and the answer gives what a wallet holds and whether it's
+    dated today (test_coins_picker_731.py)."""
+    coins = answer["coins"]
+    return {"coins": None if coins is None else [{k: v for k, v in c.items() if k != "acquired_txn_id"} for c in coins],
+            "fee_btc": answer["fee_btc"], "detail": answer["detail"]}
+
+
 def saved_coins(client, tx_id: int) -> list[dict]:
     """The lots the saved transfer put in its To account, as the preview lists them."""
     with client.Session() as db:
@@ -83,14 +92,14 @@ def test_the_oldest_coins_move_first_as_the_save_moves_them(owner):
     body = transfer("2025-06-01T12:00:00Z", "0.4001", fee="0.0001")
     r = owner.post("/api/transactions/coins-moved", json=body)
     assert r.status_code == 200, r.text
-    assert r.json() == {
+    assert as_706(r.json()) == {
         "coins": [coin("2017-03-01", "0.29990000", "299.90"), coin("2024-05-01", "0.10010000", "6006.00")],
         "fee_btc": "0.00010000",
         "detail": None,
     }
     saved = owner.post("/api/transactions", json=body)
     assert saved.status_code == 200, saved.text
-    assert r.json()["coins"] == saved_coins(owner, saved.json()["id"])
+    assert as_706(r.json())["coins"] == saved_coins(owner, saved.json()["id"])
     assert r.json()["fee_btc"] == saved_fee(owner, saved.json()["id"])
 
 
@@ -113,10 +122,10 @@ def test_a_backdated_transfer_lists_the_coins_its_replay_moves(owner):
     body = transfer("2024-12-01T12:00:00Z", "0.2")
     listed = owner.post("/api/transactions/coins-moved", json=body)
     assert listed.status_code == 200, listed.text
-    assert listed.json()["coins"] == [coin("2017-03-01", "0.20000000", "200.00")]
+    assert as_706(listed.json())["coins"] == [coin("2017-03-01", "0.20000000", "200.00")]
     saved = owner.post("/api/transactions", json=body)
     assert saved.status_code == 200, saved.text
-    assert listed.json()["coins"] == saved_coins(owner, saved.json()["id"])
+    assert as_706(listed.json())["coins"] == saved_coins(owner, saved.json()["id"])
 
 
 def test_an_edit_lists_the_coins_its_save_moves(owner):
@@ -125,7 +134,7 @@ def test_an_edit_lists_the_coins_its_save_moves(owner):
     tx_id = saved.json()["id"]
     unchanged = owner.post(f"/api/transactions/{tx_id}/coins-moved", json=transfer("2025-06-01T12:00:00Z", "0.1"))
     assert unchanged.status_code == 200, unchanged.text
-    assert unchanged.json()["coins"] == saved_coins(owner, tx_id) == [coin("2017-03-01", "0.10000000", "100.00")]
+    assert as_706(unchanged.json())["coins"] == saved_coins(owner, tx_id) == [coin("2017-03-01", "0.10000000", "100.00")]
 
     # More, with a fee: the edit moves the rest of the 2017 coins and some
     # 2024 ones, as its save then does
@@ -134,9 +143,9 @@ def test_an_edit_lists_the_coins_its_save_moves(owner):
     listed = owner.post(f"/api/transactions/{tx_id}/coins-moved", json=edit)
     assert listed.status_code == 200, listed.text
     assert dump(owner) == before
-    assert listed.json()["coins"] == [coin("2017-03-01", "0.29900000", "299.00"), coin("2024-05-01", "0.05000000", "3000.00")]
+    assert as_706(listed.json())["coins"] == [coin("2017-03-01", "0.29900000", "299.00"), coin("2024-05-01", "0.05000000", "3000.00")]
     assert owner.put(f"/api/transactions/{tx_id}", json=edit).status_code == 200
-    assert listed.json()["coins"] == saved_coins(owner, tx_id)
+    assert as_706(listed.json())["coins"] == saved_coins(owner, tx_id)
     assert listed.json()["fee_btc"] == saved_fee(owner, tx_id) == "0.00100000"
 
 
@@ -155,12 +164,14 @@ def test_a_transfer_the_save_refuses_answers_its_refusal(owner):
     assert listed.json()["detail"] == saved.json()["detail"]
 
 
-def test_only_a_transfer_moves_coins(owner):
+def test_only_a_transfer_or_a_withdrawal_from_a_wallet_lists_coins(owner):
+    """A dollar withdrawal moves no coins (since #711, a bitcoin Withdrawal
+    from a wallet lists the coins that leave: test_coins_picker_731.py)."""
     r = owner.post("/api/transactions/coins-moved", json={
-        "type": "Withdrawal", "timestamp": "2025-06-01T12:00:00Z", "from_account_id": WALLET,
-        "to_account_id": EXTERNAL, "amount": "0.1", "fee_amount": "0", "purpose": "Gift"})
+        "type": "Withdrawal", "timestamp": "2025-06-01T12:00:00Z", "from_account_id": 1,
+        "to_account_id": EXTERNAL, "amount": "100", "fee_amount": "0"})
     assert r.status_code == 422
-    assert r.json()["detail"] == "Only a Transfer moves coins between your accounts."
+    assert r.json()["detail"] == transfer_coins.NOT_LISTED
 
 
 def test_another_type_is_refused_before_any_replay(owner):
@@ -170,7 +181,7 @@ def test_another_type_is_refused_before_any_replay(owner):
         "type": "Buy", "timestamp": "2024-01-01T12:00:00Z", "from_account_id": 1, "to_account_id": EXCHANGE_BTC,
         "amount": "0.1", "fee_amount": "0", "fee_currency": "USD"})
     assert r.status_code == 422
-    assert r.json()["detail"] == "Only a Transfer moves coins between your accounts."
+    assert r.json()["detail"] == transfer_coins.NOT_LISTED
 
 
 def test_a_row_deleted_meanwhile_is_not_found(owner, monkeypatch):
@@ -187,7 +198,7 @@ def test_a_move_within_one_wallet_moves_no_coins(owner):
     """A consolidation records only its fee (#159): no coin changes account."""
     r = owner.post("/api/transactions/coins-moved", json=transfer("2025-06-01T12:00:00Z", "0.4", "0.0001", WALLET))
     assert r.status_code == 200, r.text
-    assert r.json() == {"coins": [], "fee_btc": "0.00010000", "detail": None}
+    assert as_706(r.json()) == {"coins": [], "fee_btc": "0.00010000", "detail": None}
 
 
 def test_inherited_coins_stay_inherited(owner):
@@ -198,7 +209,7 @@ def test_inherited_coins_stay_inherited(owner):
     assert r.status_code == 200, r.text
     listed = owner.post("/api/transactions/coins-moved", json=transfer("2025-06-01T12:00:00Z", "0.31"))
     assert listed.status_code == 200, listed.text
-    assert listed.json()["coins"] == [
+    assert as_706(listed.json())["coins"] == [
         coin("2017-03-01", "0.30000000", "300.00"), coin("2021-12-01", "0.01000000", "400.00", inherited=True)]
 
 
@@ -208,7 +219,7 @@ def test_past_the_time_budget_it_says_so(owner, monkeypatch):
     monkeypatch.setattr(past_years, "DRY_RUN_SECONDS", 0)
     r = owner.post("/api/transactions/coins-moved", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated
     assert r.status_code == 200, r.text
-    assert r.json() == {"coins": None, "fee_btc": None,
+    assert as_706(r.json()) == {"coins": None, "fee_btc": None,
                         "detail": "BitcoinTX couldn't work out in time which coins move. Saving isn't affected."}
 
 
@@ -224,7 +235,7 @@ def test_a_list_asked_for_again_stops_the_one_before(owner, monkeypatch):
     monkeypatch.setattr(transfer_coins, "_newest_from_now", lambda: lambda: True)  # one asked for meanwhile
     r = owner.post("/api/transactions/coins-moved", json=transfer("2024-01-01T12:00:00Z", "0.1"))  # backdated
     assert r.status_code == 200, r.text
-    assert r.json() == {"coins": None, "fee_btc": None, "detail": "A newer list was asked for meanwhile, perhaps "
+    assert as_706(r.json()) == {"coins": None, "fee_btc": None, "detail": "A newer list was asked for meanwhile, perhaps "
                         "in another window: change the transfer to ask again."}
 
 
@@ -260,7 +271,7 @@ def test_a_past_year_in_another_tax_timezone_lists_what_its_confirmed_save_moves
     body = transfer("2025-06-01T12:00:00Z", "0.9001", fee="0.0001")
     listed = owner.post("/api/transactions/coins-moved", json=body)
     assert listed.status_code == 200, listed.text
-    assert listed.json()["coins"] == [coin("2017-03-01", "0.29990000", "299.90"),
+    assert as_706(listed.json())["coins"] == [coin("2017-03-01", "0.29990000", "299.90"),
                                       coin("2024-05-01", "0.50000000", "30000.00"),
                                       coin("2024-05-01", "0.10010000", "6006.00")]
     asked = owner.post("/api/transactions", json=body)
@@ -270,7 +281,7 @@ def test_a_past_year_in_another_tax_timezone_lists_what_its_confirmed_save_moves
     with owner.Session() as db:
         lots = db.query(BitcoinLot).filter(BitcoinLot.created_txn_id == saved.json()["id"]).order_by(BitcoinLot.id)
         assert [(f"{lot.total_btc:.8f}", f"{lot.cost_basis_usd:.2f}") for lot in lots] == [
-            (c["btc"], c["cost_usd"]) for c in listed.json()["coins"]]
+            (c["btc"], c["cost_usd"]) for c in as_706(listed.json())["coins"]]
 
 
 def test_the_ai_key_asks_only_about_a_saved_transfer(owner):

@@ -7,7 +7,7 @@ import { WALLET_HINT } from "../../utils/disclaimer";
 import { transferAmountProblem } from "../../utils/transferAmounts";
 import AccountPicker from "./AccountPicker";
 import FeeValueField from "./FeeValueField";
-import TransferCoins from "./TransferCoins";
+import LeavingCoins from "./LeavingCoins";
 
 // A BTC account sent to itself (#159): how the choice reads, and what it records.
 // It moves no coins, so it never says "move" (#705)
@@ -61,7 +61,8 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
  * source's currency (a bitcoin one can also be the same account, a
  * consolidation), and the fee is what was sent less what arrived, in
  * bitcoin or in dollars (#447; useFieldAutofill). Between two bitcoin
- * accounts, the coins that will move, before it saves (#706).
+ * accounts, the coins that will move, before it saves (#706); out of
+ * one of your wallets, the coins can be chosen (#711).
  */
 const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
   const { register, watch, getValues, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
@@ -179,7 +180,7 @@ const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | nul
         </div>
       )}
 
-      <TransferCoins book={book} transactionId={transactionId} />
+      <LeavingCoins book={book} transactionId={transactionId} />
     </>
   );
 };

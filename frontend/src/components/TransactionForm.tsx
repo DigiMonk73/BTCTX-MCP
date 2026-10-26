@@ -26,6 +26,7 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   // An account chosen for one type is none of another's (5.13)
   fromAccountId: undefined,
   toAccountId: undefined,
+  chosenCoins: null, // oldest first, until coins are chosen (#711)
 };
 
 /** The transaction form: a new transaction, or `transactionId`'s to edit. */

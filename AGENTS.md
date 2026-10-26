@@ -257,8 +257,9 @@ Form 8949: their holding period and date acquired, #736), what the report
 counts as income or a rebate and as a gift, donation or lost coins, each
 row's date and tax year: `services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
-`exact`, `timezone`: the one its rows' dates are in, `confirm`) and saves
-nothing. Sent again with
+`exact`, `timezone`: the one its rows' dates are in, `confirm`; and
+`coins_chosen` only beside a write that adds or changes a choice of coins
+dated in an earlier tax year, #711) and saves nothing. Sent again with
 `?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
 "pre-change" one, the newest 5 and the first of each day for a week; a
 fresh AI copy with the key), the fingerprint checked again before the
@@ -636,7 +637,8 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page and afresh as Settings or its accounts section opens (#720); Settings' "Wallets, exchanges and banks" |
 | `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
 | `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form, or the AI's preview, the coins held (`HELD_HOOK`) |
-| `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/TransferCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts will move, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`) |
+| `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/LeavingCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts, or a Withdrawal from a wallet, will take, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`); from a wallet, what it holds then (`held`, through `chosen_coins.HELD_HOOK`); a saved one's, the AI key too (#711, Q4) |
+| `frontend/src/components/transactionForm/ChosenCoins.tsx`, `ChosenCoinsTable.tsx`, `frontend/src/utils/chosenCoins.ts` | the form's coin picker (#711, C3): what a wallet holds, a BTC field per purchase, the quick fills (Q3: "Highest cost first" only on a transaction dated today, `dated_today`), the rule's words, the running total; Save waits until it adds up; the form's `chosenCoins`, sent as `chosen_coins` |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |

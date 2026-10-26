@@ -1692,16 +1692,22 @@ def _lots_to_take(tx: Transaction, tx_data: dict, db: Session) -> list[tuple[Bit
 
 def _hand_over(tx: Transaction, lots: list[BitcoinLot], db: Session) -> None:
     """The account's coins before the transaction takes any, one line per
-    acquisition in the order they're taken, to the session's HELD_HOOK if
-    it has one (the form's list of coins to choose from, #711)."""
+    acquisition in the order they're taken, each with what oldest first
+    takes of it, lot by lot as the save does, to the session's HELD_HOOK
+    if it has one (the form's list of coins to choose from, #711)."""
     hook = db.info.get(chosen_coins.HELD_HOOK)
     if hook is None:
         return
+    left = chosen_coins.what_leaves(tx)
     lines: dict[int | None, list] = {}
     for lot in lots:
-        line = lines.setdefault(lot.acquired_txn_id, [Decimal(0), Decimal(0), lot.acquired_date, lot.inherited])
+        line = lines.setdefault(lot.acquired_txn_id, [Decimal(0), Decimal(0), lot.acquired_date, lot.inherited,
+                                                      Decimal(0)])
+        taken = min(Decimal(lot.remaining_btc), left)
+        left -= taken
         line[0] += Decimal(lot.remaining_btc)
         line[1] += cost_left(lot)
+        line[4] += taken
     hook(tx, [chosen_coins.Held(acquired, *line) for acquired, line in lines.items()])
 
 

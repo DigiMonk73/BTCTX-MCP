@@ -2,6 +2,7 @@
 // component so it can be unit-tested (src/utils/transactionForm.test.ts).
 // Accounts go by id, each one's currency read from the book (2.0 spec 5.13).
 import { EXTERNAL_ID, accountCurrency, isBtcAccount, usdOf } from "./accounts";
+import { choosable, plainBtc, sentLines } from "./chosenCoins";
 import { btcText, optionalDecimal, parseDecimal } from "./format";
 import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } from "./purposes";
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
@@ -151,7 +152,24 @@ export function mapTransactionToFormData(tx: ITransaction, book: AccountBook): T
   const typeFormData = TYPE_FORM_DATA[tx.type];
   const form = typeFormData ? { ...commonFormData(tx), ...typeFormData(tx, book) } : commonFormData(tx);
   if (tx.acquired_at) form.acquiredDate = tx.acquired_at;
+  // The coins it chose (#711): shown in the picker and sent back unchanged,
+  // so an edit of another field keeps them and their day
+  form.chosenCoinsSaved = tx.chosen_coins?.length ? tx.chosen_coins : null;
+  form.chosenCoins = form.chosenCoinsSaved?.map((line) => ({ ...line, btc: plainBtc(line.btc) })) ?? null;
+  form.coinsChosenAt = tx.coins_chosen_at ?? null;
   return form;
+}
+
+/**
+ * The coins to send (#711): the picker's choice where coins can be chosen,
+ * else none. Left out (undefined) for a transaction that had none and has
+ * none, so its body is as it always was; null to set a stored choice back
+ * to oldest first, or to drop one from a row that can no longer take one.
+ */
+function chosenCoinsSent(data: TransactionFormData, book: AccountBook): ChosenCoin[] | null | undefined {
+  const choosing = choosable(data, book) && Array.isArray(data.chosenCoins);
+  if (choosing) return sentLines(data.chosenCoins as ChosenCoin[]);
+  return data.chosenCoinsSaved?.length ? null : undefined;
 }
 
 const BTC_FIELDS = ["amount", "fee", "amountFrom", "amountTo", "amountBTC"] as const;
@@ -309,6 +327,7 @@ export function buildTransactionPayload(
     ? typePayload(data, book)
     : { amount: 0, feeCurrency: "USD", cost_basis_usd: null };
   const fee_usd = feeUsd(data, values.feeCurrency);
+  const chosen_coins = chosenCoinsSent(data, book);
   return {
     type: data.type,
     timestamp: localDatetimeToIso(data.timestamp),
@@ -326,5 +345,6 @@ export function buildTransactionPayload(
     broker_reporting: brokerReporting(data, book),
     acquired_at: acquiredAt(data, book),
     ...(fee_usd !== undefined ? { fee_usd } : {}),
+    ...(chosen_coins !== undefined ? { chosen_coins } : {}),
   };
 }

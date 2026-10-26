@@ -3,14 +3,14 @@ import { acquiredText, type MovedCoin } from "../../utils/coinsMoved";
 import { formatUsd, parseDecimal } from "../../utils/format";
 
 /**
- * The coins a Transfer will move, in the order its save takes them, each
- * with its date acquired, amount and cost (#706): a component of its own,
- * which choosing the coins (#711) builds on.
+ * The coins a Transfer will move, or a Withdrawal from a wallet will
+ * dispose of, in the order its save takes them, each with its date
+ * acquired, amount and cost (#706, #711).
  */
-const MovedCoinsTable: React.FC<{ coins: MovedCoin[] }> = ({ coins }) => (
+const MovedCoinsTable: React.FC<{ coins: MovedCoin[]; caption: string }> = ({ coins, caption }) => (
   <div className="table-scroll">
     <table className="table">
-      <caption className="field-label">Coins that will move</caption>
+      <caption className="field-label">{caption}</caption>
       <thead>
         <tr>
           <th scope="col">Date acquired</th>
