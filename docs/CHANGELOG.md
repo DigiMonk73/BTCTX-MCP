@@ -38,6 +38,16 @@ All notable changes to BitcoinTX are documented in this file.
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
 
+### Fixed
+- **Save says why it waits when the coins chosen don't add up** (#771,
+  found by the 2.0 testing plan's screens check, T9). With "Choose
+  which coins leave" open, Save with a choice that doesn't add up to what
+  leaves seemed to do nothing: its words showed under the picker, far below
+  the part of the panel on screen, and weren't announced. Now Save scrolls
+  to them, beside the running total, moves focus there and announces them
+  to screen readers, on a computer and on a phone, each time it's pressed.
+  Nothing is saved, as before, and no figure changes.
+
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
 **About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { useFormContext } from "react-hook-form";
 import { accountName, chosenId } from "../../utils/accounts";
 import {
@@ -82,6 +82,26 @@ const UnlistedLines: React.FC<{ lines: ChosenCoin[] }> = ({ lines }) => lines.le
   </ul>
 );
 
+/** Save's refusal of the choice, beside the running total (#771). The picker
+ * sits far below the part of the panel on screen when Save is pressed, so
+ * each Save it stops scrolls it into view and moves focus to it, unless a
+ * field above was refused too (the form focuses that one); and each is a
+ * new alert, announced again. Typing that refuses it again moves nothing. */
+const Refusal: React.FC<{ message?: string; saves: number; alone: boolean }> = ({ message, saves, alone }) => {
+  const shown = useRef<HTMLParagraphElement>(null);
+  const seen = useRef(saves);
+  useEffect(() => {
+    if (saves === seen.current) return;
+    seen.current = saves;
+    if (!alone || !shown.current) return;
+    shown.current.scrollIntoView?.({ block: "center" });
+    shown.current.focus({ preventScroll: true });
+  }, [saves, alone]);
+  return message
+    ? <p key={saves} ref={shown} className="field-error" role="alert" tabIndex={-1}>{message}</p>
+    : null;
+};
+
 /**
  * Choosing which coins leave one of your wallets (#711; specific
  * identification, Treas. Reg. §1.1012-1(j)(2)). Shut, a button opens it on
@@ -93,7 +113,8 @@ const UnlistedLines: React.FC<{ lines: ChosenCoin[] }> = ({ lines }) => lines.le
  */
 const ChosenCoins: React.FC<{ book: AccountBook; coins: CoinsShown; values: TransactionFormData }> = (
   { book, coins, values }) => {
-  const { register, setValue, formState: { errors, isSubmitted } } = useFormContext<TransactionFormData>();
+  const { register, setValue, formState: { errors, isSubmitted, submitCount } } =
+    useFormContext<TransactionFormData>();
   useEffect(() => {
     register("chosenCoins", {
       validate: (lines, all) => {
@@ -125,7 +146,9 @@ const ChosenCoins: React.FC<{ book: AccountBook; coins: CoinsShown; values: Tran
       <UnlistedLines lines={lines.filter((line) => !listed.has(line.acquired_txn_id) && sats(line.btc) > 0)} />
       <PickerActions {...parts} leaves={leaves} />
       <p className="field-hint" aria-live="polite">{runningTotal(lines, leaves)}</p>
-      {errors.chosenCoins && <span className="field-error">{errors.chosenCoins.message}</span>}
+      <Refusal message={errors.chosenCoins?.message} saves={submitCount}
+        alone={Object.keys(errors).every((field) => field === "chosenCoins")} />
+
     </fieldset>
   );
 };
