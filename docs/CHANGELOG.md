@@ -38,6 +38,13 @@ All notable changes to BitcoinTX are documented in this file.
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
 
+### Fixed
+- **A dialog's buttons fit a phone's screen** (#769, found by the screens
+  tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
+  made first)" pushed Cancel off the screen's left edge. A dialog's
+  buttons now wrap where they don't fit on one line, and on a phone each
+  fills its line, its words wrapping on the narrowest screens. No figure changes.
+
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
 **About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who
@@ -214,11 +221,6 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
-- **A dialog's buttons fit a phone's screen** (#769, found by the screens
-  tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
-  made first)" pushed Cancel off the screen's left edge. A dialog's
-  buttons now wrap where they don't fit on one line, and on a phone each
-  fills its line. No figure changes.
 - **The past-year question says when an added or deleted row moves the
   year's income** (#753, found by the 2.0 testing plan's AI checks on
   alpha.2). Adding a Reward deposit to an earlier tax year read "Added:
