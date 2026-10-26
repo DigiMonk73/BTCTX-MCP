@@ -1051,7 +1051,7 @@ TEMPLATE_ROWS = [
     ["2024-01-03T10:00:00Z", "Buy", "0.5", "Exchange USD", "Exchange BTC",
      "10000.00", "", "50.00", "USD", "", "", "Buy 0.5 BTC at $20k/BTC with $50 fee"],
     ["2024-01-04T10:00:00Z", "Buy", "0.1", "Bank", "Exchange BTC",
-     "2000.00", "", "10.00", "USD", "", "", "Auto-buy: Purchase BTC directly from bank"],
+     "2000.00", "", "10.00", "USD", "", "", "Buy BTC paid straight from a bank"],
     # BTC deposits, every source
     ["2024-01-10T10:00:00Z", "Deposit", "1.0", "External", "Wallet",
      "20000.00", "", "", "", "MyBTC", "", "My own BTC from a wallet BitcoinTX doesn't track"],

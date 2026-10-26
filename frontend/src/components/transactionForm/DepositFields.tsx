@@ -84,8 +84,8 @@ const OriginalDateField: React.FC<{ inherited: boolean }> = ({ inherited }) => {
       />
       {errors.acquiredDate && <span className="field-error">{errors.acquiredDate.message}</span>}
       <small className="field-hint">
-        The day the person died. The cost basis is the value that day, and these coins take their place in
-        first in, first out from that date.
+        The day the person died. The cost basis is the value that day, and per-wallet FIFO counts these coins
+        as acquired that day.
       </small>
     </div>
   );

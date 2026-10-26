@@ -121,7 +121,8 @@ describe("adding an account (5.1, 5.8, 5.9: their words, exactly)", () => {
   it("gives Q5's note for a second wallet or exchange while another one has transactions", () => {
     expect(POOLED_NOTE.wallet).toBe(
       "Years before you add this wallet were figured with your wallets together, as BitcoinTX 1.x did. Move " +
-      "coins into it with a Transfer dated when they really moved: BitcoinTX moves the oldest coins first. A " +
+      "coins into it with a Transfer dated when they really moved. Cost basis is per-wallet FIFO: each wallet and " +
+      "exchange uses its own oldest coins first for a sale, spend or transfer. A " +
       "Transfer dated in an earlier year can change that year's figures and later ones (BitcoinTX shows which " +
       "years before it saves), and BitcoinTX doesn't allocate your cost basis to each wallet as of January 1, " +
       "2025 (Rev. Proc. 2024-28), nor record an allocation you made: its figures from 2025 on follow its own " +
@@ -130,8 +131,8 @@ describe("adding an account (5.1, 5.8, 5.9: their words, exactly)", () => {
     );
     expect(POOLED_NOTE.exchange).toBe(
       "Years before you add this exchange were figured with your exchange accounts together, as BitcoinTX 1.x " +
-      "did. Move coins into it with a Transfer dated when they really moved: BitcoinTX moves the oldest coins " +
-      "first. A Transfer dated in an earlier year can change that year's figures and later ones (BitcoinTX " +
+      "did. Move coins into it with a Transfer dated when they really moved. Cost basis is per-wallet FIFO: each " +
+      "wallet and exchange uses its own oldest coins first for a sale, spend or transfer. A Transfer dated in an earlier year can change that year's figures and later ones (BitcoinTX " +
       "shows which years before it saves), and BitcoinTX doesn't allocate your cost basis to each exchange " +
       "account as of January 1, 2025 (Rev. Proc. 2024-28), nor record an allocation you made: its figures from " +
       "2025 on follow its own history. A tax professional can compare that with yours (your 2024 Complete Tax " +

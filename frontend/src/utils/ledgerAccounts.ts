@@ -156,7 +156,8 @@ export const EXCHANGE_HELP = exchangeHelp("name");
 
 const pooled = (kind: string, together: string, each: string) =>
   `Years before you add this ${kind} were figured with your ${together} together, as BitcoinTX 1.x did. Move ` +
-  "coins into it with a Transfer dated when they really moved: BitcoinTX moves the oldest coins first. A " +
+  "coins into it with a Transfer dated when they really moved. Cost basis is per-wallet FIFO: each wallet and " +
+  "exchange uses its own oldest coins first for a sale, spend or transfer. A " +
   "Transfer dated in an earlier year can change that year's figures and later ones (BitcoinTX shows which years " +
   `before it saves), and BitcoinTX doesn't allocate your cost basis to each ${each} as of January 1, 2025 ` +
   "(Rev. Proc. 2024-28), nor record an allocation you made: its figures from 2025 on follow its own history. A " +
