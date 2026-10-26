@@ -2,6 +2,7 @@ import React, { useCallback, useContext, useEffect, useLayoutEffect, useRef, use
 import { useBlocker, type BlockerFunction } from "react-router-dom";
 import { X } from "lucide-react";
 import { ReportUnsavedChanges } from "../contexts/unsavedChanges";
+import { keepFocusIn } from "../utils/dialogFocus";
 import "../styles/transactionPanel.css";
 import TransactionForm from "./TransactionForm";
 
@@ -85,14 +86,45 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     onEscape.current = askDiscard ? keepEditing : requestClose;
   }, [askDiscard, keepEditing, requestClose]);
 
+  // The panel is a modal dialog (#772): Tab stays in it, or in "Discard
+  // changes?" over it. Another dialog over it (the past-year question) keeps
+  // the keyboard in itself.
+  const panel = useRef<HTMLDivElement>(null);
+  const discard = useRef<HTMLDivElement>(null);
+  const holdFocus = useRef<(e: KeyboardEvent) => void>(() => {});
+  useLayoutEffect(() => {
+    holdFocus.current = (e) => {
+      if (askDiscard) keepFocusIn(discard.current, e);
+      else if (!document.querySelector(".dialog-backdrop")) keepFocusIn(panel.current, e);
+    };
+  }, [askDiscard]);
+
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) onEscape.current();
+      holdFocus.current(e);
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
+
+  // Focus goes into the panel as it opens, and back to what opened it as it closes
+  useEffect(() => {
+    if (!isOpen) return;
+    const from = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panel.current?.focus();
+    return () => from?.focus();
+  }, [isOpen]);
+
+  // "Discard changes?" takes the keyboard on its safe answer, and gives it back on Go back
+  const goBack = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!askDiscard) return;
+    const from = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    goBack.current?.focus();
+    return () => from?.focus();
+  }, [askDiscard]);
 
   // Discard changes: go where the user was going, or just close
   const handleDiscardChanges = () => {
@@ -119,9 +151,10 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
   return (
     <React.Fragment>
       <div className="transaction-panel-overlay" onClick={requestClose} />
-      <div className="transaction-panel">
+      <div ref={panel} tabIndex={-1} className="transaction-panel" role="dialog" aria-modal="true"
+        aria-labelledby="transaction-panel-title">
         <div className="panel-header">
-          <h2>{transactionId ? "Edit Transaction" : "Add Transaction"}</h2>
+          <h2 id="transaction-panel-title">{transactionId ? "Edit Transaction" : "Add Transaction"}</h2>
           {/* On a phone the panel covers the page: no outside to click, no
               Escape key, so this is the only way out without saving */}
           <button
@@ -176,11 +209,12 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
 
       {askDiscard && (
         <div className="dialog-backdrop">
-          <div className="dialog dialog-narrow card" role="dialog" aria-modal="true">
-            <h3 className="card-title">Discard changes?</h3>
+          <div ref={discard} className="dialog dialog-narrow card" role="dialog" aria-modal="true"
+            aria-labelledby="discard-changes-title">
+            <h3 id="discard-changes-title" className="card-title">Discard changes?</h3>
             <p>Your changes have not been saved. If you close this panel, they will be lost.</p>
             <div className="dialog-actions">
-              <button type="button" onClick={keepEditing} className="btn btn-secondary">Go back</button>
+              <button ref={goBack} type="button" onClick={keepEditing} className="btn btn-secondary">Go back</button>
               <button type="button" onClick={handleDiscardChanges} className="btn btn-danger">
                 Discard changes
               </button>
