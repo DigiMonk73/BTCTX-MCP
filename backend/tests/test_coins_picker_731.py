@@ -17,6 +17,7 @@ the price $50,000 at every hour.
 """
 
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -191,11 +192,20 @@ def test_dated_today_in_the_tax_timezone_is_said(owner):  # noqa: F811
 
 
 def test_today_is_the_tax_timezones(owner):  # noqa: F811
-    """00:01 UTC today is yesterday in Chicago."""
+    """A moment that is today in UTC but not in Chicago, the tax timezone:
+    00:01 UTC today while Chicago's date is UTC's (it's still yesterday
+    there), else 00:01 tomorrow in Chicago (already today in UTC)."""
     assert owner.put("/api/settings/tax-timezone", json={"timezone": "America/Chicago", "chosen": True}) \
         .status_code == 200
-    start = now_utc().replace(hour=0, minute=1, second=0)
-    r = owner.post(URL, json=spend(start.isoformat().replace("+00:00", "Z"), "0.1", "10000"))
+    chicago = ZoneInfo("America/Chicago")
+    now = now_utc()
+    if now.astimezone(chicago).date() == now.date():
+        moment = now.replace(hour=0, minute=1, second=0)
+    else:
+        tomorrow = now.astimezone(chicago).date() + timedelta(days=1)
+        moment = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 0, 1, tzinfo=chicago).astimezone(timezone.utc)
+    assert moment.date() == now.date() and moment.astimezone(chicago).date() != now.astimezone(chicago).date()
+    r = owner.post(URL, json=spend(moment.isoformat().replace("+00:00", "Z"), "0.1", "10000"))
     assert r.status_code == 200, r.text
     assert r.json()["dated_today"] is False
 
