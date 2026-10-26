@@ -17,8 +17,12 @@ per-wallet FIFO, and in a self-custody wallet you can choose which coins
 leave, if you chose them when they left. Connecting an AI is optional and
 off until you turn it on. The dashboard's Unrealized Gains/Losses adds up
 your accounts' own gains (a few cents from alpha.3's; on no tax form), and
-fixes found in alpha.3 are in. Updating from alpha.3 changes no stored
-figure. The way back to 1.x and what's in 2.0 are in alpha.1's notes. The
+fixes found in alpha.3 are in, among them a tax-figures fix: in alpha.1 to
+alpha.3 a Coinbase file in its current 13-column shape left Coinbase's fee
+out of a buy's cost basis and made a sale's proceeds too high, so gains
+were overstated (#789). Delete such imported rows and import the file again in
+beta.1 (or edit each row's cost or proceeds to the file's Total), then
+check Ledger Review. Updating from alpha.3 changes no stored figure. The way back to 1.x and what's in 2.0 are in alpha.1's notes. The
 AI connector is `btctx-mcp==2.0.0b1`.
 
 ### Changed
