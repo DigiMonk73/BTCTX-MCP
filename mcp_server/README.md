@@ -1,15 +1,17 @@
 # BitcoinTX MCP server
 
-Connect an AI assistant (Claude Desktop, Claude Code, or any MCP client) to
-your BitcoinTX ledger. Paste anything, like an exchange confirmation email, a
+Connect an AI assistant (Claude Desktop, Claude Code, Grok Build or any MCP
+client) to your BitcoinTX ledger. It's optional, and off until you turn it
+on: nothing connects an AI to BitcoinTX by itself. Paste anything, like an exchange confirmation email, a
 wallet's transaction history, a block-explorer page or a CSV snippet, or just
 describe it ("moved 0.05 BTC from River to my Coldcard yesterday, fee was 2k
 sats"). The assistant turns it into transactions, shows you a dry-run preview
 with dedup and the resulting gain/loss, and saves them once you confirm.
 
 BitcoinTX itself is a self-hosted Bitcoin portfolio and tax tracker for your
-wallets, exchanges and banks, each wallet and exchange with its own lots:
-see [Wallets, exchanges and
+wallets, exchanges and banks. Cost basis is per-wallet FIFO: each wallet
+and exchange uses its own oldest coins first for a sale, spend or transfer.
+See [Wallets, exchanges and
 banks](https://github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks).
 
 The server runs **on your computer** and talks to your BitcoinTX instance
@@ -33,18 +35,26 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | Tool | What it does |
 |------|--------------|
 | `get_ledger_guide` | How to map real-world events onto BitcoinTX accounts, types and tax fields |
-| `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate FIFO gains and balances. Saves nothing. A value filled from a price says which price: its hour (or day), source and USD per BTC. A row leaving one of your wallets says which coins it takes and which the wallet holds then |
+| `preview_transactions` | Dry run: validate, auto-fill FMV, flag duplicates, simulate the gains (Per-wallet FIFO) and balances. Saves nothing. A value filled from a price says which price: its hour (or day), source and USD per BTC. A row leaving one of your wallets says which coins it takes and which the wallet holds then |
 | `add_transactions` | Save rows, all-or-nothing; duplicates are skipped unless you say one is another transaction. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list. A row leaving one of your wallets can name the coins you chose to send, when you chose them by the time they left (`chosen_coins`, each purchase or deposit by its transaction id); the AI records only a choice you tell it of, never one it suggests |
 | `list_transactions` | Search by date range, type and account; a value BitcoinTX filled from a price says which price, as in the preview |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale, or a spend and its network fee, goes in), `fee_usd`, a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death), and `chosen_coins` |
-| `get_coins_moved` | Which coins a saved transfer moves, each piece's date acquired, BTC and cost, and its network fee's. Saves nothing |
+| `get_coins_moved` | Which coins a saved Transfer, or a bitcoin Withdrawal from one of your wallets, takes: each piece's date acquired, BTC and cost, and its network fee's; from a wallet, also the coins it held then. Saves nothing |
 | `get_portfolio` | Your accounts (each wallet, exchange and bank, by name), their balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now, and where it came from |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Account → Recalculate Ledger) |
 | `review_ledger` | Read-only list of saved transactions worth a second look (same as Settings → Ledger Review). Changes nothing; values priced at the day are moved to their hour's price by you in Settings |
 | `backup_ledger` | A copy of the database in BitcoinTX's `backups` folder on your server, as a safety net before a large change (one a minute). Restoring one is up to you |
 
-There is deliberately no bulk delete.
+There is deliberately no bulk delete, and no tool adds, renames, hides or
+deletes an account: you do that in BitcoinTX.
+
+**Your accounts by name.** The tools name your wallets, exchanges and banks
+as you named them in BitcoinTX (`get_portfolio` lists them). A name
+BitcoinTX doesn't have is refused before anything is sent: the AI asks you
+to add that wallet or exchange in Settings → Wallets, exchanges and banks,
+and never puts it in another account. When more than one account fits, it
+asks which.
 
 **A change to an earlier tax year asks first.** An add, an edit, a delete
 or Recalculate Ledger that would change the figures of a tax year you may
@@ -52,6 +62,14 @@ already have filed saves nothing at first: the tool answers with the years
 and what changes, and the AI calls it again only once you say yes. A copy
 of your ledger is made first. The preview shows the same before anything
 is added.
+
+**Some calls can take minutes on a large ledger.** The preview, the writes
+(add, update, delete, recalculate), `get_coins_moved` and `review_ledger`
+can each go through your whole ledger more than once: the connector waits
+up to 20 minutes for them, and up to 2 minutes for the other tools. If your
+AI app stops waiting sooner, a write may still have been saved: have the AI
+check with `list_transactions` before sending it again (sent again,
+`add_transactions` leaves out the rows already saved).
 
 **Keep the connector up to date with BitcoinTX.** Once your ledger has
 multiple wallets or exchanges, BitcoinTX refuses changes from a connector
@@ -69,7 +87,9 @@ it (btctx-mcp 2.0 or later), then try again." It still reads your ledger.
   which sees your IP address and the version; it's cached after that. Versions before 1.2.0 aren't on PyPI: use
   `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP.git@vX.Y.Z#subdirectory=mcp_server" btctx-mcp`.
   When the server and your BitcoinTX are different versions, every tool
-  reply starts with a line saying so and what to change.
+  reply starts with a line saying so and what to change. A 2.0 alpha or
+  beta pins its own (`btctx-mcp==2.0.0aN` or `2.0.0bN`), named
+  `bitcointx-preview` in your AI app, beside your own `bitcointx`.
 - Python 3.11+ for the connector. `uvx` downloads one by itself only when the
   machine has no Python at all; if its only Python is 3.10, `uvx` stops with
   "current Python version (3.10…) does not satisfy Python>=3.11": run
@@ -80,8 +100,9 @@ it (btctx-mcp 2.0 or later), then try again." It still reads your ledger.
 In BitcoinTX, open **Settings → Connect an AI Assistant** and copy the setup
 prompt into your AI app. It carries your address and points the AI to
 [AI_SETUP.md](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/AI_SETUP.md), which tells it how to install the server in
-Claude Code, Claude Desktop, Grok Build or another MCP client. On Docker and
-StartOS, create the AI key in the same section first; it stays out of the
+Claude Code, Claude Desktop, Grok Build or another MCP client. Turn on **Let
+AI assistants use BitcoinTX** in the same section (it's off until you do).
+On Docker and StartOS, create the AI key there first; it stays out of the
 chat: the AI writes `YOUR_BITCOINTX_AI_KEY` and you paste the key into the
 configuration file. The section also has the Claude Desktop config and
 `claude mcp add` command (and, for the Mac app, a Grok Build command) ready
@@ -168,7 +189,9 @@ Turn on **Settings → Connect an AI Assistant → Let AI assistants use
 BitcoinTX** first (off by default), and keep BitcoinTX open while you use
 the AI. The same section turns access off again or resets the key. The app
 also writes a new key each time it starts; either way the server picks up
-the new key by itself. `BTCTX_MCP_FILE` points at another file.
+the new key by itself. `BTCTX_MCP_FILE` points at another file. A 2.0
+alpha's or beta's connector reads BitcoinTX Preview's instead
+(`~/Library/Application Support/BitcoinTX Preview/mcp.json`).
 
 **Docker, StartOS, or from source:** in BitcoinTX, **Settings → Connect an
 AI Assistant**, turn on **Let AI assistants use BitcoinTX** and click
@@ -249,6 +272,13 @@ every connector reply says which version to use.
   then check with `grok mcp doctor`.
 - **LM Studio:** Program tab → Install → Edit `mcp.json`, change
   `btctx-mcp==` in `args`, save, then restart LM Studio.
+- **A 2.0 alpha or beta**, on a Mac or Docker: it has its own server,
+  `bitcointx-preview`, beside your own. Change the version in that one (in
+  Claude Code, `mcpServers.bitcointx-preview.args`; with BitcoinTX Preview,
+  `claude mcp remove bitcointx-preview` and the command its Settings gives),
+  never the `bitcointx` server, which reaches your own BitcoinTX. On
+  StartOS, where the pre-release updated your BitcoinTX in place, change
+  the server that reaches that StartOS server, whatever its name.
 
 Don't paste the whole new configuration from Settings over the old one
 unless you put your AI key (and on StartOS the certificate path) back in:
@@ -267,19 +297,21 @@ btctx-mcp` instead (or `@main`): replace those arguments with
 > Got paid 250k sats for a logo design on 2024-05-02, went straight to cold storage
 
 The assistant asks when something tax-relevant is ambiguous (is that address
-your own wallet or someone else's? bank-funded or from your River cash
-balance?), previews, then saves once you confirm. Your AI client will also ask
+one of your wallets or someone else's? which wallet or exchange, when you
+have more than one? bank-funded or from your River cash balance?), previews, then saves once you confirm. Your AI client will also ask
 you to approve each tool call unless you tell it not to.
 
 ## Security notes
 
-- **What the AI key can do:** read the ledger, add, change or delete single
-  transactions, recalculate, and make a backup copy on the server
-  (`backup_ledger`). Only while AI access is on.
+- **What the AI key can do:** read the ledger (your accounts' names
+  included), add, change or delete single transactions, recalculate, and
+  make a backup copy on the server (`backup_ledger`). Only while AI access
+  is on.
 - **What it can't do** (BitcoinTX answers 403): log in, change your username
   or password, create or revoke keys, turn AI access on or off, restore or
-  download a backup, export or import files, delete everything, apply Ledger
-  Review fixes, change settings, or open reports.
+  download a backup, export or import files, add, rename, hide or delete an
+  account, delete everything, apply Ledger Review fixes, change settings, or
+  open reports.
 - Mac app: the key sits in `mcp.json`, readable only by you, and works only
   from this computer and only until BitcoinTX quits (each start writes a new
   one). Settings → Connect an AI Assistant turns access off or resets the key.
@@ -298,7 +330,8 @@ you to approve each tool call unless you tell it not to.
   itself (`backups/…-ai-before-changing-…db`). Of the AI copies it keeps the
   newest 3 and, for a week, the oldest and the first copy of each day made
   before the AI changed anything that day (UTC days), so copies made
-  afterwards never replace those from before.
+  afterwards never replace those from before. A change to an earlier tax
+  year that you confirm gets a fresh copy first, whatever the hour.
 
 ## Disclaimer
 

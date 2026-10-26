@@ -37,6 +37,34 @@ All notable changes to BitcoinTX are documented in this file.
   introduce the AI connection, they call it optional, off until you turn
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
+- **The AI connector's documents say what the 2.0 connector does** (D3 of
+  the docs overhaul, #699). The setup guide an AI follows
+  (`mcp_server/AI_SETUP.md`) fills the gaps an AI test found (#676): after
+  adding the server, every app is restarted (a new Claude Code or Grok
+  Build session, or Claude Desktop reopened) before the check, since a
+  running session doesn't get the new tools; the address check is for
+  Docker and StartOS only (the Mac app's prompt has no address);
+  "Already set up?" is for a release only, never a 2.0 alpha or beta;
+  a pre-release's connector is updated under `bitcointx-preview`, never
+  the tester's own `bitcointx`; and the older connector's refusal is in
+  its table of errors. The setup prompt in Settings › Connect an AI
+  Assistant now asks the AI to have you turn on "Let AI assistants use
+  BitcoinTX" first, which is off in a new install. The connector's README
+  calls the AI connection optional, off until you turn it on (decision
+  31), and says how it names your accounts, that no tool changes an
+  account, how long it waits (up to 20 minutes for the preview, the
+  writes, `get_coins_moved` and Ledger Review, which can go through a
+  large ledger more than once), and how to update a pre-release's
+  connector. The ledger guide and the tools' descriptions name the method
+  "Per-wallet FIFO" (decision 30) and the screen "Privacy & Network",
+  link the README at the connector's own release (GitHub's front page
+  shows `main`'s, 1.x's until 2.0's release), and fill four gaps found
+  by T8 (#694): `get_coins_moved` answers for a bitcoin Withdrawal from a
+  wallet too, its `held` is never a menu to offer and its `dated_today`
+  is the form's, a choice recorded after the coins left shows in Ledger
+  Review's reminder "coins chosen after they left", which the AI passes
+  on, and a bitcoin deposit made a Buy keeps its own cost basis when
+  none is sent. No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 

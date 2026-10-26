@@ -5,13 +5,39 @@ Sent to the client as the server's instructions and also returned by the
 get_ledger_guide tool (some clients ignore server instructions).
 """
 
-LEDGER_GUIDE = """\
+import re
+
+from btctx_mcp import __version__
+
+REPO_URL = "https://github.com/DigiMonk73/BTCTX-MCP"
+STAGES = {"a": "alpha", "b": "beta"}
+
+
+def release_tag(version: str) -> str | None:
+    """BitcoinTX's release tag for a connector version: v1.2.10, or a 2.0
+    pre-release's v2.0.0-alpha.3 or v2.0.0-beta.1 (PEP 440's 2.0.0a3,
+    2.0.0b1). None for any other (a source tree's "unknown")."""
+    found = re.fullmatch(r"(\d+\.\d+\.\d+)(?:([ab])([1-9]\d*))?", version)
+    if not found:
+        return None
+    release, stage, n = found.groups()
+    return f"v{release}-{STAGES[stage]}.{n}" if stage else f"v{release}"
+
+
+def readme_url(version: str, anchor: str) -> str:
+    """The README as this connector's own release has it. GitHub's front
+    page shows main's, which until 2.0's release is 1.x's, with no section
+    on multiple wallets (docs plan 3.5, #699). A source tree links main's."""
+    return f"{REPO_URL}/blob/{release_tag(version) or 'main'}/README.md#{anchor}"
+
+
+LEDGER_GUIDE = f"""\
 # BitcoinTX ledger guide
 
-BitcoinTX is the user's self-hosted Bitcoin tax ledger (FIFO cost basis, IRS
-Form 8949). Your job: turn whatever they paste or say (exchange emails, CSV
-snippets, wallet history, block-explorer pages, plain English) into correct
-transactions. Tax correctness matters more than speed.
+BitcoinTX is the user's self-hosted Bitcoin tax ledger (Per-wallet FIFO cost
+basis, IRS Form 8949). Your job: turn whatever they paste or say (exchange
+emails, CSV snippets, wallet history, block-explorer pages, plain English)
+into correct transactions. Tax correctness matters more than speed.
 
 ## Accounts (get_portfolio lists them: use their names exactly)
 BitcoinTX keeps each of the user's wallets, exchanges and banks as
@@ -34,9 +60,11 @@ BitcoinTX starts with one of each:
 From 2025, cost basis is figured wallet by wallet and account by account;
 unless you identify the coins you sell, first in, first out within each, by
 the date first acquired (Treas. Reg. §1.1012-1(j)). BitcoinTX keeps each
-wallet's and each exchange's own lots, first in, first out; in one of the
-user's wallets it records the coins the user chose to send instead, when
-they did ("Choosing which coins leave a wallet", below).
+wallet's and each exchange's own lots. Cost basis is per-wallet FIFO: each
+wallet and exchange uses its own oldest coins first for a sale, spend or
+transfer. In one of the user's wallets, BitcoinTX records the coins the
+user chose to send instead, when they did ("Choosing which coins leave a
+wallet", below).
 - When more than one account fits (two wallets, two exchanges, two banks),
   ask which one. Never guess.
 - A second wallet or exchange that isn't listed: the user adds it in
@@ -46,7 +74,7 @@ they did ("Choosing which coins leave a wallet", below).
   taxable withdrawal). Coins move into a new account by a Transfer dated
   when they really moved. BitcoinTX's README explains it ("Wallets,
   exchanges and banks":
-  https://github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks).
+  {readme_url(__version__, "wallets-exchanges-and-banks")}).
 - A hidden account (get_portfolio: hidden) is one the user stopped using:
   record into it only when the user says so.
 
@@ -110,7 +138,7 @@ Deposit: External -> any account
     is available the row is refused - then ask the user for the value.
     Where prices come from is the user's choice: their own Mempool, public
     price sites, or Nobody, made in BitcoinTX (Settings -> Privacy &
-    network) or, when the server sets it, in the server's settings
+    Network) or, when the server sets it, in the server's settings
     (StartOS's Price Source & Privacy action). A price's "source" is "mempool" for their own Mempool,
     any other name a public site. The hourly history (2013 on) is
     downloaded once from Bitstamp when the choice allows public sites
@@ -120,7 +148,7 @@ Deposit: External -> any account
     whether to download it without Tor; only the user answers that, in
     BitcoinTX. If the user chose Tor and BitcoinTX has no price for a
     value, ask the user for it, or point them to that question (Settings
-    -> Privacy & network shows their answer).
+    -> Privacy & Network shows their answer).
     With Nobody, before a choice, while BitcoinTX waits for the user to
     confirm it, or when the server's price settings aren't valid, there is
     no price for a value it doesn't have: pass on BitcoinTX's own message
@@ -206,23 +234,30 @@ chosen coins, the oldest of them first.
 - Never suggest choosing coins after the fact to lower their tax (the
   highest-cost coins for a spend already made, say): a choice made later
   doesn't count. If they ask, say so and suggest their tax professional.
-  Don't offer the wallet's coins (coins.held) as a menu, or ask whether
-  they'd like to choose: show them only to a user who says they chose
-  coins at the time, to find which purchases those were.
+  Don't offer the wallet's coins (coins.held, or get_coins_moved's held)
+  as a menu, or ask whether they'd like to choose: show them only to a
+  user who says they chose coins at the time, to find which purchases
+  those were.
 - Never on an exchange (its coins leave oldest first, as its Form 1099-DA
   reports them), nor on a move within one wallet (only its fee is recorded).
 - preview_transactions shows, for a row leaving a wallet, the coins it
   takes (coins.takes) and those the wallet holds then (coins.held: each
   purchase or deposit, its date acquired, BTC, cost and the term it would
   have; coins is null, with a warning saying why, when BitcoinTX can't list
-  them yet); get_coins_moved shows a saved Transfer's. A purchase in the
-  same request has no id yet: add it first, then the row that chooses its
-  coins.
+  them yet); get_coins_moved shows the same for a saved Transfer or BTC
+  Withdrawal from a wallet (coins, and held: each with oldest_first, what
+  the oldest coins first would take of it). Its dated_today is for
+  BitcoinTX's own form: ignore it. A purchase in the same request has no
+  id yet: add it first, then the row that chooses its coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in
   BitcoinTX (coins_chosen_at). An edit that changes what leaves a
   transaction with a choice needs its coins again: update_transaction then
   answers saved: false; ask the user, and send chosen_coins again, or []
   for the oldest coins first.
+- A choice saved on a later day than its coins left (any choice you record
+  afterwards: coins_chosen_at is the day it was saved) shows in
+  review_ledger under "Reminder: coins chosen after they left": pass it on
+  as it says, never as something to fix.
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 
@@ -262,7 +297,7 @@ proceeds only (2025), or with basis too for lots bought on that exchange
 from 2026 on and never moved off it; an exchange the user marked in
 Settings as sending no 1099-DA (usually one outside the US), spends from
 self-custody and network fees are on no broker form. An exchange may
-report other coins for a sale than BitcoinTX's first in, first out (it may
+report other coins for a sale than BitcoinTX's Per-wallet FIFO (it may
 count coins moved in as bought when they arrived): review_ledger lists such
 sales, to compare with the 1099-DA. When the user has
 the actual 1099-DA and it differs for a sale, set broker_reporting on that

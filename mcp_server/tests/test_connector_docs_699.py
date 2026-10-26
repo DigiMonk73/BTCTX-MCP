@@ -146,5 +146,5 @@ async def test_the_tools_say_what_2_0_does(mcp_client):  # noqa: F811
     assert "coins chosen after they left" in tools["review_ledger"]
     # T8's note 4: a deposit's cost basis carries over into a Buy
     assert "making a transaction a Buy needs cost_basis_usd" not in tools["update_transaction"]
-    assert "a Buy's cost_basis_usd (a deposit's own is kept when you send none)" in tools["update_transaction"]
+    assert "a Buy's cost_basis_usd (a bitcoin deposit's own is kept when you send none)" in tools["update_transaction"]
     assert "the FIFO result" not in tools["preview_transactions"]
