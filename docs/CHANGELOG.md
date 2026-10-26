@@ -76,7 +76,9 @@ All notable changes to BitcoinTX are documented in this file.
   languages; `startos/README.md` says the same of the AI and lists the
   AI's copy before a confirmed change to an earlier tax year;
   `startos/AGENTS.md` sends package changes to `staging`, not `develop`.
-  No figure changes.
+  Decision 30's test now holds these three files (off `METHOD_NOT_YET`),
+  with the listing's four translations of "Per-wallet FIFO". No figure
+  changes.
 
 ### Fixed
 - **Coinbase's file: Advance Trade, Reward Income and its older fee
