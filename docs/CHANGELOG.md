@@ -214,6 +214,14 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
+- **The importer asks for the file's exchange before Preview** (#773,
+  found by the 2.0 testing plan's screens session). With more than one
+  exchange, Preview waits until you choose the exchange the file is from
+  (#707), but **Exchange** and **Wallet for sends and receives** sat
+  below the button, off a phone's screen, and nothing said why Preview
+  stayed grey. They now come first, before the file and Preview, and
+  Preview says beside it "Choose the exchange first." Looks only: no
+  figure changes.
 - **The past-year question says when an added or deleted row moves the
   year's income** (#753, found by the 2.0 testing plan's AI checks on
   alpha.2). Adding a Reward deposit to an earlier tax year read "Added:
