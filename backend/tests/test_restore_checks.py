@@ -707,8 +707,8 @@ def reference_db(tmp_path_factory):
     init_test_db(engine)
     with sessionmaker(bind=engine)() as db:
         _add_the_ledgers_accounts(db)
-        for row in seed_ledger.ledger_rows():
-            create_transaction_record(TransactionCreate(**row).model_dump(), db)
+        seed_ledger.create_rows(seed_ledger.ledger_rows(),  # its chosen coins by the ids their rows get
+                                lambda n, row: create_transaction_record(TransactionCreate(**row).model_dump(), db).id)
     with engine.begin() as conn:
         for day, usd in (("2023-01-15", "21000.00"), ("2024-06-01", "67000.50"), ("2025-03-03", "86000.25")):
             conn.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES (:d, :u, 'bitstamp')"),
