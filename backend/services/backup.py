@@ -69,6 +69,8 @@ SQLITE_HEADER = b"SQLite format 3\x00"
 # Why a restore was refused: plain words, never SQL
 NOT_OURS = "This backup can't be restored: it holds database objects BitcoinTX doesn't make."
 DAMAGED = "This file isn't a BitcoinTX backup, or it's damaged."
+# A wrong key and a damaged or foreign file look the same to the MAC (and to v1's check): name all three (#690)
+CANT_DECRYPT = "❌ Failed to decrypt backup. Wrong password, or the file is damaged or isn't a BitcoinTX backup."
 NOT_UPGRADED = "This backup can't be restored: its database couldn't be brought up to this version of BitcoinTX."
 DOESNT_FIT = "This backup can't be restored: its {table} rows don't fit BitcoinTX's database."
 ONE_LOGIN = "This backup can't be restored: it holds more than one login, and BitcoinTX has one."
@@ -115,7 +117,7 @@ def encrypt_backup(db_data: bytes, password: str, iterations: int = PBKDF2_ITERA
 
 
 def decrypt_backup(blob: bytes, password: str) -> bytes:
-    """The database inside a v2 or v1 backup; ValueError for a wrong password."""
+    """The database inside a v2 or v1 backup; ValueError for a wrong password or a damaged file."""
     if blob.startswith(MAGIC):
         if len(blob) < _HEADER_LENGTH + SALT_LENGTH + IV_LENGTH + MAC_LENGTH:
             raise ValueError("This backup file is damaged (too short).")
@@ -134,7 +136,7 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
         keys = _derive_key(password, salt, iterations, 2 * KEY_LENGTH)
         enc_key, mac_key = keys[:KEY_LENGTH], keys[KEY_LENGTH:]
         if not hmac.compare_digest(_mac(mac_key, body), tag):
-            raise ValueError("❌ Failed to decrypt backup. Wrong password?")
+            raise ValueError(CANT_DECRYPT)
         try:
             return _decrypt_data(body[_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH:], enc_key, iv)
         except ValueError as e:  # the library's own words (padding) aren't the owner's (#422)
@@ -148,9 +150,9 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
     try:
         data = _decrypt_data(blob[SALT_LENGTH + IV_LENGTH:], key, iv)
     except Exception as e:
-        raise ValueError("❌ Failed to decrypt backup. Wrong password?") from e
+        raise ValueError(CANT_DECRYPT) from e
     if not data.startswith(SQLITE_HEADER):
-        raise ValueError("❌ Failed to decrypt backup. Wrong password?")
+        raise ValueError(CANT_DECRYPT)
     return data
 
 

@@ -12,7 +12,7 @@ import { useLivePrice } from "../components/dashboard/useLivePrice";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
-const GRID_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"];
+const GRID_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (Per-wallet FIFO)", "Income & Fees"];
 
 const Dashboard: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[] | null>(null);

@@ -204,7 +204,8 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
         <div className="option-info">
           <span className="settings-option-title">Import Transactions (CSV)</span>
           <p className="settings-option-subtitle">
-            Import transactions from a CSV file. Requires an empty database.
+            Import BitcoinTX&apos;s own CSV (the template, or an export from Backup &amp; Restore) into
+            an empty ledger. An exchange&apos;s file goes through Import from an exchange.
           </p>
         </div>
         <div className="import-controls">
@@ -259,7 +260,8 @@ const DataManagement: React.FC<SettingsSectionProps> = ({ loading, setLoading, s
       )}
 
       <div className="settings-note">
-        To fully reset your account, delete all transactions and update your credentials above.
+        To fully reset your account, delete all transactions and the wallets, exchanges and banks you
+        added, then update your credentials in Account.
       </div>
     </>
   );

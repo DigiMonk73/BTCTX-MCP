@@ -133,7 +133,7 @@ of 2024, for a tax professional to compare with yours.
   and the block height. Until you choose where prices come from, a card at
   the top of the Dashboard asks "Where should BitcoinTX get Bitcoin
   prices?" ([Prices and privacy](#prices-and-privacy)).
-- **Realized Gains/Losses (FIFO)**: short-term and long-term gains, losses
+- **Realized Gains/Losses (Per-wallet FIFO)**: short-term and long-term gains, losses
   and their net, the total net capital gains, and this year's so far.
 - **Income & Fees**: income, interest and rewards earned, and their total;
   gifts and rebates received, which aren't income; the fees you paid in

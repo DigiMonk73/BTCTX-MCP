@@ -241,7 +241,8 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("wrong");
   await page.getByRole("button", { name: "Restore", exact: true }).click();
-  await expect(page.getByText(/Restore failed: .*Wrong password\?/)).toBeVisible();
+  await expect(page.getByText(/Restore failed: .*Wrong password, or the file is damaged or isn't a BitcoinTX backup\./))
+    .toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
 
   await page.getByLabel("Backup file").setInputFiles(backup);
@@ -339,7 +340,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
     const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
     await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
     await expect(sectionButton).toHaveAccessibleDescription(
-      "An AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+      "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
     );
     await openSection(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
@@ -427,7 +428,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
   const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
   await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
   await expect(sectionButton).toHaveAccessibleDescription(
-    "An AI app that reads your ledger and enters transactions, with a key you create",
+    "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key you create",
   );
   await openSection(page, "Connect an AI Assistant");
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
