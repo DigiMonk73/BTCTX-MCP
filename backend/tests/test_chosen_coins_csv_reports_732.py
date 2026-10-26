@@ -196,6 +196,18 @@ def test_the_report_pdf_prints_them(chose_a2):  # noqa: F811
     assert "A choice counts only if you made it by then and your records show it" in words
 
 
+def test_the_reports_method_line_names_the_coins_you_chose_in_a_year_with_some(chose_a2):  # noqa: F811
+    """Q5 (#711): "Per-wallet FIFO, with the coins you chose in your
+    wallets" in a year with a choice, decision 30's "Per-wallet FIFO" in
+    one without."""
+    with chose_a2.Session() as db:
+        def words(year: int) -> str:
+            pdf = generate_comprehensive_tax_report(generate_report_data(db, year))
+            return " ".join(" ".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf)).pages).split())
+        assert "Cost basis method Per-wallet FIFO, with the coins you chose in your wallets" in words(2025)
+        assert "Cost basis method Per-wallet FIFO " in words(2023)
+
+
 def test_the_transaction_history_marks_a_row_whose_coins_were_chosen(chose_a2):  # noqa: F811
     with chose_a2.Session() as db:
         lines = transaction_history.generate_transaction_history_report(db, 2025, "csv").decode().splitlines()
