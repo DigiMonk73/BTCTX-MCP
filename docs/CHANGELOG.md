@@ -102,8 +102,8 @@ All notable changes to BitcoinTX are documented in this file.
 ### Fixed
 - **Add Transaction shows the whole date and time** (#755, found in the
   coin list's pictures, #750). In the drawer's two columns, Date & Time was
-  narrower than Chromium's date and time with seconds, which then lost its
-  month ("/01/2026, 10:15:30 AM"). Transaction Type and Date & Time now
+  narrower than a date and time with seconds needs in Chrome and other
+  Chromium browsers, which then lost its month ("/01/2026, 10:15:30 AM"). Transaction Type and Date & Time now
   each take the drawer's whole width, the other fields two to a row as
   before; a phone's one column is unchanged. Looks only: no figure changes.
 - **An id too big for the database is refused plainly** (#744, found by the
