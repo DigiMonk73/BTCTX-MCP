@@ -61,6 +61,12 @@ All notable changes to BitcoinTX are documented in this file.
   not think that AI is automatically connected"). No figure changes.
 
 ### Fixed
+- **A dialog's buttons fit a phone's screen** (#769, found by the screens
+  tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
+  made first)" pushed Cancel off the screen's left edge. A dialog's
+  buttons now wrap where they don't fit on one line, and on a phone each
+  fills its line, its words wrapping on the narrowest screens. No figure
+  changes.
 - **Coinbase's file: Advance Trade, Reward Income and its older fee
   column** (#765, found by the 2.0 testing plan's import run, T3, #689).
   The ready-made Coinbase mapping left out "Advance Trade Buy" and
