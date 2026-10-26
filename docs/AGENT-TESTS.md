@@ -342,9 +342,10 @@ Start from the `clean` snapshot.
   coins you sell, first in, first out within each, by the date first
   acquired (Treas. Reg. §1.1012-1(j)). Cost basis is per-wallet FIFO: each
   wallet and exchange uses its own oldest coins first for a sale, spend or
-  transfer. If you kept multiple wallets or exchanges together in
-  BitcoinTX 1.x, years before you added them were figured together: ask a
-  tax professional whether an earlier return needs a change."; the
+  transfer, unless you choose other coins in one of your own wallets. If
+  you kept multiple wallets or exchanges together in BitcoinTX 1.x, years
+  before you added them were figured together: ask a tax professional
+  whether an earlier return needs a change."; the
   disclaimer "BitcoinTX is software, not tax, legal or financial advice.
   …"; "Version X.Y.Z" (the release candidate's, as in INS-7); and the
   links **release notes**, **Report a problem**, **open bugs** and
@@ -486,12 +487,14 @@ Start from the `clean` snapshot.
   filing", the bullet "From 2025, cost basis is figured wallet by wallet
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
-  §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
-  uses its own oldest coins first for a sale, spend or transfer. BitcoinTX
-  records no Rev. Proc. 2024-28 allocation." (1.x's
-  one-wallet bullet is gone), and the disclaimer; in 7, "Notes", "Coins you
-  identified on your own books, or an exchange's own order of coins, can
-  give other figures." Section 2 of each report
+  §1.1012-1(j)). BitcoinTX uses per-wallet FIFO, and the coins you chose in
+  your wallets (listed under "Coins you chose"). BitcoinTX records no Rev.
+  Proc. 2024-28 allocation." (1.x's one-wallet bullet is gone), and the
+  disclaimer; in 7, "Notes", "Cost basis is per-wallet FIFO: each wallet and
+  exchange uses its own oldest coins first for a sale, spend or transfer,
+  unless you choose other coins in one of your own wallets. The coins you
+  chose are listed under "Coins you chose", in section 2. An exchange's own
+  order of coins can give other figures." Section 2 of each report
   ends with "Sales by exchange", as in the expected-figures table (2025's
   report too). RPT-6 checks the values once prices are on.
 
@@ -663,6 +666,31 @@ exchanges and banks** reads its name, its kind and its balance.
   Add it, or show it if it's hidden, in Settings → Wallets, exchanges and
   banks."
   Close the panel with **Discard changes**.
+
+### CHO: choosing which coins leave a wallet (2.0; price source Nobody)
+
+A spend dated today, so no past-year dialog asks; deleted at the end, so
+every golden figure is back.
+
+- **CHO-1** **Add transaction**, Withdrawal, From Account `Wallet`,
+  purpose Spent, dated today, Amount `0.001` BTC, network fee `0.00001`
+  BTC with its value `1`, proceeds `100`. Expect the coins that will leave
+  listed, oldest first, and beside them "Choose coins only if you decided
+  which coins to send by the time they left, and your records from then
+  show which purchases they were (…). Otherwise the IRS counts the oldest
+  coins as the ones that left (Treas. Reg. §1.1012-1(j)). …". Choose
+  **Choose which coins leave**: a line for each purchase or deposit Wallet
+  holds, filled oldest first, with **Oldest first** and **Highest cost
+  first** offered (the spend is dated today). Empty the oldest line and
+  type `0.00101` on the newest purchase's: the running total adds up, and
+  Save is enabled. Save, and open the spend again: "Chosen on <today>.".
+- **CHO-2** Reports, Complete Tax Report for this year. Expect the cover's
+  Cost basis method "Per-wallet FIFO, with the coins you chose in your
+  wallets", and at the end of section 2 "Coins you chose": the spend,
+  Wallet, "Spent, 0.00101000 BTC", Chosen on today's date (no star), and
+  the newest purchase's date acquired with 0.00101000 BTC and its cost.
+  Ledger Review lists no "Reminder: coins chosen after they left" for it
+  (chosen the same day). Delete the spend; the Dashboard is as before.
 
 ### MLT: a second exchange (2.0; price source Nobody)
 

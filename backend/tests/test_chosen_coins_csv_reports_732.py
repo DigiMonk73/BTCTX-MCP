@@ -204,8 +204,8 @@ def test_the_reports_method_line_names_the_coins_you_chose_in_a_year_with_some(c
         def words(year: int) -> str:
             pdf = generate_comprehensive_tax_report(generate_report_data(db, year))
             return " ".join(" ".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(pdf)).pages).split())
-        assert "Cost basis method Per-wallet FIFO, with the coins you chose in your wallets" in words(2025)
-        assert "Cost basis method Per-wallet FIFO " in words(2023)
+        assert "COST BASIS METHOD Per-wallet FIFO, with the coins you chose in your wallets" in words(2025)
+        assert re.search(r"COST BASIS METHOD Per-wallet FIFO (?!,)", words(2023))
 
 
 def test_the_transaction_history_marks_a_row_whose_coins_were_chosen(chose_a2):  # noqa: F811

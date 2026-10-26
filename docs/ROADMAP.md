@@ -53,10 +53,11 @@ new features go into 2.0, below. No dates are promised.
 
 ## Later
 
-- [ ] Specific-lot identification: choosing which coins to sell, in a
-      wallet or at an exchange (for exchange lots, matching the standing
-      order you gave the broker). BitcoinTX always sells first in, first
-      out, the IRS's default when you don't identify the coins.
+- [ ] Specific-lot identification at an exchange: choosing which coins to
+      sell there, matching the standing order you gave the broker, once
+      brokers support it. An exchange's coins leave oldest first (per-wallet
+      FIFO), the IRS's default when you don't identify the coins; 2.0
+      chooses them in your own wallets.
 - [ ] Multi-year reports
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
 
@@ -76,6 +77,11 @@ decisions 1 and 22).
       reports by account. BitcoinTX 1.x is deliberately limited to one
       self-custody wallet and one exchange account (#86). No dates
       promised; meanwhile 1.x stays in maintenance.
+- [x] **Choosing which coins leave a wallet** (specific identification,
+      Treas. Reg. §1.1012-1(j)(2); #711): on a Transfer out of one of your
+      wallets, or a Spent, Gift, Donation or Lost withdrawal from one, with
+      the day each choice was saved, in the CSV, the tax report ("Coins you
+      chose"), Ledger Review and the AI connector.
 - [ ] **An importer for any exchange's CSV**, with ready-made mappings
       for common exchanges and mappings you save, into a ledger that
       already has transactions (#338; the 2.0 plan's B5b, #567).
