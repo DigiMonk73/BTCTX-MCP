@@ -155,11 +155,15 @@ def user_texts() -> dict[str, str]:
 
 
 def other_method_words(text: str) -> list[str]:
-    """Each wording of the method that isn't the rule or one of decision 30's."""
+    """Each wording of the method that isn't the rule or one of decision 30's.
+    A full sentence other than METHOD_FULL counts too, so a new ending given
+    to it (#711's choice of coins) finds every copy of the old one."""
     for allowed in (flat(IRS_RULE), flat(METHOD_FULL)):
         text = text.replace(allowed, " ")
+    full_start = METHOD_FULL.split(":")[0]
+    found = [text[hit.start():hit.end() + 80] for hit in re.finditer(re.escape(full_start), text, re.I)]
     text = re.sub(re.escape(METHOD_SHORT), " ", text, flags=re.I)
-    return [text[max(0, hit.start() - 50):hit.end() + 30] for hit in METHOD_WORDS.finditer(text)]
+    return found + [text[max(0, hit.start() - 50):hit.end() + 30] for hit in METHOD_WORDS.finditer(text)]
 
 
 @needs_a_checkout
@@ -175,7 +179,8 @@ def test_other_wordings_of_the_method_are_found():
     sentence = f"{IRS_RULE} {METHOD_FULL} {METHOD_SHORT}: oldest first."
     assert other_method_words(flat(sentence)) == []
     for old in ("Realized Gains/Losses (FIFO)", "First in, first out (FIFO), for each account",
-                "BitcoinTX uses first in, first out in each wallet", "always sells them first-in, first-out"):
+                "BitcoinTX uses first in, first out in each wallet", "always sells them first-in, first-out",
+                "Cost basis is per-wallet FIFO: each wallet uses its oldest coins."):
         assert other_method_words(flat(old)), old
 
 

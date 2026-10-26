@@ -339,7 +339,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
     const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
     await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
     await expect(sectionButton).toHaveAccessibleDescription(
-      "An AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+      "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
     );
     await openSection(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
@@ -427,7 +427,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
   const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
   await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
   await expect(sectionButton).toHaveAccessibleDescription(
-    "An AI app that reads your ledger and enters transactions, with a key you create",
+    "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key you create",
   );
   await openSection(page, "Connect an AI Assistant");
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
