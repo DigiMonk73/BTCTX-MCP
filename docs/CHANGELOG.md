@@ -96,6 +96,16 @@ All notable changes to BitcoinTX are documented in this file.
   them as a Buy, a Sell and a Reward deposit at Coinbase's value at
   receipt, and takes either fee column. What it read before, it reads as
   before; the mapping is still to be checked against a real export.
+- **Save says why it waits when the coins chosen don't add up** (#771,
+  found by the 2.0 testing plan's screens check, T9). With "Choose
+  which coins leave" open, Save with a choice that doesn't add up to what
+  leaves seemed to do nothing: its words showed under the picker, far below
+  the part of the panel on screen, and weren't announced. Now Save scrolls
+  to them, beside the running total, moves focus there and announces them
+  to screen readers, on a computer and on a phone, each time it's pressed
+  (when a field above needs fixing too, Save takes you to that field instead);
+  the same for "Each BTC chosen must be a plain number". Nothing is saved,
+  as before, and no figure changes.
 
 ### Development
 - **The request-limit tests no longer depend on how fast the test machine
