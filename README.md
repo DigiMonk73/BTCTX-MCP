@@ -23,7 +23,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 - **Dashboard**: what your banks, exchanges and wallets hold, each kind's
   total with a caret that lists its accounts when you have multiple
-  wallets, exchanges or banks; BTC holdings, realized and unrealized gains
+  wallets, exchanges or banks, a wallet's or an exchange's bitcoin with its
+  own cost and unrealized gain; BTC holdings, realized and unrealized gains
 - **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
   or deletion, and every entry dated before your latest one, recalculates
   the whole ledger, so backdated entries come out right.

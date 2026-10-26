@@ -413,6 +413,27 @@ def test_the_dashboard_has_each_kind_more_than_once_a_hidden_account_and_a_renam
     assert not {old for _, old in renamed.values()} & set(names.values())
 
 
+def test_each_bitcoin_accounts_cost_on_the_dashboard_is_what_it_holds(seeded):
+    """#709: an opened line's cost of each bitcoin account is the cost of
+    the lots it holds, as the end of 2026's holdings have them by account
+    (the figures the independent calculation checks lot by lot), and
+    together they make the card's average cost per BTC."""
+    c, _, _ = seeded
+    balances = c.get("/api/calculations/accounts/balances").json()
+    bitcoin = {b["name"]: b for b in balances if b["cost_basis"] is not None}
+    expected = dict.fromkeys(bitcoin, Decimal(0))
+    *lots, total = json.loads(reference_figures.FIGURES.read_text())["years"]["2026"]["report"]["end_of_year_balances"]
+    for lot in lots:
+        expected[lot["account"]] += Decimal(str(lot["cost"]))
+    assert {name: Decimal(str(b["cost_basis"])) for name, b in bitcoin.items()} == expected
+    # The report's Total row: the accounts' costs add up to it exactly
+    held = sum(Decimal(str(b["balance"])) for b in bitcoin.values())
+    assert (total["asset"], sum(expected.values()), held) == (
+        "Total", Decimal(str(total["cost"])), Decimal(str(total["quantity"])))
+    average = (sum(expected.values()) / held).quantize(Decimal("0.01"), rounding="ROUND_HALF_DOWN")
+    assert Decimal(str(c.get("/api/calculations/average-cost-basis").json()["averageCostBasis"])) == average
+
+
 def test_ledger_review_shows_each_item_a_row_can(seeded):
     _, Session, _ = seeded
     with Session() as db:
