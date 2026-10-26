@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **The words say you can choose coins in a wallet** (#711, step C6,
+  #734; Q5's words). Where the app and its docs described the method as
+  "the oldest coins first", or said BitcoinTX never lets you pick coins,
+  they now say per-wallet FIFO, unless you choose other coins in one of
+  your own wallets: the account notice, the note shown when you add a
+  second wallet or exchange, the README and the user guide, the tax
+  report's "Using these forms" page and notes, StartOS's instructions
+  ("Web interface") and the release tests (the AI connector's words
+  follow with their own step).
+  The user guide gains "Choosing which coins leave a wallet": where you
+  may (a transfer out of a wallet, or a spend, gift, donation or loss from
+  one; never an exchange's coins), how the form's picker works, the IRS's
+  rule that a choice counts only if you decided by the time the coins
+  left and your records show it, and the record BitcoinTX keeps. The tax
+  report's cost basis method reads "Per-wallet FIFO, with the coins you
+  chose in your wallets" in a year with a choice. The roadmap ticks the
+  wallet's part; choosing an exchange's coins stays for later. Words
+  only: **no figure changes**.
 - **The app's own words say what 2.0 does** (D5, #701; words only, no
   figure moves).
   - **Per-wallet FIFO**, the owner's one wording for the method (decision
@@ -27,6 +45,19 @@ All notable changes to BitcoinTX are documented in this file.
     (#690): its check can't tell them apart.
   - Connect an AI Assistant's summary starts "Optional and off until you
     turn it on" (the owner's decision 31).
+- **The dashboard's Unrealized Gains/Losses is your accounts' own gains
+  added up** (#770; found by Claude testing the screens, 2026-10-26). It was
+  (today's price − Avg. Cost per BTC, rounded to the cent) × Total BTC, so
+  it could be a few cents off the gains the opened Wallet (BTC) and
+  Exchange (BTC) lines show for each account (up to half a cent per BTC
+  held): on the reference test ledger at $60,000, +$1,429.09 against the
+  accounts' +$1,429.11. It is now what your bitcoin is worth at today's
+  price, each account's to the cent, less what it cost (its coins' cost
+  left), the same figures each account shows, so they add up to it
+  exactly. Avg. Cost per BTC is as before. Only this dashboard figure
+  moves, by cents on some ledgers, with one account of each kind too (so it
+  can differ by cents from 1.2.10's): no form, report or stored figure
+  changes.
 - **The README and the user guide describe all of 2.0** (D2 of the docs
   overhaul, #698; the owner, 2026-10-24: "very thorough docs ... to reflect
   all the features of 2.0 and removing anything that is no longer true").
@@ -111,6 +142,15 @@ All notable changes to BitcoinTX are documented in this file.
   changes.
 
 ### Fixed
+- **The importer asks for the file's exchange before Preview** (#773,
+  found by the 2.0 testing plan's screens session). With more than one
+  exchange, Preview waits until you choose the exchange the file is from
+  (#707), but **Exchange** and **Wallet for sends and receives** sat
+  below the button, off a phone's screen, and nothing said why Preview
+  stayed grey. They now come before the file and Preview, and a line
+  under Preview says what it waits for: "Choose the exchange first." (or
+  "Choose the wallet first." when every wallet is hidden). Looks only: no
+  figure changes.
 - **A dialog's buttons fit a phone's screen** (#769, found by the screens
   tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
   made first)" pushed Cancel off the screen's left edge. A dialog's
@@ -126,6 +166,23 @@ All notable changes to BitcoinTX are documented in this file.
   them as a Buy, a Sell and a Reward deposit at Coinbase's value at
   receipt, and takes either fee column. What it read before, it reads as
   before; the mapping is still to be checked against a real export.
+- **Save says why it waits when the coins chosen don't add up** (#771,
+  found by the 2.0 testing plan's screens check, T9). With "Choose
+  which coins leave" open, Save with a choice that doesn't add up to what
+  leaves seemed to do nothing: its words showed under the picker, far below
+  the part of the panel on screen, and weren't announced. Now Save scrolls
+  to them, beside the running total, moves focus there and announces them
+  to screen readers, on a computer and on a phone, each time it's pressed
+  (when a field above needs fixing too, Save takes you to that field instead);
+  the same for "Each BTC chosen must be a plain number". Nothing is saved,
+  as before, and no figure changes.
+
+### Development
+- **The request-limit tests no longer depend on how fast the test machine
+  is** (#781, a CI run at 1.77 s against a 1.3 s bound). They check that a
+  request gave up at its limit by what only a limit does (its slow answer
+  left unfinished, its lookup cancelled, its thread ended), and the
+  waiters' "at once" checks have room against a longer limit.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
@@ -213,7 +270,8 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   purchase or deposit by its transaction id). Its preview says, for a row
   leaving a wallet, which coins it takes and which the wallet holds then
   (each purchase's date acquired, BTC, cost and term); a new tool,
-  `get_coins_moved`, shows the coins a saved transfer moves; and
+  `get_coins_moved`, shows the coins a saved transfer or bitcoin withdrawal from
+  one of your wallets moves; and
   `list_transactions` shows a choice and when it was saved. Its guide tells
   it to record only what you say you chose at the time, never to pick
   coins for you, never to suggest a choice after the fact to lower your

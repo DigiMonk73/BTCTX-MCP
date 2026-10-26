@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  OPEN_LINES_KEY, accountGain, accountTotals, balanceLines, gainClass, listsAccounts, noPriceReason, openLinesAfter, priceSourceShort,
+  OPEN_LINES_KEY, accountGain, accountTotals, unrealizedGain, balanceLines, gainClass, listsAccounts, noPriceReason, openLinesAfter, priceSourceShort,
   priceSourceWords, readOpenLines, type BalanceLine,
 } from "./dashboard";
 
@@ -193,6 +193,28 @@ describe("each bitcoin account's cost and gain (#709)", () => {
     expect(accountGain(20000, wallet)).toBe(-3333.34);
     expect(accountGain(null, wallet)).toBeNull();
     expect(accountGain(60000, { ...wallet, cost: null })).toBeNull();
+  });
+});
+
+describe("the card's unrealized gain: the bitcoin accounts' own, added up (#770)", () => {
+  const held = [
+    balance(1, "Bank", "bank", "USD", "500", { cost_basis: null }),
+    balance(2, "Wallet", "wallet", "BTC", "1", { cost_basis: 10000.01 }),
+    balance(100, "Paper Wallet", "wallet", "BTC", "2", { cost_basis: 20000.01, hidden: true }),
+    balance(3, "Exchange USD", "exchange", "USD", "20", { ...EXCHANGE, cost_basis: null }),
+    balance(4, "Exchange BTC", "exchange", "BTC", "0.5", { ...EXCHANGE, cost_basis: 40000 }),
+    balance(5, "BTC Fees", "fee", "BTC", "0.001", { cost_basis: null }),
+  ];
+
+  it("adds each wallet's and exchange's gain, hidden ones too; dollars and fees count for nothing", () => {
+    // 49,999.99 + 99,999.99 − 10,000.00
+    expect(unrealizedGain(60000, held)).toBe(139999.98);
+  });
+
+  it("is none without a price, or while an account's cost isn't known", () => {
+    expect(unrealizedGain(null, held)).toBeNull();
+    expect(unrealizedGain(60000, [...held.slice(0, 4), { ...held[4], cost_basis: null }])).toBeNull();
+    expect(unrealizedGain(60000, [])).toBe(0);
   });
 });
 

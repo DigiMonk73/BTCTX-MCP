@@ -14,7 +14,12 @@ const balance = (
   account_id: number, name: string, kind: AccountBalance["kind"], currency: string, value: string,
   extra: Partial<Pick<AccountBalance, "exchange_id" | "exchange" | "hidden">> = {},
 ): AccountBalance => ({ account_id, name, kind, currency, balance: value, exchange_id: null, exchange: null,
-  hidden: false, cost_basis: null, ...extra });
+  hidden: false, cost_basis: bitcoin(kind, currency) ? Number(value) * AVERAGE : null, ...extra });
+
+// Every bitcoin account's coins cost the card's average, so its gain is (price − average) × BTC
+const AVERAGE = 20000;
+const bitcoin = (kind: AccountBalance["kind"], currency: string) =>
+  (kind === "wallet" || kind === "exchange") && currency === "BTC";
 
 const EXCHANGE = { exchange_id: 1, exchange: "Exchange" };
 const KRAKEN = { exchange_id: 2, exchange: "Kraken" };
@@ -40,7 +45,11 @@ const TWO_WALLETS_TWO_EXCHANGES = [
 const PRICE: LivePrice = { loading: false, value: 60000, off: false };
 
 const mount = (balances: AccountBalance[]) =>
-  render(<PortfolioOverview balances={balances} averageCostBasis={20000} price={PRICE} />);
+  render(<PortfolioOverview balances={balances} averageCostBasis={AVERAGE} price={PRICE} />);
+
+/** A listed account's name and amount (#709 adds its cost under them). */
+const nameAndAmount = (li: HTMLElement) =>
+  `${li.querySelector(".balance-line-name")!.textContent}${li.querySelector(".balance-line-amount")!.textContent}`;
 
 const expanded = (button: HTMLElement) => button.getAttribute("aria-expanded") === "true";
 
@@ -87,7 +96,7 @@ describe("Portfolio Overview with two wallets and two exchanges", () => {
     expect(expanded(wallet)).toBe(true);
     const list = screen.getByRole("list", { name: "Wallet (BTC) accounts" });
     expect(list.id).toBe(wallet.getAttribute("aria-controls"));
-    expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+    expect(within(list).getAllByRole("listitem").map(nameAndAmount)).toEqual([
       "Wallet0.50000000 BTC", "Coldcard0.25000000 BTC", "Paper Wallet Hidden0.01000000 BTC",
     ]);
     await user.click(screen.getByText("0.76000000 BTC")); // the whole line, its figure too
@@ -101,9 +110,9 @@ describe("Portfolio Overview with two wallets and two exchanges", () => {
     await user.click(lineButton("Exchange (USD)"));
     await user.click(lineButton("Exchange (BTC)"));
     expect(within(screen.getByRole("list", { name: "Exchange (USD) accounts" })).getAllByRole("listitem")
-      .map((li) => li.textContent)).toEqual(["Exchange$20.00", "Kraken$0.00"]);
+      .map(nameAndAmount)).toEqual(["Exchange$20.00", "Kraken$0.00"]);
     expect(within(screen.getByRole("list", { name: "Exchange (BTC) accounts" })).getAllByRole("listitem")
-      .map((li) => li.textContent)).toEqual(["Exchange0.25000000 BTC", "Kraken0.05000000 BTC"]);
+      .map(nameAndAmount)).toEqual(["Exchange0.25000000 BTC", "Kraken0.05000000 BTC"]);
   });
 
   it("works from the keyboard: Tab to a caret, Enter opens it, Space closes it", async () => {

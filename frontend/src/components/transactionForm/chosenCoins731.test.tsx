@@ -9,7 +9,7 @@
 // to go back to oldest first. An edit opens on its stored choice, with the
 // day it was chosen, and keeps it when the list can't be worked out in time.
 import { act, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MANY } from "../../test/books";
 import { renderForm, type PlannedAnswer, type RenderedForm, type SentRequest } from "../../test/renderForm";
 import { CHOOSE_RULE } from "../../utils/chosenCoins";
@@ -91,6 +91,49 @@ describe("a Spent from one of your wallets", () => {
     expect(form.writes()).toEqual([]);
     expect(screen.getByText("The coins chosen must add up to what leaves: choose coins for all of it, or don't " +
       "choose them.")).toBeTruthy();
+  });
+
+  it("says so where it's seen: scrolled to, focused and announced, after each Save (#771)", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;  // jsdom has none
+    try {
+      const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
+      await spentFromSparrow(form);
+      await form.user.click(screen.getByRole("button", { name: "Choose which coins leave" }));
+      await choose(form, "Mar 1, 2017", "0.05");
+      await form.save();
+      const refusal = screen.getByRole("alert");
+      expect(refusal.textContent).toBe("The coins chosen must add up to what leaves: choose coins for all of it, " +
+        "or don't choose them.");
+      expect(document.activeElement).toBe(refusal);
+      expect(scrolled).toHaveBeenCalledTimes(1);
+      expect(scrolled.mock.contexts[0]).toBe(refusal);
+      await form.save();  // again: a new alert, announced again, and in sight again
+      expect(screen.getByRole("alert")).not.toBe(refusal);
+      expect(document.activeElement).toBe(screen.getByRole("alert"));
+      expect(scrolled).toHaveBeenCalledTimes(2);
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it("leaves focus on a field above that was refused too, where the form puts it (#771, the review's)", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;  // jsdom has none
+    try {
+      const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
+      await spentFromSparrow(form);
+      await form.user.click(screen.getByRole("button", { name: "Choose which coins leave" }));
+      await choose(form, "Mar 1, 2017", "0.05");
+      await form.user.clear(screen.getByLabelText("Amount"));
+      await form.save();
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));  // the form's second focus, a moment later
+      expect(screen.getByRole("alert").textContent).toMatch(/^The coins chosen must add up/);
+      expect(document.activeElement).toBe(screen.getByLabelText("Amount"));
+      expect(scrolled).not.toHaveBeenCalled();
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
   });
 
   it("can go back to oldest first, and then sends no choice", async () => {

@@ -43,10 +43,12 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   edit or deletion, and every entry dated before your latest one,
   recalculates the whole ledger, so backdated entries come out right.
 - **Cost basis is per-wallet FIFO**: each wallet and exchange uses its own
-  oldest coins first for a sale, spend or transfer. A transfer between your
-  accounts keeps each lot's acquisition date and basis; a consolidation (a
-  wallet, or an exchange's BTC account, to itself) records only its network
-  fee.
+  oldest coins first for a sale, spend or transfer, unless you choose other
+  coins in one of your own wallets. [Choosing which coins leave a
+  wallet](docs/USING.md#choosing-which-coins-leave-a-wallet) says when you
+  may. A transfer between your accounts keeps each lot's acquisition date and
+  basis; a consolidation (a wallet, or an exchange's BTC account, to itself)
+  records only its network fee.
 - **Earlier tax years ask first**: a save that would change the figures of
   a tax year before this one, which you may already have filed (an add, an
   edit or a delete, the tax timezone, an exchange's 1099-DA switch, an
@@ -130,10 +132,11 @@ runs: [docs/USING.md](docs/USING.md).
 > account by account; unless you identify the coins you sell, first in,
 > first out within each, by the date first acquired (Treas. Reg.
 > §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
-> uses its own oldest coins first for a sale, spend or transfer. If you kept
-> multiple wallets or exchanges together in BitcoinTX 1.x, years before you
-> added them were figured together: ask a tax professional whether an
-> earlier return needs a change.
+> uses its own oldest coins first for a sale, spend or transfer, unless you
+> choose other coins in one of your own wallets. If you kept multiple
+> wallets or exchanges together in BitcoinTX 1.x, years before you added
+> them were figured together: ask a tax professional whether an earlier
+> return needs a change.
 
 A new BitcoinTX starts with a **Bank**, a **Wallet** and an **Exchange**
 (its dollars, **Exchange USD**, and its bitcoin, **Exchange BTC**). Add more in Settings, under Wallets, exchanges and banks, and
@@ -168,8 +171,11 @@ those names. A name uses letters, digits and punctuation the tax report can
 print: no emoji, and no letters outside Western European alphabets. The full story, from the name rules to how a file saved before
 a rename names an account: [docs/USING.md](docs/USING.md#wallets-exchanges-and-banks).
 
-BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
-cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
+In one of your own wallets you can choose which coins leave, if you chose
+them when they left ([how](docs/USING.md#choosing-which-coins-leave-a-wallet));
+an exchange's coins leave oldest first (BitcoinTX doesn't record a choice made at an exchange).
+BitcoinTX doesn't allocate your cost basis among your wallets as of January
+1, 2025 (Rev. Proc. 2024-28),
 nor record an allocation you made: its figures from 2025 on follow its own
 history. Your 2024 Complete Tax Report lists each account's lots at the end
 of 2024, for a tax professional to compare with yours.

@@ -19,15 +19,17 @@ basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949** and
 > account by account; unless you identify the coins you sell, first in,
 > first out within each, by the date first acquired (Treas. Reg.
 > §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
-> uses its own oldest coins first for a sale, spend or transfer. If you kept
-> multiple wallets or exchanges together in BitcoinTX 1.x, years before you
-> added them were figured together: ask a tax professional whether an
-> earlier return needs a change.
+> uses its own oldest coins first for a sale, spend or transfer, unless you
+> choose other coins in one of your own wallets. If you kept multiple
+> wallets or exchanges together in BitcoinTX 1.x, years before you added
+> them were figured together: ask a tax professional whether an earlier
+> return needs a change.
 
 On this page: [Wallets, exchanges and banks](#wallets-exchanges-and-banks) ·
 [Dashboard](#dashboard) · [Transactions](#transactions) · [A change to an
 earlier tax year](#a-change-to-an-earlier-tax-year) · [Lots, gains and the
-holding period](#lots-gains-and-the-holding-period) · [Reports and tax
+holding period](#lots-gains-and-the-holding-period) · [Choosing which coins
+leave a wallet](#choosing-which-coins-leave-a-wallet) · [Reports and tax
 forms](#reports-and-tax-forms) · [Imports and the CSV
 export](#imports-and-the-csv-export) · [Ledger Review and Recalculate
 Ledger](#ledger-review-and-recalculate-ledger) · [Prices and
@@ -109,8 +111,11 @@ to open it.
   years' sales too, so when it would change an earlier tax year, it asks
   first ([below](#a-change-to-an-earlier-tax-year)).
 
-BitcoinTX never lets you pick which coins to sell. It doesn't allocate your
-cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
+In one of your own wallets you can choose which coins leave, if you chose
+them when they left ([Choosing which coins leave a
+wallet](#choosing-which-coins-leave-a-wallet)); an exchange's coins leave
+oldest first (BitcoinTX doesn't record a choice made at an exchange). BitcoinTX doesn't allocate
+your cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
 nor record an allocation you made: its figures from 2025 on follow its own
 history. Your 2024 Complete Tax Report lists each account's lots at the end
 of 2024, for a tax professional to compare with yours.
@@ -127,8 +132,9 @@ of 2024, for a tax professional to compare with yours.
   price, its unrealized gain or loss. Lines start
   closed, and the ones you open stay open in that browser. Then **Total
   BTC**, **Avg. Cost per BTC** and **Unrealized Gains/Losses** (what the
-  bitcoin you hold would gain or lose at the current price, from its
-  average cost).
+  bitcoin you hold would gain or lose at the current price: what each
+  account's bitcoin is worth less what it cost, added up, so the opened
+  lines add up to it).
 - **Current Bitcoin Price**: the live price, where it came from and when,
   and the block height. Until you choose where prices come from, a card at
   the top of the Dashboard asks "Where should BitcoinTX get Bitcoin
@@ -220,8 +226,10 @@ entries come out right.
   its share of the basis. A dollar transfer (between dollar accounts,
   such as a bank and an exchange's USD account) has its fee come out of the
   sending account. Between two of your bitcoin accounts, the form lists the
-  coins that will move before you save, oldest first: each one's date
-  acquired, amount and cost.
+  coins that will move before you save, oldest first unless you choose
+  others in a wallet ([Choosing which coins leave a
+  wallet](#choosing-which-coins-leave-a-wallet)): each one's date acquired,
+  amount and cost.
   - For a bitcoin account, **To Account** also offers the account itself:
     "*wallet*: consolidate / move within the same wallet" or "*exchange*:
     consolidate within the same exchange". A consolidation records only its
@@ -293,7 +301,8 @@ changes now.
 ## Lots, gains and the holding period
 
 Cost basis is per-wallet FIFO: each wallet and exchange uses its own
-oldest coins first for a sale, spend or transfer. A transfer
+oldest coins first for a sale, spend or transfer, unless you choose other
+coins in one of your own wallets. A transfer
 between your accounts moves lots, each keeping its acquisition date and
 its share of the cost. A sale is long-term only when it comes after the
 first anniversary of its lot's acquisition date (the IRS's "more than one
@@ -303,6 +312,46 @@ whatever the dates.
 The **Tax Timezone** (Settings → Account) decides which tax year a
 late-night December 31 transaction lands in, the dates on Form 8949, and
 when a lot turns long-term.
+
+## Choosing which coins leave a wallet
+
+In one of your own wallets you can choose which coins leave, if you chose
+them when they left (specific identification, Treas. Reg.
+§1.1012-1(j)(2)). The IRS counts a choice only if you decided which coins
+to send by the time they left, and your records from then show which
+purchases they were: a note you made, or coin control in your wallet with
+records tying its coins to your purchases. Otherwise it counts the oldest
+coins as the ones that left. A tax professional can tell you whether your
+records are enough.
+
+- **Where:** a Transfer from one of your wallets to another account, or a
+  bitcoin withdrawal from one (Spent, Gift, Donation or Lost). An
+  exchange's coins leave oldest first (BitcoinTX doesn't record a choice made at an exchange),
+  and a move within one wallet records only its network fee.
+- **How:** the form lists the coins that will leave, oldest first, the
+  IRS's default. **Choose which coins leave** opens a line for each
+  purchase or deposit the wallet holds then, with its date acquired, BTC,
+  cost and term; type the BTC you sent from each. Together they must be
+  exactly what leaves (on a Transfer, **Amount (From)**, its network fee
+  included; on a withdrawal, the amount and its fee). **Oldest first**
+  fills them as BitcoinTX would without a choice, and **Highest cost
+  first**, on a transaction dated today, the costliest coins first. The
+  network fee comes from the coins you chose, the oldest of them first.
+  Coins you move to another of your wallets keep their purchase there, so
+  you can choose them again when they leave it.
+- **The record:** BitcoinTX keeps the day you saved each choice (shown
+  as "Chosen on" when you open the transaction). Ledger Review reminds you
+  of choices saved on a later day than their coins left, the Complete Tax
+  Report lists each year's under "Coins you chose", and the CSV export
+  carries them ([Imports and the CSV export](#imports-and-the-csv-export)).
+- **Later changes:** a change that would take away coins a later
+  transaction chose (deleting their purchase, say, or an earlier transfer
+  out of that wallet) isn't saved: BitcoinTX names the transaction to
+  change first. An edit that changes what leaves a transaction with chosen
+  coins asks you to choose them again, or to go back to the oldest first.
+- **The optional AI assistant**, off until you turn it on, records coins
+  you tell it you chose at the time, and can show which coins a wallet
+  holds. It never picks coins for you.
 
 ## Reports and tax forms
 
@@ -386,7 +435,13 @@ NOT FILE.
   does, in any case: Bank, Wallet, Exchange USD and Exchange BTC always
   mean your first ones, so a BitcoinTX 1.x file imports as it did; any
   other name must be one of your accounts' names now (the error lists
-  them); a hidden account still imports, with a warning.
+  them); a hidden account still imports, with a warning. The coins a row
+  chose are in its last three columns: `id` (the row's label in the file),
+  `chosen_coins` (each purchase's row by its id, with the BTC chosen from
+  it, `id 12: 0.01000000; id 30: 0.00500000`) and `coins_chosen_at` (when
+  the choice was saved), so a choice follows its purchase whatever order
+  the rows are in. A BitcoinTX before 2.0 ignores these columns, and its
+  rows then take the oldest coins.
 - **Export as CSV** (Settings → Backup & Restore): every transaction, in
   BitcoinTX's own columns, each account by its name now (unencrypted, and
   editable). It imports back into an empty ledger whose accounts have
