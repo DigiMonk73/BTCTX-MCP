@@ -583,7 +583,11 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   write that would leave a later choice short of its coins is refused,
   naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
   must send the coins again, or null (`SendAgain`). `coins_chosen_at` is
-  when the choice was saved, kept while it's sent back unchanged. The AI
+  when the choice was saved, kept while it's sent back unchanged. The CSV
+  carries a choice by its rows' ids, never their positions
+  (`csv_choices.py`, #732); the tax report prints "Coins you chose", with
+  the day each was saved, and Ledger Review lists those saved after their
+  coins left (`coins_chosen_later`). The AI
   key can't send one until the connector's step (C5).
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
@@ -634,7 +638,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
-| `backend/services/river_import.py`, `csv_import.py` | file imports |
+| `backend/services/river_import.py`, `csv_import.py`, `csv_choices.py` | file imports; the CSV's chosen-coins columns (#711) |
 | `backend/services/exchange_import.py`, `exchange_mappings.py`, `exchange_cells.py`, `exchange_kraken.py` | any exchange's CSV (B5b): the mappings (ready-made, the owner's own in `app_settings`), each read into River's rows; what isn't read is named by reason |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
