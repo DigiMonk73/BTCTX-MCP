@@ -49,8 +49,7 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     # 5.14's one wording of the rule, decision 30's short one of the method with the coins chosen (#711's 7.3;
     # the full sentence is the Notes'), and what BitcoinTX doesn't record (3.7)
     assert IRS_RULE in text
-    assert ('BitcoinTX uses per-wallet FIFO, and the coins you chose in your wallets (listed under "Coins you '
-            'chose"). BitcoinTX records no Rev. Proc. 2024-28 allocation.') in text
+    assert "BitcoinTX uses per-wallet FIFO. BitcoinTX records no Rev. Proc. 2024-28 allocation." in text
     assert "one exchange account" not in text and "pooled here" not in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text
@@ -65,9 +64,7 @@ def test_the_notes_say_other_coins_can_give_other_figures():
                                              "period": "2025-01-01 to 2025-12-31", "irs_forms": "final"})
     text = " ".join("\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(pdf)).pages).split())
     notes = text[text.rindex("7. Notes"):]
-    assert METHOD_FULL in notes
-    assert ('The coins you chose are listed under "Coins you chose", in section 2. An exchange\'s own order of coins '
-            "can give other figures.") in notes
+    assert f"{METHOD_FULL} An exchange's own order of coins can give other figures." in notes
 
 
 def test_the_bitcoin_only_figures_add_up_the_lines():

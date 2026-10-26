@@ -487,14 +487,13 @@ Start from the `clean` snapshot.
   filing", the bullet "From 2025, cost basis is figured wallet by wallet
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
-  §1.1012-1(j)). BitcoinTX uses per-wallet FIFO, and the coins you chose in
-  your wallets (listed under "Coins you chose"). BitcoinTX records no Rev.
-  Proc. 2024-28 allocation." (1.x's one-wallet bullet is gone), and the
-  disclaimer; in 7, "Notes", "Cost basis is per-wallet FIFO: each wallet and
-  exchange uses its own oldest coins first for a sale, spend or transfer,
-  unless you choose other coins in one of your own wallets. The coins you
-  chose are listed under "Coins you chose", in section 2. An exchange's own
-  order of coins can give other figures." Section 2 of each report
+  §1.1012-1(j)). BitcoinTX uses per-wallet FIFO. BitcoinTX records no Rev.
+  Proc. 2024-28 allocation." (1.x's one-wallet bullet is gone; in a year
+  with chosen coins it adds those), and the disclaimer; in 7, "Notes",
+  "Cost basis is per-wallet FIFO: each wallet and exchange uses its own
+  oldest coins first for a sale, spend or transfer, unless you choose other
+  coins in one of your own wallets. An exchange's own order of coins can
+  give other figures." Section 2 of each report
   ends with "Sales by exchange", as in the expected-figures table (2025's
   report too). RPT-6 checks the values once prices are on.
 
@@ -593,7 +592,8 @@ exchanges and banks** reads its name, its kind and its balance.
   figured with your wallets together, as BitcoinTX 1.x did. Move coins
   into it with a Transfer dated when they really moved. Cost basis is
   per-wallet FIFO: each wallet and exchange uses its own oldest coins
-  first for a sale, spend or transfer. A Transfer dated in an earlier year can change
+  first for a sale, spend or transfer, unless you choose other coins in
+  one of your own wallets. A Transfer dated in an earlier year can change
   that year's figures and later ones (BitcoinTX shows which years before
   it saves), and BitcoinTX doesn't allocate your cost basis to each wallet
   as of January 1, 2025 (Rev. Proc. 2024-28), nor record an allocation you
@@ -675,20 +675,21 @@ every golden figure is back.
 - **CHO-1** **Add transaction**, Withdrawal, From Account `Wallet`,
   purpose Spent, dated today, Amount `0.001` BTC, network fee `0.00001`
   BTC with its value `1`, proceeds `100`. Expect the coins that will leave
-  listed, oldest first, and beside them "Choose coins only if you decided
-  which coins to send by the time they left, and your records from then
-  show which purchases they were (…). Otherwise the IRS counts the oldest
-  coins as the ones that left (Treas. Reg. §1.1012-1(j)). …". Choose
-  **Choose which coins leave**: a line for each purchase or deposit Wallet
-  holds, filled oldest first, with **Oldest first** and **Highest cost
-  first** offered (the spend is dated today). Empty the oldest line and
-  type `0.00101` on the newest purchase's: the running total adds up, and
-  Save is enabled. Save, and open the spend again: "Chosen on <today>.".
+  listed, oldest first. Choose **Choose which coins leave**: a line for
+  each purchase or deposit Wallet holds, filled oldest first, with
+  **Oldest first** and **Highest cost first** offered (the spend is dated
+  today), and "Choose coins only if you decided which coins to send by the
+  time they left, and your records from then show which purchases they
+  were (…). Otherwise the IRS counts the oldest coins as the ones that left
+  (Treas. Reg. §1.1012-1(j)). …". Empty the oldest line and type `0.00101`
+  on the newest one's, the 05/01/2024 Income deposit (0.02 BTC): the
+  running total adds up, and Save is enabled. Save, and open the spend
+  again: "Chosen on <today>.".
 - **CHO-2** Reports, Complete Tax Report for this year. Expect the cover's
   Cost basis method "Per-wallet FIFO, with the coins you chose in your
   wallets", and at the end of section 2 "Coins you chose": the spend,
   Wallet, "Spent, 0.00101000 BTC", Chosen on today's date (no star), and
-  the newest purchase's date acquired with 0.00101000 BTC and its cost.
+  05/01/2024 with 0.00101000 BTC and its cost, $50.50.
   Ledger Review lists no "Reminder: coins chosen after they left" for it
   (chosen the same day). Delete the spend; the Dashboard is as before.
 

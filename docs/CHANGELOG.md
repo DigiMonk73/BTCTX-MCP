@@ -6,11 +6,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Changed
 - **The words say you can choose coins in a wallet** (#711, step C6,
-  #734; Q5's words). Everywhere BitcoinTX described its method as "the
-  oldest coins first", or said it never lets you pick coins, it now says
-  per-wallet FIFO, unless you choose other coins in one of your own
-  wallets: the account notice, the README and the user guide, the tax
-  report's "Using these forms" page and notes, and the release tests.
+  #734; Q5's words). Where the app and its docs described the method as
+  "the oldest coins first", or said BitcoinTX never lets you pick coins,
+  they now say per-wallet FIFO, unless you choose other coins in one of
+  your own wallets: the account notice, the note shown when you add a
+  second wallet or exchange, the README and the user guide, the tax
+  report's "Using these forms" page and notes, and the release tests (the
+  AI connector's words and the StartOS package's follow with their own
+  steps).
   The user guide gains "Choosing which coins leave a wallet": where you
   may (a transfer out of a wallet, or a spend, gift, donation or loss from
   one; never an exchange's coins), how the form's picker works, the IRS's

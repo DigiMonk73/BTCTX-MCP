@@ -114,7 +114,7 @@ to open it.
 In one of your own wallets you can choose which coins leave, if you chose
 them when they left ([Choosing which coins leave a
 wallet](#choosing-which-coins-leave-a-wallet)); an exchange's coins leave
-oldest first, as its Form 1099-DA reports them. BitcoinTX doesn't allocate
+oldest first (BitcoinTX doesn't record a choice made at an exchange). BitcoinTX doesn't allocate
 your cost basis among your wallets as of January 1, 2025 (Rev. Proc. 2024-28),
 nor record an allocation you made: its figures from 2025 on follow its own
 history. Your 2024 Complete Tax Report lists each account's lots at the end
@@ -325,7 +325,7 @@ records are enough.
 
 - **Where:** a Transfer from one of your wallets to another account, or a
   bitcoin withdrawal from one (Spent, Gift, Donation or Lost). An
-  exchange's coins leave oldest first, as its Form 1099-DA reports them,
+  exchange's coins leave oldest first (BitcoinTX doesn't record a choice made at an exchange),
   and a move within one wallet records only its network fee.
 - **How:** the form lists the coins that will leave, oldest first, the
   IRS's default. **Choose which coins leave** opens a line for each

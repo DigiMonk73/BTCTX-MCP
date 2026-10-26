@@ -854,8 +854,9 @@ class _TaxReport:
             # 7.3: its full sentence is the Notes', and this page keeps to one), and what BitcoinTX doesn't record (3.7)
             "From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins "
             "you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). "
-            "BitcoinTX uses per-wallet FIFO, and the coins you chose in your wallets (listed under \"Coins you "
-            "chose\"). BitcoinTX records no Rev. Proc. 2024-28 allocation.",
+            + ("BitcoinTX uses per-wallet FIFO, and the coins you chose in your wallets (listed under \"Coins you "
+             "chose\")." if self.chosen else "BitcoinTX uses per-wallet FIFO.")
+            + " BitcoinTX records no Rev. Proc. 2024-28 allocation.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
@@ -873,9 +874,10 @@ class _TaxReport:
             "All amounts are in US dollars unless marked BTC. Losses are shown in parentheses, as on the IRS forms.",
             # The coins chosen in a wallet are listed (#711, 6.7); a broker's own order gives other figures (3.7)
             "Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
-            "spend or transfer, unless you choose other coins in one of your own wallets. The coins you chose are "
-            "listed under \"Coins you chose\", in section 2. An exchange's own order of coins can give other "
-            "figures. Trading between BTC and USD is a taxable event.",
+            "spend or transfer, unless you choose other coins in one of your own wallets."
+            + (" The coins you chose are listed under \"Coins you chose\", in section 2." if self.chosen else "")
+            + " An exchange's own order of coins can give other figures. Trading between BTC and USD is a taxable "
+            "event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
             "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
             "USD values are the ones entered with each transaction. When one was left blank, BitcoinTX filled "

@@ -173,7 +173,7 @@ a rename names an account: [docs/USING.md](docs/USING.md#wallets-exchanges-and-b
 
 In one of your own wallets you can choose which coins leave, if you chose
 them when they left ([how](docs/USING.md#choosing-which-coins-leave-a-wallet));
-an exchange's coins leave oldest first, as its Form 1099-DA reports them.
+an exchange's coins leave oldest first (BitcoinTX doesn't record a choice made at an exchange).
 BitcoinTX doesn't allocate your cost basis among your wallets as of January
 1, 2025 (Rev. Proc. 2024-28),
 nor record an allocation you made: its figures from 2025 on follow its own

@@ -54,10 +54,10 @@ new features go into 2.0, below. No dates are promised.
 ## Later
 
 - [ ] Specific-lot identification at an exchange: choosing which coins to
-      sell there, matching the standing order you gave the broker, once
-      brokers support it. An exchange's coins leave oldest first (per-wallet
-      FIFO), the IRS's default when you don't identify the coins; 2.0
-      chooses them in your own wallets.
+      sell there, matching the standing order you gave the broker. An
+      exchange's coins leave oldest first (per-wallet FIFO), the IRS's
+      default when you don't identify the coins; in 2.0 you choose them in
+      your own wallets.
 - [ ] Multi-year reports
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
 
