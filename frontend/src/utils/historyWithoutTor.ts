@@ -17,7 +17,7 @@ export const IF_YES =
   "Yes: only Bitstamp's price-history downloads go without Tor: the hourly history from 2013, the daily history, " +
   "and newer hours in the same fixed blocks when a value needs one. The live price and everything else stay on Tor.";
 export const IF_NO = "No: nothing goes without Tor. Type older values, or use your own Mempool.";
-export const CHANGE_LATER = "You can change this in Settings → Privacy & network.";
+export const CHANGE_LATER = "You can change this in Settings → Privacy & Network.";
 export const YES_LABEL = "Yes, download without Tor";
 export const NO_LABEL = "No, keep everything on Tor";
 

@@ -95,7 +95,7 @@ describe("Ledger Review's summary", () => {
 
 describe("Connect an AI Assistant's summary", () => {
   it("words the key by edition (#724), and names none before it's known", () => {
-    const what = "An AI app that reads your ledger and enters transactions";
+    const what = "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions";
     expect(aiSummary(true)).toBe(`${what}, with a key BitcoinTX keeps for it`);
     expect(aiSummary(false)).toBe(`${what}, with a key you create`);
     expect(aiSummary(undefined)).toBe(what);

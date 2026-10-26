@@ -22,8 +22,8 @@ describe("a wallet sent to itself", () => {
     expect(offered("To Account")).toContain("Wallets: Coldcard: consolidate within the same wallet");
     await form.choose("To Account", "Coldcard: consolidate within the same wallet");
     expect(screen.getByText(
-      "Moving coins to another of your wallets? Choose that wallet as To Account, after adding it in " +
-      "Settings → Wallets, exchanges and banks if it isn't listed.",
+      "Moving coins to another of your wallets? Choose that wallet as To Account. Not listed? Add it, or show it " +
+      "if it's hidden, in Settings → Wallets, exchanges and banks.",
     )).toBeTruthy();
   });
 });

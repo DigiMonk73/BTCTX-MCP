@@ -1,0 +1,6 @@
+Transactions
+User,Example User,00000000-0000-4000-8000-00000000000a
+ID,Timestamp,Transaction Type,Asset,Quantity Transacted,Price Currency,Price at Transaction,Subtotal,Total (inclusive of fees and/or spread),Fees and/or Spread,Notes
+65a000000000000000000101,2025-03-18 11:49:37 UTC,Advance Trade Buy,BTC,0.001,USD,"$80,000.00",$80.00,$80.48,$0.48,Bought 0.001 BTC for 80.48 USD on BTC-USD
+65a000000000000000000102,2025-03-19 11:49:37 UTC,Advance Trade Sell,BTC,-0.0005,USD,"$82,000.00",$41.00,$40.75,$0.25,Sold 0.0005 BTC for 40.75 USD on BTC-USD
+65a000000000000000000103,2025-03-20 11:49:37 UTC,Reward Income,BTC,0.00001,USD,"$82,000.00",$0.82,$0.82,$0.00,

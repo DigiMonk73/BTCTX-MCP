@@ -147,7 +147,7 @@ ENV_SOURCE, ENV_FALLBACK, ENV_MEMPOOL, ENV_PROXY = (
 # goes through a proxy, and locked on in Settings
 ENV_TOR = "BTCTX_TOR_PROXY_URL"
 ENV_TRUE, ENV_FALSE = ("on", "true", "1", "yes"), ("off", "false", "0", "no", "")
-SETTINGS_PAGE = "Settings → Privacy & network"
+SETTINGS_PAGE = "Settings → Privacy & Network"
 SET_IN_STARTOS = "StartOS's Price Source & Privacy action"
 # A server that doesn't say what it is may be StartOS before its package
 # passes BTCTX_HOST: words that fit both

@@ -5,6 +5,7 @@ no word left of 1.x's one wallet and one exchange in what ships, never
 to what the app does.
 """
 
+import ast
 import json
 import re
 import subprocess
@@ -23,6 +24,26 @@ IRS_RULE = ("From 2025, cost basis is figured wallet by wallet and account by ac
             "§1.1012-1(j)).")
 # B7b's help text for a new wallet, 5.1's words exactly (never reworded)
 WALLET_HELP_RULE = "since 2025 the IRS figures cost basis wallet by wallet."
+
+# What BitcoinTX does, in the owner's two wordings (decision 30, #713): the
+# short one for labels, the full one for help text. The rule above states the law.
+METHOD_SHORT = "Per-wallet FIFO"
+METHOD_FULL = ("Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
+               "spend or transfer.")
+# Any other wording of the method: a bare FIFO reads as oldest across all your coins, 1.x's way
+METHOD_WORDS = re.compile(r"\bFIFO\b|first[ -]in,? first[ -]out", re.I)
+# What users read: the app's and the connector's words, the reports and the
+# CSV guide, the StartOS package's, and the guides written for users
+USER_DOCS = ("README.md", "docs/USING.md", "mcp_server/README.md", "mcp_server/AI_SETUP.md", "startos/README.md",
+             "startos/instructions.md")
+USER_CODE = ("frontend/src/", "backend/", "mcp_server/btctx_mcp/", "startos/startos/")
+# Files whose docs step hasn't merged yet: each step takes its own off the list
+METHOD_NOT_YET = {
+    "mcp_server/btctx_mcp/guide.py": "D3, #699", "mcp_server/btctx_mcp/server.py": "D3, #699",
+    "mcp_server/README.md": "D3, #699",
+    "startos/README.md": "D4, #700", "startos/instructions.md": "D4, #700",
+    "startos/startos/manifest/i18n.ts": "D4, #700",
+}
 
 # Where the rule is stated, each in the one wording
 STATES_THE_RULE = ["README.md", "docs/USING.md", "mcp_server/btctx_mcp/guide.py", "startos/startos/manifest/i18n.ts"]
@@ -97,6 +118,77 @@ def test_no_other_wording_of_the_rule():
              for path, text in shipped_texts().items()
              for hit in re.finditer(r"wallet by wallet|account by account", text.replace(rule, "").replace(help_rule, ""))]
     assert not found, found
+
+
+def python_words(source: str) -> str:
+    """A Python file's strings, what it shows or sends: never a comment, a
+    developer's docstring or a column's doc=. An MCP tool's, an API route's
+    and a pydantic schema's docstrings are users' (CODE_STYLE.md, rule 4):
+    a decorated function's, a class's with a base."""
+    tree = ast.parse(source)
+    for_developers = [node.body[0].value for node in ast.walk(tree)
+                      if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                      and not getattr(node, "decorator_list", None) and not getattr(node, "bases", None)
+                      and node.body and isinstance(node.body[0], ast.Expr)
+                      and isinstance(node.body[0].value, ast.Constant) and isinstance(node.body[0].value.value, str)]
+    for_developers += [keyword.value for keyword in ast.walk(tree) if isinstance(keyword, ast.keyword) and keyword.arg == "doc"]
+    left_out = {id(text) for node in for_developers for text in ast.walk(node)}
+    return " ".join(node.value for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in left_out)
+
+
+def typescript_words(source: str) -> str:
+    """A TypeScript file without its comments (a URL's "//" follows a ":")."""
+    return re.sub(r"(?<![:\w])//[^\n]*", " ", re.sub(r"/\*.*?\*/", " ", source, flags=re.S))
+
+
+def user_texts() -> dict[str, str]:
+    """Every text users read, as words."""
+    texts = {}
+    for path in tracked():
+        if is_a_test(path) or path.startswith(("backend/migrations/", "startos/startos/versions/")):
+            continue
+        if path in USER_DOCS:
+            texts[path] = flat((ROOT / path).read_text())
+        elif path.startswith(USER_CODE) and path.endswith(".py"):
+            texts[path] = flat(python_words((ROOT / path).read_text()))
+        elif path.startswith(USER_CODE) and path.endswith((".ts", ".tsx")):
+            texts[path] = flat(typescript_words((ROOT / path).read_text()))
+    return texts
+
+
+def other_method_words(text: str) -> list[str]:
+    """Each wording of the method that isn't the rule or one of decision 30's.
+    A full sentence other than METHOD_FULL counts too, so a new ending given
+    to it (#711's choice of coins) finds every copy of the old one. Bold
+    ("**Cost basis is per-wallet FIFO**:") leaves a space before a colon."""
+    text = re.sub(r" (?=[:;,.])", "", text)
+    for allowed in (flat(IRS_RULE), flat(METHOD_FULL)):
+        text = text.replace(allowed, " ")
+    full_start = METHOD_FULL.split(":")[0]
+    found = [text[hit.start():hit.end() + 80] for hit in re.finditer(re.escape(full_start), text, re.I)]
+    text = re.sub(re.escape(METHOD_SHORT), " ", text, flags=re.I)
+    return found + [text[max(0, hit.start() - 50):hit.end() + 30] for hit in METHOD_WORDS.finditer(text)]
+
+
+@needs_a_checkout
+def test_the_method_has_its_two_wordings():
+    """Decision 30 (#713): BitcoinTX's cost-basis method is "Per-wallet FIFO",
+    or its full sentence, wherever users read it; the IRS rule keeps its own."""
+    found = {path: words for path, text in user_texts().items()
+             if path not in METHOD_NOT_YET and (words := other_method_words(text))}
+    assert not found, found
+
+
+def test_other_wordings_of_the_method_are_found():
+    sentence = f"{IRS_RULE} {METHOD_FULL} {METHOD_SHORT}: oldest first."
+    assert other_method_words(flat(sentence)) == []
+    bold = "- **Cost basis is per-wallet FIFO**: " + METHOD_FULL.split(": ", 1)[1]
+    assert other_method_words(flat(bold)) == []
+    for old in ("Realized Gains/Losses (FIFO)", "First in, first out (FIFO), for each account",
+                "BitcoinTX uses first in, first out in each wallet", "always sells them first-in, first-out",
+                "Cost basis is per-wallet FIFO: each wallet uses its oldest coins."):
+        assert other_method_words(flat(old)), old
 
 
 @needs_a_checkout
