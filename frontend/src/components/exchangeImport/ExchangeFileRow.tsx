@@ -6,7 +6,7 @@ interface ExchangeFileRowProps {
   river: boolean;
   /** Whether Preview can be clicked: a file chosen, its accounts and columns known. */
   canPreview: boolean;
-  /** What Preview waits for, said beside it (#773): "Choose the exchange first." */
+  /** What Preview waits for, said under it (#773): "Choose the exchange first." */
   waitingFor?: string;
   /** The file is being read for its first preview. */
   processing: boolean;

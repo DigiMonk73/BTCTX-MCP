@@ -46,6 +46,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const [previewPick, setPreviewPick] = useState<RiverPick | null>(null);
   // A pick whose preview is on its way: shown meanwhile, the old one back if it fails
   const [pending, setPending] = useState<RiverPick | null>(null);
+  // Whether a preview was made with the exchange picked: it's that file's then (#707, #773)
+  const [pickUsed, setPickUsed] = useState(false);
   const [outOfDate, setOutOfDate] = useState(false);
   useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
 
@@ -72,7 +74,17 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   };
 
   // Each file's exchange is picked for it (#707): the next file is asked again, its wallet kept
-  const forgetExchange = () => setPicked(({ wallet }) => ({ wallet }));
+  const forgetExchange = () => {
+    setPicked(({ wallet }) => ({ wallet }));
+    setPickUsed(false);
+  };
+
+  // Another way of reading the file (another exchange's mapping): the exchange a preview was made with was the
+  // last one's, and the name the file is read by may now choose another
+  const mappingChanged = () => {
+    dropPreview();
+    if (pickUsed) forgetExchange();
+  };
 
   const reset = () => {
     setFile(null);
@@ -102,6 +114,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       // The pick is the file's only once its preview is there: a failed one leaves both as they were
       setPicked(pick);
       setPreviewPick(pick);
+      setPickUsed(true);
       setOutOfDate(false);
     } catch (err) {
       toast.error(detailOr(err, `Failed to preview ${exchange.name} CSV.`));
@@ -156,7 +169,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   return (
     <>
 
-      <ExchangeFileChoice exchange={exchange} file={file} disabled={busy} onMappingChanged={dropPreview} />
+      <ExchangeFileChoice exchange={exchange} file={file} disabled={busy} onMappingChanged={mappingChanged} />
 
       {/* The file's exchange and wallet before the file and Preview, which waits for them (#773) */}
       <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
@@ -166,8 +179,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
         canPreview={!loading && file !== null && !needed && exchange.ready} waitingFor={needed}
         onFile={(chosen) => {
           // Another file: the preview on screen is the last one's, and so is the exchange it was made with; a
-          // pick made since, above the file (#773), is this file's
-          if (previewPick) forgetExchange();
+          // pick no preview used yet, made above the file (#773), is this file's
+          if (pickUsed) forgetExchange();
           setFile(chosen);
           dropPreview();
           void exchange.fileChosen(chosen);

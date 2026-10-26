@@ -3,7 +3,7 @@
 // exchange, Preview waits for the file's exchange (#707), so the choice comes
 // before the file and Preview, and Preview says what it waits for.
 import "../../test/setup";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { AxiosResponse } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import api from "../../api";
@@ -22,10 +22,20 @@ function answered<T>(data: T): AxiosResponse<T> {
   return { data, status: 200, statusText: "OK", headers: {}, config: {} as AxiosResponse["config"] };
 }
 
+const PREVIEW = {
+  success: true, total_rows: 1, new_count: 1, matched_count: 0, discrepancy_count: 0, errors: [], warnings: [],
+  proposals: [{
+    row_number: 2, date: "2026-02-15T10:00:00Z", type: "Buy", amount: "0.001", from_account: "Checking",
+    to_account: "River BTC", status: "new", type_choices: ["Buy"], funding_choices: ["Checking", "River USD"],
+    basis_autofilled: false,
+  }],
+} as unknown as RiverPreviewResponse;
+
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(api, "get").mockResolvedValue(answered({ mappings: [
     { id: "river", name: "River", ready_made: true, help: "", checked: true },
+    { id: "kraken", name: "Kraken", ready_made: true, help: "", checked: false },
   ] }));
 });
 
@@ -72,6 +82,23 @@ describe("the import's fields", () => {
     chooseFile(view);
     expect((view.getByLabelText("Exchange") as HTMLSelectElement).value).toBe("103");
     expect((view.getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("ask the exchange again for another exchange's file once a preview was made (the re-check's finding)", async () => {
+    vi.spyOn(api, "post").mockResolvedValue(answered(PREVIEW));
+    const view = show(MANY); // River's file: River chosen by its name
+    chooseFile(view);
+    await act(async () => {
+      fireEvent.click(view.getByRole("button", { name: "Preview" }));
+    });
+    expect((view.getByLabelText("Exchange") as HTMLSelectElement).value).toBe("4");
+    await act(async () => {
+      fireEvent.change(await view.findByLabelText("Exchange file"), { target: { value: "kraken" } });
+    });
+    fireEvent.change(view.getByLabelText("Kraken CSV file"),
+      { target: { files: [new File(["Time,Type\n"], "kraken.csv", { type: "text/csv" })] } });
+    // Kraken's file by its name, as a fresh start would choose, never River's carried over
+    expect((view.getByLabelText("Exchange") as HTMLSelectElement).value).toBe("103");
   });
 
   it("say nothing with one exchange, chosen already", () => {

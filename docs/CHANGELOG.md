@@ -45,7 +45,7 @@ All notable changes to BitcoinTX are documented in this file.
   (#707), but **Exchange** and **Wallet for sends and receives** sat
   below the button, off a phone's screen, and nothing said why Preview
   stayed grey. They now come before the file and Preview, and a line
-  beside Preview says what it waits for: "Choose the exchange first." (or
+  under Preview says what it waits for: "Choose the exchange first." (or
   "Choose the wallet first." when every wallet is hidden). Looks only: no
   figure changes.
 
