@@ -15,6 +15,7 @@ engine (services/transaction.py) takes from those lots as first in, first
 out takes from all of them: the fee's piece first, the oldest first.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -45,10 +46,9 @@ DOESNT_ADD_UP = ("The coins chosen add up to {chosen} BTC, but {leaves} BTC leav
                  "for all of it, or none to send the oldest first.")
 SEND_AGAIN = ("Transaction {id} has coins chosen for {btc} BTC leaving {wallet}, and this changes what leaves: "
               "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: null).")
-# With the AI key, which can send neither until the connector can choose coins (Q4)
-SEND_AGAIN_AI = ("Transaction {id} has coins chosen for {btc} BTC leaving {wallet}, and this changes what leaves. "
-                 "Change it in BitcoinTX, where its coins were chosen.")
-AI_CANT_CHOOSE = "The AI connector can't choose coins yet: choose them in BitcoinTX."
+# SEND_AGAIN's header, naming the transaction: the AI connector answers it as
+# its tool's answer (saved: false, what to send), not as an error (#733)
+CHOOSE_AGAIN_HEADER = "X-BitcoinTX-Choose-Again"
 NOT_HELD = ("Transaction {id} ({what}) chose {btc} BTC of the coins from transaction {acquired}{about}, but "
             "{wallet} holds {held} BTC of them then. Change that transaction's chosen coins first, or set it back "
             "to oldest first.")
@@ -139,6 +139,15 @@ def every_choice(db: Session) -> dict[int, Choice]:
     return choices
 
 
+def replays_first(rows: Iterable[dict], db: Session) -> bool:
+    """Whether writing `rows` (transactions' data) replays the whole ledger
+    for a choice among them: while a lot doesn't know its acquisition
+    (lots_lack_acquisition), the first row with a choice does, so the
+    past-year question and the AI's copy treat the write as replaying (call
+    (j))."""
+    return any(row.get("chosen_coins") for row in rows) and lots_lack_acquisition(db)
+
+
 def lots_lack_acquisition(db: Session) -> bool:
     """Whether a lot doesn't know its acquisition (made before migration
     0101, or moved from one by a transfer dated last since): a write with a
@@ -176,12 +185,8 @@ class SendAgain(HTTPException):
 
     def __init__(self, tx: Transaction, book: AccountBook):
         btc = sum(saved_choice(tx).values(), Decimal(0))
-        self.parts = {"id": tx.id, "btc": f"{btc:.8f}", "wallet": book.name(tx.from_account_id)}
-        super().__init__(status_code=422, detail=SEND_AGAIN.format(**self.parts))
-
-    def for_the_ai(self) -> HTTPException:
-        """Its words for the AI key, which can't send a choice yet."""
-        return HTTPException(status_code=422, detail=SEND_AGAIN_AI.format(**self.parts))
+        parts = {"id": tx.id, "btc": f"{btc:.8f}", "wallet": book.name(tx.from_account_id)}
+        super().__init__(status_code=422, detail=SEND_AGAIN.format(**parts), headers={CHOOSE_AGAIN_HEADER: str(tx.id)})
 
 
 class NotHeld(HTTPException):

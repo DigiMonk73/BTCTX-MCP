@@ -207,7 +207,7 @@ class Write(PastYearWrite):
         ledger first (#711)."""
         if self.kind != ADD:
             return False
-        if self.data.get("chosen_coins") and chosen_coins.lots_lack_acquisition(db):
+        if chosen_coins.replays_first([self.data], db):
             return False
         latest = db.query(func.max(Transaction.timestamp)).scalar()
         when = self.data.get("timestamp") or datetime.now(timezone.utc)

@@ -721,58 +721,7 @@ def test_a_choice_in_this_year_saves_at_once(owner, tax_year):
     assert r.json()["chosen_coins"] == [{"acquired_txn_id": owner.ids["A2"], "btc": "0.10000000"}]
 
 
-# The AI key (Q4: until C5, the AI can't choose coins)
-
-AI_CANT_CHOOSE = "The AI connector can't choose coins yet: choose them in BitcoinTX."
-
-
-@pytest.fixture
-def ai(chose_a2) -> TestClient:
-    assert chose_a2.put("/api/settings/ai-access", json={"on": True}).status_code == 200
-    r = chose_a2.post("/api/settings/ai-key")
-    assert r.status_code == 200, r.text
-    # A 2.0 connector: a ledger of two wallets refuses an older one's writes (#354)
-    return TestClient(app, headers={"Authorization": f"Bearer {r.json()['key']}", "X-BitcoinTX-Connector": "2.0.0a2"})
-
-
-@pytest.mark.parametrize("choice", [None, [], "coins"])
-def test_the_ai_keys_edit_cant_send_a_choice(chose_a2, ai, choice):
-    """Neither coins nor null (oldest first). Its adds go through the AI
-    import (below): the transactions API's add is closed to the key."""
-    ids = chose_a2.ids
-    if choice == "coins":
-        choice = coins((ids["A1"], "0.1001"))
-    r = ai.put(f"/api/transactions/{ids['S']}", json={"chosen_coins": choice})
-    assert r.status_code == 422, r.text
-    assert r.json()["detail"] == AI_CANT_CHOOSE
-    assert chose_a2.get(f"/api/transactions/{ids['S']}").json()["chosen_coins"] is not None
-
-
-def test_the_ai_keys_edit_that_changes_what_leaves_is_sent_to_bitcointx(chose_a2, ai):
-    ids = chose_a2.ids
-    r = ai.put(f"/api/transactions/{ids['S']}", json={"amount": "0.2"})
-    assert r.status_code == 422, r.text
-    assert r.json()["detail"] == (f"Transaction {ids['S']} has coins chosen for 0.10010000 BTC leaving Wallet, and "
-                                  "this changes what leaves. Change it in BitcoinTX, where its coins were chosen.")
-    # Another field keeps the choice
-    r = ai.put(f"/api/transactions/{ids['S']}", json={"proceeds_usd": "11000"})
-    assert r.status_code == 200, r.text
-    assert r.json()["chosen_coins"] == [{"acquired_txn_id": ids["A2"], "btc": "0.10010000"}]
-
-
-def test_the_ai_import_cant_send_a_choice(chose_a2, ai):
-    row = {"date": "2025-07-01T12:00:00Z", "type": "Withdrawal", "amount": "0.01", "from_account": "Wallet",
-           "to_account": "External", "purpose": "Spent", "proceeds_usd": "1000",
-           "chosen_coins": coins((chose_a2.ids["A2"], "0.01"))}
-    r = ai.post("/api/import/entries/preview", json={"rows": [row]})
-    assert r.status_code == 200, r.text
-    result = r.json()["results"][0]
-    assert result["status"] == "invalid" and result["errors"] == [AI_CANT_CHOOSE]
-    before = chose_a2.get("/api/transactions").json()
-    r = ai.post("/api/import/entries/execute", json={"rows": [row]})
-    assert r.status_code == 400, r.text
-    assert AI_CANT_CHOOSE in r.json()["detail"]
-    assert chose_a2.get("/api/transactions").json() == before
+# The AI key: test_chosen_coins_ai_733.py (C5, Q4: the AI may choose coins)
 
 
 # Backups and restores (8.5): the database step's extra checks

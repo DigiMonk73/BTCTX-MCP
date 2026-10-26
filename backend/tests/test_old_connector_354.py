@@ -122,9 +122,11 @@ def test_the_owners_writes_are_never_asked(ledger):
 
 
 def test_every_route_the_key_changes_the_ledger_on_is_a_write_here():
-    """The AI key's routes that aren't reads, but the preview's dry run and
-    the AI copy, which change no figure: so a renamed route can't slip out."""
+    """The AI key's routes that aren't reads, but the preview's dry run, a
+    saved transaction's coins (a dry run too, #733) and the AI copy, which
+    change no figure: so a renamed route can't slip out."""
     from backend.services import ai_key
 
     not_reads = {(method, route) for method, route, _ in ai_key.AI_KEY_ROUTES if method != "GET"}
-    assert ai_key.WRITES == not_reads - {("POST", "/api/import/entries/preview"), ("POST", "/api/backup/ai-copy")}
+    assert ai_key.WRITES == not_reads - {("POST", "/api/import/entries/preview"), ("POST", "/api/backup/ai-copy"),
+                                         ("POST", "/api/transactions/{transaction_id}/coins-moved")}
