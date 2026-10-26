@@ -4,6 +4,23 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+## [v2.0.0-beta.1] - 2026-10-26 - 2.0's first beta: all of 2.0, described in full
+
+**About this beta.** BitcoinTX 2.0's first beta, for anyone who chooses to
+try 2.0 before it's released: never for real records. A beta follows the
+alphas: all of 2.0 is in it, tested as a whole; it's still a GitHub
+pre-release, and Start9's store stays on 1.x. New since
+[v2.0.0-alpha.3](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.3):
+the app, the README, the user guide, the AI connector's and StartOS's
+documents and the store listing describe all of 2.0. Cost basis is
+per-wallet FIFO, and in a self-custody wallet you can choose which coins
+leave, if you chose them when they left. Connecting an AI is optional and
+off until you turn it on. The dashboard's Unrealized Gains/Losses adds up
+your accounts' own gains (a few cents from alpha.3's; on no tax form), and
+fixes found in alpha.3 are in. Updating from alpha.3 changes no stored
+figure. The way back to 1.x and what's in 2.0 are in alpha.1's notes. The
+AI connector is `btctx-mcp==2.0.0b1`.
+
 ### Changed
 - **The words say you can choose coins in a wallet** (#711, step C6,
   #734; Q5's words). Where the app and its docs described the method as
