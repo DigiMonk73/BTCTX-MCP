@@ -295,6 +295,12 @@ All notable changes to BitcoinTX are documented in this file.
   Words only: no figure changes.
 
 ### Development
+- **The equivalence check no longer differs on every run** (#763, found by
+  the lead). Since C4 the CSV export carries each row's `coins_chosen_at`,
+  the moment the snapshot seeded the choice; the snapshot masked it in JSON
+  answers only. A CSV answer's filled cells of that column are now
+  `<volatile>` too (its column and empty cells kept), so a change that moves
+  nothing gets "No difference".
 - **`desktop/build-mac.sh` says to test a build with `run-test-build.sh`**
   (#679, found by session 18 of the 2.0 build). It ended by suggesting
   `open` on the app it built, which runs it on the installed app's data
