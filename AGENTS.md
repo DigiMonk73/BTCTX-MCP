@@ -447,7 +447,19 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   ticked (the owner's decision, 2026-10-16); and River never names a
   buy's funding bank (`unnamed_bank`), so another bank there still
   matches exactly, as in 1.x (the build lead's call, 2026-10-23, #251's
-  decision 25). The
+  decision 25). A River row the other passes leave new, of the same kind,
+  bitcoin amount and minute as a transaction in another account of the
+  same kind (another exchange's, another wallet; going the same way, never
+  into the account the row's coins left nor out of the one they went into;
+  on the guessed side only beside the row's own account, one like it or
+  External), is only similar:
+  Review, ticked, its note naming that account and where the row may
+  already be (`_in_another_account`, the owner's decision, 2026-10-25,
+  #707: 1.x's guide had a second exchange's trades recorded in the first);
+  the AI's rows never are. With more than one exchange, the screen picks
+  none for a file but the one shown that the file is named for
+  (`riverChoices`), and asks again for each file; the API keeps 5.11's
+  first exchange for a request that names none. The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a

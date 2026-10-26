@@ -306,11 +306,12 @@ test("River: with one of each nothing is asked; with two of each the file's exch
   expect((await page.request.put(`/api/accounts/${phone.id}`, { data: { hidden: true } })).ok()).toBeTruthy();
   await page.reload();
 
-  // Asked, the first shown one of each chosen (Q8)
+  // Asked, the first shown wallet chosen (Q8); no exchange is named River, so none is chosen (#707)
   const exchange = river.getByLabel("Exchange", { exact: true });
   const wallet = river.getByLabel("Wallet for sends and receives");
-  await expect(exchange).toHaveValue("4");
-  await expect(exchange.getByRole("option")).toHaveText(["Exchange", "Kraken"]);
+  await expect(exchange).toHaveValue("");
+  await expect(exchange.getByRole("option")).toHaveText(["Choose an exchange", "Exchange", "Kraken"]);
+  await expect(river.getByRole("note").filter({ hasText: "in another one before 2.0?" })).toBeVisible();
   await expect(wallet).toHaveValue("2");
   // A hidden one is still yours: offered, never chosen for you
   await expect(wallet.getByRole("option")).toHaveText(["Wallet", "Coldcard", "Old phone (hidden)"]);

@@ -96,13 +96,14 @@ def test_a_second_exchanges_file_into_a_ledger_with_rows(client):
         # Paid from the bank (#655), it still matches the buy recorded from Kraken's dollars: no
         # exchange's file names the bank (5.11's unnamed bank)
         (2, "Buy", "Bank", "Kraken BTC", "matched"),
-        # The same buy on the first exchange is another buy (the owner's rule, 2026-10-15)
-        (3, "Buy", "Bank", "Kraken BTC", "new"),
+        # The same buy on the first exchange is another buy (the owner's rule, 2026-10-15), only
+        # similar at the same minute (#707)
+        (3, "Buy", "Bank", "Kraken BTC", "discrepancy"),
         (4, "Sell", "Kraken BTC", "Kraken USD", "discrepancy"),
         (5, "Transfer", "Kraken BTC", "Cold Storage", "matched"),
         (6, "Transfer", "Cold Storage", "Kraken BTC", "new"),
     ]
-    assert (answer["new_count"], answer["matched_count"], answer["discrepancy_count"]) == (2, 2, 1)
+    assert (answer["new_count"], answer["matched_count"], answer["discrepancy_count"]) == (1, 2, 2)
     assert "Same BTC amount as tx" in answer["proposals"][2]["discrepancy"]
 
     r = client.post("/api/import/exchange/execute", json={"rows": default_request(answer)})

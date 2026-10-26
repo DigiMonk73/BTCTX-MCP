@@ -83,7 +83,9 @@ export interface RiverChoice {
 export interface RiverChoices {
   exchanges: RiverChoice[];
   wallets: RiverChoice[];
-  /** Q8's: the first exchange and wallet shown; none when every one of its kind is hidden. */
+  /** The first wallet shown (Q8's), and the only exchange if it's shown, or
+   * of more than one, the one shown that the file is named for; none
+   * otherwise (every one of its kind hidden, or no exchange named so). */
   defaults: { exchange?: number; wallet?: number };
   /** Whether the screen asks: more than one to choose from, or none chosen. */
   askExchange: boolean;
@@ -93,13 +95,17 @@ export interface RiverChoices {
 /** What River's "Exchange" and "Wallet for sends and receives" offer (5.11,
  * 5.13): every exchange and wallet, hidden ones too, since they're still
  * yours; asked once there's more than one, so a file never goes to the only
- * one shown unasked; the first shown one chosen, never a hidden one. */
-export function riverChoices(book: AccountBook): RiverChoices {
+ * one shown unasked; the first shown wallet chosen, never a hidden one. Of
+ * more than one exchange, none is chosen but the one shown that the file
+ * (`fileExchange`: "River", a mapping's name) is named for: 1.x's guide had
+ * a second exchange's trades recorded in the first, so a file taken there
+ * unasked holds them twice (the owner's decision, 2026-10-25, #707). */
+export function riverChoices(book: AccountBook, fileExchange?: string): RiverChoices {
   const choice = (a: LedgerAccount, name: string) => ({ id: a.id, name, hidden: a.hidden });
   const exchanges = book.filter((a) => a.kind === "exchange" && a.currency === "BTC")
     .map((a) => choice(a, a.exchange ?? a.name));
   const wallets = book.filter((a) => a.kind === "wallet").map((a) => choice(a, a.name));
-  const exchange = exchanges.find((c) => !c.hidden)?.id;
+  const exchange = exchanges.length > 1 ? namedFor(exchanges, fileExchange) : exchanges.find((c) => !c.hidden)?.id;
   const wallet = wallets.find((c) => !c.hidden)?.id;
   return {
     exchanges, wallets,
@@ -107,6 +113,18 @@ export function riverChoices(book: AccountBook): RiverChoices {
     askExchange: exchanges.length > 1 || exchange === undefined,
     askWallet: wallets.length > 1 || wallet === undefined,
   };
+}
+
+/** The one exchange shown that the file's is named for, ignoring case: "Swan"
+ * for "Swan: withdrawals", as ready-made mappings are named. */
+function namedFor(exchanges: RiverChoice[], fileExchange: string | undefined): number | undefined {
+  const file = fileExchange?.trim().toLowerCase();
+  if (!file) return undefined;
+  const named = exchanges.filter((c) => {
+    const name = c.name.trim().toLowerCase();
+    return !c.hidden && (file === name || file.startsWith(`${name}:`));
+  });
+  return named.length === 1 ? named[0].id : undefined;
 }
 
 /** The file's exchange (its bitcoin account) and wallet, by id; undefined: none chosen. */
@@ -117,7 +135,7 @@ export interface RiverPick {
 
 /** The file's exchange and wallet: the owner's pick while that account is
  * there (hidden since, it stays: a preview made with it still names it),
- * else Q8's first shown one. Nothing before the book is read: the server
+ * else riverChoices' default. Nothing before the book is read: the server
  * then takes your first exchange and wallet. */
 export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: RiverPick): RiverPick {
   if (!choices) return {};
