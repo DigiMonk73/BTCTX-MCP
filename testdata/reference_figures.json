@@ -3390,13 +3390,11 @@
       "coins": [
        {
         "acquired": "2024-02-01",
-        "acquired_txn_id": 62,
         "btc": 0.0051,
         "cost": 219.3
        },
        {
         "acquired": "2025-02-01",
-        "acquired_txn_id": 66,
         "btc": 0.007,
         "cost": 714.0
        }
@@ -3411,7 +3409,6 @@
       "coins": [
        {
         "acquired": "2025-02-01",
-        "acquired_txn_id": 66,
         "btc": 0.00405,
         "cost": 413.1
        }
@@ -3426,13 +3423,11 @@
       "coins": [
        {
         "acquired": "2023-03-10",
-        "acquired_txn_id": 61,
         "btc": 0.003,
         "cost": 61.5
        },
        {
         "acquired": "2025-02-01",
-        "acquired_txn_id": 66,
         "btc": 0.003,
         "cost": 306.0
        }
@@ -3447,7 +3442,6 @@
       "coins": [
        {
         "acquired": "2024-02-01",
-        "acquired_txn_id": 62,
         "btc": 0.002,
         "cost": 86.0
        }
@@ -6346,13 +6340,11 @@
       "coins": [
        {
         "acquired": "2023-03-10",
-        "acquired_txn_id": 61,
         "btc": 0.0021,
         "cost": 43.05
        },
        {
         "acquired": "INHERITED",
-        "acquired_txn_id": 67,
         "btc": 0.004,
         "cost": 424.0
        }
@@ -6367,7 +6359,6 @@
       "coins": [
        {
         "acquired": "2023-03-10",
-        "acquired_txn_id": 61,
         "btc": 0.002,
         "cost": 41.0
        }
@@ -6382,7 +6373,6 @@
       "coins": [
        {
         "acquired": "INHERITED",
-        "acquired_txn_id": 67,
         "btc": 0.002,
         "cost": 212.0
        }
@@ -6397,7 +6387,6 @@
       "coins": [
        {
         "acquired": "2023-03-10",
-        "acquired_txn_id": 61,
         "btc": 0.003,
         "cost": 61.5
        }
@@ -6412,7 +6401,6 @@
       "coins": [
        {
         "acquired": "2025-02-01",
-        "acquired_txn_id": 66,
         "btc": 0.0051,
         "cost": 520.2
        }

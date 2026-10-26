@@ -50,12 +50,14 @@ All notable changes to BitcoinTX are documented in this file.
   row you add by hand), `chosen_coins`, each purchase or deposit by its
   row's id with the BTC chosen from it (`id 12: 0.01000000; id 30:
   0.00500000`), and `coins_chosen_at`, when the choice was saved. An export
-  imports into an empty ledger with the same choices, whatever order its
-  rows are in: a choice follows its label, never a position. The import
-  names the row of an id that isn't a whole number, one two rows share, or
-  a choice naming an id no row has or a row that didn't acquire bitcoin. An
-  older file without the columns imports as before; an older BitcoinTX
-  reading a new file ignores them and takes the oldest coins. The template
+  imports into an empty ledger with the same choices, its rows sorted
+  another way or a row added: a choice follows its label, never a position.
+  The preview names the row of an id that isn't a whole number, one two rows
+  share, a choice naming an id no row has, a row that didn't acquire
+  bitcoin or one not before it, and a choice the save would refuse (where
+  coins can't be chosen, a total that isn't what leaves). An older file
+  without the columns imports as before; an older BitcoinTX reading a new
+  file ignores them and takes the oldest coins. The template
   shows the columns, with a spend of chosen coins. The tax report's
   section 2 gains "Coins you chose": each transaction of the year that
   chose its coins, the coins it took from each purchase (date acquired,

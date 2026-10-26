@@ -103,8 +103,24 @@ CASH = {"id": "9", "date": "2025-01-05T12:00:00Z", "type": "Deposit", "amount": 
     ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: lots"}], 3, "chosen_coins", "chosen_coins must read like"),
     ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: 0.005; id 7: 0.005"}], 3, "chosen_coins", "names id 7 twice"),
     ([DEPOSIT, {**SPEND, "coins_chosen_at": "yesterday"}], 3, "coins_chosen_at", "coins_chosen_at must be"),
+    # The review of #732: none of these may stop the import with an unexpected error
+    ([{**DEPOSIT, "id": "\u00b2"}, SPEND], 2, "id", "id must be a whole number above 0, or blank"),
+    ([{**DEPOSIT, "id": "9" * 5000}, SPEND], 2, "id", "id must be a whole number above 0, or blank"),
+    ([DEPOSIT, {**SPEND, "chosen_coins": f"id {'9' * 5000}: 0.01"}], 3, "chosen_coins", "chosen_coins must read like"),
+    ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: 1e100"}], 3, "chosen_coins", "chosen_coins must read like"),
+    ([DEPOSIT, {**SPEND, "chosen_coins": f"id 7: 1{'0' * 30}"}], 3, "chosen_coins", "chosen_coins must read like"),
+    ([DEPOSIT, {**SPEND, "coins_chosen_at": "0001-01-01T00:00:00+01:00"}], 3, "coins_chosen_at", "from 2009-01-03"),
+    ([DEPOSIT, {**SPEND, "coins_chosen_at": "0001-01-01T00:00:00Z"}], 3, "coins_chosen_at", "from 2009-01-03"),
+    ([DEPOSIT, {**SPEND, "coins_chosen_at": "9999-12-31T23:59:59Z"}], 3, "coins_chosen_at", "from 2009-01-03"),
+    # What the save would refuse, named at the preview
+    ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: 0.005"}], 3, "chosen_coins", "The coins chosen add up to 0.00500000"),
+    ([DEPOSIT, {**DEPOSIT, "id": "", "date": "2025-02-01T12:00:00Z", "chosen_coins": "id 7: 0.1"}], 3, "chosen_coins",
+     "Coins can be chosen only when they leave one of your wallets"),
+    ([{**SPEND, "id": "3"}, {**DEPOSIT, "date": "2025-04-01T12:00:00Z"}], 2, "chosen_coins",
+     "chosen_coins names id 7 (row 3), which isn't before this row"),
 ], ids=["not a number", "zero", "not whole", "shared", "no such row", "not an acquisition", "no id word",
-        "no BTC", "twice", "bad moment"])
+        "no BTC", "twice", "bad moment", "not ascii", "too long", "too long in a choice", "huge BTC", "BTC past 21M",
+        "year 1 abroad", "year 1", "year 9999", "short", "on a deposit", "acquired after"])
 def test_a_choice_the_file_cant_hold_is_an_error_naming_the_row(owner, rows, row, column, said):  # noqa: F811
     _delete_all(owner)
     r = owner.post("/api/import/preview", files=_file(rows))
@@ -142,8 +158,7 @@ def test_the_report_lists_the_coins_chosen_in_the_year(chose_a2):  # noqa: F811
         assert generate_report_data(db, 2023)["coins_you_chose"] == []
     assert {k: chosen[k] for k in ("date", "wallet", "kind", "btc", "chosen_later")} == {
         "date": "2025-06-01T12:00:00+00:00", "wallet": "Wallet", "kind": "Spent", "btc": 0.1001, "chosen_later": True}
-    assert chosen["coins"] == [{"acquired_txn_id": chose_a2.ids["A2"], "acquired": "2025-01-15", "btc": 0.1001,
-                                "cost": 9009.0}]
+    assert chosen["coins"] == [{"acquired": "2025-01-15", "btc": 0.1001, "cost": 9009.0}]
     assert re.fullmatch(r"\d{4}-\d\d-\d\d", chosen["chosen_on"])
 
 

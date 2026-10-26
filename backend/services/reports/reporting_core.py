@@ -11,7 +11,7 @@ from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, REBATE_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.models.transaction import (
@@ -97,6 +97,7 @@ def generate_report_data(db: Session, year: int) -> dict[str, Any]:
 
     txns = (
         db.query(Transaction)
+        .options(selectinload(Transaction.chosen_coins))
         .filter(Transaction.timestamp >= start_dt, Transaction.timestamp < end_dt)
         .order_by(Transaction.timestamp.asc(), Transaction.id.asc())
         .all()
@@ -545,11 +546,14 @@ def _coins_taken(tx: Transaction, tz) -> list[dict[str, Any]]:
     moved, with their cost."""
     pieces = [(d.lot, d.disposed_btc, d.disposal_basis_usd) for d in sorted(tx.lot_disposals, key=lambda d: d.id)]
     if tx.type == "Transfer":
-        pieces += [(lot, lot.total_btc, lot.cost_basis_usd) for lot in sorted(tx.bitcoin_lots_created, key=lambda l: l.id)]
+        pieces += [(lot, lot.total_btc, lot.cost_basis_usd)
+                   for lot in sorted(tx.bitcoin_lots_created, key=lambda lot: lot.id)]
+    # By acquisition, which the report names by its date acquired (an id
+    # would follow a row put in the ledger later)
     taken: dict[int | None, dict[str, Any]] = {}
     for lot, btc, cost in pieces:
         line = taken.setdefault(lot.acquired_txn_id, {
-            "acquired_txn_id": lot.acquired_txn_id, "btc": Decimal(0), "cost": Decimal(0),
+            "btc": Decimal(0), "cost": Decimal(0),
             "acquired": INHERITED if lot.inherited else local_date(lot.acquired_date, tz).isoformat()})
         line["btc"] += Decimal(btc or 0)
         line["cost"] += Decimal(cost or 0)

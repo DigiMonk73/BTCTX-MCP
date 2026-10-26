@@ -9,13 +9,18 @@ can't be told from one whose last cells are blank), and the CSV export
 still imports as it was (#230).
 """
 
+import csv
 import importlib.util
+import io
+import itertools
+import random
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.models.transaction import Transaction
 from backend.services import first_run, outbound
 from backend.services.csv_import import parse_csv_file
 
@@ -138,3 +143,42 @@ def test_the_reference_ledgers_export_imports_as_it_was(reference_ledger):
     with Session() as db:
         moved = list(reference_figures.differences(before, reference_figures.figures(db)))
     assert not moved, "figures moved in the round trip:\n" + "\n".join(moved[:20])
+
+
+def _choices(Session) -> set:
+    """Each choice by what it is, never by an id: the choosing row's time,
+    type and amount, and each acquisition's time with the BTC chosen."""
+    with Session() as db:
+        txs = {t.id: t for t in db.query(Transaction)}
+        return {(t.timestamp, t.type, str(t.amount),
+                 tuple(sorted((txs[c.acquired_txn_id].timestamp, str(c.btc)) for c in t.chosen_coins)))
+                for t in txs.values() if t.chosen_coins}
+
+
+def test_the_reference_ledgers_choices_follow_their_labels_in_any_row_order(reference_ledger):
+    """#711's C4 (plan 9.2): the export's rows in another order (the moments
+    shuffled, rows of one moment kept in theirs, as the import saves them)
+    and a row added by hand at the top with no id, so every id the import
+    gives differs from the file's: each choice still takes the coins it
+    chose, and no Form 8949 row moves."""
+    c, Session = reference_ledger
+    choices = _choices(Session)
+    with Session() as db:
+        before = reference_figures.figures(db)
+    rows = list(csv.DictReader(io.StringIO(c.get("/api/backup/csv").text)))
+    moments = [list(group) for _, group in itertools.groupby(rows, key=lambda row: row["date"])]
+    random.Random(732).shuffle(moments)
+    added = {"date": "2022-01-01T12:00:00Z", "type": "Deposit", "amount": "100", "from_account": "External",
+             "to_account": "Bank", "source": "N/A"}
+    out = io.StringIO()
+    writer = csv.DictWriter(out, fieldnames=list(rows[0]))
+    writer.writeheader()
+    writer.writerows([added, *(row for moment in moments for row in moment)])
+    assert c.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
+    r = c.post("/api/import/execute", files=csv_file(out.getvalue().encode()))
+    assert r.status_code == 200, r.text
+    assert choices and _choices(Session) == choices
+    with Session() as db:
+        after = reference_figures.figures(db)
+    assert {year: figures["form_8949"] for year, figures in after["years"].items()} == \
+        {year: figures["form_8949"] for year, figures in before["years"].items()}

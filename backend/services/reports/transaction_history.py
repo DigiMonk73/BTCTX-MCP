@@ -17,7 +17,7 @@ from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.constants import ACCOUNT_EXTERNAL, normalized
 from backend.models.account import Account
@@ -60,6 +60,7 @@ def generate_transaction_history_report(db: Session, year: int, format: str = "p
     start_of_year, end_of_year = tax_year_bounds(year, get_tax_timezone(db))
     txs = (
         db.query(Transaction)
+        .options(selectinload(Transaction.chosen_coins))
         .filter(
             Transaction.type.in_(TYPES),
             Transaction.timestamp >= start_of_year,

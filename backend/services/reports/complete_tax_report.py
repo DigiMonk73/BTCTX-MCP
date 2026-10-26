@@ -503,7 +503,8 @@ class _TaxReport:
             for i, coin in enumerate(c.get("coins", [])):
                 first = i == 0
                 rows.append([self.text(self.date(c["date"]) if first else ""), self.name(c["wallet"] if first else ""),
-                             self.text(c["kind"] if first else ""), self.text(self.chosen_on(c) if first else ""),
+                             self.text(f"{c['kind']}, {fmt_btc(c['btc'])} BTC" if first else ""),
+                             self.text(self.chosen_on(c) if first else ""),
                              self.text(self.day(coin["acquired"])),
                              *self.numbers(fmt_btc(coin["btc"]), fmt_usd(coin["cost"]))])
         later = [self.text("* Chosen after the coins left. A choice counts only if you made it by then and your "

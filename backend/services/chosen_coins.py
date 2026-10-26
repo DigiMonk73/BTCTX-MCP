@@ -98,6 +98,19 @@ def checked(data: dict, db: Session) -> Choice | None:
     return choice
 
 
+def refusal(data: dict, chosen_btc: Decimal, book: AccountBook) -> str | None:
+    """Why a choice of `chosen_btc` in all can't be saved on the transaction
+    `data` (where coins can be chosen, the total), in checked()'s words,
+    before any acquisition or lot is read: a CSV's preview names the row
+    with it (csv_choices). None when it can be."""
+    try:
+        _check_where(data, book)
+        _check_total({0: chosen_btc}, data, book)
+    except HTTPException as e:
+        return str(e.detail)
+    return None
+
+
 def check_edit(tx: Transaction, tx_data: dict, edited: dict, db: Session) -> None:
     """
     An edit's choice. One sent is checked against the row the edit makes

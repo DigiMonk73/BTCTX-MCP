@@ -1018,7 +1018,7 @@ def create_in_time_order(db: Session, transactions: list[dict[str, Any]]) -> int
     time in the file's order: execute_import); how many. A row's chosen
     coins name rows saved before it, by their ids in the file (#711)."""
     to_save = sorted(transactions, key=lambda x: x["timestamp"])
-    made: dict[int, tuple[int, int]] = {}
+    made: dict[int, int] = {}
     for tx_data in to_save:
         csv_choices.name_by_ids(tx_data, made)
         csv_choices.note_saved(create_transaction_record(tx_data, db, auto_commit=False), tx_data, made)

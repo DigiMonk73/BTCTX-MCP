@@ -19,7 +19,7 @@ from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models.app_setting import AppSetting, save_setting
@@ -28,10 +28,9 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import account as account_service, ai_key, exchange_mappings, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, csv_choices, exchange_mappings, first_run, outbound, tax_time
 from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
-from backend.services import csv_choices
 from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
 from backend.services.reports.safe_text import csv_text
@@ -392,7 +391,7 @@ def export_transactions_csv(
 
     # Same-time transactions in the order they were saved, as the ledger
     # replays them: a round trip gives the same FIFO results.
-    transactions = db.query(Transaction).order_by(
+    transactions = db.query(Transaction).options(selectinload(Transaction.chosen_coins)).order_by(
         Transaction.timestamp.asc(),
         Transaction.id.asc()
     ).all()
