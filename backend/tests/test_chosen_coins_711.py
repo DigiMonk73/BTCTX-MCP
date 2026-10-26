@@ -839,10 +839,16 @@ def test_an_alpha_2_backup_restores_into_this_build_with_its_figures(
         live, tmp_path, reference_db, prices_off):  # noqa: F811
     """2.0.0-alpha.2's schema is 0100: the reference ledger (2.0's multiple
     wallets, exchanges or accounts) taken back there, backed up and
-    restored, gives the figures it gives here."""
+    restored, gives the figures it gives here without its choices (#730's
+    rows): alpha.2 holds none, so those rows take the oldest coins there."""
     alpha_2 = _at_revision(reference_db, tmp_path / "alpha2.db", "0100")
     current = tmp_path / "current.db"
     shutil.copy(reference_db, current)
+    engine = create_engine(f"sqlite:///{current}")
+    with engine.begin() as conn:
+        assert conn.execute(text("DELETE FROM chosen_coins")).rowcount
+        conn.execute(text("UPDATE transactions SET coins_chosen_at = NULL"))
+    engine.dispose()
     before = figures_after_a_replay(current)
     assert restored_figures(live, _sealed(alpha_2.read_bytes())) == before
     with live.engine.connect() as conn:

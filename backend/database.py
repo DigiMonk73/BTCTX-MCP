@@ -13,6 +13,7 @@ import logging
 import datetime
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import Annotated
 from dotenv import load_dotenv
 import sqlite3
 
@@ -23,6 +24,7 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from sqlalchemy.pool import Pool, StaticPool
 from sqlalchemy.types import TypeDecorator, String
 import bcrypt
+from pydantic import Field
 
 
 def log_level_from_env() -> int:
@@ -171,6 +173,11 @@ def scratch_copy(db: Session) -> Iterator[Session]:
 # Session.info key: a scratch copy's session (scratch_copy), whose writes are
 # thrown away with it
 SCRATCH = "btctx_scratch_copy"
+
+# An id a request sends, a whole number SQLite's INTEGER holds (64-bit):
+# one beyond it is a 422 naming it, never bound into a query, where it
+# raised OverflowError and answered 500 (#744)
+RowId = Annotated[int, Field(ge=-(2 ** 63), le=2 ** 63 - 1)]
 
 # Where services/account.py keeps a session's account book (Session.info)
 ACCOUNT_BOOK = "account_book"

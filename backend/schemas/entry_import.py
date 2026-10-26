@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_serializer
 
+from backend.database import RowId
 from backend.schemas.transaction import eight_places
 
 
@@ -38,7 +39,7 @@ class EntryRow(BaseModel):
         description="My BTC or Gift deposit: when the coins were originally acquired (by the giver, for a gift), "
                     "read like date. Omitted: the deposit's date. Inherited deposit: the date of death (required).",
     )
-    not_a_duplicate_of: int | None = Field(
+    not_a_duplicate_of: RowId | None = Field(
         default=None,
         description="Only when the user says this row is another transaction than the one the preview matched "
                     "as a duplicate: that transaction's id (the preview's matched_transaction_id). The row is "

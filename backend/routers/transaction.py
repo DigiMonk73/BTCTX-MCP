@@ -24,7 +24,7 @@ from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
 from backend.services import chosen_coins, transfer_coins, wipe
 from backend.services.account import account_book
-from backend.database import get_db
+from backend.database import RowId, get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ def what_delete_all_deletes(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/{tx_id}", response_model=TransactionRead)
-def get_transaction(tx_id: int, db: Session = Depends(get_db)):
+def get_transaction(tx_id: RowId, db: Session = Depends(get_db)):
     """One transaction, or 404."""
     tx = tx_service.get_transaction_by_id(db, tx_id)
     if not tx:
@@ -133,7 +133,7 @@ def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Sess
 
 
 @router.post("/{transaction_id}/coins-moved")
-def coins_an_edited_transfer_moves(transaction_id: int, tx: TransactionUpdate, request: Request,
+def coins_an_edited_transfer_moves(transaction_id: RowId, tx: TransactionUpdate, request: Request,
                                    db: Session = Depends(get_db)):
     """Which coins a Transfer or a Withdrawal from a wallet would move with
     this edit, as its save would (#706, #711); as for a new one. 404 when
@@ -171,7 +171,7 @@ def recalculate_ledger(request: Request, confirm: str | None = None, db: Session
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, confirm: str | None = None,
+def update_transaction(transaction_id: RowId, tx: TransactionUpdate, request: Request, confirm: str | None = None,
                        db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
@@ -218,7 +218,7 @@ def delete_all_transactions_endpoint(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, request: Request, confirm: str | None = None,
+def delete_transaction(transaction_id: RowId, request: Request, confirm: str | None = None,
                        db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't
