@@ -143,9 +143,8 @@ RIVER = Mapping(
 # column first), several lines above its header. Subtotal is what the coins
 # cost or brought before the fee, "Fees and/or Spread" (an older file's
 # "Fees") the fee in dollars (Total is Subtotal plus it on a buy, less on a
-# sell); a send's network fee
-# isn't in the file in bitcoin. Built from Coinbase's published columns:
-# check against a real export.
+# sell); a send's network fee isn't in the file in bitcoin. Built from
+# Coinbase's published columns: check against a real export.
 COINBASE = Mapping(
     id="coinbase", name="Coinbase",
     columns=Columns(
