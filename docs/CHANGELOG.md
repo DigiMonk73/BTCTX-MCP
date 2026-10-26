@@ -20,10 +20,14 @@ your accounts' own gains (a few cents from alpha.3's; on no tax form), and
 fixes found in alpha.3 are in, among them a tax-figures fix: in alpha.1 to
 alpha.3 a Coinbase file in its current 13-column shape left Coinbase's fee
 out of a buy's cost basis and made a sale's proceeds too high, so gains
-were overstated (#789). Delete such imported rows and import the file again in
-beta.1 (or edit each row's cost or proceeds to the file's Total), then
-check Ledger Review. Updating from alpha.3 changes no stored figure. The way back to 1.x and what's in 2.0 are in alpha.1's notes. The
-AI connector is `btctx-mcp==2.0.0b1`.
+were overstated (#789). It now reads the basis and proceeds from
+Coinbase's Total, and older Coinbase files give the same figures; it
+affects any tax year with Coinbase buys or sales imported in a pre-release
+from a current-shape file. Delete such imported rows and import the file
+again in beta.1 (or edit each row: the Total as its cost or proceeds, and
+its fee $0), then check Ledger Review. Updating from alpha.3 changes no
+stored figure. The way back to 1.x and what's in 2.0 are in alpha.1's
+notes. The AI connector is `btctx-mcp==2.0.0b1`.
 
 ### Changed
 - **The words say you can choose coins in a wallet** (#711, step C6,
