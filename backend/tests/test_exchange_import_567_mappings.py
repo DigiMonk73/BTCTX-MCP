@@ -117,6 +117,8 @@ def test_coinbase_a_buys_basis_is_its_total_and_a_sales_proceeds_what_arrived(cl
         row(5, "Buy", BANK, EX_BTC, "0.0004", at(2026, 2, 1, 10), cost="32.85", fee="2.15"),
         # $15.91 arrived: Subtotal $16.40 the gross, its fee the $0.49 gap
         row(6, "Sell", EX_BTC, EX_USD, "0.0002", at(2026, 3, 1, 10), proceeds="16.40", fee="0.49"),
+        # Total = Subtotal: no fee, never the 0.05 spread beside them (paid from the sale's dollars, #655)
+        row(7, "Buy", EX_USD, EX_BTC, "0.0001", at(2026, 3, 15, 10), cost="8.00"),
     ]
     assert answer["errors"] == []
 
