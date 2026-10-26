@@ -179,7 +179,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         )}
 
         <div className="form-fields-grid">
-          <div className="field">
+          <div className="field form-field-wide">
             <label htmlFor="tx-transaction-type">Transaction Type</label>
             <select
               id="tx-transaction-type"
@@ -198,7 +198,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </select>
           </div>
 
-          <div className="field">
+          <div className="field form-field-wide">
             <label htmlFor="tx-date-time">Date & Time</label>
             <input
               id="tx-date-time"

@@ -144,6 +144,12 @@ All notable changes to BitcoinTX are documented in this file.
   22.22; basis 22.22; …", "income 20.00" for an Income deposit, "rebate
   6.00", "donation 600.00", as a changed row's already said. Words only:
   it asks in the same cases, and no figure changes.
+- **Add Transaction shows the whole date and time** (#755, found in the
+  coin list's pictures, #750). In the drawer's two columns, Date & Time was
+  narrower than a date and time with seconds needs in Chrome and other
+  Chromium browsers, which then lost its month ("/01/2026, 10:15:30 AM"). Transaction Type and Date & Time now
+  each take the drawer's whole width, the other fields two to a row as
+  before; a phone's one column is unchanged. Looks only: no figure changes.
 - **An id too big for the database is refused plainly** (#744, found by the
   2.0 testing plan's coin-choice session). A request naming a transaction
   or an account by a number beyond the database's integers (2⁶³ or more,
