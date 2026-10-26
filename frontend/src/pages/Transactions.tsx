@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import api from "../api";
 import TransactionPanel from "../components/TransactionPanel";
@@ -12,6 +12,8 @@ import "../styles/transactions.css";
 
 const Transactions: React.FC = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // Where focus goes as the panel closes, when the row it edited is reloaded away (#772)
+  const addButton = useRef<HTMLButtonElement>(null);
   const [transactions, setTransactions] = useState<ITransaction[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("TIMESTAMP_DESC");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -75,7 +77,7 @@ const Transactions: React.FC = () => {
   return (
     <div className="transactions-page">
       <div className="transactions-header">
-        <button type="button" className="btn btn-primary" onClick={openPanel}>
+        <button ref={addButton} type="button" className="btn btn-primary" onClick={openPanel}>
           <Plus size={16} aria-hidden="true" />
           Add transaction
         </button>
@@ -129,6 +131,7 @@ const Transactions: React.FC = () => {
         onClose={closePanel}
         onSubmitSuccess={handleSubmitSuccess}
         transactionId={editingTransactionId}
+        returnFocus={addButton}
       />
     </div>
   );

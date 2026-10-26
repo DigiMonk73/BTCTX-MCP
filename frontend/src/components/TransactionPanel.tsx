@@ -11,6 +11,8 @@ interface TransactionPanelProps {
   onClose: () => void;
   onSubmitSuccess?: () => void;
   transactionId?: number | null; // For editing
+  /** Focused as the panel closes when what opened it is gone (an edited row, reloaded by its save). */
+  returnFocus?: React.RefObject<HTMLElement | null>;
 }
 
 const TransactionPanel: React.FC<TransactionPanelProps> = ({
@@ -18,6 +20,7 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
   onClose,
   onSubmitSuccess,
   transactionId,
+  returnFocus,
 }) => {
   const [showDiscardModal, setShowDiscardModal] = useState(false);
   const [isFormDirty, setIsFormDirty] = useState(false);
@@ -109,13 +112,16 @@ const TransactionPanel: React.FC<TransactionPanelProps> = ({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen]);
 
-  // Focus goes into the panel as it opens, and back to what opened it as it closes
+  // Focus goes into the panel as it opens, and back to what opened it as it closes (a click in
+  // Safari focuses no button, so the page itself had focus: then to `returnFocus`)
   useEffect(() => {
     if (!isOpen) return;
-    const from = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const active = document.activeElement;
+    const from = active instanceof HTMLElement && active !== document.body ? active : null;
+    const fallback = returnFocus?.current;
     panel.current?.focus();
-    return () => from?.focus();
-  }, [isOpen]);
+    return () => (from?.isConnected ? from : fallback)?.focus();
+  }, [isOpen, returnFocus]);
 
   // "Discard changes?" takes the keyboard on its safe answer, and gives it back on Go back
   const goBack = useRef<HTMLButtonElement>(null);
