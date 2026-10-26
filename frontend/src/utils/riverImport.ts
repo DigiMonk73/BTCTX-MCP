@@ -146,10 +146,14 @@ export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: R
   };
 }
 
-/** Whether the file can't be previewed yet: the book read, and an exchange
- * or a wallet not chosen (every one of its kind hidden, so none is preselected). */
-export function pickWanting(choices: RiverChoices | undefined, pick: RiverPick): boolean {
-  return choices !== undefined && (pick.exchange === undefined || pick.wallet === undefined);
+/** What the file's preview waits for, as Preview says it (#773): the book
+ * read, and an exchange (of more than one, none preselected, #707) or a
+ * wallet (every one hidden) not chosen, the exchange first, as the screen
+ * asks them; nothing once both are. */
+export function pickNeeded(choices: RiverChoices | undefined, pick: RiverPick): string | undefined {
+  if (choices === undefined) return undefined;
+  if (pick.exchange === undefined) return "Choose the exchange first.";
+  return pick.wallet === undefined ? "Choose the wallet first." : undefined;
 }
 
 /** Whether the preview on screen was made with another exchange or wallet

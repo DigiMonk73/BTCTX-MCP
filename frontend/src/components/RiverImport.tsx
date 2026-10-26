@@ -11,7 +11,7 @@ import { useToast } from "../contexts/useToast";
 import { detailOr } from "../utils/apiError";
 import { importNote } from "../utils/pastYears";
 import {
-  chosenRiverAccounts, importRequestRows, importableRows, pickWanting, previewOutOfDate, refusedCellPlace,
+  chosenRiverAccounts, importRequestRows, importableRows, pickNeeded, previewOutOfDate, refusedCellPlace,
   riverAccountNames, riverChoices, toEditableRow, type EditableRow, type RiverPick,
 } from "../utils/riverImport";
 import PastYearDialog from "./PastYearDialog";
@@ -52,7 +52,7 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   // The file's exchange and wallet (5.11, 5.13): of more than one exchange, the one the file is named for, if any (#707)
   const choices = book ? riverChoices(book, exchange.fileExchange) : undefined;
   const chosen = chosenRiverAccounts(choices, picked);
-  const unchosen = pickWanting(choices, chosen);
+  const needed = pickNeeded(choices, chosen);
   // The pickers no longer say what the preview was made with (its account
   // deleted, or a pick made with the file gone): its rows would go elsewhere.
   // Never while the book can't be read: that says nothing about the accounts.
@@ -158,8 +158,12 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
 
       <ExchangeFileChoice exchange={exchange} file={file} disabled={busy} onMappingChanged={dropPreview} />
 
+      {/* The file's exchange and wallet before the file and Preview, which waits for them (#773) */}
+      <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
+        onChange={choose} />
+
       <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={busy}
-        canPreview={!loading && file !== null && !unchosen && exchange.ready}
+        canPreview={!loading && file !== null && !needed && exchange.ready} waitingFor={needed}
         onFile={(chosen) => {
           // Another file: the preview on screen is the last one's, and so is the exchange picked for it
           if (file) forgetExchange();
@@ -168,9 +172,6 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
           void exchange.fileChosen(chosen);
         }}
         onPreview={() => void handlePreview()} />
-
-      <RiverAccountPickers choices={choices} chosen={pending ?? chosen} disabled={loading} outOfDate={outOfDate}
-        onChange={choose} />
 
       {pastYearsNote && <p className="note" role="note">{pastYearsNote}</p>}
 
