@@ -1,7 +1,7 @@
 import React from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { chosenId } from "../../utils/accounts";
-import { choosable } from "../../utils/chosenCoins";
+import { choosable, droppedChoice } from "../../utils/chosenCoins";
 import { coinsPayload, feeLine, listsCoins, noListLine, oldestFirstLine } from "../../utils/coinsMoved";
 import ChosenCoins from "./ChosenCoins";
 import MovedCoinsTable from "./MovedCoinsTable";
@@ -46,11 +46,14 @@ const LeavingCoins: React.FC<{ book: AccountBook; transactionId?: number | null 
   const values = useWatch({ control }) as TransactionFormData;
   const coins = useCoinsMoved(coinsPayload(values, book), transactionId);
   const fromId = chosenId(values.fromAccountId);
-  if (!listsCoins(values, book) || fromId === undefined) return null;
+  const dropped = droppedChoice(values, book);
+  const note = dropped && <p className="field-warning">{dropped}</p>;
+  if (!listsCoins(values, book) || fromId === undefined) return note || null;
   const canChoose = choosable(values, book);
   const choosing = canChoose && Array.isArray(values.chosenCoins);
   return (
     <div className="transfer-coins">
+      {note}
       <div>
         {!choosing && <p className="field-hint">{oldestFirstLine(book, fromId, values.type)}</p>}
         <div role="status">{statusLine(coins, values.type)}</div>

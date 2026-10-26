@@ -2,8 +2,9 @@ import React, { useEffect } from "react";
 import { useFormContext } from "react-hook-form";
 import { accountName, chosenId } from "../../utils/accounts";
 import {
-  CHOOSE_RULE, DOESNT_ADD_UP, NOT_LISTED_IN_TIME, addsUp, btcEight, choosable, chosenLater, chosenOn,
-  highestCostFirst, leaving, oldestFirst, plainBtc, runningTotal, sameCoins, sats, type HeldLine, type Leaving,
+  CHOOSE_RULE, DOESNT_ADD_UP, NOT_A_NUMBER, NOT_LISTED_IN_TIME, addsUp, btcEight, choosable, chosenLater, chosenOn,
+  highestCostFirst, leaving, oldestFirst, plainBtc, runningTotal, sameCoins, sats, unreadable, type HeldLine,
+  type Leaving,
 } from "../../utils/chosenCoins";
 import type { CoinsMoved } from "../../utils/coinsMoved";
 import ChosenCoinsTable from "./ChosenCoinsTable";
@@ -27,6 +28,8 @@ function chosenOnLine(values: TransactionFormData, lines: ChosenCoin[]): string 
 interface PickerParts {
   held: HeldLine[] | null;
   answer: CoinsMoved | null;
+  /** The answer is for the transaction as it was a moment ago */
+  stale: boolean;
   set: (next: ChosenCoin[] | null) => void;
   retry: () => void;
 }
@@ -35,24 +38,28 @@ interface PickerParts {
  * coins are listed; or "Try again" when they couldn't be in time. */
 const ShutPicker: React.FC<PickerParts> = ({ held, answer, set, retry }) => {
   if (held?.length) {
-    return <div><button type="button" className="btn btn-secondary btn-sm"
+    return <div className="coins-picker-open"><button type="button" className="btn btn-secondary btn-sm"
       onClick={() => set(asTyped(oldestFirst(held)))}>Choose which coins leave</button></div>;
   }
   return answer && answer.coins === null && !held
-    ? <div><button type="button" className="btn btn-quiet btn-sm" onClick={retry}>Try again</button></div>
+    ? <div className="coins-picker-open">
+      <button type="button" className="btn btn-quiet btn-sm" onClick={retry}>Try again</button>
+    </div>
     : null;
 };
 
 /** The quick fills (Q3: "Highest cost first" only on a transaction dated
- * today), "Try again" when the coins couldn't be listed, and shutting it. */
-const PickerActions: React.FC<PickerParts & { leaves: Leaving }> = ({ held, answer, set, retry, leaves }) => (
+ * today, never from the answer for the transaction as it was a moment
+ * ago, whose date may have been today), "Try again" when the coins
+ * couldn't be listed, and shutting it. */
+const PickerActions: React.FC<PickerParts & { leaves: Leaving }> = ({ held, answer, stale, set, retry, leaves }) => (
   <div className="coins-picker-actions">
     {held && (
       <button type="button" className="btn btn-quiet btn-sm" onClick={() => set(asTyped(oldestFirst(held)))}>
         Oldest first
       </button>
     )}
-    {held && answer?.dated_today && (
+    {held && answer?.dated_today && !stale && (
       <button type="button" className="btn btn-quiet btn-sm"
         onClick={() => set(asTyped(highestCostFirst(held, leaves)))}>Highest cost first</button>
     )}
@@ -85,15 +92,18 @@ const ChosenCoins: React.FC<{ book: AccountBook; coins: CoinsShown; values: Tran
   const { register, setValue, formState: { errors, isSubmitted } } = useFormContext<TransactionFormData>();
   useEffect(() => {
     register("chosenCoins", {
-      validate: (lines, all) => !Array.isArray(lines) || !choosable(all, book) || addsUp(lines, leaving(all)) ||
-        DOESNT_ADD_UP,
+      validate: (lines, all) => {
+        if (!Array.isArray(lines) || !choosable(all, book)) return true;
+        if (unreadable(lines)) return NOT_A_NUMBER;
+        return addsUp(lines, leaving(all)) || DOESNT_ADD_UP;
+      },
     });
   }, [register, book]);
   const answer = coins.state.kind === "listed" ? coins.state.answer : null;
   const held = answer?.held ?? null;
   const set = (next: ChosenCoin[] | null) =>
     setValue("chosenCoins", next, { shouldDirty: true, shouldValidate: isSubmitted });
-  const parts = { held, answer, set, retry: coins.retry };
+  const parts = { held, answer, stale: coins.stale, set, retry: coins.retry };
   const lines = values.chosenCoins;
   if (!Array.isArray(lines)) return <ShutPicker {...parts} />;
 

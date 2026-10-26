@@ -4,8 +4,7 @@
 // (the owner's Q3), and the words around the picker. The server checks the
 // same rules (backend/services/chosen_coins.py); the picker only helps.
 import { accountKind, chosenId, isBtcAccount } from "./accounts";
-import { acquiredText } from "./coinsMoved";
-import { parseDecimal } from "./format";
+import { dayText, parseDecimal } from "./format";
 
 /** What a wallet holds when the transaction comes, one purchase (or
  * deposit) per line, as the server lists it (transfer_coins._held). */
@@ -46,6 +45,16 @@ export const CHOOSE_RULE =
 export const DOESNT_ADD_UP =
   "The coins chosen must add up to what leaves: choose coins for all of it, or don't choose them.";
 export const NOT_LISTED_IN_TIME = "BitcoinTX couldn't list this wallet's coins quickly enough here.";
+export const NOT_A_NUMBER = "Each BTC chosen must be a plain number, with at most 8 decimal places.";
+
+// A BTC field as typed: digits, at most one point, at most 8 places
+const PLAIN_BTC = /^(\d+(\.\d{0,8})?|\.\d{1,8})$/;
+
+/** Whether a line's BTC isn't a plain number of at most 8 places ("-0.1",
+ * "0.1.2", "1e-3"): never read as some other amount. */
+export function unreadable(lines: ChosenCoin[]): boolean {
+  return lines.some((line) => line.btc !== "" && !PLAIN_BTC.test(line.btc));
+}
 
 /** A BTC value as whole satoshis, exact (a blank or unreadable one is 0). */
 export function sats(value: BtcFieldValue | string | null | undefined): number {
@@ -143,7 +152,7 @@ function fill(taken: Array<[HeldLine, number]>): ChosenCoin[] {
 /** "My BTC · Sparrow · Mar 1, 2017": how, where and when the coins were acquired. */
 export function howAcquired(line: HeldLine): string {
   const how = line.kind === "Buy" ? "Buy" : SOURCE_WORDS[line.source ?? ""] ?? "Deposit";
-  const when = line.date ? acquiredText({ acquired: line.date, inherited: false }) : null;
+  const when = line.date ? dayText(line.date) : null;
   return [how, line.account, when].filter(Boolean).join(" · ");
 }
 
@@ -166,6 +175,16 @@ export function chosenOn(chosenAt: string, leftAt: string): string {
   if (!chosenLater(chosenAt, leftAt)) return `Chosen on ${day(chosenAt)}.`;
   return `Chosen on ${day(chosenAt)}, after the coins left on ${day(leftAt)}. A choice counts only if you made it ` +
     "by then and your records show it.";
+}
+
+/** On an edit, a stored choice the save will set back to oldest first
+ * (coins no longer being chosen, or a row that can no longer take a
+ * choice): said, so no choice is dropped unseen. */
+export function droppedChoice(values: TransactionFormData, book: AccountBook): string | null {
+  if (!values.chosenCoinsSaved?.length) return null;
+  if (choosable(values, book) && Array.isArray(values.chosenCoins)) return null;
+  const when = values.coinsChosenAt ? ` on ${day(values.coinsChosenAt)}` : "";
+  return `The coins chosen${when} go back to oldest first when you save.`;
 }
 
 /** Whether two choices are the same coins, whatever their order or notation. */

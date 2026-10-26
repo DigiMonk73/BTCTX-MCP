@@ -67,14 +67,18 @@ HELD_HOOK = "btctx_coins_held"
 class Held:
     """Coins of one acquisition an account holds when a transaction comes,
     before it takes any: their BTC, the cost of those BTC, when they were
-    acquired (the lot's date: holding period, Form 8949 column (b)), and
-    whether they were inherited. acquired_txn_id is None for lots made
-    before migration 0101, until the next recalculation."""
+    acquired (the lot's date: holding period, Form 8949 column (b)),
+    whether they were inherited, and what the transaction takes of them
+    without a choice (oldest first, lot by lot, as the save takes them: one
+    acquisition's lots may sit apart, between another's of the same date).
+    acquired_txn_id is None for lots made before migration 0101, until the
+    next recalculation."""
     acquired_txn_id: int | None
     btc: Decimal
     cost_usd: Decimal
     acquired: datetime
     inherited: bool
+    oldest_first: Decimal
 
 
 def checked(data: dict, db: Session) -> Choice | None:
@@ -123,6 +127,17 @@ def store(tx: Transaction, choice: Choice | None, db: Session) -> None:
     tx.chosen_coins.extend(ChosenCoin(acquired_txn_id=acquired, btc=btc) for acquired, btc in (choice or {}).items())
     tx.coins_chosen_at = datetime.now(timezone.utc) if choice else None
     db.flush()
+
+
+def what_leaves(tx: Transaction) -> Decimal:
+    """The BTC a transaction takes from its account: a Transfer's amount
+    (its fee in it), only its fee within one account (a consolidation,
+    #159); a Withdrawal's or a Sell's amount and its BTC fee."""
+    amount = Decimal(tx.amount or 0)
+    fee = Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal(0)
+    if tx.type == "Transfer":
+        return fee if tx.from_account_id == tx.to_account_id else amount
+    return amount + fee
 
 
 def saved_choice(tx: Transaction) -> Choice:

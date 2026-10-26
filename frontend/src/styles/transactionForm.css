@@ -72,5 +72,6 @@
   .coins-picker-table td::before { content: attr(data-label); color: var(--color-text-muted); text-align: left; }
   .coins-picker-stack { align-items: flex-end; }
   .coins-picker-table .input { width: 100%; max-width: 12rem; height: 44px; }
-  .coins-picker-actions .btn { min-height: 44px; }
+  .coins-picker-actions .btn,
+  .coins-picker-open .btn { min-height: 44px; }
 }

@@ -116,6 +116,9 @@ describe("a Spent from one of your wallets", () => {
     const today = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: { ...LISTED, dated_today: true } }) });
     await spentFromSparrow(today);
     await today.user.click(screen.getByRole("button", { name: "Choose which coins leave" }));
+    // Opening it asks again (the choice is in the question): never offered from the answer before it
+    expect(screen.queryByRole("button", { name: "Highest cost first" })).toBeNull();
+    await waitForCoins(today);
     await today.user.click(screen.getByRole("button", { name: "Highest cost first" }));
     expect((chosenField("Jan 15, 2025") as HTMLInputElement).value).toBe("0.1001");
     expect((chosenField("Mar 1, 2017") as HTMLInputElement).value).toBe("");
@@ -208,6 +211,24 @@ describe("an edit of a transaction whose coins were chosen", () => {
     expect(form.sent()).toMatchObject({ chosen_coins: null });
   });
 
+  it("an edit that moves it to an exchange says the choice goes, and sends null (the review's)", async () => {
+    const form = await renderForm({ book: MANY, transaction: SAVED, respond: coinsAnswer({ status: 200, data: LISTED }) });
+    await waitForCoins(form);
+    await form.choose("Account", "River BTC");
+    expect(screen.getByText("The coins chosen on Jul 4, 2025 go back to oldest first when you save.")).toBeTruthy();
+    await form.save();
+    expect(form.sent()).toMatchObject({ from_account_id: 4, chosen_coins: null });
+  });
+
+  it("a BTC field that isn't a plain number is refused before the save (the review's)", async () => {
+    const form = await renderForm({ book: MANY, transaction: SAVED, respond: coinsAnswer({ status: 200, data: LISTED }) });
+    await waitForCoins(form);
+    await choose(form, "Jan 15, 2025", "-0.1001");
+    await form.save();
+    expect(form.writes()).toEqual([]);
+    expect(screen.getByText("Each BTC chosen must be a plain number, with at most 8 decimal places.")).toBeTruthy();
+  });
+
   it("keeps them, shown and sent back, when the list can't be worked out in time", async () => {
     const form = await renderForm({ book: MANY, transaction: SAVED, respond: coinsAnswer({ status: 200, data: SLOW }) });
     await waitForCoins(form);
@@ -216,5 +237,20 @@ describe("an edit of a transaction whose coins were chosen", () => {
     expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
     await form.save();
     expect(form.sent()).toMatchObject({ chosen_coins: [{ acquired_txn_id: 13, btc: "0.10010000" }] });
+  });
+});
+
+describe("an edit of a transaction whose coins weren't chosen", () => {
+  it("sends no chosen_coins: its body is as it always was (call (f), the review's)", async () => {
+    const saved = {
+      id: 8, type: "Withdrawal" as const, from_account_id: 2, to_account_id: 99, amount: "0.1", fee_amount: "0",
+      fee_currency: "BTC", purpose: "Spent", proceeds_usd: "10000", gross_proceeds_usd: "10000",
+      timestamp: "2025-06-01T12:00:00Z",
+    } as Partial<ITransactionRaw> & { id: number; type: TransactionType };
+    const form = await renderForm({ book: MANY, transaction: saved, respond: coinsAnswer({ status: 200, data: LISTED }) });
+    await waitForCoins(form);
+    await form.save();
+    expect(form.sent()).not.toHaveProperty("chosen_coins");
+    expect(screen.queryByText(/go back to oldest first/)).toBeNull();
   });
 });

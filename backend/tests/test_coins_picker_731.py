@@ -253,3 +253,29 @@ def test_setting_a_choice_back_to_oldest_first_brings_no_line(chose_a2, tax_year
     asked = chose_a2.put(f"/api/transactions/{chose_a2.ids['S']}", json={"chosen_coins": None})
     assert asked.status_code == 409, asked.text
     assert asked.json().get("coins_chosen") is None
+
+
+def test_oldest_first_follows_the_save_where_two_purchases_share_a_date(owner):  # noqa: F811
+    """X and Y, both originally acquired 2016-05-05: X reaches Wallet in two
+    transfers, one before Y's deposit and one after, so Wallet's lots in the
+    save's order (date acquired, then the first made) are X 0.1, Y 0.05,
+    X 0.1. Spending 0.15 oldest first takes X's first 0.1 and Y's 0.05,
+    never X's second lot: what the picker fills is what the save takes (the
+    review's)."""
+    x = deposit(owner, "2024-01-10T12:00:00Z", "0.2", "200", acquired="2016-05-05", to=EXCHANGE_BTC)
+    saved(owner.post("/api/transactions", json=transfer("2024-02-01T12:00:00Z", "0.1", frm=EXCHANGE_BTC, to=WALLET)))
+    y = deposit(owner, "2024-03-01T12:00:00Z", "0.05", "2500", acquired="2016-05-05")
+    saved(owner.post("/api/transactions", json=transfer("2024-04-01T12:00:00Z", "0.1", frm=EXCHANGE_BTC, to=WALLET)))
+    r = owner.post(URL, json=spend(LEAVES, "0.15", "15000"))
+    assert r.status_code == 200, r.text
+    first = {line["acquired_txn_id"]: line["oldest_first"] for line in r.json()["held"]}
+    assert (first[x], first[y]) == ("0.10000000", "0.05000000")
+    assert sorted((c["acquired_txn_id"], c["btc"]) for c in r.json()["coins"]) == \
+        sorted([(x, "0.10000000"), (y, "0.05000000")])
+
+
+def test_a_move_within_one_wallet_holds_nothing_to_choose_from(owner):  # noqa: F811
+    """A consolidation records only its fee, oldest first: no picker."""
+    r = owner.post(URL, json=transfer(LEAVES, "0.4", "0.0001", to=WALLET))
+    assert r.status_code == 200, r.text
+    assert r.json()["held"] is None

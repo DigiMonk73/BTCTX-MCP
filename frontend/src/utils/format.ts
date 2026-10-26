@@ -64,6 +64,12 @@ export function formatLocalDateTime(dateStr: string): string {
 
 /** A transaction from the API with its amounts as numbers; a missing text
  * field is undefined rather than null. */
+/** "Mar 1, 2017": a date (YYYY-MM-DD), read at UTC midnight so no timezone moves it (#185). */
+export function dayText(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(
+    "en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
   return {
     id: rawTx.id,

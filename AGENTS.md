@@ -257,8 +257,9 @@ Form 8949: their holding period and date acquired, #736), what the report
 counts as income or a rebate and as a gift, donation or lost coins, each
 row's date and tax year: `services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
-`exact`, `timezone`: the one its rows' dates are in, `confirm`) and saves
-nothing. Sent again with
+`exact`, `timezone`: the one its rows' dates are in, `confirm`; and
+`coins_chosen` only beside a write that adds or changes a choice of coins
+dated in an earlier tax year, #711) and saves nothing. Sent again with
 `?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
 "pre-change" one, the newest 5 and the first of each day for a week; a
 fresh AI copy with the key), the fingerprint checked again before the

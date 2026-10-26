@@ -6,8 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { MANY } from "../test/books";
 import {
-  CHOOSE_RULE, addsUp, choosable, chosenOn, highestCostFirst, howAcquired, leaving, oldestFirst, runningTotal,
-  sentLines, type HeldLine,
+  CHOOSE_RULE, addsUp, choosable, chosenOn, droppedChoice, highestCostFirst, howAcquired, leaving, oldestFirst,
+  runningTotal, sentLines, unreadable, type HeldLine,
 } from "./chosenCoins";
 import { coinsChosenNote } from "./transactionRows";
 
@@ -118,5 +118,27 @@ describe("the Transactions list", () => {
     expect(coinsChosenNote({ ...tx, chosen_coins: [{ acquired_txn_id: 13, btc: "0.10010000" }] })).toBe("Coins chosen");
     expect(coinsChosenNote({ ...tx, chosen_coins: null })).toBe("");
     expect(coinsChosenNote(tx)).toBe("");
+  });
+});
+
+describe("what the form refuses or says", () => {
+  it("a BTC field that isn't a plain number of at most 8 places (the review's)", () => {
+    for (const btc of ["-0.1", "0.1.2", "1e-3", "0.123456789", "abc"]) {
+      expect(unreadable([{ acquired_txn_id: 1, btc }])).toBe(true);
+    }
+    for (const btc of ["", "0.1", ".5", "2", "0.12345678", "1."]) {
+      expect(unreadable([{ acquired_txn_id: 1, btc }])).toBe(false);
+    }
+  });
+
+  it("a stored choice an edit will set back to oldest first (the review's)", () => {
+    const saved = { chosenCoinsSaved: [{ acquired_txn_id: 13, btc: "0.10010000" }], coinsChosenAt: "2025-07-04T15:00:00Z" };
+    const edit = { ...spend("0.1", "0.0001"), ...saved };
+    expect(droppedChoice({ ...edit, chosenCoins: [{ acquired_txn_id: 13, btc: "0.1001" }] }, MANY)).toBeNull();
+    expect(droppedChoice({ ...edit, chosenCoins: null }, MANY)).toBe(
+      "The coins chosen on Jul 4, 2025 go back to oldest first when you save.");
+    expect(droppedChoice({ ...edit, fromAccountId: 4, chosenCoins: [{ acquired_txn_id: 13, btc: "0.1001" }] }, MANY))
+      .toBe("The coins chosen on Jul 4, 2025 go back to oldest first when you save.");
+    expect(droppedChoice({ ...spend("0.1", "0"), chosenCoins: null }, MANY)).toBeNull();
   });
 });

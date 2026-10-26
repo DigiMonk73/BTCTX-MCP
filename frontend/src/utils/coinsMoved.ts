@@ -6,7 +6,7 @@
 // wallets lists the coins that leave it, as a Transfer does.
 import { accountKind, accountName, chosenId, isBtcAccount } from "./accounts";
 import { addsUp, leaving, type HeldLine } from "./chosenCoins";
-import { btcText, parseDecimal } from "./format";
+import { btcText, dayText, parseDecimal } from "./format";
 import { buildTransactionPayload } from "./transactionForm";
 
 /** A lot the save would put in the To account. */
@@ -114,7 +114,6 @@ export function feeLine(feeBtc: string | null, chosen = false): string | null {
 
 /** "Mar 1, 2017": a date, read at UTC midnight so no timezone moves it (#185). */
 export function acquiredText(coin: Pick<MovedCoin, "acquired" | "inherited"> & Partial<MovedCoin>): string {
-  const day = new Date(`${coin.acquired}T00:00:00Z`).toLocaleDateString(
-    "en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const day = dayText(coin.acquired);
   return coin.inherited ? `${day} (inherited)` : day;
 }

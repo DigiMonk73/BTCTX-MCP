@@ -162,32 +162,20 @@ def _held(tx: Transaction, lines: list[chosen_coins.Held], db: Session) -> list[
     """What a wallet held when `tx` came, before it took any, oldest first:
     each acquisition, how and where it was acquired, its coins' date, BTC
     and cost, the term they'd have on tx's date, and what oldest first
-    would take of them. None when tx doesn't leave one of your wallets: an
-    exchange's coins leave oldest first, as its Form 1099-DA reports them."""
+    would take of them. None when tx doesn't leave one of your wallets (an
+    exchange's coins leave oldest first, as its Form 1099-DA reports them),
+    or moves within one (a consolidation records only its fee, oldest
+    first)."""
     book = account_book(db)
-    if book.kind(tx.from_account_id) != "wallet":
+    if book.kind(tx.from_account_id) != "wallet" or tx.from_account_id == tx.to_account_id:
         return None
     tz = tax_time.get_tax_timezone(db)
     acquisitions = {t.id: t for t in db.query(Transaction).filter(
         Transaction.id.in_([line.acquired_txn_id for line in lines if line.acquired_txn_id is not None]))}
-    left = _what_leaves(tx)
-    out = []
-    for line in lines:
-        oldest_first = min(line.btc, left)
-        left -= oldest_first
-        out.append(_held_line(line, acquisitions.get(line.acquired_txn_id), oldest_first, tx, tz, book))
-    return out
+    return [_held_line(line, acquisitions.get(line.acquired_txn_id), tx, tz, book) for line in lines]
 
 
-def _what_leaves(tx: Transaction) -> Decimal:
-    """A Transfer's amount (its fee in it); a Withdrawal's amount and its BTC fee."""
-    amount = Decimal(tx.amount or 0)
-    if tx.type == "Transfer":
-        return amount
-    return amount + (Decimal(tx.fee_amount or 0) if (tx.fee_currency or "").upper() == "BTC" else Decimal(0))
-
-
-def _held_line(line: chosen_coins.Held, acquired_by: Transaction | None, oldest_first: Decimal, tx: Transaction, tz,
+def _held_line(line: chosen_coins.Held, acquired_by: Transaction | None, tx: Transaction, tz,
                book: AccountBook) -> dict:
     term = "LONG" if line.inherited else tx_service.holding_period(line.acquired, tx.timestamp, tz)
     return {
@@ -202,5 +190,5 @@ def _held_line(line: chosen_coins.Held, acquired_by: Transaction | None, oldest_
         "btc": f"{line.btc:.8f}",
         "cost_usd": f"{line.cost_usd:.2f}",
         "term": term,
-        "oldest_first": f"{oldest_first:.8f}",
+        "oldest_first": f"{line.oldest_first:.8f}",
     }
