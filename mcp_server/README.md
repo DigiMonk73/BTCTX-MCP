@@ -10,8 +10,9 @@ with dedup and the resulting gain/loss, and saves them once you confirm.
 
 BitcoinTX itself is a self-hosted Bitcoin portfolio and tax tracker for your
 wallets, exchanges and banks. Cost basis is per-wallet FIFO: each wallet
-and exchange uses its own oldest coins first for a sale, spend or transfer.
-See [Wallets, exchanges and
+and exchange uses its own oldest coins first for a sale, spend or transfer,
+unless you choose other coins in one of your own wallets. See [Wallets,
+exchanges and
 banks](https://github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks).
 
 The server runs **on your computer** and talks to your BitcoinTX instance

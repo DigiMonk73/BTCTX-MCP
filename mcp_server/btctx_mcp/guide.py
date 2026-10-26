@@ -63,9 +63,10 @@ unless you identify the coins you sell, first in, first out within each, by
 the date first acquired (Treas. Reg. §1.1012-1(j)). BitcoinTX keeps each
 wallet's and each exchange's own lots. Cost basis is per-wallet FIFO: each
 wallet and exchange uses its own oldest coins first for a sale, spend or
-transfer. In one of the user's wallets, BitcoinTX records the coins the
-user chose to send instead, when they did ("Choosing which coins leave a
-wallet", below).
+transfer, unless you choose other coins in one of your own wallets. That
+choice is the user's: in one of their wallets, BitcoinTX records the coins
+they chose to send, when they did ("Choosing which coins leave a wallet",
+below).
 - When more than one account fits (two wallets, two exchanges, two banks),
   ask which one. Never guess.
 - A second wallet or exchange that isn't listed: the user adds it in

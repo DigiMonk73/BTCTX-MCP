@@ -109,7 +109,8 @@ All notable changes to BitcoinTX are documented in this file.
   writes, `get_coins_moved` and Ledger Review, which can go through a
   large ledger more than once), and how to update a pre-release's
   connector. The ledger guide and the tools' descriptions name the method
-  "Per-wallet FIFO" (decision 30); the guide names the screen "Privacy &
+  "Per-wallet FIFO" (decision 30, with C6's ending for coins chosen in one
+  of your wallets, #787); the guide names the screen "Privacy &
   Network", links the README at the connector's own release (GitHub's
   front page shows `main`'s, 1.x's until 2.0's release), and says a 1.x
   ledger's transfer from a wallet to itself can be a move between wallets
