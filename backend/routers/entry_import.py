@@ -121,9 +121,9 @@ def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
     replays the whole ledger with the rows added before it
     (services/transaction.create_transaction_record). One such row is always
     allowed, as for an edit made in BitcoinTX. (A row choosing coins while
-    a lot doesn't know its acquisition, #711's call (j), replays once,
-    before any other row of the request does, and gives every lot its own:
-    one replay, which is always allowed.)
+    a lot doesn't know its acquisition, #711's call (j), replays once and
+    gives every lot its own, or not at all beside a backdated row, which
+    replays first: never more than one replay, which is always allowed.)
     """
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
     if latest is None:

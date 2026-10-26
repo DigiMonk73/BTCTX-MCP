@@ -214,8 +214,10 @@ chosen coins, the oldest of them first.
 - preview_transactions shows, for a row leaving a wallet, the coins it
   takes (coins.takes) and those the wallet holds then (coins.held: each
   purchase or deposit, its date acquired, BTC, cost and the term it would
-  have); get_coins_moved shows a saved Transfer's. A purchase in the same
-  request has no id yet: add it first, then the row that chooses its coins.
+  have; coins is null, with a warning saying why, when BitcoinTX can't list
+  them yet); get_coins_moved shows a saved Transfer's. A purchase in the
+  same request has no id yet: add it first, then the row that chooses its
+  coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in
   BitcoinTX (coins_chosen_at). An edit that changes what leaves a
   transaction with a choice needs its coins again: update_transaction then

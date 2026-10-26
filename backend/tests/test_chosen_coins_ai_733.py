@@ -9,8 +9,8 @@ edit that changes what leaves without them says what to send, and says so
 to the connector (a header), which answers it as the tool's own answer. A
 row choosing coins while a lot doesn't know its acquisition replays the
 whole ledger (call (j)), so it counts as a replaying one for the AI's copy
-and the past-year question; it replays once, before any other row of the
-request, so the replay budget always allows it.
+and the past-year question; it replays once, or not at all beside a
+backdated row, which replays first, so the replay budget always allows it.
 """
 
 from datetime import timezone
@@ -217,6 +217,25 @@ def test_no_coins_are_listed_while_a_lot_lacks_its_acquisition_and_nothing_repla
     [result] = ai.post("/api/import/entries/preview", json={"rows": [SPENT]}).json()["results"]
     assert result["simulated"]["coins"] is None
     assert entry_import.COINS_NOT_LISTED in result["warnings"]
+
+
+def test_the_previews_figures_are_the_saves_on_a_ledger_a_recalculation_would_change(owner, ai):  # noqa: F811
+    """No replay of its own (the re-check of #733): on an upgraded ledger whose
+    stored lots a recalculation would change (A1's cost here), a row dated
+    last is previewed as it saves: on the lots as stored."""
+    _forget_acquisitions(owner)
+    with owner.Session() as db:
+        db.execute(text("UPDATE bitcoin_lots SET cost_basis_usd = 600 WHERE created_txn_id = :a1"),
+                   {"a1": owner.ids["A1"]})
+        db.commit()
+    [result] = ai.post("/api/import/entries/preview", json={"rows": [SPENT]}).json()["results"]
+    r = ai.post("/api/import/entries/execute", json={"rows": [SPENT]})
+    assert r.status_code == 200, r.text
+    stored = owner.get(f"/api/transactions/{r.json()['created'][0]['id']}").json()
+    simulated = result["simulated"]
+    assert (Decimal(simulated["cost_basis_usd"]), Decimal(simulated["realized_gain_usd"])) == (
+        Decimal(stored["cost_basis_usd"]), Decimal(stored["realized_gain_usd"]))
+    assert Decimal(stored["cost_basis_usd"]) == Decimal("20.00")  # 0.01 of the 0.3 stored at $600
 
 
 def test_a_choice_that_replays_lists_the_rows_before_it_too(owner, ai):  # noqa: F811

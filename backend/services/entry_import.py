@@ -677,7 +677,8 @@ def _coins_seen(p: PreparedRow, tx: Transaction, held: list[Held] | None, rows_o
     if held is None or not _leaves_a_wallet(tx.type, tx.from_account_id, tx.to_account_id, book):
         return None
     if any(h.acquired_txn_id is None for h in held):
-        p.result.warnings.append(COINS_NOT_LISTED)
+        if COINS_NOT_LISTED not in p.result.warnings:  # a dry run made again keeps the row's result
+            p.result.warnings.append(COINS_NOT_LISTED)
         return None
     tz = get_tax_timezone(db)
     named = [h.acquired_txn_id for h in held[:MOST_HELD] if h.acquired_txn_id is not None]

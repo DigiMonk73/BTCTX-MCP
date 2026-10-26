@@ -588,8 +588,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   while it's sent back unchanged. The AI key sends a choice too (the
   owner's Q4: only coins the user says they chose at the time, its guide's
   rule, #733): its preview lists the coins a row leaving a wallet takes and
-  holds (`HELD_HOOK`; none while a lot doesn't know its acquisition and
-  nothing replays), and a write that replays for a choice
+  holds (`HELD_HOOK`; none for a row whose wallet holds a lot that
+  doesn't know its acquisition while nothing replays), and a write that
+  replays for a choice
   (`chosen_coins.replays_first`) counts as replaying for its copy and the
   past-year question.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
