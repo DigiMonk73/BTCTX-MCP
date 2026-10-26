@@ -95,9 +95,14 @@ async def test_get_coins_moved_shows_what_a_saved_transfer_moves(mcp_client, bac
     assert [(c["acquired"][:10], c["btc"]) for c in moved["coins"]] == [("2025-01-15", "0.05000000")]
 
 
-async def test_the_guide_says_when_coins_may_be_chosen(mcp_client):  # noqa: F811
-    guide = await call(mcp_client, "get_ledger_guide")
-    flat = " ".join(guide.split()) if isinstance(guide, str) else ""
+async def test_the_guide_says_when_coins_may_be_chosen():
+    """Q4: what the user chose at the time, never a choice suggested after
+    the fact to lower tax; exchanges oldest first."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
     assert "can't record coins the user identified" not in flat
-    for words in ("chosen_coins", "by the time they left", "never suggest", "oldest first"):
+    for words in ("chosen_coins", "they chose those coins by the time they left", "Never pick coins for them",
+                  "Never suggest choosing coins after the fact to lower their tax", "Never on an exchange",
+                  "get_coins_moved"):
         assert words in flat, words

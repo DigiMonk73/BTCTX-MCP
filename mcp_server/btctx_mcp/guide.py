@@ -34,8 +34,9 @@ BitcoinTX starts with one of each:
 From 2025, cost basis is figured wallet by wallet and account by account;
 unless you identify the coins you sell, first in, first out within each, by
 the date first acquired (Treas. Reg. §1.1012-1(j)). BitcoinTX keeps each
-wallet's and each exchange's own lots and always sells them first in,
-first out: it can't record coins the user identified.
+wallet's and each exchange's own lots, first in, first out; in one of the
+user's wallets it records the coins the user chose to send instead, when
+they did ("Choosing which coins leave a wallet", below).
 - When more than one account fits (two wallets, two exchanges, two banks),
   ask which one. Never guess.
 - A second wallet or exchange that isn't listed: the user adds it in
@@ -187,6 +188,36 @@ Transfer: between the user's own accounts, same currency
   recorded, as a small disposal of the oldest coins; the rest keep their
   lots, dates and basis. A move to another wallet or another exchange is a
   Transfer into that account: the coins keep their dates and basis there.
+
+## Choosing which coins leave a wallet
+A Transfer to another account, or a BTC Withdrawal (Spent, Gift, Donation,
+Lost), from one of the user's wallets may name the coins that leave:
+chosen_coins, each the purchase or deposit they came from (acquired_txn_id:
+that Buy's or Deposit's transaction id, from list_transactions) and the BTC
+from it, together exactly what leaves (a Transfer's amount, its fee in it;
+a Withdrawal's amount and its BTC fee). The network fee is paid by the
+chosen coins, the oldest of them first.
+- Only when the user says they chose those coins by the time they left,
+  and their records from then show it (a note they made, or coin control
+  in their wallet software with records tying its coins to their
+  purchases). Otherwise the IRS counts the oldest coins as the ones that
+  left: leave chosen_coins out. Record what the user tells you, and ask
+  which purchases when it's unclear. Never pick coins for them.
+- Never suggest choosing coins after the fact to lower their tax (the
+  highest-cost coins for a spend already made, say): a choice made later
+  doesn't count. If they ask, say so and suggest their tax professional.
+- Never on an exchange (its coins leave oldest first, as its Form 1099-DA
+  reports them), nor on a move within one wallet (only its fee is recorded).
+- preview_transactions shows, for a row leaving a wallet, the coins it
+  takes (coins.takes) and those the wallet holds then (coins.held: each
+  purchase or deposit, its date acquired, BTC, cost and the term it would
+  have); get_coins_moved shows a saved Transfer's. A purchase in the same
+  request has no id yet: add it first, then the row that chooses its coins.
+- list_transactions shows a choice (chosen_coins) and when it was saved in
+  BitcoinTX (coins_chosen_at). An edit that changes what leaves a
+  transaction with a choice needs its coins again: update_transaction then
+  answers saved: false; ask the user, and send chosen_coins again, or []
+  for the oldest coins first.
 
 BTC Fees / USD Fees are internal fee accounts - never use them directly.
 

@@ -49,6 +49,19 @@ class PastYearWarning(BtctxError):
         self.body = body
 
 
+class ChooseAgain(BtctxError):
+    """BitcoinTX refused an edit that changes what leaves a transaction whose
+    coins were chosen, without its coins (#711, call (e)): its 422 names the
+    transaction in CHOOSE_AGAIN_HEADER, and `detail` says what to send."""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
+# BitcoinTX's header on that 422 (services/chosen_coins.py)
+CHOOSE_AGAIN_HEADER = "X-BitcoinTX-Choose-Again"
+
 PASSWORD_REFUSED = (
     "BitcoinTX no longer uses your password for AI access. Create an AI key in "
     "BitcoinTX Settings and replace BTCTX_PASSWORD with BTCTX_AI_KEY in your AI "
@@ -349,6 +362,8 @@ class BtctxClient:
             raise BtctxError(KEY_REFUSED)
         if r.status_code == 409 and (warning := _past_year_warning(r)) is not None:
             raise PastYearWarning(warning)
+        if r.status_code == 422 and CHOOSE_AGAIN_HEADER in r.headers:
+            raise ChooseAgain(_error_detail(r, path))
         if r.is_error:
             raise BtctxError(f"BitcoinTX returned {r.status_code}: {_error_detail(r, path)}")
         if r.status_code == 204 or not r.content:

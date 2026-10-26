@@ -115,7 +115,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
-        "recalculate_ledger", "review_ledger", "backup_ledger",
+        "recalculate_ledger", "review_ledger", "backup_ledger", "get_coins_moved",
     }
 
 

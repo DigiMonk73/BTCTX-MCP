@@ -142,8 +142,8 @@ def replays_first(rows, db: Session) -> bool:
     """Whether writing `rows` (transactions' data) replays the whole ledger
     for a choice among them: while a lot doesn't know its acquisition
     (lots_lack_acquisition), the first row with a choice does, so the
-    write counts as one that replays (the past-year question, the AI's copy
-    and its replay budget: call (j))."""
+    past-year question, the AI's copy and its replay budget treat the write
+    as replaying (call (j))."""
     return any(row.get("chosen_coins") for row in rows) and lots_lack_acquisition(db)
 
 
