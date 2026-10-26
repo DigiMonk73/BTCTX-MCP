@@ -49,8 +49,8 @@ configuration file intact.
 - a `bitcointx-preview` server already there: change only the version in
   its arguments (in Claude Code, `mcpServers.bitcointx-preview.args` in
   `~/.claude.json`; [Updating](README.md#updating) names each app's file),
-  keep its key and certificate path, and restart the app; never touch the
-  `bitcointx` server;
+  keep its key and certificate path, and restart the app; on a Mac or
+  Docker, never touch the `bitcointx` server;
 - only on StartOS (the prompt's `BTCTX_URL` is a StartOS server's MCP
   address, `https://…/api`), where the pre-release updated the user's
   BitcoinTX in place: a `bitcointx` server that reaches that same StartOS
@@ -138,6 +138,9 @@ For a 2.0 alpha or beta, use the prompt's name, `bitcointx-preview`, for
 `bitcointx` server, unless the rule above (StartOS) has you change the
 `bitcointx` that reaches this same server.
 
+Whichever app you're in, it is restarted once the user has pasted the key
+into its file: the end of section 3 says how.
+
 Use these environment variables (drop `BTCTX_CA_BUNDLE` unless needed):
 
 ```
@@ -209,10 +212,6 @@ A local stdio server: command `uvx`, arguments
 `["btctx-mcp==X.Y.Z"]`, and the environment variables
 above.
 
-Then, before section 4 and once the key is in the file: start a new session
-(Claude Code, Grok Build) or quit and reopen the app (Claude Desktop, LM
-Studio, any other), as in section 2A.
-
 ## 3. The AI key (Docker and StartOS only)
 
 Tell the user the exact file and the text to replace
@@ -230,6 +229,11 @@ uses your password for AI access…". Replace both with `BTCTX_AI_KEY` (the
 placeholder, as above), have them paste a new key, then suggest they change
 their BitcoinTX password (StartOS: stop BitcoinTX and run the **Set Login Credentials** action),
 since the old one sat in a plain-text file.
+
+Then, before section 4 and once the key is in the file: start a new session
+(Claude Code, Grok Build) or quit and reopen the app (Claude Desktop, LM
+Studio, any other), as in section 2A. If you can't restart yourself, tell
+the user to, and to ask you in the new session to check it works.
 
 ## 4. Check it works
 

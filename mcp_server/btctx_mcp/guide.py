@@ -31,6 +31,7 @@ def readme_url(version: str, anchor: str) -> str:
     return f"{REPO_URL}/blob/{release_tag(version) or 'main'}/README.md#{anchor}"
 
 
+# An f-string, for the link: a brace written in the guide is doubled
 LEDGER_GUIDE = f"""\
 # BitcoinTX ledger guide
 
@@ -214,7 +215,9 @@ Transfer: between the user's own accounts, same currency
   consolidation within that one wallet or exchange. amount = what left, fee INCLUDED,
   as for any bitcoin transfer; the fee is required. Only the fee is
   recorded, as a small disposal of the oldest coins; the rest keep their
-  lots, dates and basis. A move to another wallet or another exchange is a
+  lots, dates and basis. In a ledger kept in BitcoinTX 1.x, one can also be
+  a move between two wallets (or exchanges) the user kept together as one
+  account then: it stays as it was saved. A move to another wallet or another exchange is a
   Transfer into that account: the coins keep their dates and basis there.
 
 ## Choosing which coins leave a wallet
@@ -245,9 +248,9 @@ chosen coins, the oldest of them first.
   purchase or deposit, its date acquired, BTC, cost and the term it would
   have; coins is null, with a warning saying why, when BitcoinTX can't list
   them yet); get_coins_moved shows the same for a saved Transfer or BTC
-  Withdrawal from a wallet (coins, and held: each with oldest_first, what
-  the oldest coins first would take of it). Its dated_today is for
-  BitcoinTX's own form: ignore it. A purchase in the same request has no
+  Withdrawal from a wallet (coins, and, when it leaves the wallet, held:
+  each with oldest_first, what the oldest coins first would take of it).
+  Its dated_today is for BitcoinTX's own form: ignore it. A purchase in the same request has no
   id yet: add it first, then the row that chooses its coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in
   BitcoinTX (coins_chosen_at). An edit that changes what leaves a

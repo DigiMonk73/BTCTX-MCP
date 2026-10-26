@@ -78,10 +78,12 @@ All notable changes to BitcoinTX are documented in this file.
   writes, `get_coins_moved` and Ledger Review, which can go through a
   large ledger more than once), and how to update a pre-release's
   connector. The ledger guide and the tools' descriptions name the method
-  "Per-wallet FIFO" (decision 30) and the screen "Privacy & Network",
-  link the README at the connector's own release (GitHub's front page
-  shows `main`'s, 1.x's until 2.0's release), and fill four gaps found
-  by T8 (#694): `get_coins_moved` answers for a bitcoin Withdrawal from a
+  "Per-wallet FIFO" (decision 30); the guide names the screen "Privacy &
+  Network", links the README at the connector's own release (GitHub's
+  front page shows `main`'s, 1.x's until 2.0's release), and says a 1.x
+  ledger's transfer from a wallet to itself can be a move between wallets
+  kept together then. The guide and the tools fill four gaps found by T8
+  (#694): `get_coins_moved` answers for a bitcoin Withdrawal from a
   wallet too, its `held` is never a menu to offer and its `dated_today`
   is the form's, a choice recorded after the coins left shows in Ledger
   Review's reminder "coins chosen after they left", which the AI passes

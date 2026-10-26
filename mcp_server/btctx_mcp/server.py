@@ -763,8 +763,8 @@ async def get_coins_moved(transaction_id: int) -> ToolResult:
     """The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes, as
     BitcoinTX works them out: each piece's date acquired, BTC, cost and whether it was
     inherited, in the order taken, and the BTC its network fee disposes of. Without a choice,
-    the From account's oldest coins first; with one (chosen_coins), the coins chosen. From a
-    wallet, held: the coins it held then (each purchase or deposit, its date acquired, BTC,
+    the From account's oldest coins first; with one (chosen_coins), the coins chosen. Leaving
+    a wallet (not a move within it), held: the coins it held then (each purchase or deposit, its date acquired, BTC,
     cost, term, and oldest_first: what the oldest coins first would take of it), never a menu
     to offer (see the ledger guide). dated_today is for BitcoinTX's own form: ignore it. Any
     other transaction is refused. Worked out on a copy of the ledger: nothing is saved. Use it

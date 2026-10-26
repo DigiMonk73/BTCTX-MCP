@@ -39,7 +39,7 @@ see [Privacy: cloud or local model](https://github.com/DigiMonk73/BTCTX-MCP/blob
 | `add_transactions` | Save rows, all-or-nothing; duplicates are skipped unless you say one is another transaction. Both take at most 500 rows a call, and fewer dated before your latest entry (each recalculates the whole ledger): the AI splits a longer list. A row leaving one of your wallets can name the coins you chose to send, when you chose them by the time they left (`chosen_coins`, each purchase or deposit by its transaction id); the AI records only a choice you tell it of, never one it suggests |
 | `list_transactions` | Search by date range, type and account; a value BitcoinTX filled from a price says which price, as in the preview |
 | `update_transaction` / `delete_transaction` | Correct one transaction (the ledger is recalculated). An update can also set `broker_reporting` (which Form 8949 box a sale, or a spend and its network fee, goes in), `fee_usd`, a My BTC or Gift deposit's `acquired_at` (when the coins were originally acquired; an Inherited deposit's date of death), and `chosen_coins` |
-| `get_coins_moved` | Which coins a saved Transfer, or a bitcoin Withdrawal from one of your wallets, takes: each piece's date acquired, BTC and cost, and its network fee's; from a wallet, also the coins it held then. Saves nothing |
+| `get_coins_moved` | Which coins a saved Transfer, or a bitcoin Withdrawal from one of your wallets, takes: each piece's date acquired, BTC and cost, and its network fee's; leaving a wallet, also the coins it held then. Saves nothing |
 | `get_portfolio` | Your accounts (each wallet, exchange and bank, by name), their balances, average cost basis, live BTC price and where it came from (the price source chosen in Settings → Privacy & Network, or by the server: StartOS's Price Source & Privacy action), or why there's none; tax timezone |
 | `get_btc_price` | The BTC price for a moment (the one BitcoinTX values it at), a day, or now, and where it came from |
 | `recalculate_ledger` | Rebuild lots and gains from your transactions (same as Settings → Account → Recalculate Ledger) |
@@ -72,8 +72,11 @@ check with `list_transactions` before sending it again (sent again,
 `add_transactions` leaves out the rows already saved).
 
 **Keep the connector up to date with BitcoinTX.** Once your ledger has
-multiple wallets or exchanges, BitcoinTX refuses changes from a connector
-older than 2.0, which can't tell them apart: "This AI connector is older
+more than one wallet, or more than one exchange (a hidden one counted),
+BitcoinTX refuses changes from a connector older than 2.0, which can't tell
+them apart. A ledger updated from 1.x with an extra bitcoin account made
+through 1.x's account API has two wallets from the start. The refusal
+says: "This AI connector is older
 than BitcoinTX 2.0 and can't tell your wallets or exchanges apart. Update
 it (btctx-mcp 2.0 or later), then try again." It still reads your ledger.
 
@@ -89,7 +92,9 @@ it (btctx-mcp 2.0 or later), then try again." It still reads your ledger.
   When the server and your BitcoinTX are different versions, every tool
   reply starts with a line saying so and what to change. A 2.0 alpha or
   beta pins its own (`btctx-mcp==2.0.0aN` or `2.0.0bN`), named
-  `bitcointx-preview` in your AI app, beside your own `bitcointx`.
+  `bitcointx-preview` in your AI app, beside your own `bitcointx` (on
+  StartOS, where it updates your BitcoinTX in place, the server you have
+  changes its version instead).
 - Python 3.11+ for the connector. `uvx` downloads one by itself only when the
   machine has no Python at all; if its only Python is 3.10, `uvx` stops with
   "current Python version (3.10…) does not satisfy Python>=3.11": run

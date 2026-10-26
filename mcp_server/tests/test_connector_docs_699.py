@@ -45,7 +45,14 @@ def test_every_client_restarts_before_the_check():
     mac = flat(section(AI_SETUP, "## 2A."))
     assert "Then, before section 4: start a new session (Claude Code, Grok Build) or quit and reopen the " \
            "app (Claude Desktop, any other)" in mac
-    assert "Then, before section 4" in flat(section(AI_SETUP, "## 2B."))
+    # Docker and StartOS: once the key is in the file, which section 3 has
+    # the user paste, so after that; 2B says so for every app it lists
+    assert "it is restarted once the user has pasted the key into its file: the end of section 3 says how" \
+           in flat(section(AI_SETUP, "## 2B."))
+    key = flat(section(AI_SETUP, "## 3."))
+    restart = key.index("Then, before section 4 and once the key is in the file: start a new session (Claude "
+                        "Code, Grok Build) or quit and reopen the app")
+    assert key.index("Tell the user the exact file") < restart
 
 
 def test_the_address_check_is_for_a_server_install_only():
@@ -81,12 +88,23 @@ def test_the_readme_calls_the_ai_connection_optional():
 
 
 def test_the_readme_says_how_long_the_connector_waits():
-    """The writes that can answer the past-year question, the preview and
-    Ledger Review wait 20 minutes (client.LONG_TIMEOUT, #637)."""
-    from btctx_mcp.client import LONG_TIMEOUT, TIMEOUT
+    """The preview, the writes that can answer the past-year question,
+    get_coins_moved and Ledger Review wait 20 minutes, the other tools 2
+    (client.timeout_for, #637), each tool's request as server.py sends it."""
+    from btctx_mcp.client import LONG_TIMEOUT, TIMEOUT, timeout_for
 
     assert (LONG_TIMEOUT, TIMEOUT) == (1200.0, 120.0)
-    assert "up to 20 minutes" in flat(README) and "2 minutes" in flat(README)
+    long = [("POST", "/api/import/entries/preview"), ("POST", "/api/import/entries/execute"),
+            ("PUT", "/api/transactions/7"), ("DELETE", "/api/transactions/7"),
+            ("POST", "/api/transactions/recalculate"), ("POST", "/api/transactions/7/coins-moved"),
+            ("GET", "/api/review")]
+    short = [("GET", "/api/calculations/accounts/balances"), ("GET", "/api/transactions"),
+             ("GET", "/api/bitcoin/price/history"), ("POST", "/api/backup/ai-copy")]
+    assert {timeout_for(*call) for call in long} == {LONG_TIMEOUT}
+    assert {timeout_for(*call) for call in short} == {TIMEOUT}
+    assert "The preview, the writes (add, update, delete, recalculate), `get_coins_moved` and `review_ledger` " \
+           "can each go through your whole ledger more than once: the connector waits up to 20 minutes for " \
+           "them, and up to 2 minutes for the other tools." in flat(README)
 
 
 def test_the_readme_names_the_method():
