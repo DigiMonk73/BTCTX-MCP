@@ -86,7 +86,8 @@ const UnlistedLines: React.FC<{ lines: ChosenCoin[] }> = ({ lines }) => lines.le
  * sits far below the part of the panel on screen when Save is pressed, so
  * each Save it stops scrolls it into view and moves focus to it, unless a
  * field above was refused too (the form focuses that one); and each is a
- * new alert, announced again. Typing that refuses it again moves nothing. */
+ * new alert, announced again. Typing that refuses it again moves neither
+ * focus nor the panel (its words are announced as they come back). */
 const Refusal: React.FC<{ message?: string; saves: number; alone: boolean }> = ({ message, saves, alone }) => {
   const shown = useRef<HTMLParagraphElement>(null);
   const seen = useRef(saves);
@@ -94,7 +95,7 @@ const Refusal: React.FC<{ message?: string; saves: number; alone: boolean }> = (
     if (saves === seen.current) return;
     seen.current = saves;
     if (!alone || !shown.current) return;
-    shown.current.scrollIntoView?.({ block: "center" });
+    shown.current.scrollIntoView?.({ block: "center" });  // jsdom, the unit tests' page, has none
     shown.current.focus({ preventScroll: true });
   }, [saves, alone]);
   return message
@@ -148,7 +149,6 @@ const ChosenCoins: React.FC<{ book: AccountBook; coins: CoinsShown; values: Tran
       <p className="field-hint" aria-live="polite">{runningTotal(lines, leaves)}</p>
       <Refusal message={errors.chosenCoins?.message} saves={submitCount}
         alone={Object.keys(errors).every((field) => field === "chosenCoins")} />
-
     </fieldset>
   );
 };

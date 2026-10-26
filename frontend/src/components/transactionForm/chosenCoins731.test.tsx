@@ -117,6 +117,25 @@ describe("a Spent from one of your wallets", () => {
     }
   });
 
+  it("leaves focus on a field above that was refused too, where the form puts it (#771, the review's)", async () => {
+    const scrolled = vi.fn();
+    Element.prototype.scrollIntoView = scrolled;  // jsdom has none
+    try {
+      const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
+      await spentFromSparrow(form);
+      await form.user.click(screen.getByRole("button", { name: "Choose which coins leave" }));
+      await choose(form, "Mar 1, 2017", "0.05");
+      await form.user.clear(screen.getByLabelText("Amount"));
+      await form.save();
+      await act(() => new Promise((resolve) => setTimeout(resolve, 50)));  // the form's second focus, a moment later
+      expect(screen.getByRole("alert").textContent).toMatch(/^The coins chosen must add up/);
+      expect(document.activeElement).toBe(screen.getByLabelText("Amount"));
+      expect(scrolled).not.toHaveBeenCalled();
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
   it("can go back to oldest first, and then sends no choice", async () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
     await spentFromSparrow(form);

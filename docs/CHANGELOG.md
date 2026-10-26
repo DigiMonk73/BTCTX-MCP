@@ -45,8 +45,10 @@ All notable changes to BitcoinTX are documented in this file.
   leaves seemed to do nothing: its words showed under the picker, far below
   the part of the panel on screen, and weren't announced. Now Save scrolls
   to them, beside the running total, moves focus there and announces them
-  to screen readers, on a computer and on a phone, each time it's pressed.
-  Nothing is saved, as before, and no figure changes.
+  to screen readers, on a computer and on a phone, each time it's pressed
+  (when a field above needs fixing too, focus goes to that field first);
+  the same for "Each BTC chosen must be a plain number". Nothing is saved,
+  as before, and no figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
