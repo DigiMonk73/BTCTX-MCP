@@ -14,7 +14,11 @@ route between more than one pair of accounts, each exchange's Sells in the
 boxes its 1099-DA switch gives, every Broker form choice against each
 switch, gains and losses of both terms and inherited coins in every forms
 year, holdings at each year's start, a hidden and a renamed account on the
-dashboard, and each Ledger Review item a row can show.
+dashboard, and each Ledger Review item a row can show. And chosen coins
+(#711, #730): each withdrawal purpose and each move out of a wallet by a
+choice, choices in 2025 and 2026, inherited coins chosen, a spend's coins
+and a donation's of both terms, one purchase chosen across two lots, and a
+choice equal to oldest first beside choices that aren't.
 """
 
 import csv
@@ -40,6 +44,7 @@ from backend.services.transaction import DEPOSIT_SOURCES, TX_TYPES, WITHDRAWAL_P
 from backend.services.reports.form_8949 import INHERITED, build_form_8949_and_schedule_d
 from backend.services.reports.reporting_core import generate_report_data
 from backend.services.review import build_review
+from backend.tests.independent_calc import independent_figures
 
 
 def _script(name: str):
@@ -71,6 +76,9 @@ BOXES_2026 = {
     "06/16/2026": {"L"}, "06/17/2026": {"I"}, "06/23/2026": {"I"}, "06/25/2026": {"G"}, "08/06/2026": {"L"},
     "08/12/2026": {"K"}, "08/18/2026": {"H", "K"}, "08/20/2026": {"G"}, "08/21/2026": {"I"},
     **{day: {"I"} for day in ("06/30/2026", "07/02/2026", "08/10/2026", "08/25/2026")},
+    # #730's chosen coins: the fee of the Sparrow's move to the Jade (L), the Jade's spends of the inherited
+    # and the 2023 coins (L), the fee of its move to Kraken (L), and Kraken's sale of the coins moved in (K)
+    **{day: {"L"} for day in ("08/27/2026", "09/03/2026", "09/04/2026", "09/07/2026")}, "09/09/2026": {"K"},
 }
 YEARS = [2023, 2024, 2025, 2026]
 # Each year: every deposit source and withdrawal purpose the app has (its own
@@ -131,6 +139,11 @@ REVIEW_OUT_OF_REACH = {
     "lost_with_loss": "every save gives lost coins a $0 gain",
     "recalc_changes": "a seeded ledger is recalculated by every save",
 }
+# Chosen coins (#711; docs/temp/2.0-coin-choice.md 2.2, 8.3): each
+# withdrawal purpose, and each move out of a wallet to another account, by a
+# choice
+CHOOSING = {*(("Withdrawal", purpose) for purpose in WITHDRAWAL_PURPOSES),
+            ("Transfer", "another wallet"), ("Transfer", "exchange BTC")}
 # 1.x's accounts, which every ledger has, by id: (kind, currency, exchange)
 FIXED = {1: ("bank", "USD", None), 2: ("wallet", "BTC", None), 3: ("exchange", "USD", 1),
          4: ("exchange", "BTC", 1), 99: ("External", None, None)}
@@ -304,6 +317,63 @@ def test_every_broker_form_choice_against_each_switch():
     spends = {r.get("broker_reporting") for r in rows if r["type"] == "Withdrawal" and r.get("purpose") == "Spent"
               and r["fee_currency"] == "BTC" and Decimal(r["fee_amount"]) > 0}
     assert spends == choices
+
+
+def test_coins_are_chosen_for_each_purpose_and_each_move_out_of_a_wallet():
+    """Only out of a wallet (2.2), with choices in 2025, the year the rule
+    begins (Treas. Reg. §1.1012-1(j)(6)), and in 2026."""
+    accounts, years = ledger_accounts(), defaultdict(set)
+    for r in seed_ledger.ledger_rows():
+        if r.get("chosen_coins"):
+            _, source, to = _route(r["type"], r["from_account_id"], r["to_account_id"], accounts)
+            assert source == "wallet", r
+            years[(r["type"], r["purpose"] if r["type"] == "Withdrawal" else to)].add(r["timestamp"][:4])
+    assert {what: sorted(years[what]) for what in CHOOSING if not years[what]} == {}
+    assert set().union(*years.values()) >= {"2025", "2026"}
+
+
+def test_chosen_coins_reach_inherited_coins_both_terms_and_one_purchase_in_two_lots(seeded):
+    """What a choice takes, in the seeded ledger's disposals: inherited coins
+    (INHERITED, long-term, #154); a spend's coins of both terms with its BTC
+    fee, which the chosen coins pay (#711's call (b)), and a donation's of
+    both terms (its deduction depends on both, #160); and one purchase held
+    in two lots of one wallet, by two transfers, taken from both."""
+    _, Session, _ = seeded
+    with Session() as db:
+        choosing = [tx for tx in db.query(Transaction) if tx.chosen_coins]
+        inherited = [tx.id for tx in choosing if any(d.lot.inherited for d in tx.lot_disposals)]
+        spends = {(tx.purpose, frozenset(d.holding_period for d in tx.lot_disposals),
+                   any(d.is_fee for d in tx.lot_disposals)) for tx in choosing}
+        two_lots = [tx.id for tx in choosing for coin in tx.chosen_coins
+                    if len({d.lot_id for d in tx.lot_disposals if d.lot.acquired_txn_id == coin.acquired_txn_id}) > 1]
+    assert inherited
+    assert ("Spent", frozenset({"SHORT", "LONG"}), True) in spends
+    assert {(purpose, terms) for purpose, terms, _ in spends} >= {("Donation", frozenset({"SHORT", "LONG"}))}
+    assert two_lots
+
+
+def test_one_choice_is_the_oldest_coins_and_the_others_arent():
+    """Oldest first is a way of identifying too ((j)(4)): a choice of
+    exactly the oldest coins gives oldest first's figures, and the others
+    move some. The independent check replays the ledger with each choice
+    left out in turn; one left out can also leave a later choice short,
+    which stops the replay: that one moves something too."""
+    independent, ledger = independent_figures(), json.loads(seed_ledger.LEDGER.read_text())
+
+    def every_year(transactions: list[dict]) -> dict:
+        replayed = independent.replay_ledger({**ledger, "transactions": transactions})
+        return {year: independent.year_figures(replayed, year) for year in YEARS}
+
+    rows, same = ledger["transactions"], []
+    chosen = every_year(rows)
+    for i, row in enumerate(rows):
+        if row.get("chosen_coins"):
+            unchosen = {field: value for field, value in row.items() if field != "chosen_coins"}
+            try:
+                same.append(every_year([*rows[:i], unchosen, *rows[i + 1:]]) == chosen)
+            except ValueError:
+                same.append(False)
+    assert True in same and False in same, same
 
 
 @pytest.mark.parametrize("year", [2024, 2025, 2026])

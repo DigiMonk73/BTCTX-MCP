@@ -1,19 +1,22 @@
 """
 The reference ledger's 2.0 rows (2.0 spec 5.15; card B7a #354): its
 `accounts` list adds two of each kind (wallets Coldcard and Jade, exchanges
-Kraken and Overseas, banks Credit union and Savings), which
-scripts/seed_ledger.py makes through the account API before the rows, and
-its "since": "2.0" rows use only those (B7a's in 2026; #702's from 2022 to
-2026, each for the year it fills), but one: the split of a pooled wallet,
-a Transfer from Wallet to the Coldcard with no fee, after every row that
-takes coins from either.
+Kraken and Overseas, banks Credit union and Savings) and a fourth wallet,
+the Sparrow, which scripts/seed_ledger.py makes through the account API
+before the rows, and its "since": "2.0" rows use only those (B7a's in 2026;
+#702's from 2022 to 2026, each for the year it fills; #730's, which choose
+coins, in 2025 and 2026), but one: the split of a pooled wallet, a Transfer
+from Wallet to the Coldcard with no fee, after every row that takes coins
+from either.
 
 - Every old row keeps its figures with the new rows beside it
   (test_old_rows_keep_their_figures): 1.x's beside every 2.0 row
   (equivalence_check's ledgers leave those out, B1, so this is their
-  proof), and 1.x's and B7a's beside #702's ("added": "#702"), which go
+  proof); 1.x's and B7a's beside #702's and #730's (each "added"), which go
   into the same 2.0 accounts only after each one's last earlier disposal
-  (Kraken's and Overseas' bitcoin emptied by the end of 2025).
+  (Kraken's and Overseas' bitcoin emptied by the end of 2025); and 1.x's,
+  B7a's and #702's beside #730's, the Sparrow's, which send chosen coins
+  to the Jade and Kraken only after each one's last earlier row.
 - The split row moves only Wallet's and the Coldcard's year-end lots and
   balances.
 - The seed makes the accounts with the ids the ledger lists, uses again
@@ -24,6 +27,7 @@ takes coins from either.
 
 import importlib.util
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -40,7 +44,7 @@ from backend.services.tax_time import get_tax_timezone, local_date
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 WALLET, COLDCARD, EXTERNAL = 2, 100, 99
-NEW_ACCOUNTS = set(range(100, 108))
+NEW_ACCOUNTS = set(range(100, 109))
 USER, PASSWORD = "seed-user", "seed-password-123"
 
 
@@ -122,7 +126,8 @@ def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw
         return figures
 
 
-@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw], ids=["2.0", "#702"])
+@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw,
+                                   lambda raw: raw.get("added") == "#730"], ids=["2.0", "#702 on", "#730"])
 def test_old_rows_keep_their_figures(owner, newer):
     c, Session = owner
     with_new = old_rows_figures(Session, seed_without(c, lambda raw: False), newer)
@@ -320,6 +325,87 @@ def test_an_exchange_whose_accounts_disagree_on_a_note_stops_the_seed(tmp_path, 
     monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
     with pytest.raises(seed_ledger.SeedError, match=said):
         seed_ledger.ledger_accounts()
+
+
+# A choice's keys (#711, docs/temp/2.0-coin-choice.md 8.3): a row names the
+# coins it acquired, and a later row chooses them by that name
+OLDER = {"type": "Deposit", "timestamp": "2025-01-09T12:00:00Z", "from_account_id": EXTERNAL,
+         "to_account_id": WALLET, "amount": "0.01", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC",
+         "cost_basis_usd": "400.00", "acquired_at": "2023-01-09"}
+NEWER = {**OLDER, "timestamp": "2025-01-10T12:00:00Z", "cost_basis_usd": "900.00", "acquired_at": "2025-01-10"}
+
+
+def _spend(chosen: list[dict]) -> dict:
+    return {"type": "Withdrawal", "timestamp": "2025-03-10T12:00:00Z", "from_account_id": WALLET,
+            "to_account_id": EXTERNAL, "amount": "0.004", "fee_amount": "0", "fee_currency": "BTC",
+            "purpose": "Spent", "gross_proceeds_usd": "400.00", "chosen_coins": chosen}
+
+
+def test_a_choice_names_its_coins_by_the_id_their_row_got(owner):
+    """The key is never sent: the server is told the id it gave the key's
+    row, in a Delete All's ledger again too."""
+    c, Session = owner
+    sent = c.request
+    posted = []
+
+    def noted(method, url, **kwargs):
+        if (method, str(url).split("?")[0]) == ("POST", "/api/transactions"):
+            posted.append(kwargs.get("json"))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    rows = [OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])]
+    for _ in range(2):
+        assert seed_ledger.seed(c, rows) == 3
+        with Session() as db:
+            _, newer = db.query(Transaction).filter(Transaction.type == "Deposit").order_by(Transaction.timestamp)
+            spend = db.query(Transaction).filter(Transaction.type == "Withdrawal").one()
+            assert [(coin.acquired_txn_id, str(coin.btc)) for coin in spend.chosen_coins] == [(newer.id, "0.00400000")]
+            # the newer coins' cost, $900 x 0.4, not the older ones' $160
+            assert [str(d.disposal_basis_usd) for d in spend.lot_disposals] == ["360.00"]
+        delete_all(c)
+    assert not [body for body in posted if "key" in body]
+    assert [line for body in posted for line in body.get("chosen_coins") or []] == [
+        {"acquired_txn_id": line_id, "btc": "0.004"} for line_id in (2, 2)]
+
+
+def test_a_choice_is_sent_with_the_id_the_server_gave_never_the_rows_place():
+    """On a fresh install the two are the same number, so a create that
+    answers other ids tells them apart."""
+    created = []
+
+    def create(n: int, row: dict) -> int:
+        created.append(row)
+        return n + 100
+
+    seed_ledger.create_rows([OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])], create)
+    assert created == [OLDER, NEWER, _spend([{"acquired_txn_id": 102, "btc": "0.004"}])]
+
+
+@pytest.mark.parametrize("rows, said", [
+    ([{**OLDER, "key": "k"}, {**NEWER, "key": "k"}], "row 2's key 'k' is row 1's too: a key names one Buy or Deposit"),
+    ([_spend([{"key": "k", "btc": "0.004"}]), {**NEWER, "key": "k"}],
+     "row 1 chooses coins by the key 'k', which no row before it has"),
+    ([NEWER, _spend([{"key": "z", "btc": "0.004"}])], "row 2 chooses coins by the key 'z', which no row before it has"),
+    ([NEWER, _spend([{"acquired_txn_id": 1, "btc": "0.004"}])], "row 2 chooses coins without a key"),
+    ([NEWER, {**_spend([]), "key": "s"}], "row 2 is a Withdrawal with a key: only a Buy or a Deposit acquires coins"),
+], ids=["a key twice", "a choice before its key", "a key no row has", "a line without a key", "a key on a spend"])
+def test_a_key_the_seed_cant_follow_stops_it_before_anything_is_sent(owner, rows, said):
+    c, Session = owner
+    sent = c.request
+    writes = []
+
+    def noted(method, url, **kwargs):
+        if method != "GET":
+            writes.append((method, str(url)))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    with pytest.raises(seed_ledger.SeedError, match=re.escape(said)):
+        seed_ledger.seed(c, rows, seed_ledger.ledger_accounts())
+    assert writes == []  # neither an account nor a row
+    with Session() as db:
+        assert db.query(Transaction).count() == 0
 
 
 def test_a_ledger_without_an_accounts_list_adds_none(tmp_path, monkeypatch):

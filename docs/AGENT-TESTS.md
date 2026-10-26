@@ -1929,12 +1929,12 @@ page's pictures".
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "✓ 191 transactions loaded into
+  --password-stdin`. Expect "✓ 205 transactions loaded into
   http://127.0.0.1:8791 (2023-2026)" (the count in
   `testdata/reference_ledger.json`). From 2.0 the seed first adds the
   ledger's own accounts through the account API (Coldcard, Jade, Kraken,
   Overseas with its 1099-DA switch off, made as "Offshore", Credit union,
-  Savings) and stops if one gets another id than the file lists: the
+  Savings, Sparrow) and stops if one gets another id than the file lists: the
   database must be new, as `set-password` made it. After the rows it
   renames Offshore to Overseas and hides the Jade, as the file lists.
   Stop the server. On a copy:
