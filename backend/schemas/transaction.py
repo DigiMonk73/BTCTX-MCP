@@ -460,7 +460,7 @@ class LedgerEntryRead(LedgerEntryBase):
 
 class BitcoinLotBase(BaseModel):
     """
-    Base schema for tracking BTC lots (FIFO tax lots for IRS compliance).
+    Base schema for tracking BTC lots (per-wallet FIFO tax lots for IRS compliance).
     """
     total_btc: Decimal = Field(
         ...,

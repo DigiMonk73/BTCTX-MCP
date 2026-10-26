@@ -13,7 +13,7 @@ from pypdf import PdfReader
 
 from backend.routers.reports import get_supported_years
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
-from backend.tests.test_texts_2_0_357 import IRS_RULE
+from backend.tests.test_texts_2_0_357 import IRS_RULE, METHOD_FULL
 
 
 def report_text(**data) -> str:
@@ -46,10 +46,9 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
         assert blank in text
     assert "Write the name and social security number on every Form 8949 page and on Schedule D" in text
     assert "Print single-sided" in text
-    # 5.14's one wording of the rule, and what BitcoinTX does and doesn't record (3.7)
+    # 5.14's one wording of the rule, decision 30's of the method (#713), and what BitcoinTX doesn't record (3.7)
     assert IRS_RULE in text
-    assert ("BitcoinTX uses first in, first out in each wallet and exchange account and records no Rev. Proc. "
-            "2024-28 allocation.") in text
+    assert f"{METHOD_FULL} BitcoinTX records no Rev. Proc. 2024-28 allocation." in text
     assert "one exchange account" not in text and "pooled here" not in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text
@@ -64,7 +63,7 @@ def test_the_notes_say_other_coins_can_give_other_figures():
                                              "period": "2025-01-01 to 2025-12-31", "irs_forms": "final"})
     text = " ".join("\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(pdf)).pages).split())
     notes = text[text.rindex("7. Notes"):]
-    assert "first in, first out (FIFO) method within each wallet and exchange account" in notes
+    assert METHOD_FULL in notes
     assert ("Coins you identified on your own books, or an exchange's own order of coins, can give other "
             "figures.") in notes
 

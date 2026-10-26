@@ -236,7 +236,7 @@ app = FastAPI(
     title="BitcoinTX Portfolio Tracker API",
     description=(
         "API for managing Bitcoin transactions/accounts with a "
-        "double-entry system and FIFO cost basis. Session-based auth."
+        "double-entry system and per-wallet FIFO cost basis. Session-based auth."
     ),
     version="1.0",
     debug=os.getenv("DEBUG", "false").lower() == "true",

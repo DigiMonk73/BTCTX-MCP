@@ -42,7 +42,7 @@ export function transferAmountProblem(
   }
   if (currency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
   if (currency === "BTC" && chosenId(data.toAccountId) === fromId && !(to < from)) {
-    return "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).";
+    return "A consolidation within the same wallet or exchange records only its network fee: Amount (To) must be less than Amount (From).";
   }
   return null;
 }

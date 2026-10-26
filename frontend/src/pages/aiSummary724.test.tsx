@@ -42,14 +42,14 @@ describe("Connect an AI Assistant's summary", () => {
   it("on the Mac app: a key BitcoinTX keeps, never one you create", async () => {
     await mount(async () => ({ data: MAC }));
     await waitFor(() => expect(summary()).toBe(
-      "An AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+      "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
     ));
   });
 
   it("on Docker and StartOS: a key you create", async () => {
     await mount(async () => ({ data: SERVER }));
     await waitFor(() => expect(summary()).toBe(
-      "An AI app that reads your ledger and enters transactions, with a key you create",
+      "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key you create",
     ));
   });
 
@@ -57,6 +57,6 @@ describe("Connect an AI Assistant's summary", () => {
     await mount(async () => { throw new Error("offline"); });
     // Once the refusal has run its course, not before: until then no key is named anyway
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
-    expect(summary()).toBe("An AI app that reads your ledger and enters transactions");
+    expect(summary()).toBe("Optional and off until you turn it on: an AI app that reads your ledger and enters transactions");
   });
 });

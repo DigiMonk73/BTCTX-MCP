@@ -5,6 +5,28 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **The app's own words say what 2.0 does** (D5, #701; words only, no
+  figure moves).
+  - **Per-wallet FIFO**, the owner's one wording for the method (decision
+    30, #713): the dashboard's "Realized Gains/Losses (Per-wallet FIFO)",
+    the Complete Tax Report's "Cost basis method" and notes ("Cost basis
+    is per-wallet FIFO: each wallet and exchange uses its own oldest coins
+    first for a sale, spend or transfer."), a new wallet's or exchange's
+    note, an inherited deposit's date hint and the CSV guide. A test keeps
+    every other wording of FIFO out of what users read.
+  - The empty Transactions list points to an exchange's file, not River's;
+    Recalculate Ledger's line says to open Ledger Review first after an
+    upgrade; "Privacy & Network" as the screen says it; Data Management
+    names the CSV it imports and what a full reset deletes.
+  - A consolidation without its fee is "A consolidation within the same
+    wallet or exchange…", never a "move" (#705); the Transfer's hint for
+    another wallet or exchange says to show a hidden one; the CSV guide
+    and template drop 1.x's "auto-buy".
+  - A backup that can't be decrypted says "Wrong password, or the file is
+    damaged or isn't a BitcoinTX backup.", never only "Wrong password?"
+    (#690): its check can't tell them apart.
+  - Connect an AI Assistant's summary starts "Optional and off until you
+    turn it on" (the owner's decision 31).
 - **The README and the user guide describe all of 2.0** (D2 of the docs
   overhaul, #698; the owner, 2026-10-24: "very thorough docs ... to reflect
   all the features of 2.0 and removing anything that is no longer true").
