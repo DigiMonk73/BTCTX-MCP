@@ -207,3 +207,32 @@ def test_a_spend_made_a_gift_names_its_own_rows_never_a_network_fees(client):
     assert "Form 8949 box I -> none" in words and "network fee's" not in words
     assert "held" not in words and "date acquired none" not in words
     assert words.endswith("gifts, donations and lost coins: none -> Gift 3000.00.")
+
+
+def test_an_added_or_deleted_row_names_what_the_years_report_counts(client):
+    # A filed return carries the year's income (Schedule 1), and the report lists rebates and gifts apart (#753)
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    words = {}
+    for name, body in {
+        "reward": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0002",
+                       timestamp="2025-06-15T12:00:00Z", source="Reward", cost_basis_usd="22.22"),
+        "income": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0002",
+                       timestamp="2025-06-16T12:00:00Z", source="Income", cost_basis_usd="20.00"),
+        "rebate": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0001",
+                       timestamp="2025-06-17T12:00:00Z", source="Rebate", cost_basis_usd="6.00"),
+        "donation": dict(type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.01",
+                         timestamp="2025-06-18T12:00:00Z", purpose="Donation", fmv_usd="600"),
+    }.items():
+        added = {}
+        moved = changes_of(client, lambda body=body: added.setdefault("id", save(client, **body)))
+        words[name] = year_changes.change_text(moved[added["id"]]["diff"], figures(client)[added["id"]])
+    assert words["reward"] == "Added: income (Reward) 22.22; basis 22.22; cost of the lots it made 22.22."
+    assert words["income"].startswith("Added: income 20.00; basis 20.00;")
+    assert words["rebate"].startswith("Added: rebate 6.00; basis 6.00;")
+    assert words["donation"].startswith("Added: donation 600.00; ")
+    rebate = next(tx for tx, row in figures(client).items() if (row["received"] or ("",))[0] == "Rebate")
+    before = figures(client)
+    r = client.delete(f"/api/transactions/{rebate}")
+    assert r.status_code == 204, r.text
+    moved = year_changes.moved(before, figures(client))
+    assert year_changes.change_text(moved[rebate]["diff"], before[rebate]).startswith("Deleted: rebate 6.00; basis 6.00;")
