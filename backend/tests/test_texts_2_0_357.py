@@ -39,8 +39,6 @@ USER_DOCS = ("README.md", "docs/USING.md", "mcp_server/README.md", "mcp_server/A
 USER_CODE = ("frontend/src/", "backend/", "mcp_server/btctx_mcp/", "startos/startos/")
 # Files whose docs step hasn't merged yet: each step takes its own off the list
 METHOD_NOT_YET = {
-    "mcp_server/btctx_mcp/guide.py": "D3, #699", "mcp_server/btctx_mcp/server.py": "D3, #699",
-    "mcp_server/README.md": "D3, #699",
     "startos/README.md": "D4, #700", "startos/instructions.md": "D4, #700",
     "startos/startos/manifest/i18n.ts": "D4, #700",
 }
