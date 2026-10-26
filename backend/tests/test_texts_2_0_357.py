@@ -132,8 +132,10 @@ def test_the_release_tests_counts_are_the_apps():
     assert counts and set(counts) == {str(tools)}, counts
 
 
-def maintenance_way_back() -> str:
-    text = (ROOT / "docs/MAINTENANCE.md").read_text()
+def readme_way_back() -> str:
+    """The README's "Going back to 1.x" (moved from MAINTENANCE by D2, #698:
+    where its readers look)."""
+    text = (ROOT / "README.md").read_text()
     return text.split("\n## Going back to 1.x\n", 1)[1].split("\n## ", 1)[0]
 
 
@@ -143,7 +145,7 @@ def test_the_way_back_names_what_the_app_does():
     Docker copy run through the 1.x image, as its own user (#446)."""
     kind, label, kept = copy_for("0012")
     assert (kind, label, kept) == (PRE_2_0_KIND, "from-0012", None)
-    steps = maintenance_way_back()
+    steps = readme_way_back()
     assert f"backups/btctx-{kind}-from-" in steps
     for side in ("btctx.db-journal", "btctx.db-wal", "btctx.db-shm"):
         assert side in steps, side

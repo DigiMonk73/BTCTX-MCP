@@ -340,15 +340,15 @@ Start from the `clean` snapshot.
   Settings, under Wallets, exchanges and banks. From 2025, cost basis is
   figured wallet by wallet and account by account; unless you identify the
   coins you sell, first in, first out within each, by the date first
-  acquired (Treas. Reg. §1.1012-1(j)). BitcoinTX keeps each wallet's and
-  each exchange's own lots and always sells them first in, first out. If
-  you kept multiple wallets or exchanges together in BitcoinTX 1.x, years
-  before you added them were figured together: ask a tax professional
-  whether an earlier return needs a change."; the disclaimer "BitcoinTX is
-  software, not tax, legal or financial advice. …"; "Version X.Y.Z" (the
-  release candidate's, as in INS-7); and the links **release notes**,
-  **Report a problem**, **open bugs** and **Report it privately**. 1.x's
-  one-wallet warning is gone.
+  acquired (Treas. Reg. §1.1012-1(j)). Cost basis is per-wallet FIFO: each
+  wallet and exchange uses its own oldest coins first for a sale, spend or
+  transfer. If you kept multiple wallets or exchanges together in
+  BitcoinTX 1.x, years before you added them were figured together: ask a
+  tax professional whether an earlier return needs a change."; the
+  disclaimer "BitcoinTX is software, not tax, legal or financial advice.
+  …"; "Version X.Y.Z" (the release candidate's, as in INS-7); and the
+  links **release notes**, **Report a problem**, **open bugs** and
+  **Report it privately**. 1.x's one-wallet warning is gone.
 - **AUTH-5** Header **Logout**. Expect: the confirm "Are you sure you want
   to log out?", then the login page. Opening `$URL/dashboard` redirects to
   login. Log back in.
@@ -1632,8 +1632,8 @@ Start from the `clean` snapshot.
 
 2.0 can't be downgraded in place, and 1.x can't read a 2.0 database or
 backup, so what was entered in 2.0 is lost on the way back. These are the
-ways back the release notes (StartOS) and `docs/MAINTENANCE.md` (Docker,
-the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
+ways back the release notes (StartOS) and the README's "Going back to
+1.x" (Docker, the Mac app) give, as B9 tried them on StartOS 0.4.0.3 (2026-10-24; the
 StartOS backup's own way back, WAY-1's backup and WAY-3's restore, is
 recorded on #357 once tried).
 WAY-1 to WAY-5 run in order on one VM, from the `clean` snapshot, and need
