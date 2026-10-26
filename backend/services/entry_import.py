@@ -25,6 +25,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, object_session
 from starlette.concurrency import run_in_threadpool
 
@@ -45,7 +46,7 @@ from backend.schemas.entry_import import (
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
 from backend.services.past_year_writes import Rows
-from backend.services.chosen_coins import HELD_HOOK, Held
+from backend.services.chosen_coins import HELD_HOOK, Held, lots_lack_acquisition
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -72,6 +73,7 @@ from backend.services.transaction import (
     find_prices_first,
     holding_period,
     price_used,
+    recalculate_all_transactions,
     values_from_price,
 )
 
@@ -166,6 +168,9 @@ def normalized_view(tx_data: dict[str, Any], book: AccountBook) -> dict[str, str
             view[key] = tx_data[key]
     if tx_data.get("acquired_at"):
         view["acquired_at"] = tx_data["acquired_at"].isoformat()  # a date (#185)
+    if tx_data.get("chosen_coins"):  # each acquisition's id and BTC, as read (#711)
+        view["chosen_coins"] = "; ".join(f"{line['acquired_txn_id']}: {_dec_str(line['btc'])}"
+                                         for line in tx_data["chosen_coins"])
     return view
 
 
@@ -599,12 +604,16 @@ def _dry_run(
     ordered: list[PreparedRow], db: Session, years: dict
 ) -> tuple[list[AffectedTransaction], list[AccountBalance]]:
     find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
+    book = account_book(db)
+    from_a_wallet = any(_leaves_a_wallet(p.tx_data["type"], p.tx_data["from_account_id"],
+                                         p.tx_data["to_account_id"], book) for p in ordered)
+    if from_a_wallet and lots_lack_acquisition(db):
+        # Call (j), #711: lots made before migration 0101 don't know their
+        # acquisition, and would be listed as one, dated as the first; the
+        # replay gives each its own, as a save of a choice would
+        recalculate_all_transactions(db)
     before = _gain_snapshot(db)
-    # What each transaction's account holds before it takes any (#711): the
-    # engine hands it over on every path, a replay's included, so the last
-    # word for a transaction is the ledger as the save leaves it
-    held: dict[int, list[Held]] = {}
-    db.info[HELD_HOOK] = lambda tx, lines: held.__setitem__(tx.id, lines)
+    held = _listen_for_coins_held(db) if from_a_wallet else {}
     try:
         created, failed_at = _create_until_refused(ordered, db)
         if failed_at is None:
@@ -632,15 +641,38 @@ def _dry_run(
         db.rollback()
 
 
+def _leaves_a_wallet(kind: str, from_id: int, to_id: int, book: AccountBook) -> bool:
+    """A Transfer to another account, or a Withdrawal, from one of the user's
+    wallets: the rows whose coins can be chosen (#711, 2.2). An exchange's
+    coins leave oldest first (#711's call (g))."""
+    leaves = kind == "Withdrawal" or (kind == "Transfer" and to_id != from_id)
+    return leaves and book.kind(from_id) == "wallet"
+
+
+def _listen_for_coins_held(db: Session) -> dict[int, list[Held]]:
+    """What a new row's account holds before it takes any (#711): the engine
+    hands it over on every path, a replay's included, so the last word for a
+    row is the ledger as the save leaves it. Only the rows this dry run
+    creates are kept (ids past the ledger's newest): a replay hands over
+    every transaction's."""
+    held: dict[int, list[Held]] = {}
+    newest = db.query(func.max(Transaction.id)).scalar() or 0
+
+    def heard(tx: Transaction, lines: list[Held]) -> None:
+        if tx.id > newest:
+            held[tx.id] = lines
+
+    db.info[HELD_HOOK] = heard
+    return held
+
+
 def _coins_seen(tx: Transaction, held: list[Held] | None, rows_of: dict[int, int], db: Session) -> CoinsSeen | None:
-    """A row leaving one of the user's wallets (a Transfer to another
-    account, or a Withdrawal): the coins it takes and those the wallet held
-    before it took any, so the AI can show the user what they may choose
-    from (#711, Q4). None for any other row: an exchange's coins leave
-    oldest first (#711's call (g)), and nothing else leaves a wallet."""
+    """A row leaving one of the user's wallets: the coins it takes and those
+    the wallet held before it took any, so the AI can show the user the
+    purchases they say they sent coins from (#711, Q4). None for any other
+    row."""
     book = account_book(db)
-    leaves = tx.type == "Withdrawal" or (tx.type == "Transfer" and tx.to_account_id != tx.from_account_id)
-    if not leaves or book.kind(tx.from_account_id) != "wallet" or held is None:
+    if held is None or not _leaves_a_wallet(tx.type, tx.from_account_id, tx.to_account_id, book):
         return None
     tz = get_tax_timezone(db)
     named = [h.acquired_txn_id for h in held[:MOST_HELD] if h.acquired_txn_id is not None]

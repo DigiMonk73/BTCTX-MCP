@@ -206,6 +206,9 @@ chosen coins, the oldest of them first.
 - Never suggest choosing coins after the fact to lower their tax (the
   highest-cost coins for a spend already made, say): a choice made later
   doesn't count. If they ask, say so and suggest their tax professional.
+  Don't offer the wallet's coins (coins.held) as a menu, or ask whether
+  they'd like to choose: show them only to a user who says they chose
+  coins at the time, to find which purchases those were.
 - Never on an exchange (its coins leave oldest first, as its Form 1099-DA
   reports them), nor on a move within one wallet (only its fee is recorded).
 - preview_transactions shows, for a row leaving a wallet, the coins it

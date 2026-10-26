@@ -761,7 +761,8 @@ async def get_coins_moved(transaction_id: int) -> ToolResult:
     acquired, BTC, cost and whether it was inherited, in the order taken, and the BTC its
     network fee disposes of. Without a choice, the From account's oldest coins first; with one
     (chosen_coins), the coins chosen. Worked out on a copy of the ledger: nothing is saved.
-    Use it to show the user which coins a transfer moved before they change it."""
+    Use it to show the user which coins a transfer moved before they change it. On a very
+    large ledger it can answer coins null, with BitcoinTX's reason in detail: try once more."""
     return await _call("POST", f"/api/transactions/{transaction_id}/coins-moved", json={})
 
 

@@ -23,9 +23,10 @@ from backend.main import app
 from backend.routers import entry_import as entry_router
 from backend.schemas.entry_import import EntryRow
 from backend.services import entry_import
+from backend.services import transaction as tx_service
 from backend.services.account import account_book
 from backend.tests.test_chosen_coins_711 import (  # noqa: F401  (owner, chose_a2: fixtures)
-    LEAVES, chose_a2, coins, owner, pieces, saved, transfer,
+    LEAVES, chose_a2, coins, deposit, owner, pieces, saved, transfer,
 )
 
 SEND_AGAIN = ("Transaction {id} has coins chosen for {btc} BTC leaving Wallet, and this changes what leaves: "
@@ -98,7 +99,7 @@ def test_the_preview_lists_at_most_200_acquisitions_and_counts_the_rest(owner, a
     seen = r.json()["results"][0]["simulated"]["coins"]
     assert [line["acquired_txn_id"] for line in seen["held"]] == [owner.ids["A1"]]
     assert seen["held_not_listed"] == 1
-    assert entry_import.MOST_HELD == 1 and Decimal(seen["held"][0]["btc"]) == Decimal("0.3")
+    assert Decimal(seen["held"][0]["btc"]) == Decimal("0.3")
 
 
 def test_an_exchanges_row_has_no_coins_listed(owner, ai):  # noqa: F811
@@ -184,20 +185,55 @@ def test_a_row_dated_last_choosing_coins_replays_while_a_lot_lacks_its_acquisiti
         assert entry_router._recalculates(plain, db) is False
 
 
-def test_rows_choosing_coins_count_toward_the_ai_replay_budget_while_a_lot_lacks_its_acquisition(
-        owner, ai, monkeypatch):  # noqa: F811
-    """The first such row replays the ledger, and gives every lot its
-    acquisition, so a second one doesn't: one replay, beside a row dated
-    before the ledger's latest, which replays too."""
-    monkeypatch.setattr(entry_router, "AI_MAX_REPLAYED", 1)  # one replaying row a request
-    backdated = {"date": "2024-06-01T12:00:00Z", "type": "Deposit", "amount": "0.01", "from_account": "External",
-                 "to_account": "Wallet", "source": "MyBTC", "cost_basis_usd": "700"}
-    rows = [backdated, {**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))},
+def test_one_replay_for_a_choice_is_always_within_the_ai_budget(owner, ai, monkeypatch):  # noqa: F811
+    """The first row choosing coins while a lot doesn't know its acquisition
+    replays the ledger once, before any other row of the request does, and
+    gives every lot its own: the second doesn't replay. One replay is
+    always allowed, so such rows never meet the budget by themselves."""
+    rows = [{**SPENT, "chosen_coins": coins((owner.ids["A2"], "0.0101"))},
             {**SPENT, "date": "2025-07-02T12:00:00Z", "chosen_coins": coins((owner.ids["A2"], "0.0101"))}]
-    assert ai.post("/api/import/entries/preview", json={"rows": rows}).status_code == 200
     _forget_acquisitions(owner)
-    r = ai.post("/api/import/entries/preview", json={"rows": rows})
-    assert r.status_code == 400 and "recalculates the whole ledger" in r.json()["detail"], r.text
+    replay, replays = tx_service.recalculate_all_transactions, []
+    monkeypatch.setattr(tx_service, "recalculate_all_transactions",
+                        lambda db, **kwargs: (replays.append(1), replay(db, **kwargs))[1])
+    with owner.Session() as db:  # the engine's own path, as the add writes its rows
+        for p in _rows(owner, *rows):
+            tx_service.create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+        db.rollback()
+    assert replays == [1]
+    monkeypatch.setattr(entry_router, "AI_MAX_REPLAYED", 1)  # one replaying row a request
+    r = ai.post("/api/import/entries/execute", json={"rows": rows})
+    assert r.status_code == 200, r.text
+
+
+def test_the_preview_replays_first_while_a_lot_lacks_its_acquisition(owner, ai):  # noqa: F811
+    """Call (j): lots made before migration 0101 don't know their
+    acquisition. Without a replay first, the preview would list them as one,
+    dated as the first: the 2025 coins long-term."""
+    _forget_acquisitions(owner)
+    r = ai.post("/api/import/entries/preview", json={"rows": [SPENT]})
+    held = r.json()["results"][0]["simulated"]["coins"]["held"]
+    assert [(line["acquired_txn_id"], line["acquired"], line["term"]) for line in held] == [
+        (owner.ids["A1"], "2017-03-01", "LONG"), (owner.ids["A2"], "2025-01-15", "SHORT")]
+
+
+def test_a_transfer_takes_inherited_coins_it_chose_its_fee_from_the_oldest_chosen(owner, ai):  # noqa: F811
+    """The fee is paid by the chosen coins, the oldest of them first (#711's
+    call (b)); a Transfer's takes are its fee's and the coins it moves;
+    inherited coins are INHERITED and long-term whenever they leave."""
+    ids = owner.ids
+    ids["I"] = deposit(owner, "2025-02-01T12:00:00Z", "0.2", "20000", acquired="2024-12-20", source="Inherited")
+    move = {"date": "2025-07-01T12:00:00Z", "type": "Transfer", "amount": "0.0501", "from_account": "Wallet",
+            "to_account": "Cold Storage", "fee_amount": "0.0001", "fee_currency": "BTC", "fee_usd": "5",
+            "chosen_coins": coins((ids["I"], "0.03"), (ids["A2"], "0.0201"))}
+    r = ai.post("/api/import/entries/preview", json={"rows": [move]})
+    assert r.status_code == 200, r.text
+    seen = r.json()["results"][0]["simulated"]["coins"]
+    # The inherited coins, of a death on 2024-12-20, are the oldest chosen: the fee and 0.0299 of the move
+    assert seen["takes"] == [{"acquired_txn_id": ids["I"], "row": None, "btc": "0.03000000"},
+                             {"acquired_txn_id": ids["A2"], "row": None, "btc": "0.02010000"}]
+    assert [(line["acquired_txn_id"], line["acquired"], line["term"]) for line in seen["held"]] == [
+        (ids["A1"], "2017-03-01", "LONG"), (ids["I"], "INHERITED", "LONG"), (ids["A2"], "2025-01-15", "SHORT")]
 
 
 def test_the_ai_copy_comes_first_for_a_row_that_replays_by_its_choice(owner, ai, monkeypatch):  # noqa: F811

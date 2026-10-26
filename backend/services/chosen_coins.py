@@ -15,6 +15,7 @@ engine (services/transaction.py) takes from those lots as first in, first
 out takes from all of them: the fee's piece first, the oldest first.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -138,12 +139,12 @@ def every_choice(db: Session) -> dict[int, Choice]:
     return choices
 
 
-def replays_first(rows, db: Session) -> bool:
+def replays_first(rows: Iterable[dict], db: Session) -> bool:
     """Whether writing `rows` (transactions' data) replays the whole ledger
     for a choice among them: while a lot doesn't know its acquisition
     (lots_lack_acquisition), the first row with a choice does, so the
-    past-year question, the AI's copy and its replay budget treat the write
-    as replaying (call (j))."""
+    past-year question and the AI's copy treat the write as replaying (call
+    (j))."""
     return any(row.get("chosen_coins") for row in rows) and lots_lack_acquisition(db)
 
 

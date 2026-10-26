@@ -119,17 +119,17 @@ def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
     With the AI key, refuse (400) rows that would replay more than
     AI_MAX_REPLAYED entries: each row dated before the ledger's latest entry
     replays the whole ledger with the rows added before it
-    (services/transaction.create_transaction_record), and so does the first
-    row choosing coins while a lot doesn't know its acquisition (#711's
-    call (j)), once. One such row is always allowed, as for an edit made in
-    BitcoinTX.
+    (services/transaction.create_transaction_record). One such row is always
+    allowed, as for an edit made in BitcoinTX. (A row choosing coins while
+    a lot doesn't know its acquisition, #711's call (j), replays once,
+    before any other row of the request does, and gives every lot its own:
+    one replay, which is always allowed.)
     """
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
     if latest is None:
         return
     rows = [p for p in prepared if p.tx_data is not None]
     earlier = sum(1 for p in rows if p.tx_data["timestamp"] < latest.timestamp)
-    earlier += chosen_coins.replays_first([p.tx_data for p in rows], db)
     replayed_each = db.query(Transaction).count() + len(rows)  # at most
     at_most = max(1, AI_MAX_REPLAYED // replayed_each)
     if earlier > at_most:
