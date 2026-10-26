@@ -28,7 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
-from backend.services import past_years
+from backend.services import chosen_coins, past_years
 from backend.services.account import account_book
 from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS
@@ -96,12 +96,15 @@ def _check_size(payload: EntryRequest, ai: bool) -> None:
 def _recalculates(prepared: list[PreparedRow], db: Session) -> bool:
     """Whether saving the rows recalculates the whole ledger: one dated
     before the ledger's latest entry does (services/transaction
-    _is_backdated), and can move stored figures. The rows are saved oldest
-    first, so one can't come before another of the same import."""
+    _is_backdated), and can move stored figures, and so does a row choosing
+    coins while a lot doesn't know its acquisition (#711's call (j)). The
+    rows are saved oldest first, so one can't come before another of the
+    same import."""
+    rows = [p.tx_data for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES]
+    if chosen_coins.replays_first(rows, db):
+        return True
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
-    return latest is not None and any(
-        p.tx_data["timestamp"] < latest.timestamp
-        for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES)
+    return latest is not None and any(row["timestamp"] < latest.timestamp for row in rows)
 
 
 def _copy_if_it_recalculates(rows: list[PreparedRow], db: Session) -> None:
@@ -117,7 +120,10 @@ def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
     AI_MAX_REPLAYED entries: each row dated before the ledger's latest entry
     replays the whole ledger with the rows added before it
     (services/transaction.create_transaction_record). One such row is always
-    allowed, as for an edit made in BitcoinTX.
+    allowed, as for an edit made in BitcoinTX. (A row choosing coins while
+    a lot doesn't know its acquisition, #711's call (j), replays once and
+    gives every lot its own, or not at all beside a backdated row, which
+    replays first: never more than one replay, which is always allowed.)
     """
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
     if latest is None:

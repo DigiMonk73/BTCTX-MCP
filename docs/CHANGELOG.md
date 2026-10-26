@@ -41,8 +41,23 @@ All notable changes to BitcoinTX are documented in this file.
   oldest first. Exchanges stay first in, first out. Migration 0101 adds a
   table and two columns and writes nothing: **no figure changes**, since
   nothing is chosen in any ledger yet. The form's picker (C3), the CSV and
-  the reports (C4) and the AI connector (C5) follow; until then the AI
-  connector can't choose coins.
+  the reports (C4) and the AI connector (C5, below) follow.
+- **The AI connector records the coins you chose** (#711, step C5, #733;
+  the owner's answer to Q4). Tell your AI assistant which coins you sent
+  from one of your wallets, when you chose them by the time they left and
+  your records from then show it, and it records them
+  (`add_transactions` and `update_transaction` take `chosen_coins`, each
+  purchase or deposit by its transaction id). Its preview says, for a row
+  leaving a wallet, which coins it takes and which the wallet holds then
+  (each purchase's date acquired, BTC, cost and term); a new tool,
+  `get_coins_moved`, shows the coins a saved transfer moves; and
+  `list_transactions` shows a choice and when it was saved. Its guide tells
+  it to record only what you say you chose at the time, never to pick
+  coins for you, never to suggest a choice after the fact to lower your
+  tax, and never on an exchange. An edit that changes what leaves a
+  transaction whose coins were chosen answers that it needs the coins
+  again (`saved: false`), so the assistant asks you. **No figure changes**:
+  nothing is chosen until you tell it.
 - **The Transfer form shows which coins will move, before it saves** (#706;
   found by Grok (Cursor) reading alpha.2; the owner's decision,
   2026-10-25). A Transfer out of a wallet or exchange moves that account's
@@ -100,6 +115,15 @@ All notable changes to BitcoinTX are documented in this file.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
+- **The past-year question says when an added or deleted row moves the
+  year's income** (#753, found by the 2.0 testing plan's AI checks on
+  alpha.2). Adding a Reward deposit to an earlier tax year read "Added:
+  basis 22.22; cost of the lots it made 22.22.", though a filed return
+  carries the year's income. An added or deleted row's words now start
+  with what the year's report counts for it: "Added: income (Reward)
+  22.22; basis 22.22; …", "income 20.00" for an Income deposit, "rebate
+  6.00", "donation 600.00", as a changed row's already said. Words only:
+  it asks in the same cases, and no figure changes.
 - **Add Transaction shows the whole date and time** (#755, found in the
   coin list's pictures, #750). In the drawer's two columns, Date & Time was
   narrower than a date and time with seconds needs in Chrome and other

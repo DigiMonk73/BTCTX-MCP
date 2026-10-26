@@ -64,6 +64,8 @@ AI_KEY_ROUTES = (
     ("PUT", "/api/transactions/{transaction_id}", "update_transaction"),
     ("DELETE", "/api/transactions/{transaction_id}", "delete_transaction"),
     ("POST", "/api/transactions/recalculate", "recalculate_ledger"),
+    # A saved transaction's coins, on a scratch copy that saves nothing (#711, Q4)
+    ("POST", "/api/transactions/{transaction_id}/coins-moved", "get_coins_moved"),
     ("POST", "/api/import/entries/preview", "preview_transactions"),
     ("POST", "/api/import/entries/execute", "add_transactions"),
     ("GET", "/api/calculations/accounts/balances", "get_portfolio"),
