@@ -105,6 +105,22 @@ def test_coinbase_transaction_history_before_2024(client):
     ]
 
 
+def test_coinbase_a_buys_basis_is_its_total_and_a_sales_proceeds_what_arrived(client):
+    """Coinbase's file of 13 columns (#789, T3's evidence): a Buy's or Sell's
+    "Fees and/or Spread" is a spread, not its fee, so Subtotal and it
+    don't make the Total. What left or arrived is the Total: its fee is
+    the gap between it and Subtotal. Read as Subtotal plus that cell, the
+    buy's basis was $33.01 and the sale's net proceeds $16.15."""
+    answer = preview(client, "coinbase", "coinbase_2026.csv")
+    assert rows(answer) == [
+        # $35.00 paid: Subtotal $32.85, its fee the $2.15 gap
+        row(5, "Buy", BANK, EX_BTC, "0.0004", at(2026, 2, 1, 10), cost="32.85", fee="2.15"),
+        # $15.91 arrived: Subtotal $16.40 the gross, its fee the $0.49 gap
+        row(6, "Sell", EX_BTC, EX_USD, "0.0002", at(2026, 3, 1, 10), proceeds="16.40", fee="0.49"),
+    ]
+    assert answer["errors"] == []
+
+
 def test_coinbase_advance_trade_and_reward_income(client):
     """Coinbase also writes "Advance Trade Buy/Sell" (no "d") and "Reward
     Income" (#765: BittyTax's parser and other open-source fixtures read
@@ -253,7 +269,7 @@ def test_another_exchanges_file_is_said_to_be_one(client, mapping_id, name):
 
 @pytest.mark.parametrize("name, expected", [
     ("coinbase_2024.csv", "coinbase"), ("coinbase_2022.csv", "coinbase"), ("coinbase_2021.csv", "coinbase"),
-    ("coinbase_advance_trade.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
+    ("coinbase_advance_trade.csv", "coinbase"), ("coinbase_2026.csv", "coinbase"), ("kraken_ledgers.csv", "kraken"), ("strike_statement.csv", "strike"), ("strike_activity.csv", "strike"),
     ("swan_deposits_and_purchases.csv", "swan"), ("swan_withdrawals.csv", "swan-withdrawals"),
     ("cash_app_bitcoin.csv", "cash-app"), ("cash_app_activity.csv", "cash-app"),
 ])
