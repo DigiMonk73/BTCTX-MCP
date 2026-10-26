@@ -77,10 +77,14 @@ describe("a file's exchange, with more than one", () => {
     expect(previewButton(view).disabled).toBe(false);
   });
 
-  it("is asked again for another file", () => {
+  it("is asked again for another file once a preview was made with it", async () => {
+    vi.spyOn(api, "post").mockResolvedValue(answered(PREVIEW));
     const view = show(TWO_EXCHANGES);
     chooseFile(view);
     fireEvent.change(exchangePicker(view), { target: { value: "103" } });
+    await act(async () => {
+      fireEvent.click(previewButton(view));
+    });
     expect(exchangePicker(view).value).toBe("103");
     chooseFile(view, "another.csv");
     expect(exchangePicker(view).value).toBe("");

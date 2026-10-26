@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { MANY, ONE_OF_EACH } from "../test/books";
 import {
-  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, pickWanting, previewOutOfDate, riverAccountNames, riverChoices,
+  FIRST_RIVER_ACCOUNTS, chosenRiverAccounts, pickNeeded, previewOutOfDate, riverAccountNames, riverChoices,
   toEditableRow,
   typeChange,
 } from "./riverImport";
@@ -129,10 +129,12 @@ describe("a preview made with one pick", () => {
 });
 
 describe("a pick", () => {
-  it("is wanting while the screen asks and one of the two isn't chosen (every one hidden, no exchange named)", () => {
-    expect(pickWanting(riverChoices(MANY), { exchange: 4, wallet: 2 })).toBe(false);
-    expect(pickWanting(riverChoices(MANY), { exchange: 4 })).toBe(true);
+  it("is needed while the screen asks and one of the two isn't chosen (every one hidden, no exchange named)", () => {
+    expect(pickNeeded(riverChoices(MANY), { exchange: 4, wallet: 2 })).toBeUndefined();
+    expect(pickNeeded(riverChoices(MANY), { exchange: 4 })).toBe("Choose the wallet first.");
+    // The exchange first, as the screen asks them (#773)
+    expect(pickNeeded(riverChoices(MANY), {})).toBe("Choose the exchange first.");
     // Before the book is read nothing is sent, and the server takes your first ones
-    expect(pickWanting(undefined, {})).toBe(false);
+    expect(pickNeeded(undefined, {})).toBeUndefined();
   });
 });

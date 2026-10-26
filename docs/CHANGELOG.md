@@ -81,6 +81,15 @@ All notable changes to BitcoinTX are documented in this file.
   changes.
 
 ### Fixed
+- **The importer asks for the file's exchange before Preview** (#773,
+  found by the 2.0 testing plan's screens session). With more than one
+  exchange, Preview waits until you choose the exchange the file is from
+  (#707), but **Exchange** and **Wallet for sends and receives** sat
+  below the button, off a phone's screen, and nothing said why Preview
+  stayed grey. They now come before the file and Preview, and a line
+  under Preview says what it waits for: "Choose the exchange first." (or
+  "Choose the wallet first." when every wallet is hidden). Looks only: no
+  figure changes.
 - **A dialog's buttons fit a phone's screen** (#769, found by the screens
   tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
   made first)" pushed Cancel off the screen's left edge. A dialog's

@@ -2,6 +2,12 @@
 
 .river-input-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .river-input-row input[type="file"] { flex: 1 1 240px; }
+/* What Preview waits for (#773): under it, so the row's text keeps its width */
+.river-file-controls { display: flex; flex-direction: column; gap: var(--space-2); }
+.river-file-controls .field-hint { text-align: right; }
+@media (max-width: 480px) {
+  .river-file-controls .field-hint { text-align: left; }
+}
 
 /* The file's exchange and wallet, when there's more than one of either (#355):
    side by side, one under the other on a phone */

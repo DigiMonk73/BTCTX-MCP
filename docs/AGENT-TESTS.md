@@ -1184,11 +1184,15 @@ Set `KEY` to the key from AI-3, and use
 
   Settings, open **Import from an exchange** (River's file, **Exchange
   file** `River`, is its first choice). Expect, from 2.0 (two exchanges
-  and two wallets), **Exchange** with `Exchange` chosen and `Kraken`
-  offered, "The exchange this file is from: its buys, sells and balances
-  go there.", and **Wallet for sends and receives** with `Wallet` chosen
-  and `Coldcard` offered, "This file's sends to your wallet go into it, and
-  its receives come from it."; leave both. River CSV file, then **Preview**.
+  and two wallets), before the file and **Preview**: **Exchange** with
+  none chosen ("Choose an exchange"), `Exchange` and `Kraken` offered,
+  "The exchange this file is from: its buys, sells and balances go
+  there.", the line "Recorded this exchange's trades in another one
+  before 2.0? …", and **Wallet for sends and receives** with `Wallet`
+  chosen and `Coldcard` offered, "This file's sends to your wallet go into
+  it, and its receives come from it."; **Preview** greyed, "Choose the
+  exchange first." under it (#707, #773). Choose `Exchange`, leave the
+  wallet. River CSV file, then **Preview**.
   Expect: "3 new", "3 rows in file", and each Buy row showing the
   **Bank** / **Exchange USD** toggle. Click **Import 3 Transaction(s)**
   and confirm "Import 3 transaction(s) from River into your ledger?" (run
@@ -1198,12 +1202,13 @@ Set `KEY` to the key from AI-3, and use
   anyway**, #353). Expect "Imported 3 transaction(s)." The Sell shows
   Gain +$5.00 (net proceeds $55.00 = River's $55.00 received, which is
   after River's $0.55 fee; basis 0.0005 × $100,000 from lot C). Preview
-  the same file again. Expect: "3 already in ledger" and
+  the same file again (choose `Exchange` again first: an import or
+  **Cancel** asks each file's exchange anew, #707). Expect: "3 already in ledger" and
   "0 new". Click **Show 3 already-imported row(s)**. Expect each row's
   Import box unticked but clickable, and "Tick one to import it anyway, if
   it's another transaction." (#253). Leave them unticked and **Cancel**.
   Preview the file with its first row's time changed to `2026-01-06
-  09:00:00`. Expect "2 already in ledger", "1 need review" and that row
+  09:00:00` (`Exchange` chosen again). Expect "2 already in ledger", "1 need review" and that row
   ticked, its note "Same BTC amount as tx #… (Buy 0.00030000 BTC),
   recorded 21 hours earlier: it may be the same transaction". **Cancel**.
 - **IMP-4b** (from 2.0) River with two exchanges and two wallets. Save this
