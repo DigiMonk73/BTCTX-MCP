@@ -15,6 +15,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import take_write_lock
@@ -98,6 +99,8 @@ CSV_COLUMNS = [
 # A name the book doesn't know, or an account no file may name (a fee
 # account): 5.11's words, with the names a file may use as they are now
 UNKNOWN_ACCOUNT = "Invalid account '{name}'. Must be one of your accounts ({names}) or External."
+# A day a choice was saved, on a row that chooses no coins (#711): nothing keeps it
+CHOSEN_AT_IGNORED = "coins_chosen_at is ignored: the row chooses no coins."
 # A hidden account is still yours (5.5): its row imports, with this warning
 HIDDEN_ACCOUNT = "{name} is hidden in Settings."
 
@@ -261,6 +264,8 @@ def _read_choice(tx_data: dict[str, Any], row: dict[str, str], row_number: int, 
     except csv_choices.Unreadable as e:
         result.errors.append(_error(row_number, e.column, e.message))
         return False
+    if tx_data[csv_choices.CHOSEN_AT] is not None and not tx_data[csv_choices.CHOSEN]:
+        result.warnings.append(_warning(row_number, "coins_chosen_at", CHOSEN_AT_IGNORED))
     return True
 
 
@@ -1021,7 +1026,13 @@ def create_in_time_order(db: Session, transactions: list[dict[str, Any]]) -> int
     made: dict[int, int] = {}
     for tx_data in to_save:
         csv_choices.name_by_ids(tx_data, made)
-        csv_choices.note_saved(create_transaction_record(tx_data, db, auto_commit=False), tx_data, made)
+        try:
+            tx = create_transaction_record(tx_data, db, auto_commit=False)
+        except HTTPException as e:
+            if not tx_data.get(csv_choices.CHOSEN):
+                raise
+            raise csv_choices.in_the_files_words(e, tx_data, made) from e
+        csv_choices.note_saved(tx, tx_data, made)
     return len(to_save)
 
 

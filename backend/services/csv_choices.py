@@ -41,7 +41,8 @@ NOT_BEFORE = ("chosen_coins names id {id} (row {row}), which isn't before this r
 BAD_CHOSEN_AT = ("coins_chosen_at must be a date and time in UTC from 2009-01-03 to now, such as "
                  "2025-03-01T12:00:00Z, or blank.")
 NOT_YET = "Row {row} chooses coins of id {id}, which isn't saved before it."
-_LINE = re.compile(rf"id\s+(\d{{1,{LONGEST_ID}}})\s*:\s*(\S+)", re.ASCII)
+# The BTC as the CSV's other number columns take it: digits and one point, no 1e-8, no 0_5 (#452)
+_LINE = re.compile(rf"id\s+(\d{{1,{LONGEST_ID}}})\s*:\s*(\d+(?:\.\d+)?)", re.ASCII)
 
 
 class Unreadable(Exception):
@@ -70,15 +71,19 @@ def _label(text: str) -> int | None:
 
 def _chosen(text: str) -> list[tuple[int, Decimal]]:
     lines = [part.strip() for part in text.split(";") if part.strip()]
+    if len(lines) > chosen_coins.MOST_LINES:
+        raise Unreadable("chosen_coins", chosen_coins.TOO_MANY)
     chosen: list[tuple[int, Decimal]] = []
+    named: set[int] = set()
     for part in lines:
         match = _LINE.fullmatch(part)
         btc = _btc(match.group(2)) if match else None
         if btc is None:
             raise Unreadable("chosen_coins", BAD_CHOSEN)
         label = int(match.group(1))
-        if label in (named for named, _ in chosen):
+        if label in named:
             raise Unreadable("chosen_coins", NAMED_TWICE.format(id=label))
+        named.add(label)
         chosen.append((label, btc))
     return chosen
 
@@ -165,6 +170,19 @@ def name_by_ids(tx_data: dict[str, Any], made: dict[int, int]) -> None:
             raise HTTPException(status_code=400, detail=NOT_YET.format(row=tx_data[ROW], id=label))
         lines.append({"acquired_txn_id": made[label], "btc": btc})
     tx_data["chosen_coins"] = lines
+
+
+def in_the_files_words(error: HTTPException, tx_data: dict[str, Any], made: dict[int, int]) -> HTTPException:
+    """A save's refusal of a row with a choice, naming the row, and each
+    transaction it names by the id it has in the file: the import's own ids
+    are gone once it's refused (the coins not held then, which only the save
+    can see)."""
+    detail = f"Row {tx_data[ROW]}: {error.detail}"
+    ids = [f"transaction {made_id} is id {label}" for label, made_id in made.items()
+           if re.search(rf"\btransaction {made_id}\b", detail)]
+    if ids:
+        detail += f" (in this file, {', '.join(ids)})"
+    return HTTPException(status_code=error.status_code, detail=detail)
 
 
 def note_saved(tx: Transaction, tx_data: dict[str, Any], made: dict[int, int]) -> None:

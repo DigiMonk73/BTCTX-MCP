@@ -118,15 +118,41 @@ CASH = {"id": "9", "date": "2025-01-05T12:00:00Z", "type": "Deposit", "amount": 
      "Coins can be chosen only when they leave one of your wallets"),
     ([{**SPEND, "id": "3"}, {**DEPOSIT, "date": "2025-04-01T12:00:00Z"}], 2, "chosen_coins",
      "chosen_coins names id 7 (row 3), which isn't before this row"),
+    # The re-check of #732: the BTC as the other number columns take it, and at most 1,000 lines
+    ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: 0.0_1"}], 3, "chosen_coins", "chosen_coins must read like"),
+    ([DEPOSIT, {**SPEND, "chosen_coins": "id 7: \uff10.\uff10\uff11"}], 3, "chosen_coins", "chosen_coins must read like"),
+    ([DEPOSIT, {**SPEND, "chosen_coins": "; ".join(f"id {n}: 0.00000001" for n in range(1, 1002))}], 3, "chosen_coins",
+     "At most 1,000 Buys or Deposits can be named in one choice of coins."),
 ], ids=["not a number", "zero", "not whole", "shared", "no such row", "not an acquisition", "no id word",
         "no BTC", "twice", "bad moment", "not ascii", "too long", "too long in a choice", "huge BTC", "BTC past 21M",
-        "year 1 abroad", "year 1", "year 9999", "short", "on a deposit", "acquired after"])
+        "year 1 abroad", "year 1", "year 9999", "short", "on a deposit", "acquired after", "underscore",
+        "fullwidth", "too many lines"])
 def test_a_choice_the_file_cant_hold_is_an_error_naming_the_row(owner, rows, row, column, said):  # noqa: F811
     _delete_all(owner)
     r = owner.post("/api/import/preview", files=_file(rows))
     assert r.status_code == 200, r.text
     errors = [(e["row_number"], e["column"], e["message"]) for e in r.json()["errors"]]
     assert any(e[:2] == (row, column) and said in e[2] for e in errors), errors
+
+
+def test_coins_not_held_are_named_by_the_files_row_and_id(owner):  # noqa: F811
+    """Only the save sees which coins a wallet holds then; its words name
+    the import's own ids, gone once it's refused, so the file's are added."""
+    _delete_all(owner)
+    on_the_exchange = {**DEPOSIT, "to_account": "Exchange BTC"}
+    r = owner.post("/api/import/execute", files=_file([on_the_exchange, SPEND]))
+    assert r.status_code == 400, r.text
+    detail = r.json()["detail"]
+    assert "Row 3: Wallet holds 0.00000000 BTC of the coins from transaction" in detail
+    assert re.search(r"in this file, transaction \d+ is id 7\)", detail), detail
+    assert owner.get("/api/transactions").json() == []
+
+
+def test_a_day_chosen_without_coins_chosen_is_ignored_with_a_warning(owner):  # noqa: F811
+    _delete_all(owner)
+    r = owner.post("/api/import/preview", files=_file([{**DEPOSIT, "coins_chosen_at": "2025-01-10T12:00:00Z"}]))
+    warnings = [(w["row_number"], w["column"], w["message"]) for w in r.json()["warnings"]]
+    assert (2, "coins_chosen_at", "coins_chosen_at is ignored: the row chooses no coins.") in warnings
 
 
 def test_a_choice_without_its_day_takes_the_imports(owner):  # noqa: F811
