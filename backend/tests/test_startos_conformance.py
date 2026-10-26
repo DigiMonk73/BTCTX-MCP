@@ -169,19 +169,35 @@ def store_descriptions(name: str) -> dict[str, str]:
     return {locale: re.sub(r"\\(.)", r"\1", single or double) for locale, single, double in found}
 
 
+def start9_length(text: str) -> int:
+    """A description's length as start-cli counts it: UTF-8 bytes (Rust's
+    str::len in start-core's s9pk/v2/manifest.rs, Description::validate), so
+    "ł", "é" and "’" count two or three (#792)."""
+    return len(text.encode("utf-8"))
+
+
 def test_store_descriptions_keep_start9s_limits():
-    # manifest.md, "How long each one may be": short 120 and long 2,000
-    # characters in every locale (an overrun fails the build), the English
-    # short well inside the tile's two lines (about 80), and not opening
-    # with the service's name, which the tile shows just above it.
+    # manifest.md, "How long each one may be": short 120 and long 2,000 in
+    # every locale (an overrun fails the build), counted as start-cli counts
+    # them; the English short well inside the tile's two lines (about 80
+    # characters), and not opening with the service's name, which the tile
+    # shows just above it.
     locales = {"en_US", "es_ES", "de_DE", "pl_PL", "fr_FR"}
     short, long = store_descriptions("short"), store_descriptions("long")
     assert set(short) == set(long) == locales
     for locale in locales:
-        assert len(short[locale]) <= 120, (locale, len(short[locale]))
-        assert len(long[locale]) <= 2000, (locale, len(long[locale]))
+        assert start9_length(short[locale]) <= 120, (locale, start9_length(short[locale]))
+        assert start9_length(long[locale]) <= 2000, (locale, start9_length(long[locale]))
         assert not short[locale].startswith("BitcoinTX"), locale
     assert len(short["en_US"]) <= 80, len(short["en_US"])
+
+
+def test_start9s_limits_count_bytes_not_characters():
+    # #792: 1,941 characters of Polish were 2,025 bytes, and start-cli
+    # refused to pack the package.
+    assert start9_length("a" * 2000) == 2000
+    assert start9_length("ł" * 1000) == 2000
+    assert start9_length("’") == 3
 
 
 def test_license_is_upstreams_license_alone():

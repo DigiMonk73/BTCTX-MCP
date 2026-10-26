@@ -4,6 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
+- **StartOS: the package packs again** (#792). start-cli counts the store
+  listing's descriptions in UTF-8 bytes, not characters (start-core's
+  `s9pk/v2/manifest.rs`), and the Polish and French long descriptions
+  written in #779 were 2,025 and 2,041 bytes, over its 2,000, so
+  `start-cli s9pk pack` refused the package. Polish, French and German are
+  shortened to at most 1,950 bytes with their meaning kept (the owner's
+  clause on choosing coins in a wallet and the IRS rule unchanged), and
+  `test_startos_conformance.py` now counts bytes, as start-cli does. No
+  figure changes.
+
 ## [v2.0.0-beta.1] - 2026-10-26 - 2.0's first beta: all of 2.0, described in full
 
 **About this beta.** BitcoinTX 2.0's first beta, for anyone who chooses to
