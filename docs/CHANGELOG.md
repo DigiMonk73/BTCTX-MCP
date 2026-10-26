@@ -38,6 +38,17 @@ All notable changes to BitcoinTX are documented in this file.
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
 
+### Fixed
+- **The importer asks for the file's exchange before Preview** (#773,
+  found by the 2.0 testing plan's screens session). With more than one
+  exchange, Preview waits until you choose the exchange the file is from
+  (#707), but **Exchange** and **Wallet for sends and receives** sat
+  below the button, off a phone's screen, and nothing said why Preview
+  stayed grey. They now come before the file and Preview, and a line
+  beside Preview says what it waits for: "Choose the exchange first." (or
+  "Choose the wallet first." when every wallet is hidden). Looks only: no
+  figure changes.
+
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
 **About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who
@@ -214,14 +225,6 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
-- **The importer asks for the file's exchange before Preview** (#773,
-  found by the 2.0 testing plan's screens session). With more than one
-  exchange, Preview waits until you choose the exchange the file is from
-  (#707), but **Exchange** and **Wallet for sends and receives** sat
-  below the button, off a phone's screen, and nothing said why Preview
-  stayed grey. They now come first, before the file and Preview, and
-  Preview says beside it "Choose the exchange first." Looks only: no
-  figure changes.
 - **The past-year question says when an added or deleted row moves the
   year's income** (#753, found by the 2.0 testing plan's AI checks on
   alpha.2). Adding a Reward deposit to an earlier tax year read "Added:

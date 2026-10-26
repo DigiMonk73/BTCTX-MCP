@@ -1180,11 +1180,15 @@ Set `KEY` to the key from AI-3, and use
 
   Settings, open **Import from an exchange** (River's file, **Exchange
   file** `River`, is its first choice). Expect, from 2.0 (two exchanges
-  and two wallets), **Exchange** with `Exchange` chosen and `Kraken`
-  offered, "The exchange this file is from: its buys, sells and balances
-  go there.", and **Wallet for sends and receives** with `Wallet` chosen
-  and `Coldcard` offered, "This file's sends to your wallet go into it, and
-  its receives come from it."; leave both. River CSV file, then **Preview**.
+  and two wallets), before the file and **Preview**: **Exchange** with
+  none chosen ("Choose an exchange"), `Exchange` and `Kraken` offered,
+  "The exchange this file is from: its buys, sells and balances go
+  there.", the line "Recorded this exchange's trades in another one
+  before 2.0? …", and **Wallet for sends and receives** with `Wallet`
+  chosen and `Coldcard` offered, "This file's sends to your wallet go into
+  it, and its receives come from it."; **Preview** greyed, "Choose the
+  exchange first." beside it (#707, #773). Choose `Exchange`, leave the
+  wallet. River CSV file, then **Preview**.
   Expect: "3 new", "3 rows in file", and each Buy row showing the
   **Bank** / **Exchange USD** toggle. Click **Import 3 Transaction(s)**
   and confirm "Import 3 transaction(s) from River into your ledger?" (run

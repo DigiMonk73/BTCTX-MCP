@@ -129,7 +129,7 @@ describe("a preview made with one pick", () => {
 });
 
 describe("a pick", () => {
-  it("is wanting while the screen asks and one of the two isn't chosen (every one hidden, no exchange named)", () => {
+  it("is needed while the screen asks and one of the two isn't chosen (every one hidden, no exchange named)", () => {
     expect(pickNeeded(riverChoices(MANY), { exchange: 4, wallet: 2 })).toBeUndefined();
     expect(pickNeeded(riverChoices(MANY), { exchange: 4 })).toBe("Choose the wallet first.");
     // The exchange first, as the screen asks them (#773)

@@ -165,8 +165,9 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={busy}
         canPreview={!loading && file !== null && !needed && exchange.ready} waitingFor={needed}
         onFile={(chosen) => {
-          // Another file: the preview on screen is the last one's, and so is the exchange picked for it
-          if (file) forgetExchange();
+          // Another file: the preview on screen is the last one's, and so is the exchange it was made with; a
+          // pick made since, above the file (#773), is this file's
+          if (previewPick) forgetExchange();
           setFile(chosen);
           dropPreview();
           void exchange.fileChosen(chosen);

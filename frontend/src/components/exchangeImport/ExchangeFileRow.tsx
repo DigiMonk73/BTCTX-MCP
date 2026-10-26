@@ -29,20 +29,22 @@ const ExchangeFileRow: React.FC<ExchangeFileRowProps> = ({
         again.
       </p>
     </div>
-    <div className="river-input-row">
-      <input
-        type="file"
-        id="river-csv-input"
-        aria-label={`${name} CSV file`}
-        accept=".csv"
-        disabled={busy}
-        onChange={(e) => onFile(e.target.files?.[0] ?? null)}
-        className="csv-file-input"
-      />
-      <button onClick={onPreview} disabled={!canPreview} className="btn btn-secondary"
-        aria-describedby={waitingFor ? "river-preview-waiting" : undefined}>
-        {processing ? "Processing..." : "Preview"}
-      </button>
+    <div className="river-file-controls">
+      <div className="river-input-row">
+        <input
+          type="file"
+          id="river-csv-input"
+          aria-label={`${name} CSV file`}
+          accept=".csv"
+          disabled={busy}
+          onChange={(e) => onFile(e.target.files?.[0] ?? null)}
+          className="csv-file-input"
+        />
+        <button onClick={onPreview} disabled={!canPreview} className="btn btn-secondary"
+          aria-describedby={waitingFor ? "river-preview-waiting" : undefined}>
+          {processing ? "Processing..." : "Preview"}
+        </button>
+      </div>
       {waitingFor && <p id="river-preview-waiting" className="field-hint" role="status">{waitingFor}</p>}
     </div>
   </div>

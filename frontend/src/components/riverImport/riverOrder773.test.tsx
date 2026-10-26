@@ -65,6 +65,15 @@ describe("the import's fields", () => {
     expect(preview.getAttribute("aria-describedby")).toBeNull();
   });
 
+  it("keep an exchange picked for the next file before it's chosen (above it), with no preview made", () => {
+    const view = show(TWO_EXCHANGES);
+    chooseFile(view);
+    fireEvent.change(view.getByLabelText("Exchange"), { target: { value: "103" } });
+    chooseFile(view);
+    expect((view.getByLabelText("Exchange") as HTMLSelectElement).value).toBe("103");
+    expect((view.getByRole("button", { name: "Preview" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("say nothing with one exchange, chosen already", () => {
     const view = show(ONE_OF_EACH);
     chooseFile(view);
