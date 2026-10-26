@@ -31,7 +31,9 @@ METHOD_SHORT = "Per-wallet FIFO"
 # The short one in the store listing's other four languages (es, de, pl, fr: startos/startos/manifest/i18n.ts)
 METHOD_SHORT_TRANSLATED = ("FIFO por monedero", "FIFO pro Wallet", "FIFO dla każdego portfela", "FIFO par portefeuille")
 METHOD_FULL = ("Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
-               "spend or transfer.")
+               "spend or transfer, unless you choose other coins in one of your own wallets.")  # Q5's ending (#711)
+# The report's method line in a year with chosen coins (#711, Q5)
+METHOD_CHOSEN = "Per-wallet FIFO, with the coins you chose in your wallets"
 # Any other wording of the method: a bare FIFO reads as oldest across all your coins, 1.x's way
 METHOD_WORDS = re.compile(r"\bFIFO\b|first[ -]in,? first[ -]out", re.I)
 # What users read: the app's and the connector's words, the reports and the
@@ -193,6 +195,20 @@ def test_other_wordings_of_the_method_are_found():
                 "Cost basis is per-wallet FIFO: each wallet uses its oldest coins.",
                 "mit FIFO-Anschaffungskosten pro Konto", "un coût d’acquisition FIFO par compte"):
         assert other_method_words(flat(old)), old
+
+
+# What 1.x's and 2.0's texts said before #711: in a wallet, coins can be chosen now
+CANT_CHOOSE = re.compile(r"never lets you pick|can.t record coins|always sells (them )?first|"
+                         r"BitcoinTX moves the oldest coins first\.", re.I)
+
+
+@needs_a_checkout
+def test_no_text_says_a_wallets_coins_cant_be_chosen():
+    """C6 of #711: every text that said the oldest coins always leave, or
+    that coins can't be picked, says a wallet's can be chosen."""
+    found = {path: [text[max(0, hit.start() - 40):hit.end() + 40] for hit in CANT_CHOOSE.finditer(text)]
+             for path, text in user_texts().items() if path not in METHOD_NOT_YET}
+    assert not {path: hits for path, hits in found.items() if hits}
 
 
 @needs_a_checkout

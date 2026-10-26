@@ -5,6 +5,24 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **The words say you can choose coins in a wallet** (#711, step C6,
+  #734; Q5's words). Where the app and its docs described the method as
+  "the oldest coins first", or said BitcoinTX never lets you pick coins,
+  they now say per-wallet FIFO, unless you choose other coins in one of
+  your own wallets: the account notice, the note shown when you add a
+  second wallet or exchange, the README and the user guide, the tax
+  report's "Using these forms" page and notes, StartOS's instructions
+  ("Web interface") and the release tests (the AI connector's words
+  follow with their own step).
+  The user guide gains "Choosing which coins leave a wallet": where you
+  may (a transfer out of a wallet, or a spend, gift, donation or loss from
+  one; never an exchange's coins), how the form's picker works, the IRS's
+  rule that a choice counts only if you decided by the time the coins
+  left and your records show it, and the record BitcoinTX keeps. The tax
+  report's cost basis method reads "Per-wallet FIFO, with the coins you
+  chose in your wallets" in a year with a choice. The roadmap ticks the
+  wallet's part; choosing an exchange's coins stays for later. Words
+  only: **no figure changes**.
 - **The app's own words say what 2.0 does** (D5, #701; words only, no
   figure moves).
   - **Per-wallet FIFO**, the owner's one wording for the method (decision
@@ -222,7 +240,8 @@ The AI connector is `btctx-mcp==2.0.0a3`.
   purchase or deposit by its transaction id). Its preview says, for a row
   leaving a wallet, which coins it takes and which the wallet holds then
   (each purchase's date acquired, BTC, cost and term); a new tool,
-  `get_coins_moved`, shows the coins a saved transfer moves; and
+  `get_coins_moved`, shows the coins a saved transfer or bitcoin withdrawal from
+  one of your wallets moves; and
   `list_transactions` shows a choice and when it was saved. Its guide tells
   it to record only what you say you chose at the time, never to pick
   coins for you, never to suggest a choice after the fact to lower your

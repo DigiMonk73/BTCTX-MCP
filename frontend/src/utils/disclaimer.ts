@@ -13,7 +13,8 @@ export const ACCOUNTS_NOTICE =
   "Add each wallet, exchange and bank you use in Settings, under Wallets, exchanges and banks. From 2025, " +
   "cost basis is figured wallet by wallet and account by account; unless you identify the coins you sell, " +
   "first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). Cost basis is " +
-  "per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, spend or transfer. If " +
+  "per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, spend or transfer, unless " +
+  "you choose other coins in one of your own wallets. If " +
   "you kept multiple wallets or exchanges together in BitcoinTX 1.x, years before you added them were figured " +
   "together: ask a tax professional whether an earlier return needs a change.";
 
