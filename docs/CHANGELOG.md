@@ -85,6 +85,15 @@ All notable changes to BitcoinTX are documented in this file.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
+- **The past-year question says when an added or deleted row moves the
+  year's income** (#753, found by the 2.0 testing plan's AI checks on
+  alpha.2). Adding a Reward deposit to an earlier tax year read "Added:
+  basis 22.22; cost of the lots it made 22.22.", though a filed return
+  carries the year's income. An added or deleted row's words now start
+  with what the year's report counts for it: "Added: income (Reward)
+  22.22; basis 22.22; …", "income 20.00" for an Income deposit, "rebate
+  6.00", "donation 600.00", as a changed row's already said. Words only:
+  it asks in the same cases, and no figure changes.
 - **An id too big for the database is refused plainly** (#744, found by the
   2.0 testing plan's coin-choice session). A request naming a transaction
   or an account by a number beyond the database's integers (2⁶³ or more,

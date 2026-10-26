@@ -203,10 +203,10 @@ def change_text(diff: dict, row: dict | None = None) -> str:
     own coins' holding period and date acquired, the box and column (b) (a
     gift's network fee's, the only Form 8949 rows it has), income and
     rebates, gifts, the date and the tax year; an added or deleted row's
-    figures (`row`)."""
+    figures (`row`), what the year's report counts for it first."""
     if diff.get("added") or diff.get("deleted"):
         named = [f"{review.FIGURE_NAMES[k]} {review.money(row[k])}" for k in NAMED if (row or {}).get(k) is not None]
-        return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(named) + "."
+        return ("Added: " if diff.get("added") else "Deleted: ") + "; ".join(_counted_text(row or {}) + named) + "."
     money = {k: v for k, v in diff.items() if k not in (*COLUMNS, *FEE_COLUMNS.values(), *DATES)}
     parts = [review.change_text(money).rstrip(".")] if money else []
     parts += _lots_text(diff)
@@ -250,6 +250,21 @@ def _term(holding_period: str | None) -> str:
 def _on_both_sides(moved: tuple[list, list] | None) -> bool:
     """A list that moved and holds something before and after."""
     return moved is not None and all(moved)
+
+
+def _counted_text(row: dict) -> list[str]:
+    """What the year's report counts for an added or deleted row: its income
+    ("income (Reward) 22.22"), which a filed return carries, or its rebate,
+    and its gift, donation or lost coins (#753)."""
+    parts = []
+    if row.get("received"):
+        source, value = row["received"]
+        what = {REBATE_SOURCE.capitalize(): "rebate", "Income": "income"}.get(source, f"income ({source})")
+        parts.append(f"{what} {value or 'none'}")
+    if row.get("given"):
+        purpose, value = row["given"]
+        parts.append(f"{'lost coins' if purpose == 'Lost' else purpose.lower()} {value or 'none'}")
+    return parts
 
 
 def _received_text(received: tuple[str, str | None] | None) -> str:

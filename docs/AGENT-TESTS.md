@@ -403,19 +403,19 @@ Start from the `clean` snapshot.
   +$7,200.00, #8 +$3,400.00. Change it back to `12000`. Expect: #5
   +$1,390.00, #7 +$7,800.00, #8 +$3,600.00. Every edit recalculates the
   whole ledger.
-- **GLD-6** Delete #9 (the income deposit). Expect the confirm "Are you
-  sure you want to delete this transaction?", then the past-year dialog:
-  "This changes the figures of tax year 2024, …" and one line,
-  `2024-05-01 12:00 · Deposit (Income) · 0.02000000 BTC — Deleted: basis
-  1000.00; cost of the lots it made 1000.00.` (the gift of 2024-06-01
-  takes older coins, so nothing else moves). Click **Delete anyway (a copy
-  is made first)**. Expect the toast "Transaction deleted successfully!"
-  and Wallet (BTC) 0.37970000 BTC. Re-enter #9, which makes it a
-  backdated entry: the dialog says "This changes the figures of tax year
-  2024, …" with `… — Added: basis 1000.00; cost of the lots it made
-  1000.00.` (none if GLD-1's "Don't ask again for adds to 2024" still
-  holds: the page wasn't reloaded since). Expect: every golden figure is
-  back, Wallet 0.39970000.
+- **GLD-6** Delete #9 (the income deposit). Expect the confirm "Are you sure
+  you want to delete this transaction?", then the past-year dialog: "This
+  changes the figures of tax year 2024, …" and one line, `2024-05-01 12:00 ·
+  Deposit (Income) · 0.02000000 BTC — Deleted: income 1000.00; basis
+  1000.00; cost of the lots it made 1000.00.` (the gift of 2024-06-01 takes
+  older coins, so nothing else moves). Click **Delete anyway (a copy is made
+  first)**. Expect the toast "Transaction deleted successfully!" and Wallet
+  (BTC) 0.37970000 BTC. Re-enter #9, which makes it a backdated entry: the
+  dialog says "This changes the figures of tax year 2024, …" with `… —
+  Added: income 1000.00; basis 1000.00; cost of the lots it made 1000.00.`
+  (none if GLD-1's "Don't ask again for adds to 2024" still holds: the page
+  wasn't reloaded since). Expect: every golden figure is back, Wallet
+  0.39970000.
 - **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
   on `2025-04-01`, cost basis `500`. Expect under Source "Coins moved here
   from another wallet or exchange you track in BitcoinTX are a Transfer,
@@ -1275,8 +1275,9 @@ Set `KEY` to the key from AI-3, and use
     the cent;
   - `2025-03-05 13:45 · Transfer · 0.00100000 BTC — Added: cost of the
     lots it made 100.26.`
-  - `2025-03-12 20:00 · Deposit (Reward) · 0.00000123 BTC — Added: basis
-    <V>; cost of the lots it made <V>.`, V being 0.00000123 × the price at
+  - `2025-03-12 20:00 · Deposit (Reward) · 0.00000123 BTC — Added: income
+    (Reward) <V>; basis <V>; cost of the lots it made <V>.`, V being
+    0.00000123 × the price at
     `2025-03-13T00:00:00Z`, to the cent.
 
   (From 2027 the dialog names tax years 2025 and 2026, and also lists IMP-4b's
