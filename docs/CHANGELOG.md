@@ -27,6 +27,38 @@ All notable changes to BitcoinTX are documented in this file.
     (#690): its check can't tell them apart.
   - Connect an AI Assistant's summary starts "Optional and off until you
     turn it on" (the owner's decision 31).
+- **The README and the user guide describe all of 2.0** (D2 of the docs
+  overhaul, #698; the owner, 2026-10-24: "very thorough docs ... to reflect
+  all the features of 2.0 and removing anything that is no longer true").
+  `docs/USING.md` now explains every 2.0 feature and every screen, each
+  checked against 2.0's code: your accounts (adding, the name rules,
+  renames and how files name them, hiding, deleting, each exchange's
+  1099-DA switch), the Dashboard and the sidebar's Sats Converter, the
+  Transactions list and its account filter, the form by your accounts
+  ("Paid from", a choice when more than one fits, hidden accounts not
+  offered), the question before a change to an earlier tax year in full
+  ("Don't ask again for adds", the 10 seconds), the Form 8949 boxes per
+  exchange and "Sales by exchange", the exchange importer's screens and
+  its choice of what paid for a buy, Import Transactions (CSV) (its
+  screen's name, which the guide called "Generic CSV") and Export as CSV
+  by your accounts' names, Ledger Review's checks and its apply of hourly
+  prices, backups across versions and every safety copy, and each
+  Settings section. The README presents each of them, says what updating
+  from 1.x to 2.0 asks (the backups first, what the update does, a page
+  left open, adding your accounts, the 2.0 connector) and now holds "Going
+  back to 1.x", moved from `docs/MAINTENANCE.md` (the pre-releases' notes
+  link it there from their next one on; earlier notes keep their own
+  tag's link). `docs/MACOS_DESKTOP_APP.md`'s user sections gain 2.0's
+  safety copies, the Preview's download name and its troubleshooting.
+  BitcoinTX's cost-basis method is named in the owner's one wording
+  (decision 30, #713): "Per-wallet FIFO", or in full, "Cost basis is
+  per-wallet FIFO: each wallet and exchange uses its own oldest coins
+  first for a sale, spend or transfer." in the README, the user guide and
+  Settings › About BitcoinTX's notice, which is the README's box word for
+  word (it said "always sells them first in, first out"). Wherever they
+  introduce the AI connection, they call it optional, off until you turn
+  it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
+  not think that AI is automatically connected"). No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 

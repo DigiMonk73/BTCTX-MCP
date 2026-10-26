@@ -381,7 +381,7 @@ def test_a_pre_release_is_a_github_prerelease_never_latest():
     pre = release[release.index("cat > pre.md"):]
     for words in ("BitcoinTX Preview", "its own ledger", "carries from one pre-release to the next",
                   "Make a StartOS backup", "a new volume", "never your real data",
-                  "docs/MAINTENANCE.md#going-back-to-1x", "prerelease_report.yml"):
+                  "README.md#going-back-to-1x", "prerelease_report.yml"):
         assert words in pre, words
 
 
@@ -441,7 +441,7 @@ def test_a_beta_is_created_as_a_prerelease_with_its_own_notes(tmp_path):
     assert notes.index("**About this beta.** Words.") < notes.index("## Downloads")
     for line in ("`uvx btctx-mcp==2.0.0b1` (a pre-release on PyPI)", "`BitcoinTX-Preview-macOS.dmg`",
                  "`ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.1` (amd64 and arm64), on a new volume",
-                 "/blob/v2.0.0-beta.1/docs/MAINTENANCE.md#going-back-to-1x", "**Checking a download:**"):
+                 "/blob/v2.0.0-beta.1/README.md#going-back-to-1x", "**Checking a download:**"):
         assert line in notes, line
 
 

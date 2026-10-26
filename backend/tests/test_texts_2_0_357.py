@@ -39,7 +39,6 @@ USER_DOCS = ("README.md", "docs/USING.md", "mcp_server/README.md", "mcp_server/A
 USER_CODE = ("frontend/src/", "backend/", "mcp_server/btctx_mcp/", "startos/startos/")
 # Files whose docs step hasn't merged yet: each step takes its own off the list
 METHOD_NOT_YET = {
-    "README.md": "D2, #712", "docs/USING.md": "D2, #712", "frontend/src/utils/disclaimer.ts": "D2, #712",
     "mcp_server/btctx_mcp/guide.py": "D3, #699", "mcp_server/btctx_mcp/server.py": "D3, #699",
     "mcp_server/README.md": "D3, #699",
     "startos/README.md": "D4, #700", "startos/instructions.md": "D4, #700",
@@ -161,7 +160,9 @@ def user_texts() -> dict[str, str]:
 def other_method_words(text: str) -> list[str]:
     """Each wording of the method that isn't the rule or one of decision 30's.
     A full sentence other than METHOD_FULL counts too, so a new ending given
-    to it (#711's choice of coins) finds every copy of the old one."""
+    to it (#711's choice of coins) finds every copy of the old one. Bold
+    ("**Cost basis is per-wallet FIFO**:") leaves a space before a colon."""
+    text = re.sub(r" (?=[:;,.])", "", text)
     for allowed in (flat(IRS_RULE), flat(METHOD_FULL)):
         text = text.replace(allowed, " ")
     full_start = METHOD_FULL.split(":")[0]
@@ -182,6 +183,8 @@ def test_the_method_has_its_two_wordings():
 def test_other_wordings_of_the_method_are_found():
     sentence = f"{IRS_RULE} {METHOD_FULL} {METHOD_SHORT}: oldest first."
     assert other_method_words(flat(sentence)) == []
+    bold = "- **Cost basis is per-wallet FIFO**: " + METHOD_FULL.split(": ", 1)[1]
+    assert other_method_words(flat(bold)) == []
     for old in ("Realized Gains/Losses (FIFO)", "First in, first out (FIFO), for each account",
                 "BitcoinTX uses first in, first out in each wallet", "always sells them first-in, first-out",
                 "Cost basis is per-wallet FIFO: each wallet uses its oldest coins."):
@@ -221,8 +224,10 @@ def test_the_release_tests_counts_are_the_apps():
     assert counts and set(counts) == {str(tools)}, counts
 
 
-def maintenance_way_back() -> str:
-    text = (ROOT / "docs/MAINTENANCE.md").read_text()
+def readme_way_back() -> str:
+    """The README's "Going back to 1.x" (moved from MAINTENANCE by D2, #698:
+    where its readers look)."""
+    text = (ROOT / "README.md").read_text()
     return text.split("\n## Going back to 1.x\n", 1)[1].split("\n## ", 1)[0]
 
 
@@ -232,7 +237,7 @@ def test_the_way_back_names_what_the_app_does():
     Docker copy run through the 1.x image, as its own user (#446)."""
     kind, label, kept = copy_for("0012")
     assert (kind, label, kept) == (PRE_2_0_KIND, "from-0012", None)
-    steps = maintenance_way_back()
+    steps = readme_way_back()
     assert f"backups/btctx-{kind}-from-" in steps
     for side in ("btctx.db-journal", "btctx.db-wal", "btctx.db-shm"):
         assert side in steps, side
