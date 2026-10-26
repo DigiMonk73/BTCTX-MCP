@@ -162,9 +162,11 @@ def test_instructions_describe_the_service_as_it_is():
 
 
 def store_descriptions(name: str) -> dict[str, str]:
-    """One of manifest/i18n.ts's descriptions, by locale: each a single-quoted string."""
+    """One of manifest/i18n.ts's descriptions, by locale: each a single- or
+    double-quoted string (Prettier double-quotes a text holding an apostrophe)."""
     block = re.search(rf"export const {name} = \{{(.*?)\n\}}", read("startos/manifest/i18n.ts"), re.S).group(1)
-    return {locale: text.replace("\\'", "'") for locale, text in re.findall(r"(\w\w_\w\w):\s*'((?:[^'\\]|\\.)*)'", block)}
+    found = re.findall(r"""(\w\w_\w\w):\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")""", block)
+    return {locale: re.sub(r"\\(.)", r"\1", single or double) for locale, single, double in found}
 
 
 def test_store_descriptions_keep_start9s_limits():

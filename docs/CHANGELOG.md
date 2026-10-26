@@ -59,6 +59,26 @@ All notable changes to BitcoinTX are documented in this file.
   introduce the AI connection, they call it optional, off until you turn
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
+- **StartOS's documents and store listing describe 2.0** (D4 of the docs
+  overhaul, #700), under Start9's packaging guide. The store listing's
+  short description is the owner's (#251, 2026-10-25): "Bitcoin tax
+  tracker for multiple wallets and exchanges, with optional AI entry", in
+  all five languages. Its long description gains the importer for any
+  exchange's CSV export and the question before a change to an earlier tax
+  year, names the method "per-wallet FIFO" (decision 30), adds that in a
+  self-custody wallet you can choose which coins leave, if you chose them
+  when they left (the owner, 2026-10-26), and calls AI entry optional, off
+  until you turn it on (decision 31), every language within Start9's 2,000
+  characters. `startos/instructions.md` says the
+  same of the method and the AI, and that a new account starts empty; the
+  MCP API interface's description says AI access is off until you turn it
+  on (it said nothing used it until you set up an AI app), in all five
+  languages; `startos/README.md` says the same of the AI and lists the
+  AI's copy before a confirmed change to an earlier tax year;
+  `startos/AGENTS.md` sends package changes to `staging`, not `develop`.
+  Decision 30's test now holds these three files (off `METHOD_NOT_YET`),
+  with the listing's four translations of "Per-wallet FIFO". No figure
+  changes.
 
 ### Fixed
 - **The transaction panel takes the keyboard** (#772, found by the screens
@@ -72,6 +92,15 @@ All notable changes to BitcoinTX are documented in this file.
   had focus (a click in Safari focuses no button). In Safari, whose Tab
   skips buttons by default (the Mac app too), Tab now stays in every
   dialog. No figure changes.
+- **The importer asks for the file's exchange before Preview** (#773,
+  found by the 2.0 testing plan's screens session). With more than one
+  exchange, Preview waits until you choose the exchange the file is from
+  (#707), but **Exchange** and **Wallet for sends and receives** sat
+  below the button, off a phone's screen, and nothing said why Preview
+  stayed grey. They now come before the file and Preview, and a line
+  under Preview says what it waits for: "Choose the exchange first." (or
+  "Choose the wallet first." when every wallet is hidden). Looks only: no
+  figure changes.
 - **A dialog's buttons fit a phone's screen** (#769, found by the screens
   tests, #695). On a phone, the past-year dialog's "Save anyway (a copy is
   made first)" pushed Cancel off the screen's left edge. A dialog's
@@ -87,6 +116,23 @@ All notable changes to BitcoinTX are documented in this file.
   them as a Buy, a Sell and a Reward deposit at Coinbase's value at
   receipt, and takes either fee column. What it read before, it reads as
   before; the mapping is still to be checked against a real export.
+- **Save says why it waits when the coins chosen don't add up** (#771,
+  found by the 2.0 testing plan's screens check, T9). With "Choose
+  which coins leave" open, Save with a choice that doesn't add up to what
+  leaves seemed to do nothing: its words showed under the picker, far below
+  the part of the panel on screen, and weren't announced. Now Save scrolls
+  to them, beside the running total, moves focus there and announces them
+  to screen readers, on a computer and on a phone, each time it's pressed
+  (when a field above needs fixing too, Save takes you to that field instead);
+  the same for "Each BTC chosen must be a plain number". Nothing is saved,
+  as before, and no figure changes.
+
+### Development
+- **The request-limit tests no longer depend on how fast the test machine
+  is** (#781, a CI run at 1.77 s against a 1.3 s bound). They check that a
+  request gave up at its limit by what only a limit does (its slow answer
+  left unfinished, its lookup cancelled, its thread ended), and the
+  waiters' "at once" checks have room against a longer limit.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
