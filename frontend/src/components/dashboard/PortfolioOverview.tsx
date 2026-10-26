@@ -32,8 +32,9 @@ function unrealizedGains(price: LivePrice, averageCostBasis: number | null, tota
 
 /** Each kind's balance, with a caret listing its accounts where there's
  * something to list (#674: more than one, or a hidden one still holding
- * something), then the BTC held in all of them, what it cost on average and
- * what it would gain. */
+ * something; a bitcoin account's with its own cost and gain, #709), then
+ * the BTC held in all of them, what it cost on average and what it would
+ * gain. */
 const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ balances, averageCostBasis, price }) => {
   const [open, toggle] = useOpenLines();
   const totals = accountTotals(balances);
@@ -42,7 +43,8 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ balances, average
       <h3 className="card-title">Portfolio Overview</h3>
 
       {balanceLines(balances).map((line) => (
-        <BalanceLineRow key={line.key} line={line} open={open.includes(line.key)} onToggle={() => toggle(line.key)} />
+        <BalanceLineRow key={line.key} line={line} open={open.includes(line.key)} onToggle={() => toggle(line.key)}
+          price={price.loading ? null : price.value} />
       ))}
 
       <hr />

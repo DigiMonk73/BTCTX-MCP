@@ -284,7 +284,9 @@ def test_a_past_year_in_another_tax_timezone_lists_what_its_confirmed_save_moves
             (c["btc"], c["cost_usd"]) for c in as_706(listed.json())["coins"]]
 
 
-def test_the_ai_key_cant_ask(owner):
+def test_the_ai_key_asks_only_about_a_saved_transfer(owner):
+    """A new transfer's list is the owner's form's; a saved one's the AI
+    connector shows too (#711, Q4; #733), a dry run that saves nothing."""
     with owner.Session() as db:
         ai_key.set_access(db, True)
         key = {"Authorization": f"Bearer {ai_key.create_key(db)}"}
@@ -292,8 +294,10 @@ def test_the_ai_key_cant_ask(owner):
     body = transfer("2025-06-01T12:00:00Z", "0.1")
     saved = owner.post("/api/transactions", json=body)
     assert saved.status_code == 200, saved.text
-    for route in ("/api/transactions/coins-moved", f"/api/transactions/{saved.json()['id']}/coins-moved"):
-        assert anyone.post(route, json=body, headers=key).status_code == 403
+    new, saved_one = "/api/transactions/coins-moved", f"/api/transactions/{saved.json()['id']}/coins-moved"
+    assert anyone.post(new, json=body, headers=key).status_code == 403
+    assert anyone.post(saved_one, json=body, headers=key).status_code == 200
+    for route in (new, saved_one):
         assert anyone.post(route, json=body).status_code == 401
     with owner.Session() as db:
         assert db.execute(text("SELECT count(*) FROM transactions")).scalar() == 3

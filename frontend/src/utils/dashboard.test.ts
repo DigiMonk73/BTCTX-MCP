@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  OPEN_LINES_KEY, accountTotals, balanceLines, gainClass, listsAccounts, noPriceReason, openLinesAfter, priceSourceShort,
+  OPEN_LINES_KEY, accountGain, accountTotals, balanceLines, gainClass, listsAccounts, noPriceReason, openLinesAfter, priceSourceShort,
   priceSourceWords, readOpenLines, type BalanceLine,
 } from "./dashboard";
 
-type Extra = Partial<Pick<AccountBalance, "exchange_id" | "exchange" | "hidden">>;
+type Extra = Partial<Pick<AccountBalance, "exchange_id" | "exchange" | "hidden" | "cost_basis">>;
 
 /** One row of GET /calculations/accounts/balances (2.0 spec 5.13: with its kind, exchange and hidden). */
 const balance = (
   account_id: number, name: string, kind: AccountBalance["kind"], currency: string, value: number | string,
   extra: Extra = {},
 ): AccountBalance => ({ account_id, name, kind, currency, balance: value, exchange_id: null, exchange: null,
-  hidden: false, ...extra });
+  hidden: false, cost_basis: null, ...extra });
 
 const EXCHANGE = { exchange_id: 1, exchange: "Exchange" };
 const KRAKEN = { exchange_id: 2, exchange: "Kraken" };
@@ -173,6 +173,26 @@ describe("the open lines, remembered on this device (#674)", () => {
   it("opens and closes one line, leaving the others", () => {
     expect(openLinesAfter(["bank"], "wallet")).toEqual(["bank", "wallet"]);
     expect(openLinesAfter(["bank", "wallet"], "bank")).toEqual(["wallet"]);
+  });
+});
+
+describe("each bitcoin account's cost and gain (#709)", () => {
+  it("carries each account's cost as the server gave it, and none on a dollar line", () => {
+    const lines = balanceLines([
+      balance(2, "Wallet", "wallet", "BTC", "0.5", { cost_basis: 9000.01 }),
+      balance(100, "Coldcard", "wallet", "BTC", "0", { cost_basis: 0 }),
+      balance(3, "Exchange USD", "exchange", "USD", "20", EXCHANGE),
+    ]);
+    expect(lines.map((l) => [l.key, l.accounts.map((a) => a.cost)])).toEqual([
+      ["bank", []], ["exchangeUsd", [null]], ["exchangeBtc", []], ["wallet", [9000.01, 0]]]);
+  });
+
+  it("an account's gain is its value at the price less its cost, to the cent; none without either", () => {
+    const [wallet] = balanceLines([balance(2, "Wallet", "wallet", "BTC", "0.33333333", { cost_basis: 10000.01 })])[3].accounts;
+    expect(accountGain(60000, wallet)).toBe(9999.99); // 0.33333333 BTC is $19,999.9998
+    expect(accountGain(20000, wallet)).toBe(-3333.34);
+    expect(accountGain(null, wallet)).toBeNull();
+    expect(accountGain(60000, { ...wallet, cost: null })).toBeNull();
   });
 });
 

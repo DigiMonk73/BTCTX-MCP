@@ -79,7 +79,7 @@ def test_the_balances_name_each_accounts_kind_exchange_and_hidden(client):
         COLD: ("wallet", None, None, True), CREDIT_UNION: ("bank", None, None, False),
         KRAKEN_USD: ("exchange", 2, "Kraken", False), KRAKEN_BTC: ("exchange", 2, "Kraken", False)}
     assert {k for r in rows.values() for k in r} == {
-        "account_id", "name", "currency", "balance", "kind", "exchange_id", "exchange", "hidden"}
+        "account_id", "name", "currency", "balance", "kind", "exchange_id", "exchange", "hidden", "cost_basis"}
 
 
 def test_the_service_the_reference_figures_read_is_unchanged(client):

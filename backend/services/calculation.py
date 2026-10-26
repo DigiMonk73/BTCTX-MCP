@@ -69,23 +69,35 @@ def get_all_account_balances(db: Session) -> list[dict]:
     ]
 
 
+def held_by_account(db: Session) -> dict[int, tuple[Decimal, Decimal]]:
+    """
+    Each bitcoin account's BTC still held and what it cost, {account id:
+    (BTC, USD)}: its lots' BTC left and cost left (a lot's cost less its
+    pieces', #100), each lot in the account it was made in. The opened lines
+    and the average cost per BTC read the same sums, so they agree (#709).
+    """
+    held: dict[int, tuple[Decimal, Decimal]] = {}
+    lots = (
+        db.query(BitcoinLot, Transaction.to_account_id)
+          .join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
+          .filter(BitcoinLot.remaining_btc > 0, BitcoinLot.total_btc > 0)
+    )
+    for lot, account_id in lots:
+        btc, cost = held.get(account_id, (Decimal("0"), Decimal("0")))
+        held[account_id] = (btc + lot.remaining_btc, cost + cost_left(lot))
+    return held
+
+
 def get_average_cost_basis(db: Session) -> Decimal:
     """
     Returns the average USD cost basis per BTC across all currently held BTC lots,
     i.e. sum of leftover cost basis / sum of remaining_btc, rounded to 2 decimals.
     """
-    lots = db.query(BitcoinLot).filter(BitcoinLot.remaining_btc > 0).all()
-    total_btc_remaining = Decimal("0")
-    total_cost_basis_remaining = Decimal("0")
-
-    for lot in lots:
-        if lot.total_btc > 0:
-            total_btc_remaining += lot.remaining_btc
-            total_cost_basis_remaining += cost_left(lot)  # the lot's cost less its pieces' (#100)
-
+    held = held_by_account(db).values()
+    total_btc_remaining = sum((btc for btc, _ in held), Decimal("0"))
     if total_btc_remaining == 0:
         return Decimal("0")
-
+    total_cost_basis_remaining = sum((cost for _, cost in held), Decimal("0"))
     average_basis = total_cost_basis_remaining / total_btc_remaining
     return average_basis.quantize(CENT, rounding=ROUND_HALF_DOWN)
 

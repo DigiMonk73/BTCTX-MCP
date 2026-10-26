@@ -22,7 +22,7 @@ from backend.schemas.transaction import (
 from backend.services import past_years
 from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
-from backend.services import chosen_coins, transfer_coins, wipe
+from backend.services import transfer_coins, wipe
 from backend.services.account import account_book
 from backend.database import RowId, get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
@@ -133,12 +133,13 @@ def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Sess
 
 
 @router.post("/{transaction_id}/coins-moved")
-def coins_an_edited_transfer_moves(transaction_id: RowId, tx: TransactionUpdate, request: Request,
-                                   db: Session = Depends(get_db)):
+def coins_an_edited_transfer_moves(transaction_id: RowId, tx: TransactionUpdate, db: Session = Depends(get_db)):
     """Which coins a Transfer or a Withdrawal from a wallet would move with
     this edit, as its save would (#706, #711); as for a new one. 404 when
-    the transaction doesn't exist."""
-    _require_login_to_list_coins(request)
+    the transaction doesn't exist. Sent no change, the coins it moves now.
+    The AI key may ask too (#711, Q4: the AI shows which coins a
+    transaction moves), as for its preview: a dry run on a scratch copy
+    that saves nothing."""
     write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
     return transfer_coins.coins_moved(write, db)
 
@@ -185,12 +186,8 @@ def update_transaction(transaction_id: RowId, tx: TransactionUpdate, request: Re
     if not tx_service.get_transaction_by_id(db, transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found.")
     by_ai = _by_ai(request)
-    _refuse_a_choice_from_the_ai(tx, by_ai)
     write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
-    try:
-        updated_tx = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not changed"))
-    except chosen_coins.SendAgain as e:
-        raise (e.for_the_ai() if by_ai else e) from None
+    updated_tx = past_years.save(write, db, confirm, by_ai, _ai_copy_first(db, by_ai, "Not changed"))
     if isinstance(updated_tx, JSONResponse):
         return updated_tx  # the warning
     if not updated_tx:
@@ -244,15 +241,6 @@ def delete_transaction(transaction_id: RowId, request: Request, confirm: str | N
 
 def _by_ai(request: Request) -> bool:
     return not request.session.get("user_id")  # else the AI key: a route on AI_KEY_ROUTES
-
-
-def _refuse_a_choice_from_the_ai(tx: TransactionUpdate, by_ai: bool) -> None:
-    """The AI connector can't choose coins yet (#711, Q4: it comes with the
-    connector's own step), nor set a choice back to oldest first: any
-    chosen_coins its edit sends, a list or null, is refused before anything
-    runs. (It adds through the entry import, which refuses them too.)"""
-    if by_ai and "chosen_coins" in tx.model_fields_set:
-        raise HTTPException(status_code=422, detail=chosen_coins.AI_CANT_CHOOSE)
 
 
 def _ai_copy_first(db: Session, by_ai: bool, refused: str):

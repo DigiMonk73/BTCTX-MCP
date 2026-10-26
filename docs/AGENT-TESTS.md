@@ -634,11 +634,17 @@ exchanges and banks** reads its name, its kind and its balance.
   BTC with a caret after its label, Settings' chevron: pressed (anywhere
   on the line), the caret turns over as a Settings section's does, and the
   line lists `Wallet` 0.39970000 BTC and `Coldcard` 0.00000000 BTC under
-  it. Exchange (USD) $37,990.00 with a
-  caret, listing `Exchange` $37,990.00 and `Kraken` $0.00; Exchange (BTC)
-  0.15000000 BTC with a caret, listing `Exchange` 0.15000000 BTC and
-  `Kraken` 0.00000000 BTC. Bank (USD) $45,000.00, with no caret. Reload:
-  the open lines stay open. Every golden figure.
+  it, `Wallet` with "Cost basis" under its amount and, with a price,
+  "Unrealized" and its gain (#709); `Coldcard`, holding none, with no cost.
+  Exchange (USD) $37,990.00 with a caret, listing `Exchange` $37,990.00 and
+  `Kraken` $0.00, with no cost; Exchange (BTC) 0.15000000 BTC with a caret,
+  listing `Exchange` 0.15000000 BTC with its cost basis and `Kraken`
+  0.00000000 BTC. `Wallet`'s and `Exchange`'s costs add up to $24,733.10,
+  Avg. Cost per BTC × Total BTC to the cent; their gains may differ from
+  Unrealized Gains/Losses by a cent or two (the card's is from the rounded
+  average).
+  Bank (USD) $45,000.00, with no caret. Reload: the open lines stay open.
+  Every golden figure.
 - **ACC-7** **Add transaction**, Transfer, From Account `Exchange BTC`.
   Expect To Account blank, offering under "Wallets" `Wallet` and
   `Coldcard`, and under "Exchanges" `Kraken BTC` and `Exchange: consolidate
@@ -1005,10 +1011,11 @@ Set `KEY` to the key from AI-3, and use
   mcp --method tools/list
   ```
 
-  Expect 11 tools: `get_ledger_guide`, `get_portfolio`,
+  Expect 12 tools: `get_ledger_guide`, `get_portfolio`,
   `list_transactions`, `get_btc_price`, `review_ledger`,
   `preview_transactions`, `add_transactions`, `update_transaction`,
-  `delete_transaction`, `recalculate_ledger`, `backup_ledger`. The calls
+  `get_coins_moved`, `delete_transaction`, `recalculate_ledger`,
+  `backup_ledger`. The calls
   below are `mcp --method tools/call --tool-name <name> --tool-arg key=value`
   (a value may be JSON). Any MCP client works; the Inspector is simply the
   scriptable one.
@@ -1081,7 +1088,7 @@ Set `KEY` to the key from AI-3, and use
              -e BTCTX_URL=$API -e BTCTX_AI_KEY=$KEY -e BTCTX_CA_BUNDLE=$PWD/ca.crt "$@"; }
   ```
 
-  Expect `tools/list` to give the same 11 tools, and every tool's answer
+  Expect `tools/list` to give 1.2.10's 11 tools (no `get_coins_moved`), and every tool's answer
   to start with "Your BitcoinTX connector is v1.2.10 but BitcoinTX is vX.Y.Z. In
   your AI app's settings, change btctx-mcp==1.2.10 in its uvx command to
   btctx-mcp==X.Y.Z, then restart the AI app." `get_portfolio` lists the
@@ -1786,7 +1793,7 @@ point, leave it alone, touch nothing in it, and record that.
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
   nothing after `--` except the method options; on a Mac with BitcoinTX
-  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
+  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 12 tools, and
   `get_portfolio` matches the Dashboard. **Reset key**: the connector keeps
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
@@ -1880,7 +1887,7 @@ not a step to skip.
   the prompt to link `v2.0.0-beta.N`'s `AI_SETUP.md`. Tick **Let AI assistants
   use BitcoinTX** and run that connector as MAC-4 does, with
   `MCP="uvx btctx-mcp==2.0.0bN"` and `-e BTCTX_MCP_FILE=DATA/mcp.json`.
-  Expect 11 tools, `get_portfolio` matching the dashboard, and no notice
+  Expect 12 tools, `get_portfolio` matching the dashboard, and no notice
   that the versions differ.
 - **BETA-5** (Docker, on your machine) A Docker beta on a new volume,
   with a 1.x backup restored:
