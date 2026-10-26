@@ -128,8 +128,8 @@ of 2024, for a tax professional to compare with yours.
   closed, and the ones you open stay open in that browser. Then **Total
   BTC**, **Avg. Cost per BTC** and **Unrealized Gains/Losses** (what the
   bitcoin you hold would gain or lose at the current price: what each
-  account's is worth less what it cost, added up, so the opened lines add
-  up to it).
+  account's bitcoin is worth less what it cost, added up, so the opened
+  lines add up to it).
 - **Current Bitcoin Price**: the live price, where it came from and when,
   and the block height. Until you choose where prices come from, a card at
   the top of the Dashboard asks "Where should BitcoinTX get Bitcoin
