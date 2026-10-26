@@ -46,7 +46,7 @@ All notable changes to BitcoinTX are documented in this file.
   the part of the panel on screen, and weren't announced. Now Save scrolls
   to them, beside the running total, moves focus there and announces them
   to screen readers, on a computer and on a phone, each time it's pressed
-  (when a field above needs fixing too, focus goes to that field first);
+  (when a field above needs fixing too, Save takes you to that field instead);
   the same for "Each BTC chosen must be a plain number". Nothing is saved,
   as before, and no figure changes.
 
