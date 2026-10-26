@@ -233,9 +233,11 @@ test.describe("no price source chosen yet: the price card's link", () => {
   });
 
   test("still goes to the card, the keyboard with it", async ({ authedPage: page }) => {
+    const title = page.getByRole("heading", { name: "Bitcoin prices" });
+    // The card shows once its settings load, maybe after the link (#793: about 1 run in 40 was faster)
+    await expect(title).toBeVisible();
     await link(page).focus();
     await page.keyboard.press("Enter");
-    const title = page.getByRole("heading", { name: "Bitcoin prices" });
     await expect(title).toBeFocused();
     await expect(title).toBeInViewport();
     await expect(page).toHaveURL(/\/dashboard$/);
