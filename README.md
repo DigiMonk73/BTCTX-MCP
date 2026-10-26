@@ -3,8 +3,9 @@
 A self-hosted Bitcoin portfolio tracker and tax report generator for **your
 self-custody wallets, exchange accounts and banks**, each wallet and
 exchange with its own cost-basis lots (see [Wallets, exchanges and
-banks](#wallets-exchanges-and-banks)), with an **MCP server** so an AI
-assistant can enter transactions for you. What changed in each release:
+banks](#wallets-exchanges-and-banks)), with an **optional MCP server**, off
+until you turn it on, so an AI assistant can enter transactions for you.
+What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 It tracks BTC and USD balances with **double-entry accounting**, computes
@@ -69,9 +70,10 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   you match its columns, into the exchange and the wallet you choose (the
   preview leaves out what's already recorded, and lets you choose what paid
   for each buy); BitcoinTX's own CSV (into an empty ledger), which the CSV
-  export writes with your accounts' names; and the AI route below
-- **AI entry (MCP)**: paste an exchange email or a wallet history, or type
-  "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
+  export writes with your accounts' names; and the optional AI route below
+- **Optional AI entry (MCP)**, off until you turn it on: paste an exchange
+  email or a wallet history, or type "moved 0.05 BTC to my Coldcard
+  yesterday, fee 2k sats". The assistant
   previews the rows (duplicate check, fair market value, resulting gains) and
   saves them once you confirm, naming your accounts as you named them and
   asking which one when more than one fits. Use a local model if your data
@@ -305,9 +307,11 @@ before you choose.
 
 ## Connect an AI (MCP)
 
-In BitcoinTX, open **Settings → Connect an AI Assistant**, copy the setup
-prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
-or any app that runs MCP servers on your computer). The AI sets itself up
+Optional, and off until you turn it on: nothing connects an AI to
+BitcoinTX by itself. In BitcoinTX, open **Settings → Connect an AI
+Assistant**, copy the setup prompt and paste it into your AI app (Claude
+Code, Claude Desktop, Grok Build or any app that runs MCP servers on your
+computer). The AI sets itself up
 following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). The MCP server
 uses an **AI key**, never your password. With the Mac app no key or address
 goes anywhere: the app writes a private key file the MCP server reads by

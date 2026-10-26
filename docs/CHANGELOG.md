@@ -33,8 +33,10 @@ All notable changes to BitcoinTX are documented in this file.
   per-wallet FIFO: each wallet and exchange uses its own oldest coins
   first for a sale, spend or transfer." in the README, the user guide and
   Settings › About BitcoinTX's notice, which is the README's box word for
-  word (it said "always sells them first in, first out"). No figure
-  changes.
+  word (it said "always sells them first in, first out"). Wherever they
+  introduce the AI connection, they call it optional, off until you turn
+  it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
+  not think that AI is automatically connected"). No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 

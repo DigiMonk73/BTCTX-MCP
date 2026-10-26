@@ -392,7 +392,8 @@ NOT FILE.
   editable). It imports back into an empty ledger whose accounts have
   those names (after Delete All Transactions, say); to move a whole ledger,
   use the encrypted backup.
-- **AI entry**: paste an exchange email or a wallet history into an AI
+- **Optional AI entry**, off until you turn it on (Settings → Connect an
+  AI Assistant): paste an exchange email or a wallet history into an AI
   assistant, or type "moved 0.05 BTC to my Coldcard yesterday, fee 2k
   sats". The assistant previews the rows (duplicate check, fair market
   value, resulting gains) and saves them once you confirm. It names your
@@ -540,9 +541,9 @@ you left open opens again next time in that browser.
 - **Ledger Review**: [above](#ledger-review-and-recalculate-ledger).
 - **Privacy & Network**: where prices come from, and through what
   ([Prices and privacy](#prices-and-privacy)).
-- **Connect an AI Assistant**: **AI access** (off until you turn it on),
-  the AI key, and the setup prompt to paste into your AI app; the [MCP
-  server's guide](../mcp_server/README.md) has the rest.
+- **Connect an AI Assistant**, optional: **AI access** (off until you turn
+  it on), the AI key, and the setup prompt to paste into your AI app; the
+  [MCP server's guide](../mcp_server/README.md) has the rest.
 - **Data Management**: **Delete All Transactions**, which says how many
   transactions would go and over which years, offers an encrypted backup
   first, deletes only once you type DELETE, and keeps a copy of the
