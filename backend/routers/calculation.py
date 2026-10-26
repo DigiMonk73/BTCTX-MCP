@@ -15,13 +15,13 @@ from backend.services.calculation import (
     get_average_cost_basis,
     held_by_account,
 )
-from backend.database import get_db
+from backend.database import RowId, get_db
 
 router = APIRouter(tags=["calculations"])
 
 
 @router.get("/account/{account_id}/balance")
-def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> dict:
+def api_get_account_balance(account_id: RowId, db: Session = Depends(get_db)) -> dict:
     """One account's balance: {"account_id", "balance"}."""
     balance = get_account_balance(db, account_id)
     return {"account_id": account_id, "balance": float(balance)}

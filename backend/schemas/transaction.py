@@ -12,6 +12,7 @@ from typing import Literal
 from datetime import date, datetime
 from decimal import Decimal
 
+from backend.database import RowId
 from backend.services.tax_time import as_utc
 
 # backend.constants.BROKER_REPORTING_VALUES
@@ -175,8 +176,8 @@ class TransactionBase(BaseModel):
     type: TxType
     timestamp: datetime | None = None
 
-    from_account_id: int | None = None
-    to_account_id: int | None = None
+    from_account_id: RowId | None = None
+    to_account_id: RowId | None = None
 
     amount: Decimal | None = Field(
         default=None,
@@ -301,8 +302,8 @@ class TransactionUpdate(BaseModel):
     type: TxType | None = None
     timestamp: datetime | None = None
 
-    from_account_id: int | None = None
-    to_account_id: int | None = None
+    from_account_id: RowId | None = None
+    to_account_id: RowId | None = None
     amount: Decimal | None = None
     fee_amount: Decimal | None = None
     fee_currency: str | None = None

@@ -98,6 +98,16 @@ All notable changes to BitcoinTX are documented in this file.
   words and turned over while open. Looks only: no figure changes.
 
 ### Fixed
+- **An id too big for the database is refused plainly** (#744, found by the
+  2.0 testing plan's coin-choice session). A request naming a transaction
+  or an account by a number beyond the database's integers (2⁶³ or more,
+  or below −2⁶³) answered "Something unexpected went wrong" and logged an
+  error: reading, editing or deleting a transaction, an edit naming such
+  an account, the coins a Transfer moves, an account and its balance, and
+  the AI connector's import (a row's `not_a_duplicate_of`). It now answers
+  422, naming the id, before anything is looked up. Only a hand-made
+  request sends such an id: the app, the connector and the imports send
+  the ids the server gave. No figure changes.
 - **A restore keeps your saved exchange-file mappings** (#656, found by
   the 2.0 build's release tests; checked by the imports tests, #689).
   Settings' **Import from an exchange** can save your own column mappings,
@@ -270,6 +280,24 @@ All notable changes to BitcoinTX are documented in this file.
   hand. No ledger chooses coins yet, so the reference ledger's figures
   agree in every year as before. A test tool only: nothing in the app
   changes.
+- **The reference test ledger chooses coins** (#730, step C2b of choosing
+  which coins leave a wallet, #711). 14 rows join the made-up ledger every
+  figures check uses (205 in all), in a fourth wallet, the Sparrow, filled
+  only from outside, so no older row takes from it. In 2025 it spends,
+  gives, donates and loses coins it chose, not its oldest, across both
+  terms, the network fee paid by the chosen coins; in 2026 it sends chosen
+  coins to the Jade, which then spends the inherited ones (INHERITED) and
+  one purchase across the two lots it arrived in (also exactly the oldest
+  coins, so the same figures as no choice), and to Kraken, which sells
+  them oldest first (Box K). A row names the coins it acquired by a key,
+  and `scripts/seed_ledger.py` sends a choice with the id the server gave
+  that row, never by position. Coverage tests in `test_seed_ledger.py`
+  fail if one of these goes; every older row keeps every figure
+  (`test_reference_ledger_354.py`), and the independent figures agree with
+  the app's in every year. Only the new rows' own figures move: 2025 gains
+  4 Form 8949 rows and 2026 gains 6. Until the CSV carries choices (C4),
+  the CSV round trip's check compares with the ledger taking the oldest
+  coins. Test data only: nothing in the app changes.
 
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
