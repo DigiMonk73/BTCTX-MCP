@@ -9,7 +9,7 @@
 > upstream documentation is accurate and fully applicable — see the
 > Documentation section of `instructions.md` for links.
 
-[BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP) is a single-user Bitcoin portfolio and tax tracker for multiple wallets, exchanges and banks: a double-entry ledger, per-wallet FIFO lots, and IRS Form 8949 / Schedule D, with an optional MCP server, off until the owner turns AI access on, that lets an AI assistant enter transactions. This package runs its web server, replaces the default login with a generated one, and adds actions for choosing where prices come from (your own Mempool on this server, public sites optionally over Tor, or nothing), connecting an AI assistant and recalculating the ledger.
+[BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP) is a single-user Bitcoin portfolio and tax tracker for multiple wallets, exchanges and banks: a double-entry ledger, per-wallet FIFO lots, and IRS Form 8949 / Schedule D, and an optional MCP server that lets an AI assistant enter transactions once the owner turns on the app's AI access, off until then. This package runs its web server, replaces the default login with a generated one, and adds actions for choosing where prices come from (your own Mempool on this server, public sites optionally over Tor, or nothing), connecting an AI assistant and recalculating the ledger.
 
 - **Upstream repo:** <https://github.com/DigiMonk73/BTCTX-MCP> (this package is developed in its `startos/` directory)
 - **Package repo:** <https://github.com/Start9-Community/BTCTX-StartOS> (receives `startos/` from BTCTX-MCP by pull request)

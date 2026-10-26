@@ -11,7 +11,7 @@ on StartOS, follow this page.
 ## What you get on StartOS
 
 - **Web UI**: the BitcoinTX app, behind your login.
-- **MCP API**, optional and off until you turn it on: the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
+- **MCP API** (optional, off until you turn on AI access in BitcoinTX, below): the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
 - **A generated login**: StartOS creates your login with a random password; the app's default one never works.
 - **Prices from your own Mempool**, if you run it on this server: no address to copy, no certificate, and nothing is contacted until you choose.
 - **Backups**: your database, your login and BitcoinTX's own safety copies of the database are in every StartOS backup.

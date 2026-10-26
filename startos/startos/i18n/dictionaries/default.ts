@@ -38,7 +38,7 @@ const dict = {
   'An update corrected how some gains are calculated. To see which figures change, open Settings > Ledger Review in BitcoinTX first; then run the Recalculate Ledger action here once so the corrections reach your existing transactions.': 40,
 
   // AI key (interfaces.ts, actions/connectAi.ts)
-  'The address for AI assistants (MCP clients), which use an AI key you create in BitcoinTX Settings, never your password. Optional: nothing uses it until you set up an AI app. Run the Connect an AI Assistant action for a ready-made configuration.': 41,
+  'The address for AI assistants (MCP clients), which use an AI key you create in BitcoinTX Settings, never your password. Optional: AI access is off until you turn it on in BitcoinTX Settings. Run the Connect an AI Assistant action for a ready-made configuration.': 41,
   'Everything an AI assistant such as Claude Desktop, Claude Code or LM Studio needs to add transactions for you: the address, the certificate to trust, and a ready-to-paste configuration for the AI key you create in BitcoinTX.': 42,
   'First create an AI key in BitcoinTX: open the Web UI, go to Settings > Connect an AI Assistant, turn on Let AI assistants use BitcoinTX, then click Create AI key. BitcoinTX shows the key once.': 43,
   'Then paste the Claude Desktop configuration into Settings > Developer > Edit Config (or mcp.json in LM Studio) and replace ${placeholder} with your AI key. The Claude Code command works too, but keeps the key in your shell history, so prefer the configuration file.': 44,

@@ -46,10 +46,12 @@ All notable changes to BitcoinTX are documented in this file.
   year, names the method "per-wallet FIFO" (decision 30) and calls AI
   entry optional, off until you turn it on (decision 31), every language
   within Start9's 2,000 characters. `startos/instructions.md` says the
-  same of the method and the AI, and that a new account starts empty;
-  `startos/README.md` lists the AI's copy before a confirmed change to an
-  earlier tax year; `startos/AGENTS.md` sends package changes to
-  `staging` (2.0's to `2.0`), not `develop`. No figure changes.
+  same of the method and the AI, and that a new account starts empty; the
+  MCP API interface's description says AI access is off until you turn it
+  on (it said nothing used it until you set up an AI app), in all five
+  languages; `startos/README.md` lists the AI's copy before a confirmed
+  change to an earlier tax year; `startos/AGENTS.md` sends package changes
+  to `staging`, not `develop`. No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
