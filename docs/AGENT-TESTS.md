@@ -653,13 +653,14 @@ exchanges and banks** reads its name, its kind and its balance.
   network fee is recorded: it's a disposal of your oldest coins at the
   fee's value (Form 8949, box I or L; C or F before 2025). Your coins, their
   dates and cost basis stay as they are." and "Moving coins to another
-  exchange? Choose that exchange's BTC account as To Account, after adding
-  the exchange in Settings → Wallets, exchanges and banks if it isn't
-  listed." Choose From Account `Wallet`: To Account is blank again, and
+  exchange? Choose that exchange's BTC account as To Account. Not listed?
+  Add the exchange, or show it if it's hidden, in Settings → Wallets,
+  exchanges and banks." Choose From Account `Wallet`: To Account is blank again, and
   among its choices is `Wallet: consolidate within the same wallet`.
   Choose it. Expect under it, after the fee's line, "Moving coins to
-  another of your wallets? Choose that wallet as To Account, after adding
-  it in Settings → Wallets, exchanges and banks if it isn't listed."
+  another of your wallets? Choose that wallet as To Account. Not listed?
+  Add it, or show it if it's hidden, in Settings → Wallets, exchanges and
+  banks."
   Close the panel with **Discard changes**.
 
 ### MLT: a second exchange (2.0; price source Nobody)
@@ -1163,7 +1164,8 @@ Set `KEY` to the key from AI-3, and use
   key** and keep the new key (the backup holds an older one). In **Backup &
   Restore**, **Restore from Backup** with BAK-2's file and
   the password `wrong-pass`. Expect "Restore failed: ❌ Failed to decrypt
-  backup. Wrong password?" with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
+  backup. Wrong password, or the file is damaged or isn't a BitcoinTX
+  backup." with the ledger unchanged. Then restore with `backup-pass-123`. Expect "✅ Database
   successfully restored. Log in again with your current username and
   password.", then the login page. Log in with the login in use before the
   restore (a restore never brings back the backup's password).

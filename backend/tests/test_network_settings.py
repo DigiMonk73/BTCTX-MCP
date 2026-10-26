@@ -248,7 +248,7 @@ def test_off_or_unchosen_asks_nobody(auth_client, requests_seen, source):
         outbound._current = outbound.NetworkSettings()
     for path in ("/api/bitcoin/price", "/api/bitcoin/blockheight"):
         r = auth_client.get(path)
-        assert r.status_code == 503 and "Privacy & network" in r.json()["detail"], path
+        assert r.status_code == 503 and "Privacy & Network" in r.json()["detail"], path
     r = auth_client.post("/api/transactions", json=dict(
         type="Deposit", timestamp="2023-03-03T12:00:00Z", from_account_id=99, to_account_id=2,
         amount="0.01", source="Income", fee_amount="0", fee_currency="BTC"))
@@ -740,7 +740,7 @@ def test_your_mempool_not_answering_without_the_backup_says_so(auth_client, requ
     r = auth_client.get("/api/bitcoin/price")
     assert r.status_code == 502 and r.json()["detail"] == (
         "Your Mempool didn't answer, and the backup (public price sites) is off. "
-        "Change that in Settings → Privacy & network.")
+        "Change that in Settings → Privacy & Network.")
 
 
 def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
@@ -749,12 +749,12 @@ def test_the_messages_name_nobody_and_not_chosen(auth_client, requests_seen):
     outbound._current = outbound.NetworkSettings()
     r = auth_client.get("/api/bitcoin/price")
     assert r.json()["detail"] == (
-        "Prices: not chosen yet. Choose where BitcoinTX gets them in Settings → Privacy & network.")
+        "Prices: not chosen yet. Choose where BitcoinTX gets them in Settings → Privacy & Network.")
     auth_client.put("/api/settings/network", json={**PUBLIC, "price_source": "off"})
     r = auth_client.get("/api/bitcoin/price/history", params={"date": "2023-03-03"})
     assert r.status_code == 422 and r.json()["detail"] == (
         "No BTC price is stored for 2023-03-03. You chose Nobody for prices, so none is asked. "
-        "To change that: Settings → Privacy & network. Enter the USD value yourself.")
+        "To change that: Settings → Privacy & Network. Enter the USD value yourself.")
     assert "))" not in r.json()["detail"] and requests_seen == []
 
 

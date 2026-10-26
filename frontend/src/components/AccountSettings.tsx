@@ -208,8 +208,8 @@ const AccountSettings: React.FC<AccountSettingsProps> = ({ loading, setLoading, 
         <div className="option-info">
           <span className="settings-option-title">Recalculate Ledger</span>
           <p className="settings-option-subtitle">
-            Rebuild all lots, balances and gains from your transactions. Run once after
-            upgrading BitcoinTX so calculation fixes apply to existing data.
+            Rebuild all lots, balances and gains from your transactions. After upgrading BitcoinTX,
+            open Ledger Review first and recalculate when you agree with what it lists.
           </p>
         </div>
         <button onClick={handleRecalculate} disabled={loading} className="btn btn-secondary">

@@ -43,7 +43,7 @@ const TransactionsStatus: React.FC<TransactionsStatusProps> = ({ bookFailed, loa
   return (
     <div className="transactions-list empty-state">
       <p>No transactions found.</p>
-      <p className="field-hint">Add one above, or import a River or CSV file in Settings.</p>
+      <p className="field-hint">Add one above, or import an exchange's file or a CSV in Settings.</p>
     </div>
   );
 };
