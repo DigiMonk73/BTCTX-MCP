@@ -235,7 +235,7 @@ def test_a_save_holding_the_write_lock_doesnt_wait_for_that_answer_under_it(memp
 
 # The review of #535, finding 2: however the request ends, its waiters go on
 # at once, not at their limit (LOOKUP_SECONDS, 30 s here, so "at once", under
-# 10 s, holds on a busy test machine too: #781)
+# 5 s, holds on a busy test machine too, clear of the fixture's own 10 s: #781)
 def test_a_failed_request_frees_its_waiters_at_once(mempools, monkeypatch):
     """None of them has a price, and none asks again (a failure waits 10
     minutes, as before)."""
@@ -250,7 +250,7 @@ def test_a_failed_request_frees_its_waiters_at_once(mempools, monkeypatch):
     started = time.monotonic()
     mempools.release.set()
     assert [waiter.result(10) for waiter in waiters] == [([], False)] * 3
-    assert time.monotonic() - started < 10
+    assert time.monotonic() - started < 5
     assert first.result(10) == ([], False)
     assert len(mempools.requests) == 1
 
@@ -276,7 +276,7 @@ def test_a_request_a_save_refused_frees_its_waiters_to_ask_the_new_mempool_once(
     started = time.monotonic()
     assert lookup() == ([], False)
     answers = [waiter.result(10) for waiter in waiters]
-    assert time.monotonic() - started < 10
+    assert time.monotonic() - started < 5
     assert sorted(answers, key=lambda answer: answer[1]) == [(rows("mempool-b.local"), False),
                                                               (rows("mempool-b.local"), True)]
     assert mempools.requests == [OTHER + "/api/v1/historical-price?currency=USD"]
@@ -293,7 +293,7 @@ def test_a_request_cut_off_at_its_lookups_limit_frees_its_waiter_at_once(mempool
     monkeypatch.setattr(price_history, "LOOKUP_SECONDS", 30)  # the waiter's
     started = time.monotonic()
     assert lookup() == ([], False)
-    assert time.monotonic() - started < 10
+    assert time.monotonic() - started < 5
     with pytest.raises(TimeoutError):
         first.result(10)
     assert len(mempools.requests) == 1

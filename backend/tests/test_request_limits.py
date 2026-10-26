@@ -38,7 +38,7 @@ from backend.services.price_history import find_prices as real_find_prices
 NODE = "http://umbrel.local:3006"
 PRICE = b'{"time":1,"USD":61234}'
 GAP = 0.05  # seconds between the parts of an answer arriving in parts: well within each wait's limit here
-LONG = b" " * 600  # after an answer: 30 s more in parts, far past any deadline here (JSON allows it)
+LONG = b" " * 600  # 30 s of an answer in parts, far past any deadline here (after JSON: JSON allows it)
 DAY = date(2023, 3, 3)
 
 
@@ -135,7 +135,8 @@ def test_the_live_price_gives_up_at_the_deadline_and_frees_its_lock(monkeypatch,
     16 s, the other price requests waiting on its lock meanwhile."""
     url, answers, size = mempool_in_parts
     monkeypatch.setattr(outbound, "_transport", None)  # a real request
-    monkeypatch.setattr(outbound, "TIMEOUT", 0.2)  # each wait: well over GAP, so only the deadline ends it
+    # Each wait: ten times GAP, so on a busy machine too only the deadline ends it, at 1.5 s
+    monkeypatch.setattr(outbound, "TIMEOUT", 0.5)
     use(price_source="mempool", mempool_url=url)
 
     async def timed(lookup):
