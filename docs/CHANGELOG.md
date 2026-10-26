@@ -27,6 +27,19 @@ All notable changes to BitcoinTX are documented in this file.
     (#690): its check can't tell them apart.
   - Connect an AI Assistant's summary starts "Optional and off until you
     turn it on" (the owner's decision 31).
+- **The dashboard's Unrealized Gains/Losses is your accounts' own gains
+  added up** (#770; found by Claude testing the screens, 2026-10-26). It was
+  (today's price − Avg. Cost per BTC, rounded to the cent) × Total BTC, so
+  it could be a few cents off the gains the opened Wallet (BTC) and
+  Exchange (BTC) lines show for each account (up to half a cent per BTC
+  held): on the reference test ledger at $60,000, +$1,429.09 against the
+  accounts' +$1,429.11. It is now what your bitcoin is worth at today's
+  price, each account's to the cent, less what it cost (its coins' cost
+  left), the same figures each account shows, so they add up to it
+  exactly. Avg. Cost per BTC is as before. Only this dashboard figure
+  moves, by cents on some ledgers, with one account of each kind too (so it
+  can differ by cents from 1.2.10's): no form, report or stored figure
+  changes.
 - **The README and the user guide describe all of 2.0** (D2 of the docs
   overhaul, #698; the owner, 2026-10-24: "very thorough docs ... to reflect
   all the features of 2.0 and removing anything that is no longer true").

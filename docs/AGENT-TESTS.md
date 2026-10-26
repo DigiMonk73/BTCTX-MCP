@@ -198,7 +198,7 @@ it's long-term. #14's fee is its own disposal.
 | Where | Expected |
 |---|---|
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 (with one account of each kind, no line has a caret; with more, the totals stay these) |
-| … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
+| … Unrealized Gains/Losses (needs a price) | current price × 0.5497 − 24,733.10, within $0.01 (each account's value to the cent less its cost, #770) |
 | Dashboard > Realized Gains/Losses (Per-wallet FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
@@ -642,9 +642,8 @@ exchanges and banks** reads its name, its kind and its balance.
   `Kraken` $0.00, with no cost; Exchange (BTC) 0.15000000 BTC with a caret,
   listing `Exchange` 0.15000000 BTC with its cost basis and `Kraken`
   0.00000000 BTC. `Wallet`'s and `Exchange`'s costs add up to $24,733.10,
-  Avg. Cost per BTC × Total BTC to the cent; their gains may differ from
-  Unrealized Gains/Losses by a cent or two (the card's is from the rounded
-  average).
+  Avg. Cost per BTC × Total BTC to the cent, and their gains add up to
+  Unrealized Gains/Losses exactly (#770).
   Bank (USD) $45,000.00, with no caret. Reload: the open lines stay open.
   Every golden figure.
 - **ACC-7** **Add transaction**, Transfer, From Account `Exchange BTC`.

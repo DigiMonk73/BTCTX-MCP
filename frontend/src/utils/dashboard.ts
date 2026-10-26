@@ -139,11 +139,33 @@ function lineAccount({ account, balance }: { account: AccountBalance; balance: n
     cost: account.cost_basis ?? null };
 }
 
+/** An account's gain at `price`, in cents: its BTC's value to the cent less
+ * its cost. */
+function gainCents(price: number, amount: number, cost: number): number {
+  return Math.round(price * amount * 100) - Math.round(cost * 100);
+}
+
 /** What an account's BTC would gain or lose if sold at today's price, to
  * the cent: its value less its cost (#709); none without a price or a cost. */
 export function accountGain(price: number | null, account: LineAccount): number | null {
   if (price === null || account.cost === null) return null;
-  return Math.round((price * account.amount - account.cost) * 100) / 100;
+  return gainCents(price, account.amount, account.cost) / 100;
+}
+
+/** What all the BTC held would gain or lose at today's price: the bitcoin
+ * accounts' own gains added up in cents, so the opened lines add up to it
+ * exactly (#770); none without a price, or without an account's cost. */
+export function unrealizedGain(price: number | null, balances: AccountBalance[]): number | null {
+  if (price === null) return null;
+  let cents = 0;
+  for (const { account, balance } of readable(balances)) {
+    const line = lineOf(account);
+    if (line !== "wallet" && line !== "exchangeBtc") continue;
+    const cost = account.cost_basis ?? null; // as lineAccount reads it
+    if (cost === null) return null;
+    cents += gainCents(price, balance, cost);
+  }
+  return cents / 100;
 }
 
 /** Bank (USD), Exchange (USD), Exchange (BTC) and Wallet (BTC), each with its

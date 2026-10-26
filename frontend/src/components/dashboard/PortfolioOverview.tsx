@@ -1,5 +1,5 @@
 import React from "react";
-import { accountTotals, balanceLines, noPriceWords, type LivePrice } from "../../utils/dashboard";
+import { accountTotals, balanceLines, noPriceWords, unrealizedGain, type LivePrice } from "../../utils/dashboard";
 import { formatBtc, formatSignedUsd, formatUsd } from "../../utils/format";
 import BalanceLineRow from "./BalanceLineRow";
 import FigureRow from "./FigureRow";
@@ -11,17 +11,17 @@ interface PortfolioOverviewProps {
   price: LivePrice;
 }
 
-/** What the BTC held would gain or lose if sold at today's price, from the
- * average cost per BTC. */
-function unrealizedGains(price: LivePrice, averageCostBasis: number | null, totalBtc: number): React.ReactNode {
+/** What the BTC held would gain or lose if sold at today's price: the
+ * accounts' own gains added up (#770), never the rounded average's. */
+function unrealizedGains(price: LivePrice, balances: AccountBalance[]): React.ReactNode {
   // Without a price there is nothing to wait for: say why, as the price card does
   if (!price.loading && price.value === null) {
     return noPriceWords(price);
   }
-  if (price.loading || price.value === null || averageCostBasis === null) {
+  const gains = price.loading ? null : unrealizedGain(price.value, balances);
+  if (gains === null) {
     return "Loading...";
   }
-  const gains = (price.value - averageCostBasis) * totalBtc;
   const isGain = gains >= 0;
   return (
     <span className={isGain ? "text-gain" : "text-loss"}>
@@ -54,7 +54,7 @@ const PortfolioOverview: React.FC<PortfolioOverviewProps> = ({ balances, average
         {averageCostBasis !== null ? formatUsd(averageCostBasis) : "Loading..."}
       </FigureRow>
       <FigureRow label="Unrealized Gains/Losses">
-        {unrealizedGains(price, averageCostBasis, totals.totalBtc)}
+        {unrealizedGains(price, balances)}
       </FigureRow>
     </div>
   );
