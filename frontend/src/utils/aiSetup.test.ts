@@ -82,6 +82,19 @@ describe("buildAiPrompt", () => {
     const prompt = buildAiPrompt({ ...server, url: "https://adjective-noun.local" });
     expect(prompt).toContain("BTCTX_CA_BUNDLE");
   });
+
+  // #676: AI access is off in a new install, so a tester's first try failed
+  // with "AI access is turned off" while the prompt never said so
+  it("has the AI ask for AI access first, in the switch's own words, on every edition", () => {
+    const ask = (app: string) =>
+      'AI access is off until I turn it on: before you check it works, ask me to turn on ' +
+      `"Let AI assistants use BitcoinTX" in ${app} Settings → Connect an AI Assistant.`;
+    for (const input of [server, { ...server, keyMode: true }, { ...server, version: "2.0.0-beta.1" }]) {
+      expect(buildAiPrompt(input)).toContain(ask("BitcoinTX"));
+    }
+    // The Preview's own switch: the installed app's would open the real ledger to its own connector
+    expect(buildAiPrompt({ ...server, version: "2.0.0-beta.1", keyMode: true })).toContain(ask("BitcoinTX Preview"));
+  });
 });
 
 describe("claudeDesktopConfig", () => {

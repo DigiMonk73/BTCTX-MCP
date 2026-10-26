@@ -150,7 +150,8 @@ async def test_ledger_guide_says_each_wallet_is_its_own_account():
     assert "get_portfolio" in flat and "accounts" in flat
     assert "A second wallet or exchange that isn't listed: the user adds it" in flat
     assert "Settings -> Wallets, exchanges and banks" in flat
-    assert "github.com/DigiMonk73/BTCTX-MCP#wallets-exchanges-and-banks" in flat
+    # At the connector's own release: main's README is 1.x's until 2.0's (#699)
+    assert "/README.md#wallets-exchanges-and-banks" in flat
     # The user's own wallet as External would make a move between their
     # own wallets a taxable withdrawal; pooling it would mix their lots
     assert "never as External" in flat
