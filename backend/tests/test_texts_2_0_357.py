@@ -42,10 +42,7 @@ USER_DOCS = ("README.md", "docs/USING.md", "mcp_server/README.md", "mcp_server/A
              "startos/instructions.md")
 USER_CODE = ("frontend/src/", "backend/", "mcp_server/btctx_mcp/", "startos/startos/")
 # Files whose docs step hasn't merged yet: each step takes its own off the list
-METHOD_NOT_YET = {
-    "mcp_server/btctx_mcp/guide.py": "D3, #699", "mcp_server/btctx_mcp/server.py": "D3, #699",
-    "mcp_server/README.md": "D3, #699",
-}
+METHOD_NOT_YET: dict[str, str] = {}
 
 # Where the rule is stated, each in the one wording
 STATES_THE_RULE = ["README.md", "docs/USING.md", "mcp_server/btctx_mcp/guide.py", "startos/startos/manifest/i18n.ts"]

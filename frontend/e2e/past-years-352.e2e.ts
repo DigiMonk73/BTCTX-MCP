@@ -10,8 +10,9 @@ import path from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect, createTx, listTx, openAddForm, seedFunds, SAVE_ANYWAY } from "./fixtures";
 
+// By its name: the transaction panel it opens over is a dialog too (#772), and holds it
 function warning(page: Page) {
-  return page.getByRole("dialog").filter({ has: page.getByRole("button", { name: SAVE_ANYWAY }) });
+  return page.getByRole("dialog", { name: "Change an earlier tax year?" });
 }
 
 async function addWalletDeposit(page: Page, when: string, amount: string) {

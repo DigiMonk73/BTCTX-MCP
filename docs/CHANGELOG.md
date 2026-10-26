@@ -107,6 +107,37 @@ AI connector is `btctx-mcp==2.0.0b1`.
   introduce the AI connection, they call it optional, off until you turn
   it on (decision 31, the owner, 2026-10-26: "so privacy focused users do
   not think that AI is automatically connected"). No figure changes.
+- **The AI connector's documents say what the 2.0 connector does** (D3 of
+  the docs overhaul, #699). The setup guide an AI follows
+  (`mcp_server/AI_SETUP.md`) fills the gaps an AI test found (#676): after
+  adding the server, every app is restarted (a new Claude Code or Grok
+  Build session, or Claude Desktop reopened) before the check, since a
+  running session doesn't get the new tools; the address check is for
+  Docker and StartOS only (the Mac app's prompt has no address);
+  "Already set up?" is for a release only, never a 2.0 alpha or beta;
+  a pre-release's connector is updated under `bitcointx-preview`, never
+  the tester's own `bitcointx`; and the older connector's refusal is in
+  its table of errors. The setup prompt in Settings › Connect an AI
+  Assistant now asks the AI to have you turn on "Let AI assistants use
+  BitcoinTX" first, which is off in a new install. The connector's README
+  calls the AI connection optional, off until you turn it on (decision
+  31), and says how it names your accounts, that no tool changes an
+  account, how long it waits (up to 20 minutes for the preview, the
+  writes, `get_coins_moved` and Ledger Review, which can go through a
+  large ledger more than once), and how to update a pre-release's
+  connector. The ledger guide and the tools' descriptions name the method
+  "Per-wallet FIFO" (decision 30, with C6's ending for coins chosen in one
+  of your wallets, #787); the guide names the screen "Privacy &
+  Network", links the README at the connector's own release (GitHub's
+  front page shows `main`'s, 1.x's until 2.0's release), and says a 1.x
+  ledger's transfer from a wallet to itself can be a move between wallets
+  kept together then. The guide and the tools fill four gaps found by T8
+  (#694): `get_coins_moved` answers for a bitcoin Withdrawal from a
+  wallet too, its `held` is never a menu to offer and its `dated_today`
+  is the form's, a choice recorded after the coins left shows in Ledger
+  Review's reminder "coins chosen after they left", which the AI passes
+  on, and a bitcoin deposit made a Buy keeps its own cost basis when
+  none is sent. No figure changes.
 - **StartOS's documents and store listing describe 2.0** (D4 of the docs
   overhaul, #700), under Start9's packaging guide. The store listing's
   short description is the owner's (#251, 2026-10-25): "Bitcoin tax
@@ -129,6 +160,34 @@ AI connector is `btctx-mcp==2.0.0b1`.
   changes.
 
 ### Fixed
+- **The transaction panel takes the keyboard** (#772, found by the screens
+  tests, #695; the same in 1.x). "Add transaction" or a row's Edit opened
+  the panel over the page, but focus stayed behind it, Tab walked the page
+  underneath, and a screen reader wasn't told it opened. The panel is now
+  a named dialog: focus moves into it as it opens, Tab and Shift+Tab stay
+  in it (or in "Discard changes?", which takes focus on Go back), and
+  focus goes back to the button that opened it as it closes, or to "Add
+  transaction" when that button is gone (an edited row reloaded) or never
+  had focus (a click in Safari focuses no button). In Safari, whose Tab
+  skips buttons by default (the Mac app too), Tab now stays in every
+  dialog. No figure changes.
+- **A Coinbase buy's cost basis and a sale's proceeds, from a file
+  downloaded now** (#789, found by the 2.0 testing plan's import run, T3,
+  #689; in alpha.1 to alpha.3). Coinbase's current "Transaction history"
+  (13 columns) puts a spread, not its fee, in a buy's or sale's "Fees and/or
+  Spread": the fee shows only in the Total. BitcoinTX read the cost or
+  gross as Subtotal and the fee from that column, so a buy's basis came out
+  too low and a sale's proceeds too high, by Coinbase's fee: a $35.00 buy
+  had a basis of $33.01, a sale that brought in $15.91 had proceeds of
+  $16.15, and the gains were too high. It now takes a buy's or sale's
+  Total, what was paid or arrived, and the fee as the gap between it and
+  Subtotal. Coinbase writes the file when it's downloaded, so a file
+  downloaded now has this shape for every tax year's rows, and Ledger
+  Review doesn't flag them (both values look typed). Older Coinbase files,
+  whose columns add up, give the same figures as before. **What to do:** if
+  you imported a Coinbase file with alpha.1, alpha.2 or alpha.3, check its
+  buys and sales against the file's Total column, or delete them and
+  import it again.
 - **The importer asks for the file's exchange before Preview** (#773,
   found by the 2.0 testing plan's screens session). With more than one
   exchange, Preview waits until you choose the exchange the file is from

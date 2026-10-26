@@ -52,13 +52,18 @@ class Columns:
     given it (any case): the first one a file's header has is read. Only the
     date, the kind (unless the mapping gives every row one) and the bitcoin
     amount are needed; a fee is read from `fee` (in `fee_currency`'s
-    currency, else the kind's), or from `fee_usd` and `fee_btc` apart.
+    currency, else the kind's), or from `fee_usd` and `fee_btc` apart. With
+    `before_fee`, the dollars before the fee beside `usd` after it (the
+    mapping's `after_fee`), a buy's or sell's fee is the gap between them
+    (a buy paying more, a sale bringing less; never below 0), whatever a fee
+    column says, and a payout's value is `before_fee` (Coinbase's, #789).
     """
     date: tuple[str, ...]
     btc: tuple[str, ...]
     kind: tuple[str, ...] = ()
     time: tuple[str, ...] = ()
     usd: tuple[str, ...] = ()
+    before_fee: tuple[str, ...] = ()
     fee: tuple[str, ...] = ()
     fee_currency: tuple[str, ...] = ()
     fee_usd: tuple[str, ...] = ()
@@ -139,17 +144,20 @@ RIVER = Mapping(
     help="river.com → Taxes & Documents → Bitcoin activity (CSV).",
 )
 
-# Coinbase's "Transaction history" (2021 to 2023, and from 2024 with an ID
-# column first), several lines above its header. Subtotal is what the coins
-# cost or brought before the fee, "Fees and/or Spread" (an older file's
-# "Fees") the fee in dollars (Total is Subtotal plus it on a buy, less on a
-# sell); a send's network fee isn't in the file in bitcoin. Built from
-# Coinbase's published columns: check against a real export.
+# Coinbase's "Transaction history" (2021 to 2023, from 2024 with an ID column
+# first, now 13 columns), several lines above its header. Total is what a
+# buy paid or a sale brought in, fee included; Subtotal what the coins cost
+# or brought before it, so the fee is the gap (#789): "Fees and/or Spread"
+# (an older file's "Fees") made Total with Subtotal in older files, but in
+# the current one a buy's or sale's is a spread, not its fee. A send's
+# network fee isn't in the file in bitcoin. Built from Coinbase's
+# published columns: check against a real export.
 COINBASE = Mapping(
     id="coinbase", name="Coinbase",
     columns=Columns(
         date=("Timestamp",), kind=("Transaction Type",), btc=("Quantity Transacted",),
-        usd=("Subtotal", "USD Subtotal"), fee_usd=("Fees and/or Spread", "USD Fees", "Fees"), asset=("Asset",),
+        usd=("Total (inclusive of fees and/or spread)", "Total (inclusive of fees)", "USD Total (inclusive of fees)"),
+        before_fee=("Subtotal", "USD Subtotal"), fee_usd=("Fees and/or Spread", "USD Fees", "Fees"), asset=("Asset",),
         row_id=("ID",),
     ),
     # Coinbase writes "Advance Trade" as well as "Advanced Trade", and
@@ -162,7 +170,7 @@ COINBASE = Mapping(
            "pro withdrawal": LEAVE_OUT, "pro deposit": LEAVE_OUT, "exchange deposit": LEAVE_OUT,
            "exchange withdrawal": LEAVE_OUT, "retail staking transfer": LEAVE_OUT,
            "retail unstaking transfer": LEAVE_OUT},
-    optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
+    after_fee=frozenset({BUY, SELL}), optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
     leave_out=(LeaveOut("Spot Price Currency", "", NOT_DOLLARS, other_than="usd"),
                LeaveOut("Price Currency", "", NOT_DOLLARS, other_than="usd")),
     help="coinbase.com → Profile → Reports → Generate report → Transaction history (CSV).",

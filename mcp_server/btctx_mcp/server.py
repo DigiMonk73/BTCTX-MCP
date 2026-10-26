@@ -552,9 +552,11 @@ async def review_ledger() -> ToolResult:
     odd and what would change; `total` counts these. Last, the reminders (kind "reminder", not
     in `total`, not errors), each with one explanation for its group: My BTC and Gift deposits
     without a date originally acquired (pass it on in short and suggest changing the Source,
-    and checking the cost basis, if they are really income, interest, rewards or rebates); and
-    exchange Sells the exchange's Form 1099-DA may show differently (suggest comparing each with
-    that form; nothing to edit).
+    and checking the cost basis, if they are really income, interest, rewards or rebates); coins
+    chosen after they left (a choice saved on a later day than its coins left: pass it on, that
+    the user's records from then should show it; nothing to fix); and exchange Sells the
+    exchange's Form 1099-DA may show differently (suggest comparing each with that form; nothing
+    to edit).
     Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 
@@ -567,8 +569,8 @@ async def preview_transactions(transactions: list[TransactionInput]) -> ToolResu
     or day in UTC, source and USD per BTC; gross_proceeds_usd is before the fee),
     flag rows already in the ledger (duplicate: the same type, accounts, BTC amount, source or purpose,
     a Buy's cost basis, and minute, or day for a date alone) or like one (possible_duplicate: the same amount
-    within 48 hours, the warning says what differs), and simulate the FIFO result (gain/loss,
-    holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
+    within 48 hours, the warning says what differs), and simulate the result, Per-wallet FIFO
+    (gain/loss, holding period, balances afterward). NOTHING is saved. Always call this and show the user the result
     before add_transactions. past_years: when the rows would change the figures of an earlier tax
     year, one the user may already have filed (null otherwise), what add_transactions will ask
     about: the years, the changes and its confirm; show it to the user too.
@@ -633,7 +635,8 @@ async def update_transaction(
     timezone (a bare date is midday there).
     Changing type or accounts requires passing type, from_account and to_account together.
     A type change keeps only the figures the new type takes too, so pass the new type's own:
-    making a transaction a Buy needs cost_basis_usd (the USD it cost, before the fee).
+    a Buy's cost_basis_usd (a bitcoin deposit's own is kept when you send none), the USD it cost,
+    before the fee.
     broker_reporting (Sell / Spent withdrawal only) records what the user's Form 1099-DA or
     1099-B actually shows for that sale, which picks the Form 8949 box: "none" (not on a
     broker form), "proceeds" (basis not reported), "basis" (basis reported), or "automatic".
@@ -757,12 +760,16 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_coins_moved(transaction_id: int) -> ToolResult:
-    """The coins a saved Transfer moves, as BitcoinTX works them out: each piece's date
-    acquired, BTC, cost and whether it was inherited, in the order taken, and the BTC its
-    network fee disposes of. Without a choice, the From account's oldest coins first; with one
-    (chosen_coins), the coins chosen. Worked out on a copy of the ledger: nothing is saved.
-    Use it to show the user which coins a transfer moved before they change it. On a very
-    large ledger it can answer coins null, with BitcoinTX's reason in detail: try once more."""
+    """The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes, as
+    BitcoinTX works them out: each piece's date acquired, BTC, cost and whether it was
+    inherited, in the order taken, and the BTC its network fee disposes of. Without a choice,
+    the From account's oldest coins first; with one (chosen_coins), the coins chosen. Leaving
+    a wallet (not a move within it), held: the coins it held then (each purchase or deposit, its date acquired, BTC,
+    cost, term, and oldest_first: what the oldest coins first would take of it), never a menu
+    to offer (see the ledger guide). dated_today is for BitcoinTX's own form: ignore it. Any
+    other transaction is refused. Worked out on a copy of the ledger: nothing is saved. Use it
+    to show the user which coins a transaction took before they change it. On a very large
+    ledger it can answer coins null, with BitcoinTX's reason in detail: try once more."""
     return await _call("POST", f"/api/transactions/{transaction_id}/coins-moved", json={})
 
 
