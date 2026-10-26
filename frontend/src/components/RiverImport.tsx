@@ -79,8 +79,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
     setPickUsed(false);
   };
 
-  // Another way of reading the file (another exchange's mapping): the exchange a preview was made with was the
-  // last one's, and the name the file is read by may now choose another
+  // Another way of reading the file (another mapping, or a column matched otherwise): the exchange a preview was
+  // made with is asked again, as the name the file is read by may now choose another
   const mappingChanged = () => {
     dropPreview();
     if (pickUsed) forgetExchange();
