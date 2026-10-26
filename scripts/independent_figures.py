@@ -2,19 +2,21 @@
 """
 A second, deliberately simple calculation of a ledger's tax figures, to check
 BitcoinTX's own (#150, and #80 item 2). It is written from the rules: the
-IRS's (FIFO per account, "more than one year", Form 8949's boxes and
-Schedule D's lines) and the ledger's documented ones (AGENTS.md "Tax
-invariants", the AI connector's ledger guide). It imports nothing from
-backend/, so a mistake in the app's code can't hide in both.
+IRS's (FIFO per account unless a wallet's coins are chosen, "more than one
+year", Form 8949's boxes and Schedule D's lines) and the ledger's documented
+ones (AGENTS.md "Tax invariants", the AI connector's ledger guide). It
+imports nothing from backend/, so a mistake in the app's code can't hide in
+both.
 
 It replays the reference test ledger (testdata/reference_ledger.json) in
 its accounts (the six fixed accounts and External, and those its
 `accounts` list adds: each bitcoin account its own FIFO pile, each
 exchange its own 1099-DA switch)
 and its tax timezone (`tax_timezone`, else UTC), and gives each year's
-Form 8949 rows, Schedule D lines, box totals, gains summary, income,
-rebates, gifts (with the cost basis and term of what each took from its
-lots) and year-end lots:
+Form 8949 rows, Schedule D lines, box totals, gains summary, each
+exchange's Sells (Sales by exchange), income, rebates, gifts (with the
+cost basis and term of what each took from its lots) and the lots held at
+the year's start and end:
 
     python scripts/independent_figures.py --year 2025          # JSON
     python scripts/independent_figures.py --compare            # against reference_figures.json
@@ -44,6 +46,19 @@ on purpose so the two agree to the cent:
   tie the other way. None is in the reference ledger, and one would make the
   test fail rather than pass by accident.
 
+Chosen coins (#711): a row leaving one of your wallets, a Transfer to
+another account or a Withdrawal, may name the coins that leave instead of
+the oldest (specific identification, Treas. Reg. §1.1012-1(j)(2)). A Buy, or
+a Deposit into a bitcoin account, names its coins with a `key`; the row
+lists `chosen_coins`, each `{"key": …, "btc": …}`, together exactly what
+leaves (a Transfer's amount, its fee in it; a Withdrawal's amount and its
+BTC fee). The fee takes the oldest of the chosen coins first, then the
+amount the rest, as oldest first does with all of a wallet's coins, and a
+transfer's coins keep their key wherever they go. An exchange's coins, and
+a consolidation's fee, always leave oldest first. A choice the rules don't
+allow, or one the wallet doesn't hold when the coins leave, stops the
+replay.
+
 A test tool: it lives in scripts/, which no build ships.
 """
 
@@ -55,7 +70,7 @@ import sys
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
-from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -81,11 +96,17 @@ EXTERNAL = 99
 KIND_CURRENCIES = {"bank": ("USD",), "wallet": ("BTC",), "exchange": ("USD", "BTC"), "fee": ("USD", "BTC"),
                    "external": (None,)}
 ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
-# `hidden` only keeps an account out of the pickers, and `why` and `since`
-# say what a test row is for and from which version: none changes a figure.
-NOTES = ("hidden", "why", "since")
+# `hidden` only keeps an account out of the pickers, `renamed_from` is the
+# name it had before the owner renamed it (the seed makes it so), and `why`
+# and `since` say what a test row is for and from which version: none
+# changes a figure.
+NOTES = ("hidden", "renamed_from", "why", "since")
 OPTIONAL_FIELDS = ("exchange_id", "sends_1099da") + NOTES
 INCOME_SOURCES = ("Income", "Interest", "Reward")
+# The rows whose coins a choice may name, and those that may choose (#711,
+# docs/temp/2.0-coin-choice.md 2.2): only coins leaving a wallet.
+ACQUIRING = ("Buy", "Deposit")
+CHOOSING = ("Transfer", "Withdrawal")
 NOT_SALES = ("Gift", "Donation", "Lost")
 CENT = Decimal("0.01")
 SATS = Decimal("0.00000001")
@@ -142,6 +163,9 @@ class Lot:
     covered: bool
     order: int
     inherited: bool = False
+    # The key of the Buy or Deposit that acquired its coins (#711), wherever
+    # they moved since: what a choice names. None: no choice can.
+    acquired_by: str | None = None
     total: Fraction = field(init=False)  # as acquired
     cost: Fraction = field(init=False)
     taken: Fraction = field(init=False)
@@ -164,6 +188,7 @@ class Row:
     broker_reporting: str | None
     inherited: bool = False
     on_1099da: bool = False  # sold from an account whose exchange sends a 1099-DA
+    account: int | None = None  # a sale's exchange account
 
 
 @dataclass(kw_only=True)
@@ -195,17 +220,27 @@ class Ledger:
         return self.day(moment).year
 
     def add_lot(self, account: int, quantity: Fraction, basis: Fraction, acquired: datetime, covered: bool,
-                inherited: bool = False) -> None:
-        self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order, inherited))
+                inherited: bool = False, acquired_by: str | None = None) -> None:
+        self.lots[account].append(Lot(quantity, basis, acquired, covered, self.next_order, inherited, acquired_by))
         self.next_order += 1
 
-    def take(self, account: int, quantity: Fraction) -> list[tuple[Lot, Fraction, Fraction]]:
-        """Remove `quantity` BTC oldest acquisition first: (lot, BTC, basis) per piece."""
+    def take(self, account: int, quantity: Fraction,
+             choice: dict[str, Fraction] | None = None) -> list[tuple[Lot, Fraction, Fraction]]:
+        """Remove `quantity` BTC oldest acquisition first: (lot, BTC, basis) per
+        piece. With a choice (key: BTC still to take), only the lots of those
+        acquisitions, each giving at most what's left of its BTC, the first
+        made first; what it takes comes off the choice, so a fee's take and
+        its amount's share one."""
         pieces = []
         for lot in sorted(self.lots[account], key=lambda lot: (lot.acquired, lot.order)):
             if quantity == 0:
                 break
             used = min(quantity, lot.quantity)
+            if choice is not None:
+                used = min(used, choice.get(lot.acquired_by, Fraction(0)))
+                if not used:  # not chosen, or its acquisition's BTC all taken
+                    continue
+                choice[lot.acquired_by] -= used
             basis = self.cost_of(lot, lot.taken + used) - self.cost_of(lot, lot.taken)
             pieces.append((lot, used, basis))
             lot.taken += used
@@ -251,6 +286,7 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP, *,
     ledger's accounts (the fixed ones when None; an empty book stays empty)."""
     accounts = read_accounts({}) if accounts is None else accounts
     _check_accounts(transactions, accounts)
+    _check_choices(transactions, accounts)
     ledger = Ledger(accounts=accounts, rounding=rounding, tax_zone=_tax_zone(tax_timezone))
     handlers = {"Deposit": _deposit, "Buy": _buy, "Sell": _sell, "Withdrawal": _withdrawal, "Transfer": _transfer}
     ordered = sorted(enumerate(transactions), key=lambda pair: (_moment(pair[1]["timestamp"]), pair[0]))
@@ -275,11 +311,16 @@ def year_figures(ledger: Ledger, year: int) -> dict:
     holdings = [{"account": ledger.accounts[account].name, "acquired": lot.acquired.isoformat(),
                  "quantity": _btc(lot.quantity), "cost": str(_cents(lot.basis, ledger.rounding))}
                 for account, lot in ledger.holdings.get(year, [])]
+    # What the year starts with is what the year before ended with: none
+    # before the ledger's first year.
+    opening = [{"account": ledger.accounts[account].name, "quantity": _btc(lot.quantity),
+                "cost": str(_cents(lot.basis, ledger.rounding))} for account, lot in ledger.holdings.get(year - 1, [])]
     return {
         "tax_timezone": ledger.tax_zone.key,
         "form_8949": rows,
         "schedule_d": _schedule_d(rows),
         "boxes": _box_totals(rows),
+        "sales_by_exchange": _sales_by_exchange(ledger, year),
         "gains": _gains_summary(rows),
         "income": _income(ledger, year),
         "rebates": [{"date": when.isoformat(), "amount": _btc(amount), "value_usd": str(_cents(value, ledger.rounding))}
@@ -287,6 +328,7 @@ def year_figures(ledger: Ledger, year: int) -> dict:
         "gifts_donations_lost": [
             {"date": when.isoformat(), "type": kind, "amount": _btc(amount), "fmv_usd": _usd(fmv), "lots_by_term": terms}
             for when, kind, amount, fmv, terms in ledger.gifts if ledger.tax_year(when) == year],
+        "start_of_year_holdings": opening,
         "end_of_year_holdings": holdings,
         "end_of_year_total": {"quantity": _btc(sum(Fraction(lot["quantity"]) for lot in holdings)),
                               "cost": str(sum(Decimal(lot["cost"]) for lot in holdings))},
@@ -302,6 +344,9 @@ def differences(mine: dict, app: dict) -> list[str]:
     found += _unmatched("box total", mine["boxes"], [
         {"box": b["box"], "line": b["line"], "rows": b["rows"], **{c: _usd(b[c]) for c in COLUMNS}}
         for b in report["form_8949_boxes"]])
+    found += _compare("sales by exchange", mine["sales_by_exchange"], [
+        {"exchange": s["exchange"], "sends_1099da": s["sends_1099da"], "boxes": s["boxes"], "rows": s["rows"],
+         **{c: _usd(s[c]) for c in COLUMNS}} for s in report["sales_by_exchange"]])
     found += _compare("gains summary", mine["gains"], _app_gains(report["capital_gains_summary"]))
     found += _compare("income", mine["income"], {k: _usd(v) for k, v in report["income_summary"].items()})
     found += _unmatched("rebate", mine["rebates"], [
@@ -312,6 +357,11 @@ def differences(mine: dict, app: dict) -> list[str]:
          "lots_by_term": [{"term": t["term"], "btc": _btc(Fraction(str(t["btc"]))), "cost_basis": _usd(t["cost_basis"])}
                           for t in g["lots_by_term"]]}
         for g in report["gifts_donations_lost"]])
+    found += _unmatched("start-of-year lot", mine["start_of_year_holdings"], [
+        {"account": lot["account"], "quantity": _btc(Fraction(str(lot["quantity"]))),
+         # the report gives the average cost of what's left: its cost is that times the BTC, to the cent
+         "cost": _usd(Decimal(str(lot["avg_cost_basis"])) * Decimal(str(lot["quantity"])))}
+        for lot in report["start_of_year_balances"]])
     return found + _holding_differences(mine, report["end_of_year_balances"])
 
 
@@ -385,7 +435,7 @@ def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> N
     (2.0 spec 5.5). One that doesn't stops the calculation, never skipped
     (5.15): a skipped row would leave its figures out unseen."""
     for position, tx in enumerate(transactions, start=1):
-        number = position if tx.get("id") is None else tx["id"]
+        number = _number(position, tx)
         source, destination = (_named_account(number, tx[side], accounts)
                                for side in ("from_account_id", "to_account_id"))
         if tx["type"] not in ROUTES:
@@ -393,6 +443,11 @@ def _check_accounts(transactions: list[dict], accounts: dict[int, Account]) -> N
         problem = ROUTES[tx["type"]](source, destination, accounts)
         if problem:
             raise ValueError(f"Transaction {number}: {problem}")
+
+
+def _number(position: int, tx: dict) -> int:
+    """How a message names a row: its id in the ledger, else its place in the file."""
+    return position if tx.get("id") is None else tx["id"]
 
 
 def _named_account(number: int, account_id: int, accounts: dict[int, Account]) -> Account:
@@ -459,6 +514,97 @@ ROUTES = {"Deposit": _deposit_route, "Withdrawal": _withdrawal_route, "Transfer"
           "Buy": _buy_route, "Sell": _sell_route}
 
 
+def _check_choices(transactions: list[dict], accounts: dict[int, Account]) -> None:
+    """Each key names one acquisition, and each choice its coins, as the app
+    takes them (#711, docs/temp/2.0-coin-choice.md 4.5): one that can't be
+    read one way stops here, before any figure, never skipped."""
+    keys = _keys(transactions, accounts)
+    for position, tx in enumerate(transactions, start=1):
+        if _chooses(tx):
+            _check_choice(_number(position, tx), tx, accounts, keys)
+
+
+def _chooses(tx: dict) -> bool:
+    """Whether a row chose its coins: nothing chosen (none, or an empty list) is oldest first."""
+    return tx.get("chosen_coins") not in (None, [])
+
+
+def _keys(transactions: list[dict], accounts: dict[int, Account]) -> set[str]:
+    """Every key, each on the one Buy, or Deposit into a bitcoin account, whose coins it names."""
+    rows: dict[str, int] = {}
+    for position, tx in enumerate(transactions, start=1):
+        if tx.get("key") is None:  # no key, like no choice: nothing names its coins
+            continue
+        number, key = _number(position, tx), tx["key"]
+        if not isinstance(key, str) or not key.strip():
+            raise ValueError(f"Transaction {number}'s key is {key!r}: a key is a name, in text.")
+        if tx["type"] not in ACQUIRING or not accounts[tx["to_account_id"]].holds_lots:
+            raise ValueError(f"Transaction {number} has a key, {key!r}, but didn't acquire bitcoin: only a Buy, "
+                             "or a Deposit into a bitcoin account, has coins a choice can name.")
+        if key in rows:
+            raise ValueError(f"Transaction {number}'s key {key!r} is transaction {rows[key]}'s too: "
+                             "a key names one acquisition.")
+        rows[key] = number
+    return set(rows)
+
+
+def _check_choice(number: int, tx: dict, accounts: dict[int, Account], keys: set[str]) -> None:
+    source = accounts[tx["from_account_id"]]
+    # (j)(1): the units in a single wallet. At an exchange the coins are
+    # identified to the broker, so they leave oldest first, as its 1099-DA
+    # reports them (#711's call (g)).
+    if tx["type"] not in CHOOSING or source.kind != "wallet":
+        raise ValueError(f"Transaction {number}, a {tx['type']} from {source.name}, chooses coins: only coins "
+                         "leaving one of your wallets, by a Transfer or a Withdrawal, can be chosen; an exchange's "
+                         "leave oldest first, as its Form 1099-DA reports them.")
+    if tx["to_account_id"] == source.id:
+        raise ValueError(f"Transaction {number} moves coins within {source.name}: that records only its network "
+                         "fee, from the oldest coins, so it can't choose coins.")
+    chosen, leaving = sum(_chosen_lines(number, tx, keys).values()), _leaving(tx)
+    # No half choice (#711's call (c)): one that fell short would fill the
+    # rest by a rule of its own.
+    if chosen != leaving:
+        raise ValueError(f"Transaction {number} chooses {_btc(chosen)} BTC, but {_btc(leaving)} BTC leaves "
+                         f"{source.name}: a choice covers all of it, the network fee included, or there is none "
+                         "and the oldest coins leave.")
+
+
+def _chosen_lines(number: int, tx: dict, keys: set[str]) -> dict[str, Fraction]:
+    """A choice's BTC by key, one line per acquisition."""
+    lines = tx["chosen_coins"]
+    if not isinstance(lines, list) or not all(isinstance(line, dict) and set(line) == {"key", "btc"}
+                                              for line in lines):
+        raise ValueError(f"Transaction {number}'s chosen_coins is a list of lines, each with only a key and a btc.")
+    chosen: dict[str, Fraction] = {}
+    for line in lines:
+        key = line["key"]
+        if not isinstance(key, str) or key not in keys:
+            raise ValueError(f"Transaction {number} chooses the coins from {key!r}, which is no Buy's or Deposit's key.")
+        if key in chosen:
+            raise ValueError(f"Transaction {number} chooses the coins from {key!r} twice: one line per acquisition.")
+        chosen[key] = _chosen_btc(number, key, line["btc"])
+    return chosen
+
+
+def _chosen_btc(number: int, key: str, value) -> Fraction:
+    """A line's BTC: above 0, to the satoshi, as the app takes it."""
+    try:
+        btc = None if isinstance(value, bool) else Fraction(Decimal(str(value)))
+    except (InvalidOperation, ValueError, OverflowError):  # not a number; NaN; infinity
+        btc = None
+    if btc is None or btc <= 0 or (btc * 100_000_000).denominator != 1:
+        raise ValueError(f"Transaction {number} chooses {value!r} BTC of the coins from {key!r}: a choice is above "
+                         "0 BTC, to the satoshi (at most 8 places).")
+    return btc
+
+
+def _leaving(tx: dict) -> Fraction:
+    """What leaves the wallet: a Transfer's amount, its network fee in it; a
+    Withdrawal's amount, its network fee on top (AGENTS.md, "Transfer",
+    "Withdrawal fee")."""
+    return _money(tx["amount"]) + (_btc_fee(tx) if tx["type"] == "Withdrawal" else 0)
+
+
 def _exchange_account(accounts: dict[int, Account], exchange_id: int | None, currency: str) -> Account:
     """An exchange's dollar or bitcoin account (read_accounts made sure it has one of each)."""
     return next(a for a in accounts.values() if a.exchange_id == exchange_id and a.currency == currency)
@@ -507,7 +653,7 @@ def _deposit(ledger: Ledger, tx: dict, when: datetime) -> None:
     # never after the deposit.
     acquired = min(_noon_of(tx["acquired_at"], ledger.tax_zone), when) if tx.get("acquired_at") else when
     ledger.add_lot(tx["to_account_id"], amount, value, acquired, covered=False,
-                   inherited=tx.get("source") == "Inherited")
+                   inherited=tx.get("source") == "Inherited", acquired_by=tx.get("key"))
     # Income is its value at receipt, which is also its basis; a rebate is
     # valued the same way but lowers a purchase price instead of being income.
     if tx.get("source") in INCOME_SOURCES:
@@ -522,7 +668,7 @@ def _buy(ledger: Ledger, tx: dict, when: datetime) -> None:
     # Treas. Reg. §1.6045-1(a)(15)(i)(J): covered from 2026-01-01 in the tax
     # timezone, so 2026-01-01 03:00 UTC is still 2025-12-31 in America/Chicago.
     covered = ledger.day(when) >= COVERED_FROM
-    ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=covered)
+    ledger.add_lot(tx["to_account_id"], _money(tx["amount"]), basis, when, covered=covered, acquired_by=tx.get("key"))
 
 
 def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
@@ -530,29 +676,30 @@ def _sell(ledger: Ledger, tx: dict, when: datetime) -> None:
     proceeds = _gross_proceeds(tx) - _money(tx["fee_amount"])
     pieces = ledger.take(tx["from_account_id"], _money(tx["amount"]))
     _dispose(ledger, "sale", pieces, proceeds, when, tx.get("broker_reporting"),
-             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da)
+             on_1099da=ledger.accounts[tx["from_account_id"]].on_1099da, account=tx["from_account_id"])
 
 
 def _withdrawal(ledger: Ledger, tx: dict, when: datetime) -> None:
     account = tx["from_account_id"]
     if account not in ledger.lots:
         return
-    purpose = tx["purpose"]
+    purpose, choice = tx["purpose"], _choice(ledger, tx, account)
     if purpose in NOT_SALES:
-        _pay_network_fee(ledger, tx, account, when)
+        _pay_network_fee(ledger, tx, account, when, choice=choice)
         amount = _money(tx["amount"])
-        terms = _by_term(ledger, ledger.take(account, amount), when)
+        terms = _by_term(ledger, ledger.take(account, amount, choice), when)
         ledger.gifts.append((when, purpose, amount, tx.get("fmv_usd"), terms))
         return
     # The fee paid to make a spend is a cost of it: it comes off what was
     # received, and the two realize what was received (Treas. Reg.
     # §1.1001-7(b)(2)(ii)(A), Example 4; #157).
     received = _gross_proceeds(tx)
-    fee_value = min(_money(tx["fee_usd"]), received) if tx["fee_currency"] == "BTC" else Fraction(0)
+    # A spend with no network fee has no fee value: the app stores none (#703)
+    fee_value = min(_fee_value(tx), received) if _btc_fee(tx) else Fraction(0)
     # Its fee goes where the user's 1099-DA put the spend, if they said (#549)
     reporting = tx.get("broker_reporting")
-    _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting)
-    pieces = ledger.take(account, _money(tx["amount"]))
+    _pay_network_fee(ledger, tx, account, when, value=fee_value, reporting=reporting, choice=choice)
+    pieces = ledger.take(account, _money(tx["amount"]), choice)
     _dispose(ledger, "spend", pieces, received - fee_value, when, reporting)
 
 
@@ -560,15 +707,32 @@ def _transfer(ledger: Ledger, tx: dict, when: datetime) -> None:
     source, destination = tx["from_account_id"], tx["to_account_id"]
     if source not in ledger.lots:
         return
-    fee = _pay_network_fee(ledger, tx, source, when)
+    choice = _choice(ledger, tx, source)
+    fee = _pay_network_fee(ledger, tx, source, when, choice=choice)
     if destination == source:
         # A consolidation, or a move between wallets pooled as one (#159):
         # only the fee leaves the account (IRS digital-asset FAQ Q81, Q97).
         return
     # The amount left the source including the fee; what arrives keeps each
     # lot's date and its share of basis: moving your own coins isn't a sale.
-    for lot, quantity, basis in ledger.take(source, _money(tx["amount"]) - fee):
-        ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False, inherited=lot.inherited)
+    for lot, quantity, basis in ledger.take(source, _money(tx["amount"]) - fee, choice):
+        ledger.add_lot(destination, quantity, basis, lot.acquired, covered=False, inherited=lot.inherited,
+                       acquired_by=lot.acquired_by)
+
+
+def _choice(ledger: Ledger, tx: dict, account: int) -> dict[str, Fraction] | None:
+    """A row's chosen coins, as the BTC still to take of each acquisition,
+    once the wallet is seen to hold them all as the coins leave ((j)(2): the
+    units identified are units in the wallet). None: oldest first."""
+    if not _chooses(tx):
+        return None
+    choice = {line["key"]: _money(line["btc"]) for line in tx["chosen_coins"]}
+    for key, btc in choice.items():
+        held = sum((lot.quantity for lot in ledger.lots[account] if lot.acquired_by == key), Fraction(0))
+        if held < btc:
+            raise ValueError(f"The {tx['type']} of {tx['timestamp']} chose {_btc(btc)} BTC of the coins from {key!r}, "
+                             f"but {ledger.accounts[account].name} holds {_btc(held)} BTC of them then.")
+    return choice
 
 
 def _by_term(ledger: Ledger, pieces: list[tuple[Lot, Fraction, Fraction]], when: datetime) -> list[dict]:
@@ -594,20 +758,37 @@ def _gross_proceeds(tx: dict) -> Fraction:
 
 
 def _pay_network_fee(ledger: Ledger, tx: dict, account: int, when: datetime, *,
-                     value: Fraction | None = None, reporting: str | None = None) -> Fraction:
+                     value: Fraction | None = None, reporting: str | None = None,
+                     choice: dict[str, Fraction] | None = None) -> Fraction:
     """A fee paid in BTC disposes of that BTC, at its value (`fee_usd`
-    unless given), oldest first. Returns the BTC it took. `reporting`: what
-    a spend's 1099-DA showed for it, when the user recorded that (#549); a
-    gift's or a transfer's fee has none."""
-    fee = _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+    unless given), oldest first: of the chosen coins, when the row chose
+    them, since they pay it (#711's call (b); IRS digital-asset FAQ Q81,
+    Q97). Returns the BTC it took. `reporting`: what a spend's 1099-DA
+    showed for it, when the user recorded that (#549); a gift's or a
+    transfer's fee has none."""
+    fee = _btc_fee(tx)
     if fee:
-        pieces = ledger.take(account, fee)
-        _dispose(ledger, "fee", pieces, _money(tx["fee_usd"]) if value is None else value, when, reporting)
+        pieces = ledger.take(account, fee, choice)
+        _dispose(ledger, "fee", pieces, _fee_value(tx) if value is None else value, when, reporting)
     return fee
 
 
+def _btc_fee(tx: dict) -> Fraction:
+    """The BTC a row's network fee takes from its account: none when the fee is in dollars."""
+    return _money(tx["fee_amount"]) if tx["fee_currency"] == "BTC" else Fraction(0)
+
+
+def _fee_value(tx: dict) -> Fraction:
+    """A bitcoin fee's USD value. The app prices a fee that has none, or
+    refuses the row; it never counts one as $0, so one missing here stops
+    the replay instead of being guessed."""
+    if tx.get("fee_usd") in (None, ""):
+        raise ValueError(f"The {tx['type']} of {tx['timestamp']} pays a network fee with no USD value (fee_usd).")
+    return _money(tx["fee_usd"])
+
+
 def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fraction]], proceeds: Fraction,
-             when: datetime, reporting: str | None, *, on_1099da: bool = False) -> None:
+             when: datetime, reporting: str | None, *, on_1099da: bool = False, account: int | None = None) -> None:
     """One row per lot, each with its share of the proceeds as a running
     total in cents: the proceeds for the BTC so far with this lot, less
     without it. So the rows report all of the proceeds (the amount realized)
@@ -617,7 +798,8 @@ def _dispose(ledger: Ledger, kind: str, pieces: list[tuple[Lot, Fraction, Fracti
         share = _share_so_far(proceeds, before + quantity, total, ledger) - _share_so_far(proceeds, before, total, ledger)
         before += quantity
         ledger.rows.append(Row(kind, quantity, share, basis, lot.acquired, when, covered=lot.covered,
-                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da))
+                               broker_reporting=reporting, inherited=lot.inherited, on_1099da=on_1099da,
+                               account=account))
 
 
 def _share_so_far(value: Fraction, part: Fraction, whole: Fraction, ledger: Ledger) -> Fraction:
@@ -685,6 +867,25 @@ def _box_totals(rows: list[dict]) -> list[dict]:
     return list(boxes.values())
 
 
+def _sales_by_exchange(ledger: Ledger, year: int) -> list[dict]:
+    """Each exchange with Sells in the year, by its id (2.0 spec 5.7): its
+    name (its accounts are "<name> USD" and "<name> BTC", 5.1), whether it
+    sends a 1099-DA, and its Sells' boxes, rows and totals, to set beside
+    the form it sends. Sells only: a network fee is on no 1099-DA by itself."""
+    exchanges: dict[int, dict] = {}
+    for row in ledger.rows:
+        if row.kind != "sale" or ledger.tax_year(row.sold) != year:
+            continue
+        account, form = ledger.accounts[row.account], _form_row(row, year, ledger)
+        sales = exchanges.setdefault(account.exchange_id, {
+            "exchange": account.name.removesuffix(" BTC"), "sends_1099da": account.sends_1099da,
+            "boxes": set(), "rows": 0, **_zero()})
+        sales["boxes"].add(form["box"])
+        sales["rows"] += 1
+        _add(sales, form)
+    return [{**sales, "boxes": sorted(sales["boxes"])} for _, sales in sorted(exchanges.items())]
+
+
 def _gains_summary(rows: list[dict]) -> dict:
     """Proceeds, basis and gain per term, with gains and losses apart."""
     summary: dict = {"number_of_disposals": len(rows), "total": _zero()}
@@ -729,7 +930,8 @@ def _cents(value: Fraction, rounding: str) -> Decimal:
 
 
 def _btc(quantity: Fraction) -> str:
-    return str((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS))
+    """To the satoshi, fixed-point as the app writes it: str() would write 1 sat as "1E-8" (#703)."""
+    return format((Decimal(quantity.numerator) / Decimal(quantity.denominator)).quantize(SATS), "f")
 
 
 def _usd(value) -> str | None:

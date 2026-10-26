@@ -95,7 +95,7 @@ const FORM_VARIANTS: Array<[string, string, Array<[string, string]>]> = [
   ["transfer-exchange-usd", "Transfer", [["From Account", "Exchange USD"]]],
   ["transfer-exchange-btc", "Transfer", [["From Account", "Exchange BTC"]]],
   ["buy", "Buy", []],
-  ["buy-bank", "Buy", [["Paid from", "Bank (auto-buy)"]]],
+  ["buy-bank", "Buy", [["Paid from", "Bank"]]],
   ["sell", "Sell", []],
 ];
 

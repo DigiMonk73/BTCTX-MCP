@@ -25,6 +25,7 @@ const WARNING: PastYearWarning = {
   recalc_error: null,
   exact: true,
   why_not_exact: null,
+  timezone: "UTC",
   confirm: "f".repeat(64),
 };
 
@@ -86,6 +87,19 @@ describe("what it shows", () => {
     renderDialog("edit", { warning: { ...WARNING, changes: [], exact: false, why_not_exact: why } });
     expect(screen.getByText(why)).toBeTruthy();
     expect(screen.queryAllByRole("listitem")).toEqual([]);
+    expect(screen.queryByText(/^Dates in/)).toBeNull(); // no row, no date
+  });
+
+  // Its rows' dates are the server's, in the tax timezone (the one being
+  // saved, for a timezone), not this device's clock as the form behind it (#737)
+  it("names the zone its rows' dates are in, as Ledger Review does", () => {
+    renderDialog("edit", { warning: { ...WARNING, timezone: "America/Chicago" } });
+    expect(within(screen.getByRole("dialog")).getByText("Dates in America/Chicago.")).toBeTruthy();
+  });
+
+  it("and under rows that are only pending", () => {
+    renderDialog("add", { warning: { ...WARNING, changes: [], pending: WARNING.changes } });
+    expect(screen.getByText("Dates in UTC.")).toBeTruthy();
   });
 
   it("Recalculate Ledger's refusal shows under the pending changes, even with none listed", () => {

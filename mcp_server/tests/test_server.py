@@ -115,7 +115,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
-        "recalculate_ledger", "review_ledger", "backup_ledger",
+        "recalculate_ledger", "review_ledger", "backup_ledger", "get_coins_moved",
     }
 
 
@@ -739,8 +739,8 @@ OLD_DEPOSIT = {"date": "2023-12-01T12:00:00Z", "type": "Deposit", "amount": "0.0
                "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "100.00"}
 SALE_2025 = {"date": "2025-03-01T12:00:00Z", "type": "Sell", "amount": "0.005", "from_account": "Exchange BTC",
              "to_account": "Exchange USD", "proceeds_usd": "300.00"}
-ASKED = {"saved", "detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "confirm",
-         "to_confirm"}
+ASKED = {"saved", "detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "timezone",
+         "confirm", "to_confirm"}
 
 
 @pytest.fixture

@@ -34,6 +34,8 @@ const WARNING = {
   recalc_error: null,
   exact: true,
   why_not_exact: null,
+  timezone: "UTC",
+  coins_chosen: null,
   confirm: "ab".repeat(32),
 };
 
@@ -56,8 +58,12 @@ describe("pastYearWarning", () => {
     const read = pastYearWarning(failed(409, { detail: "Dated in 2024.", confirm: "c" }));
     expect(read).toEqual({
       detail: "Dated in 2024.", years: [], changes: [], pending: [], recalc_error: null,
-      exact: true, why_not_exact: null, confirm: "c",
+      exact: true, why_not_exact: null, timezone: null, coins_chosen: null, confirm: "c",
     });
+  });
+
+  it("keeps the zone its rows' dates are in (#737)", () => {
+    expect(pastYearWarning(failed(409, { ...WARNING, timezone: "Asia/Tokyo" }))?.timezone).toBe("Asia/Tokyo");
   });
 
   it("the date-based warning keeps why it isn't exact", () => {

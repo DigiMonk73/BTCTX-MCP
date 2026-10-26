@@ -441,6 +441,14 @@ def test_saving_a_timezone_that_changes_an_earlier_years_figures_asks_and_saves_
     assert client.get("/api/settings/tax-timezone").json() == {"timezone": "UTC", "source": "default"}
 
 
+def test_its_rows_are_dated_in_the_timezone_being_saved_and_the_409_names_it(tz_ledger):
+    # The dialog says which zone its dates are in: here the one the save would make the tax timezone (#737)
+    client, rows = tz_ledger
+    body = save_timezone(client, "America/Chicago").json()
+    assert body["timezone"] == "America/Chicago"
+    assert next(i for i in body["changes"] if i["id"] == rows["sale 2026"])["date"] == "2025-12-31 21:00"
+
+
 def test_a_sale_that_only_changes_tax_year_is_listed_under_both(tz_ledger):
     client, rows = tz_ledger
     body = save_timezone(client, "America/Chicago").json()

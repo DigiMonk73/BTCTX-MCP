@@ -104,7 +104,7 @@ async def test_an_account_name_is_any_text_in_the_tools_schemas(seen):
         assert schema["type"] == "string" and "enum" not in schema
     assert row["to_account"]["description"] == ("One of the user's accounts, by name (get_portfolio lists them), "
                                                   "or External.")
-    assert len(tools) == 11
+    assert len(tools) == 12
 
 
 async def test_rows_into_added_accounts_by_their_names(backend_db, seen):  # noqa: F811

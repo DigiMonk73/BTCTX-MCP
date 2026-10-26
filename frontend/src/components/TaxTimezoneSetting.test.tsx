@@ -27,6 +27,7 @@ const WARNING: PastYearWarning = {
   recalc_error: null,
   exact: true,
   why_not_exact: null,
+  timezone: "UTC",
   confirm: "c".repeat(64),
 };
 

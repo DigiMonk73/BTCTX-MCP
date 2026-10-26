@@ -24,12 +24,17 @@ and sells), every report has entries in each part, every Form 8949 box of
 2024 (A-F), 2025 and 2026 (G-L) included, in any tax timezone, with rebates
 and dates originally acquired; and from 2.0 multiple wallets, exchanges or
 accounts: its `accounts` list, which the account API makes first (the ids
-must come out as listed, so on a fresh install), and the rows that use them
-("since": "2.0"). backend/tests/test_seed_ledger.py checks it and its
-figures (testdata/reference_figures.json). Every USD value a price lookup
-would fill is given (network fees, gift and donation values), so it loads
-with the price source Off and contacts nothing but the server. Settings are
-left as they are. A test tool: it lives in scripts/, which no build ships.
+must come out as listed, so on a fresh install), the rows that use them
+("since": "2.0"), and then each account named and hidden as the list has
+it (one made under an older name is renamed, as an owner renames or hides
+an account in use). A row may name the coins it acquired (`key`), and a
+later row choose them by that name (`chosen_coins`, #711): the seed sends
+each as the id the server gave the row. backend/tests/test_seed_ledger.py
+checks it and its figures (testdata/reference_figures.json). Every USD
+value a price lookup would fill is given (network fees, gift and donation
+values), so it loads with the price source Off and contacts nothing but the
+server. Settings are left as they are. A test tool: it lives in scripts/,
+which no build ships.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ import os
 import socket
 import ssl
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -51,7 +57,7 @@ LEDGER = ROOT / "testdata" / "reference_ledger.json"
 MAC_APP_PORT = 8765  # desktop/: the owner's real ledger
 PASSWORD_ENV = "BTCTX_PASSWORD"
 # A row's notes, never sent to the server
-NOTES = ("why", "since")
+NOTES = ("why", "since", "added")
 # The account API's kinds, by the ledger's (an exchange is added once, as its two accounts)
 ADDED_AS = ("bank", "wallet", "exchange")
 # 1.x's exchange, which every install has (scripts/independent_figures.py's exchange 1)
@@ -65,8 +71,9 @@ class SeedError(Exception):
 # The ledger
 def ledger_rows() -> list[dict]:
     """Every transaction to create, oldest first, each as the API takes it
-    (testdata/reference_ledger.json without its notes: "why", and "since",
-    which marks a row 2.0 added)."""
+    but for its keys, which create_rows turns into ids
+    (testdata/reference_ledger.json without its notes: "why", "since",
+    which marks a row 2.0 added, and "added", the change that added it)."""
     with open(LEDGER) as f:
         rows = json.load(f)["transactions"]
     return [{k: v for k, v in row.items() if k not in NOTES} for row in rows]
@@ -76,10 +83,11 @@ def ledger_accounts() -> list[dict]:
     """The accounts the ledger adds to the fixed ones (its `accounts` list,
     2.0 spec 5.15), as the account API adds them: a bank or a wallet by its
     name, an exchange by its own (its accounts "<name> USD" and "<name> BTC"),
-    each with the ids it must get and, for an exchange, its 1099-DA switch.
-    A ledger with such a list also sets 1.x's first exchange's switch (on,
-    unless the list says otherwise), so a reseed puts back one changed by
-    hand; one without (1.x's) adds nothing."""
+    each with the ids it must get, whether it ends hidden, the name it's
+    made under when it's renamed after the rows (`renamed_from`) and, for an
+    exchange, its 1099-DA switch. A ledger with such a list also sets 1.x's
+    first exchange's switch (on, unless the list says otherwise), so a
+    reseed puts back one changed by hand; one without (1.x's) adds nothing."""
     with open(LEDGER) as f:
         listed = json.load(f).get("accounts", [])
     added, exchanges = [], {}
@@ -87,7 +95,9 @@ def ledger_accounts() -> list[dict]:
         if account["kind"] not in ADDED_AS:
             raise SeedError(f"account {account['id']} is a {account['kind']!r} account, which the API doesn't add")
         if account["kind"] != "exchange":
-            added.append({"kind": account["kind"], "name": account["name"], "ids": [account["id"]]})
+            added.append({"kind": account["kind"], "name": account["name"], "ids": [account["id"]],
+                          "hidden": account.get("hidden", False),
+                          "made_as": account.get("renamed_from", account["name"])})
             continue
         pair = exchanges.setdefault(account["exchange_id"], {})
         pair[account["currency"]] = account
@@ -99,14 +109,21 @@ def ledger_accounts() -> list[dict]:
 
 def _exchange(exchange_id: int, pair: dict[str, dict]) -> dict:
     """An exchange of the accounts list, from its two accounts, which must
-    be named after it and agree on its switch."""
+    be named after it (now and, renamed, before) and agree on its switch
+    and on being hidden."""
     usd, btc = pair.get("USD"), pair.get("BTC")
     name = usd["name"].removesuffix(" USD") if usd else None
     if not (usd and btc and btc["name"] == f"{name} BTC"):
         raise SeedError(f"exchange {exchange_id} needs a '<name> USD' and a '<name> BTC' account")
+    made_as = usd.get("renamed_from", usd["name"]).removesuffix(" USD")
+    if btc.get("renamed_from", btc["name"]) != f"{made_as} BTC":
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on the name it had (renamed_from)")
     if usd.get("sends_1099da", True) != btc.get("sends_1099da", True):
         raise SeedError(f"exchange {exchange_id}'s two accounts disagree on its 1099-DA switch")
-    return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True)}
+    if usd.get("hidden", False) != btc.get("hidden", False):
+        raise SeedError(f"exchange {exchange_id}'s two accounts disagree on whether it's hidden")
+    return {"kind": "exchange", "name": name, "ids": [usd["id"], btc["id"]], "sends_1099da": usd.get("sends_1099da", True),
+            "hidden": usd.get("hidden", False), "made_as": made_as}
 
 
 # The server
@@ -156,11 +173,13 @@ def log_in(c: httpx.Client, user: str, password: str, setup_code: str | None) ->
 
 
 def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] | None = None) -> int:
-    """Create every row on a logged-in client, after the accounts they use:
-    the reference ledger's rows and accounts when no rows are given; given
-    rows (a 1.x release's, make_reference_1x_db.py) need only the accounts
-    given, and none calls the account API, which a 1.x release lacks.
-    Refuses a ledger that isn't empty. Returns how many rows were created."""
+    """Create every row on a logged-in client, after the accounts they use,
+    then name and hide those accounts as the ledger has them, as an owner
+    renames or hides an account in use: the reference ledger's rows and
+    accounts when no rows are given; given rows (a 1.x release's,
+    make_reference_1x_db.py) need only the accounts given, and none calls
+    the account API, which a 1.x release lacks. Refuses a ledger that isn't
+    empty. Returns how many rows were created."""
     r = c.get("/api/transactions")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the ledger: {r.status_code} {r.text[:300]}")
@@ -168,14 +187,36 @@ def seed(c: httpx.Client, rows: list[dict] | None = None, accounts: list[dict] |
         raise SeedError(f"the ledger already has {len(r.json())} transactions: seed only an empty test install")
     if rows is None:
         rows, accounts = ledger_rows(), ledger_accounts() if accounts is None else accounts
+    check_keys(rows)
     for account in accounts or []:
         make_account(c, account)
-    for n, row in enumerate(rows, start=1):
-        r = send_confirmed(c, "POST", "/api/transactions", row)
-        if r.status_code != 200:
-            raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
-                            f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    create_rows(rows, lambda n, row: _post_row(c, n, row))
+    for account in accounts or []:
+        finish_account(c, account)
     return len(rows)
+
+
+def check_keys(rows: list[dict]) -> None:
+    """Each key on one row, before every row whose choice names it, so the
+    seed can follow them: checked before anything is sent."""
+    defined: dict[str, int] = {}
+    for n, row in enumerate(rows, start=1):
+        for line in row.get("chosen_coins") or []:
+            if "key" not in line:
+                raise SeedError(f"row {n} chooses coins without a key: each line names its coins by the key of "
+                                "the row that acquired them")
+            if line["key"] not in defined:
+                raise SeedError(f"row {n} chooses coins by the key {line['key']!r}, which no row before it has: "
+                                "a key is defined once, before the rows that choose by it")
+        key = row.get("key")
+        if key is None:
+            continue
+        if row["type"] not in ("Buy", "Deposit"):
+            raise SeedError(f"row {n} is a {row['type']} with a key: only a Buy or a Deposit acquires coins a "
+                            "choice can name")
+        if key in defined:
+            raise SeedError(f"row {n}'s key {key!r} is row {defined[key]}'s too: a key names one Buy or Deposit")
+        defined[key] = n
 
 
 def make_account(c: httpx.Client, account: dict) -> None:
@@ -187,11 +228,12 @@ def make_account(c: httpx.Client, account: dict) -> None:
     r = c.get("/api/accounts/")
     if r.status_code != 200:
         raise SeedError(f"couldn't read the accounts: {r.status_code} {r.text[:300]}")
-    names = ([f"{account['name']} {currency}" for currency in ("USD", "BTC")] if account["kind"] == "exchange"
-             else [account["name"]])
-    found = [a for name in names for a in r.json() if a["name"].casefold() == name.casefold()]
+    found = []
+    for name in dict.fromkeys((account["name"], account.get("made_as", account["name"]))):  # renamed: either name
+        names = [f"{name} {currency}" for currency in ("USD", "BTC")] if account["kind"] == "exchange" else [name]
+        found = found or [a for each in names for a in r.json() if a["name"].casefold() == each.casefold()]
     if not found:
-        r = c.post("/api/accounts/", json={"kind": account["kind"], "name": account["name"]})
+        r = c.post("/api/accounts/", json={"kind": account["kind"], "name": account.get("made_as", account["name"])})
         if r.status_code != 201:
             raise SeedError(f"adding {account['name']} failed: {r.status_code} {r.text[:300]}")
         found = r.json()
@@ -203,6 +245,43 @@ def make_account(c: httpx.Client, account: dict) -> None:
         r = send_confirmed(c, "PUT", f"/api/accounts/{account['ids'][0]}", {"sends_1099da": account["sends_1099da"]})
         if r.status_code != 200:
             raise SeedError(f"setting {account['name']}'s 1099-DA switch failed: {r.status_code} {r.text[:300]}")
+
+
+def create_rows(rows: list[dict], create: Callable[[int, dict], int]) -> None:
+    """Each row created in order by `create` (its number and the row as the
+    API takes it, returning the id the server gave it). A row's `key` names
+    the coins it acquired, and a later row's chosen coins name them by it
+    (#711, docs/temp/2.0-coin-choice.md 8.3), never by position: the file
+    is kept in time order, so a row put in later would move every number
+    after it. The key isn't sent; a choice is sent with the id its row got."""
+    ids: dict[str, int] = {}
+    for n, row in enumerate(rows, start=1):
+        sent = {field: value for field, value in row.items() if field != "key"}
+        if row.get("chosen_coins"):
+            sent["chosen_coins"] = [{"acquired_txn_id": ids[line["key"]], "btc": line["btc"]}
+                                    for line in row["chosen_coins"]]
+        made = create(n, sent)
+        if row.get("key") is not None:
+            ids[row["key"]] = made
+
+
+def _post_row(c: httpx.Client, n: int, row: dict) -> int:
+    r = send_confirmed(c, "POST", "/api/transactions", row)
+    if r.status_code != 200:
+        raise SeedError(f"row {n} ({row['timestamp']} {row['type']}) refused: {r.status_code} {r.text[:300]}. "
+                        f"The {n - 1} rows before it are in the ledger: delete them all before running again.")
+    return r.json()["id"]
+
+
+def finish_account(c: httpx.Client, account: dict) -> None:
+    """One of ledger_accounts() named and hidden (or shown) as the ledger
+    has it, once the rows are in: one made under another name is renamed
+    (an exchange's: the exchange and both its accounts), and one hidden or
+    shown by hand is put back. A name or hidden alone moves no figure, so
+    it never meets the past-year warning."""
+    r = c.put(f"/api/accounts/{account['ids'][0]}", json={"name": account["name"], "hidden": account.get("hidden", False)})
+    if r.status_code != 200:
+        raise SeedError(f"naming or hiding {account['name']} failed: {r.status_code} {r.text[:300]}")
 
 
 def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:

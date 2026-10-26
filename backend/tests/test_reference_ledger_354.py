@@ -1,15 +1,22 @@
 """
 The reference ledger's 2.0 rows (2.0 spec 5.15; card B7a #354): its
 `accounts` list adds two of each kind (wallets Coldcard and Jade, exchanges
-Kraken and Overseas, banks Credit union and Savings), which
-scripts/seed_ledger.py makes through the account API before the rows, and
-its "since": "2.0" rows use only those, in 2026, but one: the split of a
-pooled wallet, a Transfer from Wallet to the Coldcard with no fee, after
-every row that takes coins from either.
+Kraken and Overseas, banks Credit union and Savings) and a fourth wallet,
+the Sparrow, which scripts/seed_ledger.py makes through the account API
+before the rows, and its "since": "2.0" rows use only those (B7a's in 2026;
+#702's from 2022 to 2026, each for the year it fills; #730's, which choose
+coins, in 2025 and 2026), but one: the split of a pooled wallet, a Transfer
+from Wallet to the Coldcard with no fee, after every row that takes coins
+from either.
 
 - Every old row keeps its figures with the new rows beside it
-  (test_old_rows_keep_their_figures): equivalence_check's ledgers leave the
-  new rows out (B1), so this is their proof.
+  (test_old_rows_keep_their_figures): 1.x's beside every 2.0 row
+  (equivalence_check's ledgers leave those out, B1, so this is their
+  proof); 1.x's and B7a's beside #702's and #730's (each "added"), which go
+  into the same 2.0 accounts only after each one's last earlier disposal
+  (Kraken's and Overseas' bitcoin emptied by the end of 2025); and 1.x's,
+  B7a's and #702's beside #730's, the Sparrow's, which send chosen coins
+  to the Jade and Kraken only after each one's last earlier row.
 - The split row moves only Wallet's and the Coldcard's year-end lots and
   balances.
 - The seed makes the accounts with the ids the ledger lists, uses again
@@ -20,6 +27,7 @@ every row that takes coins from either.
 
 import importlib.util
 import json
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -36,7 +44,7 @@ from backend.services.tax_time import get_tax_timezone, local_date
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 WALLET, COLDCARD, EXTERNAL = 2, 100, 99
-NEW_ACCOUNTS = set(range(100, 108))
+NEW_ACCOUNTS = set(range(100, 109))
 USER, PASSWORD = "seed-user", "seed-password-123"
 
 
@@ -86,18 +94,20 @@ def seed_without(c: TestClient, leave_out) -> list[dict]:
     return [raw for raw, _ in kept]
 
 
-def old_rows_figures(Session, sent: list[dict]) -> list[dict]:
-    """Each 1.x row's figures, in the ledger's order: its own stored ones (a
-    deposit's value at receipt is its income), every disposal it made
-    (BTC, proceeds, basis, gain, term, box) and every lot it made (BTC,
-    date, cost; not what's left of it, which the split row changes)."""
+def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw) -> list[dict]:
+    """Each row's figures but those `newer` picks (1.x's by default), in the
+    ledger's order: its own stored ones (a deposit's value at receipt is
+    its income), every disposal it made (BTC, proceeds, basis, gain, term,
+    box, and its lot's date acquired: Form 8949's column (b)) and every lot
+    it made (BTC, date, cost; not what's left of it, which the split row,
+    and later rows taking from it, change)."""
     with Session() as db:
         book, tz = account_book(db), get_tax_timezone(db)
         txs = db.query(Transaction).order_by(Transaction.id).all()
         assert len(txs) == len(sent)
         figures = []
         for tx, raw in zip(txs, sent):
-            if "since" in raw:
+            if newer(raw):
                 continue
             year = local_date(tx.timestamp, tz).year
             disposals = db.query(LotDisposal).filter(LotDisposal.transaction_id == tx.id)
@@ -108,30 +118,35 @@ def old_rows_figures(Session, sent: list[dict]) -> list[dict]:
                                                          "realized_gain_usd", "holding_period", "fee_usd", "fmv_usd")],
                 "disposals": sorted((str(d.disposed_btc), str(d.proceeds_usd_for_that_portion),
                                      str(d.disposal_basis_usd), str(d.realized_gain_usd), d.holding_period,
-                                     bool(d.is_fee), disposal_box(d, year, tz, book)) for d in disposals),
+                                     bool(d.is_fee), disposal_box(d, year, tz, book), d.lot.acquired_date.isoformat())
+                                    for d in disposals),
                 "lots": sorted((str(lot.total_btc), lot.acquired_date.isoformat(), str(lot.cost_basis_usd))
                                for lot in lots),
             })
         return figures
 
 
-def test_old_rows_keep_their_figures(owner):
+@pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw,
+                                   lambda raw: raw.get("added") == "#730"], ids=["2.0", "#702 on", "#730"])
+def test_old_rows_keep_their_figures(owner, newer):
     c, Session = owner
-    with_new = old_rows_figures(Session, seed_without(c, lambda raw: False))
+    with_new = old_rows_figures(Session, seed_without(c, lambda raw: False), newer)
     delete_all(c)
-    alone = old_rows_figures(Session, seed_without(c, lambda raw: "since" in raw))
-    assert len(alone) == len([r for r in raw_rows() if "since" not in r])
+    alone = old_rows_figures(Session, seed_without(c, newer), newer)
+    assert len(alone) == len([r for r in raw_rows() if not newer(r)])
     assert with_new == alone
 
 
 def test_the_new_rows_use_only_new_accounts_but_the_split():
     """2.0 spec 5.15: deposits from External fund them; the one exception
-    is the split, from Wallet (and its date is checked, not trusted)."""
+    is the split, from Wallet (and its date is checked, not trusted). A new
+    row moves its year's totals and the holdings after it, never an older
+    row's figures (test_old_rows_keep_their_figures)."""
     new = [r for r in raw_rows() if "since" in r]
     assert {r["since"] for r in new} == {"2.0"}
+    assert all("since" in r for r in raw_rows() if "added" in r)  # so a 1.x release never gets one
     assert all({r["from_account_id"], r["to_account_id"]} <= NEW_ACCOUNTS | {EXTERNAL} for r in new if r != split_row())
     assert (split_row()["to_account_id"], split_row()["fee_amount"]) == (COLDCARD, "0")
-    assert all(r["timestamp"].startswith("2026-") for r in new)  # so only 2026's figures move
 
 
 def test_the_split_is_the_last_row_wallet_or_the_coldcard_names():
@@ -214,10 +229,49 @@ def test_seeding_again_puts_a_switch_changed_by_hand_back(owner):
             "Exchange": True, "Kraken": True, "Overseas": False}
 
 
+def test_an_account_is_made_under_its_old_name_and_renamed_after_the_rows(owner):
+    """#702: Overseas is made as "Offshore" and renamed once its rows are in
+    (the exchange and both its accounts), and the Jade is hidden then,
+    still holding coins: as an owner renames or hides an account in use."""
+    c, Session = owner
+    sent = c.request
+    writes = []
+
+    def noted(method, url, **kwargs):
+        if method in ("POST", "PUT"):
+            writes.append((method, str(url).split("?")[0], kwargs.get("json")))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    seed_ledger.seed(c)
+    made = [body["name"] for method, url, body in writes if (method, url) == ("POST", "/api/accounts/")]
+    assert "Offshore" in made and "Overseas" not in made
+    renamed = [i for i, (method, _, body) in enumerate(writes) if method == "PUT" and body.get("name") == "Overseas"]
+    last_row = max(i for i, (method, url, _) in enumerate(writes) if (method, url) == ("POST", "/api/transactions"))
+    assert len(renamed) == 1 and renamed[0] > last_row
+    assert writes[renamed[0]][1:] == ("/api/accounts/104", {"name": "Overseas", "hidden": False})
+    with Session() as db:
+        assert dict(db.query(Exchange.id, Exchange.name)) == {1: "Exchange", 2: "Kraken", 3: "Overseas"}
+    accounts = {a["id"]: a for a in c.get("/api/accounts/").json()}
+    assert (accounts[104]["name"], accounts[105]["name"]) == ("Overseas USD", "Overseas BTC")
+    assert [i for i, a in accounts.items() if a["hidden"]] == [101]
+    assert c.get("/api/calculations/account/101/balance").json()["balance"] > 0
+
+
+def test_seeding_again_puts_back_an_account_hidden_or_shown_by_hand(owner):
+    c, _ = owner
+    seed_ledger.seed(c)
+    for account, hidden in ((101, False), (107, True)):  # the Jade shown, Savings hidden
+        assert c.put(f"/api/accounts/{account}", json={"hidden": hidden}).status_code == 200
+    delete_all(c)
+    seed_ledger.seed(c)
+    assert [a["id"] for a in c.get("/api/accounts/").json() if a["hidden"]] == [101]
+
+
 def test_accounts_given_with_the_ledgers_rows_are_the_ones_made(owner):
     """None given: none made, so the first row into a new account is refused."""
     c, _ = owner
-    with pytest.raises(seed_ledger.SeedError, match="Unknown account id 106"):
+    with pytest.raises(seed_ledger.SeedError, match="Unknown account id 103"):  # 2022's deposit into Kraken
         seed_ledger.seed(c, accounts=[])
 
 
@@ -256,6 +310,102 @@ def test_an_exchange_whose_accounts_disagree_on_its_switch_stops_the_seed(tmp_pa
     monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
     with pytest.raises(seed_ledger.SeedError, match="disagree on its 1099-DA switch"):
         seed_ledger.ledger_accounts()
+
+
+@pytest.mark.parametrize("note, usd, btc, said", [
+    ("hidden", True, False, "disagree on whether it's hidden"),
+    ("renamed_from", "Old USD", "Older BTC", "disagree on the name it had"),
+])
+def test_an_exchange_whose_accounts_disagree_on_a_note_stops_the_seed(tmp_path, monkeypatch, note, usd, btc, said):
+    ledger = tmp_path / "ledger.json"
+    ledger.write_text(json.dumps({"accounts": [
+        {"id": 102, "name": "Kraken USD", "kind": "exchange", "currency": "USD", "exchange_id": 2, note: usd},
+        {"id": 103, "name": "Kraken BTC", "kind": "exchange", "currency": "BTC", "exchange_id": 2, note: btc}],
+        "transactions": []}))
+    monkeypatch.setattr(seed_ledger, "LEDGER", ledger)
+    with pytest.raises(seed_ledger.SeedError, match=said):
+        seed_ledger.ledger_accounts()
+
+
+# A choice's keys (#711, docs/temp/2.0-coin-choice.md 8.3): a row names the
+# coins it acquired, and a later row chooses them by that name
+OLDER = {"type": "Deposit", "timestamp": "2025-01-09T12:00:00Z", "from_account_id": EXTERNAL,
+         "to_account_id": WALLET, "amount": "0.01", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC",
+         "cost_basis_usd": "400.00", "acquired_at": "2023-01-09"}
+NEWER = {**OLDER, "timestamp": "2025-01-10T12:00:00Z", "cost_basis_usd": "900.00", "acquired_at": "2025-01-10"}
+
+
+def _spend(chosen: list[dict]) -> dict:
+    return {"type": "Withdrawal", "timestamp": "2025-03-10T12:00:00Z", "from_account_id": WALLET,
+            "to_account_id": EXTERNAL, "amount": "0.004", "fee_amount": "0", "fee_currency": "BTC",
+            "purpose": "Spent", "gross_proceeds_usd": "400.00", "chosen_coins": chosen}
+
+
+def test_a_choice_names_its_coins_by_the_id_their_row_got(owner):
+    """The key is never sent: the server is told the id it gave the key's
+    row, in a Delete All's ledger again too."""
+    c, Session = owner
+    sent = c.request
+    posted = []
+
+    def noted(method, url, **kwargs):
+        if (method, str(url).split("?")[0]) == ("POST", "/api/transactions"):
+            posted.append(kwargs.get("json"))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    rows = [OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])]
+    for _ in range(2):
+        assert seed_ledger.seed(c, rows) == 3
+        with Session() as db:
+            _, newer = db.query(Transaction).filter(Transaction.type == "Deposit").order_by(Transaction.timestamp)
+            spend = db.query(Transaction).filter(Transaction.type == "Withdrawal").one()
+            assert [(coin.acquired_txn_id, str(coin.btc)) for coin in spend.chosen_coins] == [(newer.id, "0.00400000")]
+            # the newer coins' cost, $900 x 0.4, not the older ones' $160
+            assert [str(d.disposal_basis_usd) for d in spend.lot_disposals] == ["360.00"]
+        delete_all(c)
+    assert not [body for body in posted if "key" in body]
+    assert [line for body in posted for line in body.get("chosen_coins") or []] == [
+        {"acquired_txn_id": line_id, "btc": "0.004"} for line_id in (2, 2)]
+
+
+def test_a_choice_is_sent_with_the_id_the_server_gave_never_the_rows_place():
+    """On a fresh install the two are the same number, so a create that
+    answers other ids tells them apart."""
+    created = []
+
+    def create(n: int, row: dict) -> int:
+        created.append(row)
+        return n + 100
+
+    seed_ledger.create_rows([OLDER, {**NEWER, "key": "newer"}, _spend([{"key": "newer", "btc": "0.004"}])], create)
+    assert created == [OLDER, NEWER, _spend([{"acquired_txn_id": 102, "btc": "0.004"}])]
+
+
+@pytest.mark.parametrize("rows, said", [
+    ([{**OLDER, "key": "k"}, {**NEWER, "key": "k"}], "row 2's key 'k' is row 1's too: a key names one Buy or Deposit"),
+    ([_spend([{"key": "k", "btc": "0.004"}]), {**NEWER, "key": "k"}],
+     "row 1 chooses coins by the key 'k', which no row before it has"),
+    ([NEWER, _spend([{"key": "z", "btc": "0.004"}])], "row 2 chooses coins by the key 'z', which no row before it has"),
+    ([NEWER, _spend([{"acquired_txn_id": 1, "btc": "0.004"}])], "row 2 chooses coins without a key"),
+    ([NEWER, {**_spend([]), "key": "s"}], "row 2 is a Withdrawal with a key: only a Buy or a Deposit acquires coins"),
+], ids=["a key twice", "a choice before its key", "a key no row has", "a line without a key", "a key on a spend"])
+def test_a_key_the_seed_cant_follow_stops_it_before_anything_is_sent(owner, rows, said):
+    c, Session = owner
+    sent = c.request
+    writes = []
+
+    def noted(method, url, **kwargs):
+        if method != "GET":
+            writes.append((method, str(url)))
+        return sent(method, url, **kwargs)
+
+    c.request = noted
+    with pytest.raises(seed_ledger.SeedError, match=re.escape(said)):
+        seed_ledger.seed(c, rows, seed_ledger.ledger_accounts())
+    assert writes == []  # neither an account nor a row
+    with Session() as db:
+        assert db.query(Transaction).count() == 0
 
 
 def test_a_ledger_without_an_accounts_list_adds_none(tmp_path, monkeypatch):

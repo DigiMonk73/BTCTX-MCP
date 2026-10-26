@@ -6,7 +6,7 @@ import React from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Minus, Plus, type LucideIcon } from "lucide-react";
 import { formatBtc, formatUsd } from "../utils/format";
 import { gainLabel } from "../utils/transactionList";
-import { rowAccounts, rowAmounts, rowNote } from "../utils/transactionRows";
+import { coinsChosenNote, rowAccounts, rowAmounts, rowNote } from "../utils/transactionRows";
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
   Deposit: ArrowDown,
@@ -32,7 +32,7 @@ const TransactionRow: React.FC<Props> = ({ tx, book, onEdit }) => {
   if (tx.fee_amount && tx.fee_amount !== 0) {
     feeLabel = tx.fee_currency === "BTC" ? `Fee ${formatBtc(tx.fee_amount)}` : `Fee ${formatUsd(tx.fee_amount)}`;
   }
-  const subtitle = [timeStr, rowNote(tx, book), feeLabel].filter(Boolean).join(" \u00b7 ");
+  const subtitle = [timeStr, rowNote(tx, book), coinsChosenNote(tx), feeLabel].filter(Boolean).join(" \u00b7 ");
   const gain = gainLabel(tx);
   const { primary, secondary } = rowAmounts(tx, book);
   const Icon = TYPE_ICONS[tx.type] ?? ArrowLeftRight;

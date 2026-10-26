@@ -61,6 +61,7 @@ declare global {
     exchange_id: number | null; // an exchange's two accounts share it
     exchange: string | null; // that exchange's name
     hidden: boolean;
+    cost_basis: number | null; // what the BTC a bitcoin account holds cost (#709); null: a dollar or fee account
   }
 
   interface AverageCostBasis {
@@ -177,6 +178,15 @@ declare global {
     proceeds_from_price?: boolean;    // a Spent's proceeds BitcoinTX filled in
     fmv_from_price?: boolean;         // a gift's, donation's or lost coins' value BitcoinTX filled in (#255)
     price_used?: PriceUsed | null;    // the stored price they came from (#145)
+    chosen_coins?: ChosenCoin[] | null; // the coins it chose to leave a wallet (#711); null: oldest first
+    coins_chosen_at?: string | null;    // when they were saved
+  }
+
+  /** Coins chosen to leave one of your wallets (#711): the Buy or Deposit
+   * that acquired them, by its id, and how much of them, in BTC (exact). */
+  interface ChosenCoin {
+    acquired_txn_id: number;
+    btc: string;
   }
 
   /** The stored price a transaction's filled-in values came from (#145). */
@@ -218,6 +228,8 @@ declare global {
     proceeds_from_price?: boolean;
     fmv_from_price?: boolean;
     price_used?: PriceUsed | null;
+    chosen_coins?: ChosenCoin[] | null;
+    coins_chosen_at?: string | null;
   }
 
   /** The moment a value BitcoinTX priced came from: the price when its hour
@@ -253,6 +265,9 @@ declare global {
     fee_usd?: number | null;
     // A My BTC / Gift deposit's date originally acquired (ISO 8601); null = the deposit's date
     acquired_at?: string | null;
+    // The coins chosen to leave a wallet (#711); null = oldest first; left out = none (a new
+    // transaction) or, on an edit, the stored ones kept
+    chosen_coins?: ChosenCoin[] | null;
   }
 
   interface ApiErrorResponse {
@@ -323,6 +338,10 @@ declare global {
     // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
     // An Inherited deposit's date of death (required)
     acquiredDate?: string;
+    // The coins chosen to leave a wallet (#711), as typed: null = oldest first (the picker shut)
+    chosenCoins?: ChosenCoin[] | null;
+    chosenCoinsSaved?: ChosenCoin[] | null; // the stored choice, on an edit
+    coinsChosenAt?: string | null;          // when it was saved
   }
 
   // A Settings section's share of the page's state: one action at a time

@@ -36,6 +36,404 @@ All notable changes to BitcoinTX are documented in this file.
   word (it said "always sells them first in, first out"). No figure
   changes.
 
+## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
+
+**About this alpha.** BitcoinTX 2.0's third pre-release, for anyone who
+chooses to try 2.0 before it's released: never for real records. New since
+[v2.0.0-alpha.2](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.2):
+a Spent, Gift, Donation or Lost withdrawal from a wallet, or a Transfer out
+of one, can choose which coins leave (Choose which coins leave), purchase by
+purchase. Choose coins only if you decided which ones to send by the time
+they left, and your records show it; otherwise the oldest coins leave
+(Treas. Reg. §1.1012-1(j)). Exchanges stay oldest first. The choice is kept
+by an edit, Recalculate Ledger, a backup and the CSV, and the Complete Tax
+Report lists it; some other texts (the disclaimer, the report's Using
+these forms) still say the oldest coins always leave, until a later
+alpha. Portfolio Overview shows each wallet's and exchange's own cost,
+and fixes found in alpha.2 are in: if you tested alpha.1 or alpha.2, the
+CHANGELOG's #719 and #721 say what to check. Updating from alpha.2 changes
+no figure (migration 0101 adds coin choice, after the usual copy into
+backups/). The way back to 1.x and what's in 2.0 are in alpha.1's notes.
+The AI connector is `btctx-mcp==2.0.0a3`.
+
+### Added
+- **Each wallet's and exchange's own cost on the dashboard** (#709; found
+  by Grok (Cursor) reading alpha.2; the owner's decision, 2026-10-25). 2.0
+  keeps each wallet's and exchange's own cost basis, but Portfolio Overview
+  showed one average cost and one unrealized gain for all your bitcoin.
+  Opening Wallet (BTC) or Exchange (BTC) now shows, under each account's
+  amount, what the bitcoin it holds cost (its coins' cost left, as the
+  Complete Tax Report's holdings have it) and, with a price, its unrealized
+  gain or loss at today's price. The accounts' costs add up exactly to the
+  total cost behind Avg. Cost per BTC, which is now worked out from the same
+  sums. The card's totals don't change (its Unrealized Gains/Losses is from
+  the rounded average, so the accounts' gains can differ from it by a cent
+  or two), and with one account of each kind the card is still 1.2.10's.
+  An account holding no bitcoin shows no cost. The balances route
+  (`/api/calculations/accounts/balances`) gives each bitcoin account its
+  `cost_basis`. **No figure changes.**
+- **The form chooses which coins leave a wallet** (#711, step C3, #731).
+  A Spent, Gift, Donation or Lost withdrawal from one of your wallets, or
+  a Transfer out of one, lists the coins that leave, the oldest first (the
+  IRS's default), and **Choose which coins leave** opens a line for each
+  purchase or deposit the wallet holds then: its date acquired, how and
+  where it was acquired, its bitcoin, their cost and their term on that
+  date, and a field for the bitcoin chosen from it, filled oldest first.
+  **Highest cost first** fills it the other way, only on a transaction
+  dated today (the owner's Q3), so the form never hands out a choice made
+  after the coins left. The rule is always beside it: a choice counts only
+  if you decided by the time the coins left and your records from then show
+  it (Treas. Reg. §1.1012-1(j)). The running total says what's chosen of
+  what leaves, Save waits until it adds up, and **Don't choose coins** goes
+  back to oldest first. An edit opens on the coins chosen, with the day
+  they were chosen (and says so when that's after the coins left), and
+  keeps them when the wallet's coins can't be listed in time. The
+  Transactions list marks such a row "Coins chosen", and the past-year
+  question says, beside a choice on a transaction in an earlier tax year,
+  when a choice counts. On a phone, each purchase is a card. **No figure
+  changes** for any transaction whose coins aren't chosen.
+- **Choosing which coins leave a wallet: the database, the engine and the
+  API** (#711, step C2a, #729; the owner's decision 29, 2026-10-25). Within
+  each of your wallets the IRS counts the oldest coins as the ones that
+  leave, unless you identify others by the time they leave and your records
+  show it (specific identification, Treas. Reg. §1.1012-1(j)(2)). A
+  Transfer out of a wallet, or a Spent, Gift, Donation or Lost withdrawal
+  from one, can now name its coins through the API (`chosen_coins`): each
+  by the Buy or Deposit that acquired them and how much of them, together
+  exactly what leaves. Those coins leave instead of the oldest, the network
+  fee from the oldest of them first; a transfer's chosen coins arrive with
+  their date, cost and inheritance, and can be chosen again from the wallet
+  they reach. The choice is saved with the transaction (and when it was
+  saved, `coins_chosen_at`), and survives Recalculate Ledger, a tax
+  timezone change and a restore. A change that would take chosen coins away
+  (deleting or editing their purchase, an earlier transfer, an older
+  exchange file, a tax timezone that puts a wallet's coins in another
+  order) is refused, naming the transaction that chose them; an
+  edit that changes what leaves must send the coins again, or null for
+  oldest first. Exchanges stay first in, first out. Migration 0101 adds a
+  table and two columns and writes nothing: **no figure changes**, since
+  nothing is chosen in any ledger yet. The form's picker (C3), the CSV and
+  the reports (C4, below) and the AI connector (C5, below) follow.
+- **The AI connector records the coins you chose** (#711, step C5, #733;
+  the owner's answer to Q4). Tell your AI assistant which coins you sent
+  from one of your wallets, when you chose them by the time they left and
+  your records from then show it, and it records them
+  (`add_transactions` and `update_transaction` take `chosen_coins`, each
+  purchase or deposit by its transaction id). Its preview says, for a row
+  leaving a wallet, which coins it takes and which the wallet holds then
+  (each purchase's date acquired, BTC, cost and term); a new tool,
+  `get_coins_moved`, shows the coins a saved transfer moves; and
+  `list_transactions` shows a choice and when it was saved. Its guide tells
+  it to record only what you say you chose at the time, never to pick
+  coins for you, never to suggest a choice after the fact to lower your
+  tax, and never on an exchange. An edit that changes what leaves a
+  transaction whose coins were chosen answers that it needs the coins
+  again (`saved: false`), so the assistant asks you. **No figure changes**:
+  nothing is chosen until you tell it.
+- **The coins you chose travel in the CSV, print in the tax report, and
+  show in Ledger Review** (#711, step C4, #732; the owner's answer to Q1).
+  BitcoinTX's CSV gains three columns at its end: `id`, the row's
+  label in the file (its transaction's id where it was exported; blank on a
+  row you add by hand), `chosen_coins`, each purchase or deposit by its
+  row's id with the BTC chosen from it (`id 12: 0.01000000; id 30:
+  0.00500000`), and `coins_chosen_at`, when the choice was saved. An export
+  imports into an empty ledger with the same choices, its rows sorted
+  another way or a row added: a choice follows its label, never a position.
+  The preview names the row of an id that isn't a whole number, one two rows
+  share, a choice naming an id no row has, a row that didn't acquire
+  bitcoin or one not before it, and a choice the save would refuse (where
+  coins can't be chosen, a total that isn't what leaves). An older file
+  without the columns imports as before; an older BitcoinTX reading a new
+  file ignores them and takes the oldest coins. The template
+  shows the columns, with a spend of chosen coins. The tax report's
+  section 2 gains "Coins you chose": each transaction of the year that
+  chose its coins, the coins it took from each purchase (date acquired,
+  BTC, cost), and the day the choice was saved, marked when that's after
+  the coins left. The Transaction History marks such a row "coins chosen".
+  Ledger Review's new reminder lists the choices saved on a later day than
+  their coins left: a choice counts only if you made it by then and your
+  records show it. River's and every exchange's import write no choice: a
+  bitcoin receive from your wallet says its coins leave oldest first, and
+  can be chosen after the import. **No figure changes.**
+- **The Transfer form shows which coins will move, before it saves** (#706;
+  found by Grok (Cursor) reading alpha.2; the owner's decision,
+  2026-10-25). A Transfer out of a wallet or exchange moves that account's
+  oldest coins first (first in, first out: the IRS default when you don't
+  identify the coins, Treas. Reg. §1.1012-1(j)), but the form never said
+  so, so someone moving "the 2024 coins" to a new wallet moved the 2017
+  ones. Between two of your bitcoin accounts, the form now says "Per-wallet
+  FIFO: your oldest coins in *From* move first (the IRS default when you
+  don't pick specific coins)", and lists the coins that will move, each
+  with its date acquired, amount and cost, and the network fee, which is
+  paid from the oldest coins first. The list is the save's own: BitcoinTX
+  works the transfer out as its save would, on a copy of your ledger, so a
+  transfer dated in the past and an edit show what their save will do, and
+  one the save would refuse says why. No figure changes.
+
+### Changed
+- **An exchange's file finds the trades you recorded in another exchange
+  before 2.0** (#707, found by Grok (Cursor) reading alpha.2; the owner's
+  decision, 2026-10-25). BitcoinTX 1.x kept one exchange, and its guide
+  had a second exchange's trades recorded in it. Add that exchange in 2.0
+  and import its file into it, and the duplicate check, which compares a
+  row only with transactions in the same exchange, found none of them:
+  each was saved a second time, unflagged. Now a row of the same kind,
+  bitcoin amount and minute as a transaction in another exchange (or
+  another wallet) is marked **Review** in the preview, ticked, its note
+  naming that account ("recorded into Exchange BTC, not Kraken BTC: it may
+  already be recorded in Exchange"): untick it to leave it out. Never left
+  out by itself: two exchanges' identical trades can be two trades. And
+  with more than one exchange, the importer no longer picks one for you
+  (it took your first): choose the exchange each file is from, unless one
+  of yours is named as the file's exchange ("River" for River's file),
+  which is chosen already. A line beside it says what to do if you
+  recorded that exchange's trades in another one before 2.0: untick them,
+  or move them to this exchange first. The AI connector's duplicate check
+  is unchanged. No figure changes: a Review row is imported unless you
+  untick it, as a new row was.
+- **Adding an exchange asks whether it sends a Form 1099-DA** (#708, found
+  by Grok (Cursor) reading alpha.2). Settings' **Add an exchange** now asks
+  "Does this exchange send you a Form 1099-DA?", **Yes** chosen, with the
+  switch's own help (an exchange outside the US usually sends none), so
+  the answer is saved with the exchange, before any of its sales. Before,
+  a new exchange's switch was always on until turned off in its row, and
+  its sales went in the 1099-DA boxes (H/K, or G/J) meanwhile. The row's
+  switch still changes it later. The account API takes the answer as
+  `sends_1099da` with an exchange (left out: on, as before) and refuses it
+  with a bank or a wallet. No figure changes for an exchange answered as
+  before; one answered No puts its sales from 2025 in boxes I/L from the
+  start.
+- **Every box that opens has the app's one chevron** (#681, found in #678's
+  review). Settings → Connect an AI Assistant → **Set it up yourself**,
+  and the error page's **Error details** (shown only in a development
+  build), still showed the browser's own triangle, left of the words, and
+  a different one in Safari (the Mac app) and Chrome. They now have the
+  chevron Settings' sections and the dashboard's lines have, after the
+  words and turned over while open. Looks only: no figure changes.
+
+### Fixed
+- **The past-year question says when an added or deleted row moves the
+  year's income** (#753, found by the 2.0 testing plan's AI checks on
+  alpha.2). Adding a Reward deposit to an earlier tax year read "Added:
+  basis 22.22; cost of the lots it made 22.22.", though a filed return
+  carries the year's income. An added or deleted row's words now start
+  with what the year's report counts for it: "Added: income (Reward)
+  22.22; basis 22.22; …", "income 20.00" for an Income deposit, "rebate
+  6.00", "donation 600.00", as a changed row's already said. Words only:
+  it asks in the same cases, and no figure changes.
+- **Add Transaction shows the whole date and time** (#755, found in the
+  coin list's pictures, #750). In the drawer's two columns, Date & Time was
+  narrower than a date and time with seconds needs in Chrome and other
+  Chromium browsers, which then lost its month ("/01/2026, 10:15:30 AM"). Transaction Type and Date & Time now
+  each take the drawer's whole width, the other fields two to a row as
+  before; a phone's one column is unchanged. Looks only: no figure changes.
+- **An id too big for the database is refused plainly** (#744, found by the
+  2.0 testing plan's coin-choice session). A request naming a transaction
+  or an account by a number beyond the database's integers (2⁶³ or more,
+  or below −2⁶³) answered "Something unexpected went wrong" and logged an
+  error: reading, editing or deleting a transaction, an edit naming such
+  an account, the coins a Transfer moves, an account and its balance, and
+  the AI connector's import (a row's `not_a_duplicate_of`). It now answers
+  422, naming the id, before anything is looked up. Only a hand-made
+  request sends such an id: the app, the connector and the imports send
+  the ids the server gave. No figure changes.
+- **A restore keeps your saved exchange-file mappings** (#656, found by
+  the 2.0 build's release tests; checked by the imports tests, #689).
+  Settings' **Import from an exchange** can save your own column mappings,
+  and an in-app restore took the backup's set whole: mappings saved since
+  the backup were lost, and a page still open on one of them could find
+  the next mapping saved in its place. A restore now keeps the mappings
+  you have and adds the backup's beside them, unless you already have one
+  with the same name, and a page still open on a mapping that's gone never
+  finds another in its place. A backup restored on a new install
+  brings its mappings as they were; mappings in a backup this version
+  can't read are left out, and never stop the restore. No figure
+  changes.
+- **An account's name prints in the tax report** (#722, found by the 2.0
+  testing plan's StartOS session; the owner's decision, 2026-10-25). 2.0
+  lets you name your wallets, exchanges and banks, but the reports' fonts
+  can't draw most emoji, nor Cyrillic, Chinese or accented Greek letters:
+  a name with one printed with black boxes in the Complete Tax Report and
+  the Transaction History, so "by account" couldn't be read. Adding or
+  renaming an account now refuses a name with an emoji or a letter outside
+  Western European alphabets, saying "A name can use letters, digits and
+  punctuation the tax report can print: no emoji, and no letters outside
+  Western European alphabets." Accents, €, dashes and a name starting with
+  an apostrophe are fine. A name saved before (an alpha allowed any), or
+  any other text in a report, prints "?" for each character the fonts
+  can't draw, never a black box; rename it in Settings → Wallets,
+  exchanges and banks to print it in full. The CSV export keeps names as
+  they are. No figure changes.
+- **Settings reads your accounts afresh, so Delete follows the server**
+  (#720, found by the StartOS tests, #691). The account book was read once
+  per page, so after a transaction into a new account (on the Transactions
+  page, or by an import in Settings), Settings still said "It has no
+  transactions." and offered Delete, and the server refused it. Settings
+  now reads the book again as it opens, each time its **Wallets, exchanges
+  and banks** section opens, and after a refused delete (an account the AI
+  connector used while the section stayed open): the row then says "This
+  account has transactions, so it can't be deleted. Hide it instead: its
+  history stays.", with the server's refusal below and the keyboard back
+  on the row. No figure changes.
+- **The past-year question words a gift's coins as what they are, and names
+  its dates' timezone** (#736, #737, found by the 2.0 testing plan's
+  past-year run, T7, #693; in alpha.2 too). When a save moved the coins a
+  gift, donation or lost-coins withdrawal took, the question named their
+  "Form 8949 box" and "Form 8949 column (b)", though those coins are on no
+  Form 8949 (only their network fee is): it now says what moved for them,
+  "held short-term -> long-term" and "date acquired 01/01/2025 ->
+  01/01/2023", and calls the network fee's rows the network fee's Form 8949.
+  It still asks whenever those move (a donation's deduction turns on both).
+  An edit that only changes a gift's broker choice (one the API or the AI
+  connector left there: the form sends none for a gift) no longer asks: it
+  moved only a box those coins don't have. And the question's rows are dated
+  in your tax timezone, as Ledger Review's are, not in this device's clock
+  like the form behind it, so a Buy typed at 10:00 AM in Chicago showed as
+  16:00 with nothing to say why: it now says "Dates in UTC." (or your zone;
+  for a new tax timezone, the one being saved). The question's answer to the
+  AI connector names the zone too (`timezone`). No figure changes, and
+  nothing is saved without the confirm.
+- **Four words that misled at the moment of saving** (#705, found by Grok
+  (Cursor) reading alpha.2). A Transfer from a wallet to itself read
+  "consolidate / move within the same wallet", though it moves no coins
+  and records only the network fee: it now reads "consolidate within the
+  same wallet", and, chosen, points a move at the other wallet ("Moving
+  coins to another of your wallets? Choose that wallet as To Account…"),
+  as an exchange's consolidation already did. The import's **Wallet for
+  sends and receives** said "River's sends…" whatever exchange the file
+  was from: it now says "This file's sends to your wallet go into it, and
+  its receives come from it." A Buy's **Paid from** called every bank
+  "(auto-buy)", 1.x's word for River's recurring buy: each bank is now
+  listed by its own name, for a one-off buy as well as a recurring one.
+  And a bitcoin Deposit whose source is MyBTC (or N/A, the first choice)
+  now says under **Source** that coins moved from another wallet or
+  exchange you track in BitcoinTX are a Transfer, not a Deposit: a deposit
+  would count them in both accounts. Words only: no figure changes.
+- **StartOS's Connect an AI Assistant names a pre-release's connector apart,
+  as Settings does** (#721, found by the 2.0 testing plan's StartOS
+  session). On 2.0.0-alpha.1 and alpha.2 the action named the server
+  `bitcointx`, so its Claude Desktop configuration or its `claude mcp add`
+  command replaced your AI app's entry for your own BitcoinTX with the test
+  server. On an alpha or a beta it now names it `bitcointx-preview`, as
+  Settings → Connect an AI Assistant does, and pins the connector as PyPI
+  lists it (`btctx-mcp==2.0.0a2`, where it wrote `2.0.0-alpha.2`, which uv
+  read the same way). A release keeps `bitcointx`. If your AI app's
+  `bitcointx` reached another BitcoinTX (the Mac app, another server) and
+  you replaced it with the action's configuration, set it back.
+- **A Transfer's consolidation no longer becomes a move when its From
+  Account changes** (#719, found by the 2.0 testing plan's StartOS run,
+  ACC-7, on alpha.2; the bug is in alpha.1 and alpha.2). With To Account on
+  "*Exchange*: consolidate within the same exchange" (or a wallet's),
+  choosing another From Account kept the old account as the To, so the
+  form then held a transfer into it, which moves your oldest coins, with
+  their dates and cost, into that account. A consolidation records only
+  the network fee. To Account is now blank again, as it already was when
+  it would have become the new From's consolidation. The same goes for an
+  edit of a saved consolidation, even when its From is put back: choose
+  the consolidation again before saving. A To that still means the same
+  move (into Coldcard, say, from another bitcoin account) stays. Nothing
+  was saved without the Save click, and the field showed its new value: no
+  figure changes. Testing an alpha? A Transfer you meant as a
+  consolidation shows as "Consolidation" in the Transactions list; one
+  listed between two different accounts moved coins, and can be edited
+  back.
+- **Settings sums up the AI section as your edition has it** (#724, found
+  by the 2.0 testing plan's Mac app run on alpha.2). Closed, **Connect an
+  AI Assistant** said "…with a key you create" everywhere, but the Mac app
+  makes its own key, as the open section says. On the Mac it now reads
+  "An AI app that reads your ledger and enters transactions, with a key
+  BitcoinTX keeps for it"; Docker and StartOS keep "with a key you
+  create"; and until the server has said which it is, it names no key.
+  Words only: no figure changes.
+
+### Development
+- **The equivalence check no longer differs on every run** (#763, found by
+  the lead). Since C4 the CSV export carries each row's `coins_chosen_at`,
+  the moment the snapshot seeded the choice; the snapshot masked it in JSON
+  answers only. A CSV answer's filled cells of that column are now
+  `<volatile>` too (its column and empty cells kept), so a change that moves
+  nothing gets "No difference".
+- **`desktop/build-mac.sh` says to test a build with `run-test-build.sh`**
+  (#679, found by session 18 of the 2.0 build). It ended by suggesting
+  `open` on the app it built, which runs it on the installed app's data
+  folder, a real ledger; it now prints the full path of
+  `desktop/run-test-build.sh`, which runs the build on its own data folder
+  and port 8766.
+- **The release walk's steps match 2.0** (#723, found by the StartOS
+  tests, #691). `docs/AGENT-TESTS.md`: IMP-4b's Buy starts on **Bank**
+  (no earlier sale in its file leaves Kraken dollars, #655), so there's no
+  Bank to press; PRC-4c clears the Mempool address before choosing
+  **Nobody**, which hides the field and keeps an address left in it, and
+  so does MAC-7; REF-1's `settings.png` is about 1730 wide, its height
+  following the Connect an AI Assistant section it shows; and a published
+  pre-release is walked with the file at its own tag or commit. The app
+  doesn't change.
+- **The reference test ledger covers all of 2.0** (#702, for the 2.0
+  testing plan #686). 50 rows join the made-up ledger every figures check
+  uses (191 in all), so each of 2.0's dimensions is filled:
+  - every deposit source and withdrawal purpose in more than one wallet
+    and more than one exchange, and every route between more than one
+    pair of accounts;
+  - each exchange's sales in the boxes its 1099-DA switch gives (Kraken's
+    H and K, Overseas' I and L, a coin bought on Overseas in 2026 in I, not
+    G), and every Broker form choice against each switch, a spend's fee
+    following it;
+  - short- and long-term gains and losses, and inherited coins sold, in
+    2024, 2025 and 2026; holdings at the start of 2023;
+  - a hidden account still holding coins and a renamed exchange on the
+    dashboard (`scripts/seed_ledger.py` renames and hides after the rows);
+  - the rows Ledger Review lists ($0 cost, a $0 Buy, $0 proceeds).
+
+  New coverage tests in `test_seed_ledger.py` fail if a dimension ever
+  empties. The rows go only into 2.0's accounts, each after that
+  account's last earlier disposal, so no older row's figure moves (a test
+  compares every one); the test figures move only by the new rows' own
+  (`testdata/reference_figures.json`). `scripts/independent_figures.py`
+  also checks each exchange's Sells (Sales by exchange) and the coins held
+  at each year's start, and agrees in every year. Test data only: nothing
+  in the app changes.
+- **The independent figures read small amounts and fee-less spends**
+  (#703, found by the tax-engine tests, #687). `scripts/independent_figures.py`
+  wrote an amount under 100 sats as "1E-8 BTC" where the app writes
+  "0.00000001 BTC", so a ledger with a small network fee showed differences
+  that weren't there; and it stopped on a bitcoin spend with no network
+  fee, which has no fee value. A test tool only: no figure of the app's
+  changes.
+- **The independent figures learn chosen coins** (#728, step C1 of
+  choosing which coins leave a wallet, #711). `scripts/independent_figures.py`,
+  the second calculation every figures check compares with the app's,
+  now follows specific identification (Treas. Reg. §1.1012-1(j)(2)) from
+  the rule, ahead of the app: a Transfer or Withdrawal from one of your
+  wallets may name the coins that leave, each by the key of the Buy or
+  Deposit that acquired them, together exactly what leaves; the network
+  fee takes the oldest of the chosen coins first, then the amount the
+  rest; and the coins keep their key when they move, so a later spend in
+  another wallet can choose them too. A choice the rules don't allow (on
+  an exchange, in a consolidation, not adding up, a key that names
+  nothing) or one the wallet doesn't hold when the coins leave stops the
+  calculation, naming the row. Its own tests work every figure out by
+  hand. No ledger chooses coins yet, so the reference ledger's figures
+  agree in every year as before. A test tool only: nothing in the app
+  changes.
+- **The reference test ledger chooses coins** (#730, step C2b of choosing
+  which coins leave a wallet, #711). 14 rows join the made-up ledger every
+  figures check uses (205 in all), in a fourth wallet, the Sparrow, filled
+  only from outside, so no older row takes from it. In 2025 it spends,
+  gives, donates and loses coins it chose, not its oldest, across both
+  terms, the network fee paid by the chosen coins; in 2026 it sends chosen
+  coins to the Jade, which then spends the inherited ones (INHERITED) and
+  one purchase across the two lots it arrived in (also exactly the oldest
+  coins, so the same figures as no choice), and to Kraken, which sells
+  them oldest first (Box K). A row names the coins it acquired by a key,
+  and `scripts/seed_ledger.py` sends a choice with the id the server gave
+  that row, never by position. Coverage tests in `test_seed_ledger.py`
+  fail if one of these goes; every older row keeps every figure
+  (`test_reference_ledger_354.py`), and the independent figures agree with
+  the app's in every year. Only the new rows' own figures move: 2025 gains
+  4 Form 8949 rows and 2026 gains 6. Until the CSV carries choices (C4),
+  the CSV round trip's check compares with the ledger taking the oldest
+  coins. Test data only: nothing in the app changes.
+
 ## [v2.0.0-alpha.2] - 2026-10-25 - 2.0's second alpha: the dashboard's Portfolio Overview back, and a test version that looks like one
 
 **About this alpha.** BitcoinTX 2.0's second pre-release, for anyone who

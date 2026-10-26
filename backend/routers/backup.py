@@ -19,7 +19,7 @@ from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models.app_setting import AppSetting, save_setting
@@ -28,7 +28,7 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import account as account_service, ai_key, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, csv_choices, exchange_mappings, first_run, outbound, tax_time
 from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
@@ -150,10 +150,12 @@ def _in_use(db: Session, own: str | None) -> dict:
     timezone is the backup's, unless tzdata doesn't name it: then this
     install's (#407). The last account id given: the higher of this
     install's and the backup's (2.0 spec 5.1, 5.11), so no id given here is
-    given again."""
+    given again. The exchange import's mappings: this install's and the
+    backup's together (exchange_mappings.kept_by_restore, #656)."""
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
-            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db)}
+            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db),
+            "mappings": _import_mappings(db)}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -164,14 +166,15 @@ def _login_in_use(db: Session) -> tuple | None:
 def _write_kept(own: str | None, notices: list[str], live: Session | None, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
-    the restored database before it replaces the live one, and its tax
+    the restored database before it replaces the live one, its tax
     timezone in place of a backup's tzdata doesn't name (added to
-    `notices`, #407), then read them back from the file, with its one
-    login. They're read from the live database just before the swap, under
-    its write lock (services/backup.py), so a change saved while the restore
-    ran is kept. No live database to read them from (DATABASE_URL names
-    another), an error, or a value that doesn't read back as written, stops
-    the restore with the live database untouched (#201).
+    `notices`, #407), and its import mappings beside the backup's (#656),
+    then read them back from the file, with its one login. They're read
+    from the live database just before the swap, under its write lock
+    (services/backup.py), so a change saved while the restore ran is kept.
+    No live database to read them from (DATABASE_URL names another), an
+    error, or a value that doesn't read back as written, stops the restore
+    with the live database untouched (#201).
     """
     if live is None:
         logger.error("Restore stopped: there's no database at DATABASE_FILE to keep this install's settings from")
@@ -184,10 +187,12 @@ def _write_kept(own: str | None, notices: list[str], live: Session | None, resto
         session_auth.put_open_sessions(restored, kept["sessions"])
         zone = _known_tax_timezone(restored, kept["timezone"], notices)
         last_id = _keep_the_higher_last_id(restored, kept["last_id"])
+        mappings = exchange_mappings.kept_by_restore(restored, kept["mappings"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
         as_written = (restored.query(User).count() == 1
-                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id})
+                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id,
+                                                         "mappings": mappings})
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -241,7 +246,7 @@ def _as_stored(db: Session, kept: dict) -> dict:
     login = _login_in_use(db) if kept["login"] is not None else None
     return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
             "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db),
-            "last_id": _last_account_id(db)}
+            "last_id": _last_account_id(db), "mappings": _import_mappings(db)}
 
 
 def _rows(db: Session, keys) -> dict:
@@ -262,6 +267,11 @@ def _keep_the_higher_last_id(restored: Session, own: int | None) -> int | None:
     if higher is not None:
         save_setting(restored, account_service.LAST_ID_KEY, str(higher))
     return higher
+
+
+def _import_mappings(db: Session) -> str | None:
+    """The exchange import's mappings' row, as stored."""
+    return _rows(db, [exchange_mappings.SETTING_KEY])[exchange_mappings.SETTING_KEY]
 
 
 def _stored_tax_timezone(db: Session) -> str | None:
@@ -299,7 +309,8 @@ def restore_encrypted_backup(
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and switch, and the price settings) stays: an old backup never
     brings back an old password, and on StartOS the password Set Login
-    Credentials gave stays right. The restored database is rebuilt from
+    Credentials gave stays right. The exchange import's mappings in use stay
+    too, with the backup's added beside them (#656). The restored database is rebuilt from
     BitcoinTX's own migrations with only the backup's own data, and these are
     written into it before it replaces the live one; if anything fails,
     nothing is restored. A backup's tax timezone that tzdata doesn't name is
@@ -380,7 +391,7 @@ def export_transactions_csv(
 
     # Same-time transactions in the order they were saved, as the ledger
     # replays them: a round trip gives the same FIFO results.
-    transactions = db.query(Transaction).order_by(
+    transactions = db.query(Transaction).options(selectinload(Transaction.chosen_coins)).order_by(
         Transaction.timestamp.asc(),
         Transaction.id.asc()
     ).all()
@@ -456,6 +467,7 @@ def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
+        **csv_choices.export_cells(txn),  # its id, the coins it chose and when (#711)
     }
 
 

@@ -70,7 +70,7 @@ test("a new Buy's Paid from starts blank, and nothing is saved until one is chos
   await page.getByRole("button", { name: "Save Transaction" }).click();
   await expect(page.getByText("Please select an account")).toBeVisible();
   expect(await listTx(page.request)).toHaveLength(2);
-  await page.getByLabel("Paid from").selectOption("Bank (auto-buy)");
+  await page.getByLabel("Paid from").selectOption("Bank");
   await saveForm(page);
   const bought = (await listTx(page.request)).find((t) => t.type === "Buy" && Number(t.amount) === 0.01)!;
   expect([bought.from_account_id, bought.to_account_id]).toEqual([1, 4]);

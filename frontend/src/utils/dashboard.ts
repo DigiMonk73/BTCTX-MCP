@@ -114,6 +114,8 @@ export interface LineAccount {
   name: string;
   amount: number;
   hidden: boolean;
+  /** What its BTC cost, the server's figure (#709); null on a dollar line. */
+  cost: number | null;
 }
 
 /** A kind's line: its total and the accounts that make it up. */
@@ -133,7 +135,15 @@ const LINES: [BalanceLineKey, string, BalanceLine["currency"]][] = [
 /** An account as listed under its line: an exchange's by the exchange's name, its line naming the currency. */
 function lineAccount({ account, balance }: { account: AccountBalance; balance: number }): LineAccount {
   const name = account.kind === "exchange" ? account.exchange ?? account.name : account.name;
-  return { key: `account-${account.account_id}`, name, amount: balance, hidden: account.hidden };
+  return { key: `account-${account.account_id}`, name, amount: balance, hidden: account.hidden,
+    cost: account.cost_basis ?? null };
+}
+
+/** What an account's BTC would gain or lose if sold at today's price, to
+ * the cent: its value less its cost (#709); none without a price or a cost. */
+export function accountGain(price: number | null, account: LineAccount): number | null {
+  if (price === null || account.cost === null) return null;
+  return Math.round((price * account.amount - account.cost) * 100) / 100;
 }
 
 /** Bank (USD), Exchange (USD), Exchange (BTC) and Wallet (BTC), each with its

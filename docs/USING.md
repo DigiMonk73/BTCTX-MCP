@@ -59,9 +59,12 @@ to open it.
 
 - **Add a wallet**, **Add an exchange** or **Add a bank**: type its name
   and click **Add**. Under the name, the form says what a wallet is, or
-  what the exchange's two accounts will be called. A new account starts
+  what the exchange's two accounts will be called, and **Add an exchange**
+  also asks "Does this exchange send you a Form 1099-DA?" (**Yes** unless
+  you choose No; below). A new account starts
   empty: move coins into it with a Transfer dated when they really moved
-  (Per-wallet FIFO decides which coins move: [Lots, gains and the holding
+  (BitcoinTX moves the oldest coins first, unless you choose others in a
+  wallet: [Lots, gains and the holding
   period](#lots-gains-and-the-holding-period)). Adding a wallet or an exchange
   while another one of its kind has transactions shows a note: years
   before you added it were figured with the others together, as BitcoinTX
@@ -74,7 +77,10 @@ to open it.
   **Exchange USD** and **Exchange BTC** always mean your first bank, wallet
   and exchange in files (CSV, River, BitcoinTX 1.x), so no other account
   can take those names, nor **BTC Fees**, **USD Fees** or **External**.
-  Your first bank, wallet and exchange can take their first names back.
+  Your first bank, wallet and exchange can take their first names back. A
+  name uses letters, digits and punctuation the tax report can print: no
+  emoji, and no letters outside Western European alphabets (accents, €
+  and dashes are fine).
 - **Rename**, in the open row: an exchange's two accounts are renamed with
   it ("Kraken" makes them "Kraken USD" and "Kraken BTC"). A name moves no
   figure. A CSV file names each account as it was named when the file was
@@ -93,8 +99,10 @@ to open it.
   can be hidden, never deleted: its history stays on your tax forms. Your
   first bank, wallet and exchange can't be deleted either: hide one you
   don't use.
-- **This exchange sends me a Form 1099-DA**, in each exchange's row, is on
-  by default. An exchange in the US sends one for your sales from 2025; one
+- **This exchange sends me a Form 1099-DA**, in each exchange's row: the
+  answer you gave when adding the exchange (your first exchange's is on),
+  which the switch changes later. An exchange in the US sends one for your
+  sales from 2025; one
   outside the US usually doesn't. Turn it off for an exchange that sends
   none, and its sales go in the Form 8949 boxes for no broker form. It
   decides the Form 8949 box, not the gain. It moves the boxes of earlier
@@ -114,7 +122,9 @@ of 2024, for a tax professional to compare with yours.
   (USD) adds up every exchange's dollars, Exchange (BTC) every exchange's
   bitcoin). A line with more than one account, or with a hidden one still
   holding something, has a caret after its label: click the line to list
-  its accounts under it, each with its amount ("Hidden" noted). Lines start
+  its accounts under it, each with its amount ("Hidden" noted), and under
+  each wallet's and each exchange's bitcoin, what it cost and, with a
+  price, its unrealized gain or loss. Lines start
   closed, and the ones you open stay open in that browser. Then **Total
   BTC**, **Avg. Cost per BTC** and **Unrealized Gains/Losses** (what the
   bitcoin you hold would gain or lose at the current price, from its
@@ -209,7 +219,9 @@ entries come out right.
   (USD)** beside it); the destination keeps each lot's acquisition date and
   its share of the basis. A dollar transfer (between dollar accounts,
   such as a bank and an exchange's USD account) has its fee come out of the
-  sending account.
+  sending account. Between two of your bitcoin accounts, the form lists the
+  coins that will move before you save, oldest first: each one's date
+  acquired, amount and cost.
   - For a bitcoin account, **To Account** also offers the account itself:
     "*wallet*: consolidate / move within the same wallet" or "*exchange*:
     consolidate within the same exchange". A consolidation records only its
@@ -252,8 +264,8 @@ An AI assistant's add (one question for its batch), edits, deletes and
 Recalculate Ledger ask too.
 
 **Change an earlier tax year?** says which years and lists what changes,
-under each tax year: each transaction's date, type and amount, and what
-moves. Under "These also change, from rules fixed since they were saved"
+under each tax year: each transaction's date (in your tax timezone, as
+Ledger Review dates it), type and amount, and what moves. Under "These also change, from rules fixed since they were saved"
 come the changes the save also applies. **Cancel** saves nothing. **Save
 anyway (a copy is made first)**, for a delete **Delete anyway (a copy is
 made first)**, keeps a copy of your ledger in BitcoinTX's data folder
@@ -347,10 +359,15 @@ NOT FILE.
   name, puts it in the list for next time; you can preview without saving.
   - With more than one exchange or wallet, choose the **Exchange** the file
     is from and the **Wallet for sends and receives**: no exchange's file
-    says which of your wallets a send went to or a receive came from.
+    says which of your wallets a send went to or a receive came from, and
+    with more than one exchange none is chosen for you unless one is named
+    as the file's exchange.
   - The preview adds to a ledger in use: it leaves out the rows already in
-    it (the same kind, bitcoin amount and minute), lists the ones that only
-    look like one you recorded under "Possible matches with your ledger",
+    it (the same kind, bitcoin amount and minute), lists under "Possible
+    matches with your ledger" the ones that only look like one you
+    recorded, or that you recorded at the same minute and amount in another
+    exchange or wallet (as BitcoinTX 1.x had you record a second exchange's
+    trades in its one exchange),
     and names every row it didn't read and why (another coin, dollars
     alone, a row not completed, a repeated row, a trade of bitcoin for
     another coin, which you add by hand). Tick or untick each row under
@@ -485,7 +502,9 @@ nobody. Where the server sets that choice (on StartOS, the **Price Source
   with a shorter password still restores).
 - **Restore from Backup** takes a backup file and its password. It takes
   the backup's data but keeps your current login, AI key and price
-  settings, and you log in again afterwards. It takes a backup made by
+  settings, and you log in again afterwards. Your saved exchange-file
+  mappings are kept, and the backup's are added beside them, unless you
+  already have one with the same name. It takes a backup made by
   BitcoinTX 1.x or 2.0: a 1.x backup's ledger is brought up to 2.0 as it is
   restored, the way an update brings up a 1.x database. BitcoinTX 1.x
   refuses a backup made by 2.0, since it can't read 2.0's ledger.

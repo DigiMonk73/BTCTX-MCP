@@ -49,8 +49,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
   const [outOfDate, setOutOfDate] = useState(false);
   useEffect(() => onPreviewShown(preview !== null), [preview, onPreviewShown]);
 
-  // The file's exchange and wallet (5.11, 5.13)
-  const choices = book ? riverChoices(book) : undefined;
+  // The file's exchange and wallet (5.11, 5.13): of more than one exchange, the one the file is named for, if any (#707)
+  const choices = book ? riverChoices(book, exchange.fileExchange) : undefined;
   const chosen = chosenRiverAccounts(choices, picked);
   const unchosen = pickWanting(choices, chosen);
   // The pickers no longer say what the preview was made with (its account
@@ -71,9 +71,13 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
     setShowMatched(false);
   };
 
+  // Each file's exchange is picked for it (#707): the next file is asked again, its wallet kept
+  const forgetExchange = () => setPicked(({ wallet }) => ({ wallet }));
+
   const reset = () => {
     setFile(null);
     dropPreview();
+    forgetExchange();
     setOutOfDate(false);
     void exchange.fileChosen(null);
     const input = document.getElementById("river-csv-input") as HTMLInputElement;
@@ -157,7 +161,8 @@ const RiverImport: React.FC<RiverImportProps> = ({ onPreviewShown, book }) => {
       <ExchangeFileRow name={exchange.name} river={isRiver} processing={loading && !preview} busy={busy}
         canPreview={!loading && file !== null && !unchosen && exchange.ready}
         onFile={(chosen) => {
-          // Another file: the preview on screen is the last one's
+          // Another file: the preview on screen is the last one's, and so is the exchange picked for it
+          if (file) forgetExchange();
           setFile(chosen);
           dropPreview();
           void exchange.fileChosen(chosen);

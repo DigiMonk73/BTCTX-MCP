@@ -217,15 +217,17 @@ to; the release workflow still creates new ones. If unsure, branch from
 
 ```
 Transaction (user input)
+  → ChosenCoin (user input too: the coins it chose to leave a wallet, #711)
   → LedgerEntry (double-entry lines)
-  → BitcoinLot (BTC acquisitions, per account)
-  → LotDisposal (FIFO consumption, with basis/proceeds/gain per lot)
+  → BitcoinLot (BTC acquisitions, per account, each knowing its acquisition)
+  → LotDisposal (FIFO consumption, or the coins chosen, with basis/proceeds/gain per lot)
 ```
 
 Accounts (2.0, #251; the account book, `services/account.py`, read once
 per request): your banks, wallets and exchanges, each exchange two
 accounts, "*name* USD" and "*name* BTC", of a row of `exchanges` with its
-1099-DA switch; the fee accounts BTC Fees 5 and USD Fees 6 (internal: no
+1099-DA switch (asked when it's added, on unless answered No: #708); the
+fee accounts BTC Fees 5 and USD Fees 6 (internal: no
 transaction names them); External 99 (no row). A new install's first of
 each keep their ids forever: Bank 1, Wallet 2, Exchange USD 3, Exchange
 BTC 4 (exchange 1, "Exchange"). New accounts take ids from 100, never one
@@ -245,16 +247,19 @@ Every update and delete, and a create dated before the latest transaction,
 runs `recalculate_all_transactions` ("scorched earth"): all ledger lines,
 lots and disposals are rebuilt in timestamp order (a create dated last only
 adds its own lines and lots, #172). So derived values must be recomputable
-from the Transaction row alone.
+from the Transaction row (and the coins it chose) alone.
 
 **The past-year warning** (2.0, #352; `services/past_years.py`): an add,
 edit or delete on `/api/transactions` that would change the figures of a
 tax year before this one (Ledger Review's snapshot, each disposal's Form
-8949 box and column (b), what the report counts as income or a rebate and
-as a gift, donation or lost coins, each row's date and tax year:
-`services/year_changes.py`)
+8949 box and column (b) (a gift's, donation's or lost coins' own, on no
+Form 8949: their holding period and date acquired, #736), what the report
+counts as income or a rebate and as a gift, donation or lost coins, each
+row's date and tax year: `services/year_changes.py`)
 answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
-`exact`, `confirm`) and saves nothing. Sent again with
+`exact`, `timezone`: the one its rows' dates are in, `confirm`; and
+`coins_chosen` only beside a write that adds or changes a choice of coins
+dated in an earlier tax year, #711) and saves nothing. Sent again with
 `?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
 "pre-change" one, the newest 5 and the first of each day for a week; a
 fresh AI copy with the key), the fingerprint checked again before the
@@ -442,7 +447,19 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   ticked (the owner's decision, 2026-10-16); and River never names a
   buy's funding bank (`unnamed_bank`), so another bank there still
   matches exactly, as in 1.x (the build lead's call, 2026-10-23, #251's
-  decision 25). The
+  decision 25). A River row the other passes leave new, of the same kind,
+  bitcoin amount and minute as a transaction in another account of the
+  same kind (another exchange's, another wallet; going the same way, never
+  into the account the row's coins left nor out of the one they went into;
+  on the guessed side only beside the row's own account, one like it or
+  External), is only similar:
+  Review, ticked, its note naming that account and where the row may
+  already be (`_in_another_account`, the owner's decision, 2026-10-25,
+  #707: 1.x's guide had a second exchange's trades recorded in the first);
+  the AI's rows never are. With more than one exchange, the screen picks
+  none for a file but the one shown that the file is named for
+  (`riverChoices`), and asks again for each file; the API keeps 5.11's
+  first exchange for a request that names none. The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a
@@ -551,6 +568,35 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
   Inherited coins are long-term whatever the dates (above).
+- **Chosen coins** (2.0, #711; specific identification, Treas. Reg.
+  §1.1012-1(j)(2)): a Transfer out of a wallet (not to itself) or a bitcoin
+  Withdrawal from one may name the coins that leave, `chosen_coins`: each
+  the Buy or Deposit that acquired them (`acquired_txn_id`) and the BTC
+  from it, together exactly what leaves (a Transfer's amount; a
+  Withdrawal's amount and BTC fee). The fee takes the oldest of the chosen
+  coins first, then the amount the rest, as first in, first out does with
+  all of a wallet's coins; each piece costs its running share (Lot cost).
+  Every lot keeps the acquisition its coins came from
+  (`bitcoin_lots.acquired_txn_id`), through transfers; a write with a
+  choice while a lot lacks it (made before migration 0101) replays the
+  ledger first. Nothing chosen: per-wallet FIFO. An exchange's coins and a
+  consolidation take no choice. A choice survives every recalculation; a
+  write that would leave a later choice short of its coins is refused,
+  naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
+  must send the coins again, or null (`SendAgain`, its 422 naming the
+  transaction in `X-BitcoinTX-Choose-Again`, which the AI connector answers
+  as `saved: false`). `coins_chosen_at` is when the choice was saved, kept
+  while it's sent back unchanged. The CSV carries a choice by its rows'
+  ids, never their positions (`csv_choices.py`, #732); the tax report
+  prints "Coins you chose", with the day each was saved, and Ledger Review
+  lists those saved after their coins left (`coins_chosen_later`). The AI
+  key sends a choice too (the owner's Q4: only coins the user says they
+  chose at the time, its guide's rule, #733): its preview lists the coins a
+  row leaving a wallet takes and holds (`HELD_HOOK`; none for a row whose
+  wallet holds a lot that doesn't know its acquisition while nothing
+  replays), and a write that replays for a choice
+  (`chosen_coins.replays_first`) counts as replaying for its copy and the
+  past-year question.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -563,8 +609,8 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   can't open counts as none chosen, logged once), and a restore keeps this
   install's own in place of a backup's that `tzdata` doesn't name.
   Times on screen are the device's clock (#260), except Ledger Review's
-  (the tax timezone, as `cli review` and the AI see them) and a price's
-  hour (UTC, labelled).
+  and the past-year question's (the tax timezone, as `cli review` and the
+  AI see them, labelled: #737) and a price's hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
   (1099-DA without basis); 2026+ Sells of lots bought on that exchange (a Buy
   into the account sold from) on/after 2026-01-01 and never moved G/J;
@@ -591,14 +637,17 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
-| `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page; Settings' "Wallets, exchanges and banks" |
+| `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page and afresh as Settings or its accounts section opens (#720); Settings' "Wallets, exchanges and banks" |
 | `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
+| `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form, or the AI's preview, the coins held (`HELD_HOOK`) |
+| `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/LeavingCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts, or a Withdrawal from a wallet, will take, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`); from a wallet, what it holds then (`held`, through `chosen_coins.HELD_HOOK`); a saved one's, the AI key too (#711, Q4) |
+| `frontend/src/components/transactionForm/ChosenCoins.tsx`, `ChosenCoinsTable.tsx`, `frontend/src/utils/chosenCoins.ts` | the form's coin picker (#711, C3): what a wallet holds, a BTC field per purchase, the quick fills (Q3: "Highest cost first" only on a transaction dated today, `dated_today`), the rule's words, the running total; Save waits until it adds up; the form's `chosenCoins`, sent as `chosen_coins` |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
-| `backend/services/river_import.py`, `csv_import.py` | file imports |
+| `backend/services/river_import.py`, `csv_import.py`, `csv_choices.py` | file imports; the CSV's chosen-coins columns (#711) |
 | `backend/services/exchange_import.py`, `exchange_mappings.py`, `exchange_cells.py`, `exchange_kraken.py` | any exchange's CSV (B5b): the mappings (ready-made, the owner's own in `app_settings`), each read into River's rows; what isn't read is named by reason |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
@@ -618,9 +667,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop`/`2.0` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
-| `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired; from 2.0 its `accounts` list and `"since": "2.0"` rows, in 2026) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
+| `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026 and a 2022 deposit, every 8949 box, rebates, dates originally acquired; from 2.0 its `accounts` list, a hidden and a renamed account, and `"since": "2.0"` rows filling 2.0's dimensions in every year, #702) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
 | `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
-| `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, income, rebates, gifts, year-end lots) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
+| `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, Sales by exchange, income, rebates, gifts, lots at each year's start and end) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
 | `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
@@ -698,7 +747,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   command), takes a client's address from `X-Forwarded-For`
   (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
-  ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
+  ReportLab, which may open no file and fetch nothing; a character its
+  built-in fonts can't draw prints "?", by ReportLab's own rule, and an
+  account's name keeps to Windows-1252, Western European letters, #722); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.
@@ -713,8 +764,12 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
-  `unexpected_error`); a save a restore's swap refused answers `REPLACED`
-  (503, `database.was_replaced`, Python 3.11+) and is logged as a
+  `unexpected_error`). An id a request sends that can reach a query is a
+  `database.RowId` (SQLite's 64-bit integers), or as tightly bound (Ledger
+  Review's `ids`, a chosen coin's `acquired_txn_id`: `chosen_coins.LARGEST_ID`):
+  one beyond is a 422 naming it, never bound into a query
+  (an `OverflowError`'s 500, #744). A save a restore's swap refused
+  answers `REPLACED` (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
   (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
   pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
@@ -743,7 +798,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). An in-app restore
+  brings back a backup's password or its price source), and the exchange
+  import's mappings in use beside the backup's (#656: a restore loses
+  none, and hands no mapping id out twice). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
   ordinary tables and indexes (no generated column, no index on an
   expression or with a WHERE) is refused, and the database that goes
@@ -847,9 +904,10 @@ test ledger (`testdata/reference_ledger.json`, loaded by
 app gains a kind of transaction or a report part, add a row there (its
 `why` says what for) and run `make reference-figures`. The coverage tests
 in `test_seed_ledger.py` fail by themselves for a new transaction type,
-deposit source, withdrawal purpose or broker-reporting choice (they take
-the app's own lists); a new account route or report part goes into their
-`ROUTES` or report-part checks too.
+deposit source, withdrawal purpose, broker-reporting choice or Ledger
+Review item (they take the app's own lists; each new kind needs a row in
+more than one account of each kind that holds it, #702); a new account
+route or report part goes into their `ROUTES` or report-part checks too.
 
 A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app

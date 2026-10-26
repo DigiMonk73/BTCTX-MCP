@@ -18,6 +18,7 @@ import {
   serverPackage,
 } from "../utils/aiSetup";
 import { macApp } from "../utils/prereleaseVersion";
+import Chevron from "./Chevron";
 
 /** Clipboard API where allowed (https, localhost); else the older copy command. */
 async function copyText(text: string): Promise<boolean> {
@@ -238,7 +239,10 @@ export const OlderVersionHint: React.FC<{ version?: string; serverMode: boolean 
   );
 };
 
-const ConnectAiSetting: React.FC = () => {
+const ConnectAiSetting: React.FC<{
+  /** The edition, once the server has said it: true on the Mac app (aiSetup's keyMode). */
+  onKeyMode?: (keyMode: boolean) => void;
+}> = ({ onKeyMode }) => {
   // This page's own version until the server answers, and if it doesn't:
   // never an unpinned connector, which a pre-release's setup must not hand out (B10a)
   const [version, setVersion] = useState<string | undefined>(__BTCTX_VERSION__);
@@ -258,6 +262,11 @@ const ConnectAiSetting: React.FC = () => {
 
   const keyMode = access?.mode === "mac";
   const input = useMemo(() => ({ url, version, keyMode }), [url, version, keyMode]);
+  // The closed section's summary words the key by edition, once it's known (#724)
+  const known = access !== null;
+  useEffect(() => {
+    if (known) onKeyMode?.(keyMode);
+  }, [known, keyMode, onKeyMode]);
 
   return (
     <>
@@ -293,7 +302,7 @@ const ConnectAiSetting: React.FC = () => {
           <OlderVersionHint version={version} serverMode={access?.mode === "server"} />
 
           <details className="ai-setup-manual">
-            <summary>Set it up yourself</summary>
+            <summary className="chevron-toggle">Set it up yourself<Chevron /></summary>
             <p className="settings-option-subtitle">
               {!keyMode && (
                 <>

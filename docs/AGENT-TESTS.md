@@ -73,6 +73,14 @@ the published files are the ones you tested.
 GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 1.2.10 when 2.0.0 comes out.
 
+To walk a published pre-release (or any build that isn't the tip), use
+this file as it is at that build's tag or commit (`git show
+v2.0.0-alpha.N:docs/AGENT-TESTS.md`, or `git show
+$SHA:docs/AGENT-TESTS.md`): its steps quote that build's screens, and a
+later commit can change both together. A step that reads as a FAIL there
+may have been corrected since: the tip's CHANGELOG, under Development,
+names the release walk's corrections.
+
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
@@ -166,8 +174,8 @@ account fits, and names accounts as Settings does (`Bank`, `Wallet`,
 | # | Date & Time | Transaction Type | Fields | Toast after saving |
 |---|---|---|---|---|
 | 1 | 2023-01-15 12:00 | Deposit | Account `Bank`, Amount `100000` | Transaction created successfully! |
-| 2 | 2023-02-01 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `23000`, Amount BTC `1` | Transaction created successfully! |
-| 3 | 2023-03-01 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `12000`, Amount BTC `0.5` | Transaction created successfully! |
+| 2 | 2023-02-01 12:00 | Buy | Paid from `Bank`, Amount USD `23000`, Amount BTC `1` | Transaction created successfully! |
+| 3 | 2023-03-01 12:00 | Buy | Paid from `Bank`, Amount USD `12000`, Amount BTC `0.5` | Transaction created successfully! |
 | 4 | 2023-06-01 12:00 | Transfer | From Account `Exchange BTC` (From Currency shows `BTC`), To Account `Wallet`, Amount (From) `0.6`, Amount (To) `0.5998`, Fee value (USD) `10`. Check: Fee (BTC) shows `0.0002` | Transaction created successfully! |
 | 5 | 2023-09-10 12:00 | Sell | Amount BTC `0.5`, Gross Proceeds (USD) `13000`, Fee (USD) `10` | Transaction created! Realized Gain: +$1,390.00 |
 | 6 | 2023-12-31 23:30 | Withdrawal | Account `Wallet`, Amount `0.01`, Purpose `Spent`, Proceeds (USD) `400` | … Realized Gain: +$170.00 |
@@ -175,7 +183,7 @@ account fits, and names accounts as Settings does (`Bank`, `Wallet`,
 | 8 | 2024-03-02 12:00 | Sell | Amount BTC `0.1`, Gross Proceeds (USD) `6000` | … Realized Gain: +$3,600.00 |
 | 9 | 2024-05-01 12:00 | Deposit | Account `Wallet`, Amount `0.02`, Source `Income`, Cost Basis (USD) `1000` | Transaction created successfully! |
 | 10 | 2024-06-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.1`, Purpose `Gift`, FMV (USD) `6700` | Transaction created successfully! |
-| 11 | 2025-01-10 12:00 | Buy | Paid from `Bank (auto-buy)`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
+| 11 | 2025-01-10 12:00 | Buy | Paid from `Bank`, Amount USD `20000`, Amount BTC `0.2` | Transaction created successfully! |
 | 12 | 2025-04-01 12:00 | Sell | Amount BTC `0.05`, Gross Proceeds (USD) `4000` | … Realized Gain: −$1,000.00 |
 | 13 | 2025-05-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.1`, Purpose `Spent`, Proceeds (USD) `9000` | … Realized Gain: +$6,700.00 |
 | 14 | 2025-06-01 12:00 | Withdrawal | Account `Wallet`, Amount `0.01`, Purpose `Spent`, Fee (BTC) `0.0001`, Fee value (USD) `5`, Proceeds (USD) `1000` | … Realized Gain: +$765.00 (the $5 fee comes off the proceeds, #157) |
@@ -395,22 +403,25 @@ Start from the `clean` snapshot.
   +$7,200.00, #8 +$3,400.00. Change it back to `12000`. Expect: #5
   +$1,390.00, #7 +$7,800.00, #8 +$3,600.00. Every edit recalculates the
   whole ledger.
-- **GLD-6** Delete #9 (the income deposit). Expect the confirm "Are you
-  sure you want to delete this transaction?", then the past-year dialog:
-  "This changes the figures of tax year 2024, …" and one line,
-  `2024-05-01 12:00 · Deposit (Income) · 0.02000000 BTC — Deleted: basis
-  1000.00; cost of the lots it made 1000.00.` (the gift of 2024-06-01
-  takes older coins, so nothing else moves). Click **Delete anyway (a copy
-  is made first)**. Expect the toast "Transaction deleted successfully!"
-  and Wallet (BTC) 0.37970000 BTC. Re-enter #9, which makes it a
-  backdated entry: the dialog says "This changes the figures of tax year
-  2024, …" with `… — Added: basis 1000.00; cost of the lots it made
-  1000.00.` (none if GLD-1's "Don't ask again for adds to 2024" still
-  holds: the page wasn't reloaded since). Expect: every golden figure is
-  back, Wallet 0.39970000.
+- **GLD-6** Delete #9 (the income deposit). Expect the confirm "Are you sure
+  you want to delete this transaction?", then the past-year dialog: "This
+  changes the figures of tax year 2024, …" and one line, `2024-05-01 12:00 ·
+  Deposit (Income) · 0.02000000 BTC — Deleted: income 1000.00; basis
+  1000.00; cost of the lots it made 1000.00.` (the gift of 2024-06-01 takes
+  older coins, so nothing else moves). Click **Delete anyway (a copy is made
+  first)**. Expect the toast "Transaction deleted successfully!" and Wallet
+  (BTC) 0.37970000 BTC. Re-enter #9, which makes it a backdated entry: the
+  dialog says "This changes the figures of tax year 2024, …" with `… —
+  Added: income 1000.00; basis 1000.00; cost of the lots it made 1000.00.`
+  (none if GLD-1's "Don't ask again for adds to 2024" still holds: the page
+  wasn't reloaded since). Expect: every golden figure is back, Wallet
+  0.39970000.
 - **GLD-6b** Add a Deposit into Exchange BTC, Source **MyBTC**, `0.01` BTC
-  on `2025-04-01`, cost basis `500`. Expect a **Date originally acquired**
-  field (it isn't there for Income or for a Bank deposit); enter
+  on `2025-04-01`, cost basis `500`. Expect under Source "Coins moved here
+  from another wallet or exchange you track in BitcoinTX are a Transfer,
+  not a Deposit: a deposit would count them in both accounts." (#705), and
+  a **Date originally acquired** field (it isn't there for Income or for a
+  Bank deposit); enter
   `2023-03-14` and save. Edit it: the field shows 03/14/2023 (the date
   entered, #185), and saving the edit unchanged keeps it. Ledger Review shows "Nothing to review." and no
   "Reminder: My BTC and Gift deposits counted from their deposit date". Delete it. Expect:
@@ -418,8 +429,11 @@ Start from the `clean` snapshot.
 - **GLD-6c** A rebate (bitcoin back for spending). Open **Add
   transaction**, Deposit, and pick Account `Wallet`: expect the hint "A
   wallet is one set of keys: add each one you use in Settings → Wallets,
-  exchanges and banks." under it. Switch to Account `Exchange BTC`
-  (Currency shows `BTC`; the hint goes), Source **Rebate**, `0.0001` BTC on
+  exchanges and banks." under it, and under Source (still N/A) the line
+  "Coins moved here from another wallet or exchange you track in
+  BitcoinTX are a Transfer, …". Switch to Account `Exchange BTC`
+  (Currency shows `BTC`; the wallet hint goes), Source **Rebate** (the
+  Transfer line goes too), `0.0001` BTC on
   `2025-04-01`, cost basis `6`, and save. Expect: Exchange (BTC)
   0.15010000 BTC, and in Income & Fees
   Rebates (received) $6.00 (0.00010000 BTC) with Total Income unchanged
@@ -589,8 +603,12 @@ exchanges and banks** reads its name, its kind and its balance.
   wallets · 1 exchange · 1 bank".
 - **ACC-4** **Add an exchange**. Expect the help text "BitcoinTX keeps an
   exchange's dollars and bitcoin as two accounts, 'name USD' and 'name
-  BTC'." and the note of ACC-3 for an exchange (it begins "Years before you
-  add this exchange were figured with your exchange accounts together").
+  BTC'.", the question "Does this exchange send you a Form 1099-DA?" with
+  **Yes** chosen and **No** beside it, under them "An exchange in the US
+  sends one for your sales from 2025; one outside the US usually doesn't.
+  It decides the Form 8949 box, not the gain." (#708), and the note of
+  ACC-3 for an exchange (it begins "Years before you add this exchange
+  were figured with your exchange accounts together"). Leave **Yes**.
   Type `Kraken`: the help text reads "… two accounts, 'Kraken USD' and
   'Kraken BTC'." **Add**. Expect the row `Kraken` Exchange $0.00 ·
   0.00000000 BTC and the summary "2 wallets · 2 exchanges · 1 bank".
@@ -616,11 +634,17 @@ exchanges and banks** reads its name, its kind and its balance.
   BTC with a caret after its label, Settings' chevron: pressed (anywhere
   on the line), the caret turns over as a Settings section's does, and the
   line lists `Wallet` 0.39970000 BTC and `Coldcard` 0.00000000 BTC under
-  it. Exchange (USD) $37,990.00 with a
-  caret, listing `Exchange` $37,990.00 and `Kraken` $0.00; Exchange (BTC)
-  0.15000000 BTC with a caret, listing `Exchange` 0.15000000 BTC and
-  `Kraken` 0.00000000 BTC. Bank (USD) $45,000.00, with no caret. Reload:
-  the open lines stay open. Every golden figure.
+  it, `Wallet` with "Cost basis" under its amount and, with a price,
+  "Unrealized" and its gain (#709); `Coldcard`, holding none, with no cost.
+  Exchange (USD) $37,990.00 with a caret, listing `Exchange` $37,990.00 and
+  `Kraken` $0.00, with no cost; Exchange (BTC) 0.15000000 BTC with a caret,
+  listing `Exchange` 0.15000000 BTC with its cost basis and `Kraken`
+  0.00000000 BTC. `Wallet`'s and `Exchange`'s costs add up to $24,733.10,
+  Avg. Cost per BTC × Total BTC to the cent; their gains may differ from
+  Unrealized Gains/Losses by a cent or two (the card's is from the rounded
+  average).
+  Bank (USD) $45,000.00, with no caret. Reload: the open lines stay open.
+  Every golden figure.
 - **ACC-7** **Add transaction**, Transfer, From Account `Exchange BTC`.
   Expect To Account blank, offering under "Wallets" `Wallet` and
   `Coldcard`, and under "Exchanges" `Kraken BTC` and `Exchange: consolidate
@@ -631,8 +655,11 @@ exchanges and banks** reads its name, its kind and its balance.
   exchange? Choose that exchange's BTC account as To Account, after adding
   the exchange in Settings → Wallets, exchanges and banks if it isn't
   listed." Choose From Account `Wallet`: To Account is blank again, and
-  among its choices is `Wallet: consolidate / move within the same
-  wallet`. Close the panel with **Discard changes**.
+  among its choices is `Wallet: consolidate within the same wallet`.
+  Choose it. Expect under it, after the fee's line, "Moving coins to
+  another of your wallets? Choose that wallet as To Account, after adding
+  it in Settings → Wallets, exchanges and banks if it isn't listed."
+  Close the panel with **Discard changes**.
 
 ### MLT: a second exchange (2.0; price source Nobody)
 
@@ -645,8 +672,8 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
 - **MLT-1** Add a Buy dated 2025-02-01 12:00. Expect an **Exchange** field
   (with one exchange there is none), blank, offering `Exchange` and
   `Kraken`, and **Paid from** reading "Choose the exchange first". Choose
-  `Kraken`: **Paid from** offers `Kraken USD` and `Bank (auto-buy)`, blank.
-  Choose `Bank (auto-buy)`, Amount USD `6000`, Amount BTC `0.1`, and save.
+  `Kraken`: **Paid from** offers `Kraken USD` and `Bank`, blank.
+  Choose `Bank`, Amount USD `6000`, Amount BTC `0.1`, and save.
   Expect the dialog "This changes the figures of tax year 2025, which you
   may already have filed. Confirm to save it: a copy of your ledger is made
   first." with one line, `2025-02-01 12:00 · Buy · 0.10000000 BTC — Added:
@@ -668,7 +695,7 @@ add (GLD-1's "Don't ask again" lasts only while the page is open).
   line `2025-03-01 12:00 · Sell · 0.05000000 BTC — proceeds 4500.00 ->
   4600.00; gain 1500.00 -> 1600.00; taxable gain incl. network fees 1500.00
   -> 1600.00.`; **Save anyway**. Edit the Buy. Expect **Exchange**
-  `Kraken` and **Paid from** `Bank (auto-buy)`. Amount USD `6200`,
+  `Kraken` and **Paid from** `Bank`. Amount USD `6200`,
   **Update transaction**: two lines, `2025-02-01 12:00 · Buy · 0.10000000
   BTC — basis 6000.00 -> 6200.00; cost of the lots it made 6000.00 ->
   6200.00.` and `2025-03-01 12:00 · Sell · 0.05000000 BTC — basis 3000.00
@@ -917,8 +944,9 @@ attach btctx -n btctx -- sh -c 'ls -t /data/backups | head -1'`.
     trusting is a FAIL.
   - **Forget this server's certificate**: the certificate message comes
     back.
-  - Afterwards choose **Nobody** in **Privacy & Network**, clear the
-    address, and save: PRC-5 expects the app's own choice to be Nobody (from
+  - Afterwards, in **Privacy & Network**, clear the address, then choose
+    **Nobody** (which hides the address field, and keeps an address left
+    in it), and save: PRC-5 expects the app's own choice to be Nobody (from
     AUTH-4) and a blank address.
 - **PRC-5** Action: **Decide in BitcoinTX instead**. Expect: Settings'
   **Privacy & Network** is editable again and shows the app's own choice
@@ -967,9 +995,11 @@ Set `KEY` to the key from AI-3, and use
 - **AI-7** StartOS action **Connect an AI Assistant**. Expect: "MCP address
   (BTCTX_URL)" = `$API`, a "Root CA certificate" (save it as `ca.crt` if you
   haven't), and a "Claude Desktop configuration" and "Claude Code command"
-  that run `uvx btctx-mcp==X.Y.Z` with `YOUR_BITCOINTX_AI_KEY`. Settings'
-  **Connect an AI Assistant**: its Setup prompt contains the same version
-  and `$URL` (the connector accepts the address with or without `/api`).
+  that run `uvx btctx-mcp==X.Y.Z` with `YOUR_BITCOINTX_AI_KEY`, under the
+  server name `bitcointx` (an alpha's or a beta's: `bitcointx-preview`, with
+  `btctx-mcp==2.0.0aN` or `2.0.0bN`, #721). Settings' **Connect an AI
+  Assistant**: its Setup prompt contains the same server name, version and
+  `$URL` (the connector accepts the address with or without `/api`).
 - **AI-8** List the connector's tools with the MCP Inspector CLI. In
   Inspector 2.8.0 the server command comes first, then `--`, then the
   Inspector's own options:
@@ -981,10 +1011,11 @@ Set `KEY` to the key from AI-3, and use
   mcp --method tools/list
   ```
 
-  Expect 11 tools: `get_ledger_guide`, `get_portfolio`,
+  Expect 12 tools: `get_ledger_guide`, `get_portfolio`,
   `list_transactions`, `get_btc_price`, `review_ledger`,
   `preview_transactions`, `add_transactions`, `update_transaction`,
-  `delete_transaction`, `recalculate_ledger`, `backup_ledger`. The calls
+  `get_coins_moved`, `delete_transaction`, `recalculate_ledger`,
+  `backup_ledger`. The calls
   below are `mcp --method tools/call --tool-name <name> --tool-arg key=value`
   (a value may be JSON). Any MCP client works; the Inspector is simply the
   scriptable one.
@@ -1057,7 +1088,7 @@ Set `KEY` to the key from AI-3, and use
              -e BTCTX_URL=$API -e BTCTX_AI_KEY=$KEY -e BTCTX_CA_BUNDLE=$PWD/ca.crt "$@"; }
   ```
 
-  Expect `tools/list` to give the same 11 tools, and every tool's answer
+  Expect `tools/list` to give 1.2.10's 11 tools (no `get_coins_moved`), and every tool's answer
   to start with "Your BitcoinTX connector is v1.2.10 but BitcoinTX is vX.Y.Z. In
   your AI app's settings, change btctx-mcp==1.2.10 in its uvx command to
   btctx-mcp==X.Y.Z, then restart the AI app." `get_portfolio` lists the
@@ -1152,8 +1183,8 @@ Set `KEY` to the key from AI-3, and use
   and two wallets), **Exchange** with `Exchange` chosen and `Kraken`
   offered, "The exchange this file is from: its buys, sells and balances
   go there.", and **Wallet for sends and receives** with `Wallet` chosen
-  and `Coldcard` offered, "River's sends to your wallet go into it, and its
-  receives come from it."; leave both. River CSV file, then **Preview**.
+  and `Coldcard` offered, "This file's sends to your wallet go into it, and
+  its receives come from it."; leave both. River CSV file, then **Preview**.
   Expect: "3 new", "3 rows in file", and each Buy row showing the
   **Bank** / **Exchange USD** toggle. Click **Import 3 Transaction(s)**
   and confirm "Import 3 transaction(s) from River into your ledger?" (run
@@ -1185,12 +1216,12 @@ Set `KEY` to the key from AI-3, and use
   In **Import from an exchange** choose **Exchange** `Kraken` and **Wallet for
   sends and receives** `Coldcard`, then the file, then **Preview**.
   Expect "3 new", "3 rows in file", and the rows: the Buy with the **Bank**
-  / **Kraken USD** toggle (Kraken USD pressed) and "→ Kraken BTC"; the
-  Sell "Kraken BTC → Kraken USD"; the send a Transfer, "Kraken BTC →
-  Coldcard". Press **Bank** on the Buy, then **Import 3 Transaction(s)**
-  and confirm (the past-year dialog too, in a year after 2026). Expect
-  "Imported 3 transaction(s)." and the Sell at Gain +$13.33: River's
-  $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
+  / **Kraken USD** toggle (**Bank** pressed: no earlier sale in the file
+  leaves Kraken dollars to pay it, #655) and "→ Kraken BTC"; the Sell
+  "Kraken BTC → Kraken USD"; the send a Transfer, "Kraken BTC → Coldcard".
+  Click **Import 3 Transaction(s)** and confirm (the past-year dialog too,
+  in a year after 2026). Expect "Imported 3 transaction(s)." and the Sell
+  at Gain +$13.33: River's $55.00 net, less $41.67, the cost of 0.0005 of Kraken's own 0.0018 BTC
   lot ($148.50 plus its $1.50 fee), where IMP-4's same sale at the
   Exchange took lot C (+$5.00). Dashboard: Wallet (BTC) lists `Coldcard`
   0.00100000 BTC; Exchange (USD) `Kraken` $55.00 and Exchange (BTC)
@@ -1251,8 +1282,9 @@ Set `KEY` to the key from AI-3, and use
     the cent;
   - `2025-03-05 13:45 · Transfer · 0.00100000 BTC — Added: cost of the
     lots it made 100.26.`
-  - `2025-03-12 20:00 · Deposit (Reward) · 0.00000123 BTC — Added: basis
-    <V>; cost of the lots it made <V>.`, V being 0.00000123 × the price at
+  - `2025-03-12 20:00 · Deposit (Reward) · 0.00000123 BTC — Added: income
+    (Reward) <V>; basis <V>; cost of the lots it made <V>.`, V being
+    0.00000123 × the price at
     `2025-03-13T00:00:00Z`, to the cent.
 
   (From 2027 the dialog names tax years 2025 and 2026, and also lists IMP-4b's
@@ -1328,10 +1360,10 @@ Set `KEY` to the key from AI-3, and use
   header). Nothing is saved.
 - **BAK-4** Restore BAK-2's backup again, which removes the rows IMP-4 to
   IMP-6 imported. Expect every golden figure, Coldcard and Kraken at $0.00
-  and 0.00000000 BTC, and **Exchange file** without `Example Exchange`: a
-  restore takes the backup's mappings with its data (it had none), as it
-  does the backup's rows (whether a restore should keep mappings saved
-  since: #656).
+  and 0.00000000 BTC, and **Exchange file** still listing `Example
+  Exchange` under "Your mappings": a restore keeps the mappings saved
+  since the backup, beside the backup's own (it had none), while it takes
+  the backup's rows (#656).
 
 ### SEC: the live install from outside
 
@@ -1434,8 +1466,10 @@ contradicts itself or the docs (`startos/instructions.md`, `docs/USING.md`,
 layout broken at phone width (375 px) and at 1440 px, keyboard-only use,
 double-clicks on Save, very long or odd input (emoji, 21,000,000 BTC,
 negative numbers, far-future dates; from 2.0, an account named with 40
-characters or with emoji, in the pickers, the dashboard's lists and the
-Complete Tax Report), and the back button mid-flow. Report
+characters, in the pickers, the dashboard's lists and the Complete Tax
+Report, and a name with an emoji or a letter outside Western European
+alphabets refused with the report's reason, #722), and the back button
+mid-flow. Report
 each finding with steps, what you expected and what happened, and a
 severity: blocker (wrong tax figure, data loss, security), major, or minor.
 
@@ -1760,7 +1794,7 @@ point, leave it alone, touch nothing in it, and record that.
   a "Grok Build command" box. Tick **Let AI assistants use BitcoinTX**,
   then run the connector with no settings at all (as in AI-8, but with
   nothing after `--` except the method options; on a Mac with BitcoinTX
-  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 11 tools, and
+  installed, plus `-e BTCTX_MCP_FILE=DATA/mcp.json`, as above). Expect: 12 tools, and
   `get_portfolio` matches the Dashboard. **Reset key**: the connector keeps
   working (it re-reads `mcp.json`).
 - **MAC-5** Quit and reopen within 5 seconds. Expect: the same port and no
@@ -1775,8 +1809,9 @@ point, leave it alone, touch nothing in it, and record that.
   Converter's **Date** mode on a past day. Expect a price, and in
   `DATA/logs/run-test-build.out` "Price history from your mempool server:
   N days" with N in the hundreds (only if no daily price was stored yet:
-  this build has asked no public site). Set it back to **Nobody** and clear
-  the address.
+  this build has asked no public site). Then clear the address, choose
+  **Nobody** (which hides the address field, and keeps an address left in
+  it), and save.
 
 ## BETA: what a tester of an alpha or a beta meets (2.0's pre-releases only)
 
@@ -1853,7 +1888,7 @@ not a step to skip.
   the prompt to link `v2.0.0-beta.N`'s `AI_SETUP.md`. Tick **Let AI assistants
   use BitcoinTX** and run that connector as MAC-4 does, with
   `MCP="uvx btctx-mcp==2.0.0bN"` and `-e BTCTX_MCP_FILE=DATA/mcp.json`.
-  Expect 11 tools, `get_portfolio` matching the dashboard, and no notice
+  Expect 12 tools, `get_portfolio` matching the dashboard, and no notice
   that the versions differ.
 - **BETA-5** (Docker, on your machine) A Docker beta on a new volume,
   with a 1.x backup restored:
@@ -1884,7 +1919,9 @@ page's pictures".
 - **REF-1** The landing page's pictures:
   `make site-shots SITE_SHOTS_DIR=LAB/runs/site-shots-X.Y.Z`. Expect four
   PNGs: `dashboard.png`, `transactions.png` and `reports.png` at 2940 ×
-  1734, and `settings.png` at about 1730 × 1570. Settings shows
+  1734, and `settings.png` about 1730 wide (its height follows the
+  **Connect an AI Assistant** section it shows: about 1475 at
+  2.0.0-alpha.2). Settings shows
   `btctx-mcp==X.Y.Z` and `~/Library/Application Support/BitcoinTX/mcp.json`.
   The Dashboard's Income & Fees card has every line the app's card has.
   Compare each with DigiMonk73/btctx-site's `img/` (`cmp`) and list which
@@ -1899,13 +1936,15 @@ page's pictures".
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "✓ 141 transactions loaded into
+  --password-stdin`. Expect "✓ 205 transactions loaded into
   http://127.0.0.1:8791 (2023-2026)" (the count in
   `testdata/reference_ledger.json`). From 2.0 the seed first adds the
   ledger's own accounts through the account API (Coldcard, Jade, Kraken,
-  Overseas with its 1099-DA switch off, Credit union, Savings) and stops
-  if one gets another id than the file lists: the database must be new, as
-  `set-password` made it. Stop the server. On a copy:
+  Overseas with its 1099-DA switch off, made as "Offshore", Credit union,
+  Savings, Sparrow) and stops if one gets another id than the file lists: the
+  database must be new, as `set-password` made it. After the rows it
+  renames Offshore to Overseas and hides the Jade, as the file lists.
+  Stop the server. On a copy:
   `python scripts/reference_figures.py --db <copy> --compare
   testdata/reference_figures.json`. Expect "No figure moved.". Save its
   figures beside it: `python scripts/reference_figures.py --db <copy> >

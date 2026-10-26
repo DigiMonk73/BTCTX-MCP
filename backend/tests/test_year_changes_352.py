@@ -159,3 +159,86 @@ def test_a_gift_like_withdrawal_compares_its_purpose_and_value_a_dollar_one_does
                         " '2024-07-01T12:00:00Z', 1, 99, '100', '0', 'USD', 'Gift', '100')"))
         db.commit()
     assert figures(client)[990]["given"] is None  # a dollar withdrawal's leftover fields (#449)
+
+
+def donate(client, when: str, amount: str = "0.05", **more) -> int:
+    return save(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount=amount,
+                timestamp=when, purpose="Donation", fmv_usd="3000", **more)
+
+
+def test_a_donations_own_coins_are_held_and_dated_never_a_form_8949_box(client):
+    # A gift, donation or lost coins are on no Form 8949 (form_8949.taxable_disposals); their
+    # holding period and date acquired still count, a donation's for its deduction (#736)
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    donation = donate(client, "2025-07-01T12:00:00Z")
+    moved = changes_of(client, lambda: deposit(client, "2023-01-01T12:00:00Z", amount="0.05", basis="500"))
+    diff = moved[donation]["diff"]
+    assert {key: diff[key] for key in ("given_terms", "given_acquired")} == {
+        "given_terms": (["SHORT"], ["LONG"]), "given_acquired": (["01/01/2025"], ["01/01/2023"])}
+    assert "boxes" not in diff and "acquired" not in diff
+    assert year_changes.change_text(diff, figures(client)[donation]) == (
+        "basis 1000.00 -> 500.00; held short-term -> long-term; date acquired 01/01/2025 -> 01/01/2023.")
+
+
+def test_a_donations_network_fee_is_on_form_8949_and_says_so(client):
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    donation = donate(client, "2025-07-01T12:00:00Z", fee_amount="0.0001", fee_currency="BTC")
+    moved = changes_of(client, lambda: deposit(client, "2023-01-01T12:00:00Z", amount="0.05", basis="500"))
+    words = year_changes.change_text(moved[donation]["diff"], figures(client)[donation])
+    assert "network fee's Form 8949 box I -> L" in words
+    assert words.count("Form 8949") == words.count("network fee's Form 8949")
+    assert "held short-term -> " in words
+
+
+def test_a_broker_choice_left_on_a_donation_moves_nothing_filed(client):
+    # The form offers none for a gift; one an edit left there would only move a box its coins don't have
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    donation = donate(client, "2025-07-01T12:00:00Z")
+    assert changes_of(client, lambda: edit(client, donation, broker_reporting="basis")) == {}
+
+
+def test_a_spend_made_a_gift_names_its_own_rows_never_a_network_fees(client):
+    # Its Form 8949 rows before the edit were the spend's own; the gift's part says what it became
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    spend = save(client, type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.05",
+                 timestamp="2025-07-01T12:00:00Z", purpose="Spent", proceeds_usd="3000")
+    moved = changes_of(client, lambda: edit(client, spend, purpose="Gift", fmv_usd="3000"))
+    words = year_changes.change_text(moved[spend]["diff"], figures(client)[spend])
+    assert "Form 8949 box I -> none" in words and "network fee's" not in words
+    assert "held" not in words and "date acquired none" not in words
+    assert words.endswith("gifts, donations and lost coins: none -> Gift 3000.00.")
+
+
+def test_an_added_or_deleted_row_names_what_the_years_report_counts(client):
+    # A filed return carries the year's income (Schedule 1), and the report lists rebates and gifts apart (#753)
+    deposit(client, "2025-01-01T12:00:00Z", amount="0.1", basis="2000")
+    words = {}
+    for name, body in {
+        "reward": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0002",
+                       timestamp="2025-06-15T12:00:00Z", source="Reward", cost_basis_usd="22.22"),
+        "income": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0002",
+                       timestamp="2025-06-16T12:00:00Z", source="Income", cost_basis_usd="20.00"),
+        "rebate": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0001",
+                       timestamp="2025-06-17T12:00:00Z", source="Rebate", cost_basis_usd="6.00"),
+        "donation": dict(type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.01",
+                         timestamp="2025-06-18T12:00:00Z", purpose="Donation", fmv_usd="600"),
+        "interest": dict(type="Deposit", from_account_id=EXTERNAL, to_account_id=EXCHANGE_BTC, amount="0.0001",
+                         timestamp="2025-06-19T12:00:00Z", source="Interest", cost_basis_usd="5.00"),
+        "lost": dict(type="Withdrawal", from_account_id=EXCHANGE_BTC, to_account_id=EXTERNAL, amount="0.001",
+                     timestamp="2025-06-20T12:00:00Z", purpose="Lost", fmv_usd="60"),
+    }.items():
+        added = {}
+        moved = changes_of(client, lambda body=body: added.setdefault("id", save(client, **body)))
+        words[name] = year_changes.change_text(moved[added["id"]]["diff"], figures(client)[added["id"]])
+    assert words["reward"] == "Added: income (Reward) 22.22; basis 22.22; cost of the lots it made 22.22."
+    assert words["income"].startswith("Added: income 20.00; basis 20.00;")
+    assert words["rebate"].startswith("Added: rebate 6.00; basis 6.00;")
+    assert words["donation"].startswith("Added: donation 600.00; ")
+    assert words["interest"].startswith("Added: income (Interest) 5.00; basis 5.00;")
+    assert words["lost"].startswith("Added: lost coins 60.00; ")
+    rebate = next(tx for tx, row in figures(client).items() if (row["received"] or ("",))[0] == "Rebate")
+    before = figures(client)
+    r = client.delete(f"/api/transactions/{rebate}")
+    assert r.status_code == 204, r.text
+    moved = year_changes.moved(before, figures(client))
+    assert year_changes.change_text(moved[rebate]["diff"], before[rebate]).startswith("Deleted: rebate 6.00; basis 6.00;")

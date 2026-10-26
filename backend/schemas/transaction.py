@@ -12,6 +12,7 @@ from typing import Literal
 from datetime import date, datetime
 from decimal import Decimal
 
+from backend.database import RowId
 from backend.services.tax_time import as_utc
 
 # backend.constants.BROKER_REPORTING_VALUES
@@ -132,6 +133,41 @@ def _in_range(value):
     return value
 
 
+class ChosenCoin(BaseModel):
+    """
+    Coins chosen to leave one of your wallets (#711): the id of the Buy or
+    Deposit that acquired them, and how much of them.
+    """
+    acquired_txn_id: int
+    btc: Decimal = Field(description="BTC, up to 8 decimals, more than 0.")
+
+    @field_validator("btc")
+    def validate_btc(cls, v: Decimal) -> Decimal:
+        return validate_btc_decimal(v)
+
+
+class ChosenCoinRead(BaseModel):
+    """A stored choice's line, shown as it is."""
+    acquired_txn_id: int
+    btc: Decimal
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("btc", when_used="json")
+    def btc_written_out(self, v: Decimal) -> str:
+        return eight_places(v)
+
+
+CHOSEN_COINS = (
+    "Only for coins leaving one of your wallets (a Transfer out of it, or a bitcoin Withdrawal from it): "
+    "the coins you chose, each by the id of the Buy or Deposit that acquired them and how much of them, "
+    "together exactly what leaves (a Transfer's amount; a Withdrawal's amount and its BTC fee). The fee "
+    "takes the oldest of them first. Omit or null: the wallet's oldest coins first. A choice counts only "
+    "if you made it by the time the coins left and your records from then show it (Treas. Reg. "
+    "§1.1012-1(j))."
+)
+
+
 class TransactionBase(BaseModel):
     """
     A transaction as entered: its type, accounts, amount, fee and USD
@@ -140,8 +176,8 @@ class TransactionBase(BaseModel):
     type: TxType
     timestamp: datetime | None = None
 
-    from_account_id: int | None = None
-    to_account_id: int | None = None
+    from_account_id: RowId | None = None
+    to_account_id: RowId | None = None
 
     amount: Decimal | None = Field(
         default=None,
@@ -173,6 +209,7 @@ class TransactionBase(BaseModel):
             "(none / proceeds / basis). Omit or null for automatic."
         ),
     )
+    chosen_coins: list[ChosenCoin] | None = Field(default=None, description=CHOSEN_COINS)
 
     cost_basis_usd: Decimal | None = Field(
         default=None,
@@ -265,8 +302,8 @@ class TransactionUpdate(BaseModel):
     type: TxType | None = None
     timestamp: datetime | None = None
 
-    from_account_id: int | None = None
-    to_account_id: int | None = None
+    from_account_id: RowId | None = None
+    to_account_id: RowId | None = None
     amount: Decimal | None = None
     fee_amount: Decimal | None = None
     fee_currency: str | None = None
@@ -275,6 +312,9 @@ class TransactionUpdate(BaseModel):
     purpose: str | None = None
     acquired_at: datetime | date | None = None  # My BTC / Gift deposits (null: the deposit's date); Inherited: the date of death
     broker_reporting: BrokerReporting | None = None  # send null to go back to automatic
+    # Coins leaving a wallet (#711): left out, the chosen ones are kept (an edit
+    # that changes what leaves must send them); null, the oldest first
+    chosen_coins: list[ChosenCoin] | None = None
 
     cost_basis_usd: Decimal | None = None
     proceeds_usd: Decimal | None = None
@@ -348,10 +388,16 @@ class TransactionRead(TransactionBase):
     price_moment: str | None = None  # those priced values': "hour" (its UTC hour's opening price) or "day"
     price_used: PriceUsed | None = None  # that price, when this install has it (never asked for)
     values_from_price: list[str] = []  # which values came from a price (transaction.values_from_price, #208)
+    chosen_coins: list[ChosenCoinRead] | None = None  # the coins it chose (#711); null: oldest first
+    coins_chosen_at: datetime | None = None  # when they were saved
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("chosen_coins", mode="before")
+    def none_chosen_is_null(cls, v):
+        return v or None
 
     # A stored transaction is shown as it is. The limits above are for what
     # is entered: a figure the ledger derives from entered values (a sale's

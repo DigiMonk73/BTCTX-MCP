@@ -14,7 +14,7 @@ async function lastTx(page: Page) {
 }
 
 // A Wallet sent to itself, as the To picker reads it (#159)
-const WITHIN_WALLET = "Wallet: consolidate / move within the same wallet";
+const WITHIN_WALLET = "Wallet: consolidate within the same wallet";
 
 async function setWhen(page: Page, local = WHEN) {
   await page.getByLabel("Date & Time").fill(local);
@@ -310,7 +310,7 @@ test("transfer Bank → Exchange USD", async ({ authedPage: page }) => {
   expect(Number(tx.amount)).toBe(2500);
 });
 
-for (const [from, id] of [["Exchange USD", 3], ["Bank (auto-buy)", 1]] as const) {
+for (const [from, id] of [["Exchange USD", 3], ["Bank", 1]] as const) {
   test(`buy from ${from} with a USD fee`, async ({ authedPage: page }) => {
     await createTx(page.request, {
       type: "Deposit", timestamp: "2023-01-02T18:00:00Z", from_account_id: 99, to_account_id: id,

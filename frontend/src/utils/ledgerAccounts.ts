@@ -131,6 +131,8 @@ export const SWITCH_LABEL = "This exchange sends me a Form 1099-DA";
 export const SWITCH_HELP =
   "An exchange in the US sends one for your sales from 2025; one outside the US usually doesn't. " +
   "It decides the Form 8949 box, not the gain.";
+// The same switch, asked when an exchange is added (#708), with the same help
+export const ADD_1099DA_QUESTION = "Does this exchange send you a Form 1099-DA?";
 
 /** An exchange's switch: on (the default, the owner's decision of 2026-10-15)
  * unless its accounts say off (they say the same: it's the exchange's); null

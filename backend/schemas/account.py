@@ -10,11 +10,13 @@ from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class AccountCreate(BaseModel):
-    """A bank, a wallet, or an exchange (its two accounts), with a name."""
+    """A bank, a wallet, or an exchange (its two accounts), with a name; an
+    exchange also with whether it sends a Form 1099-DA (left out: it does)."""
     model_config = ConfigDict(extra="forbid")
 
     kind: Literal["bank", "wallet", "exchange"]
     name: str
+    sends_1099da: bool | None = None
 
 
 class AccountUpdate(BaseModel):

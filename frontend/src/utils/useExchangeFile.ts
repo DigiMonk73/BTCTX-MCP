@@ -139,6 +139,8 @@ export function useExchangeFile(toast: Toasts) {
     mappings, chosenId, chosen, matching, columns, draft, setDraft, saving,
     choose, fileChosen, addMapping, save, remove,
     name: chosenId === "river" ? "River" : chosen?.name ?? (draft.name.trim() || "Exchange"),
+    // The exchange the file is from by the mapping's name, none for one not yet named: never 1.x's "Exchange" (#707)
+    fileExchange: chosenId === "river" ? "River" : chosen?.name ?? draft.name.trim(),
     urls: chosenId === "river" ? RIVER_URLS : EXCHANGE_URLS,
     // A matched file previews once its columns are read and say what each holds
     ready: !matching || (columns !== null && missingRoles(draft).length === 0),

@@ -36,7 +36,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from btctx_mcp.accounts import AccountNames
-from btctx_mcp.client import BtctxClient, BtctxError, PastYearWarning
+from btctx_mcp.client import BtctxClient, BtctxError, ChooseAgain, PastYearWarning
 from btctx_mcp.guide import LEDGER_GUIDE
 
 # What a tool returns. typing.Dict, not dict: the MCP SDK describes a Dict
@@ -66,11 +66,31 @@ Confirm = Annotated[str | None, Field(
     description="Only after the user said yes to this change of an earlier tax year: the confirm this tool's "
                 "earlier answer gave (saved: false), with the same arguments as then. Never set it on your own.")]
 # A past-year warning as the tool answers it: what the user is asked about
-WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "confirm")
+WARNING_FIELDS = ("detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "timezone",
+                  "confirm")
+TO_CHOOSE_AGAIN = ("Nothing was saved: this transaction's coins were chosen, and this changes what leaves. Ask "
+                   "the user which coins they sent by the time they left, as their records from then show, and "
+                   "call update_transaction again with the same changes and chosen_coins (their choice, adding up "
+                   "to what leaves now), or chosen_coins [] (BitcoinTX's null) to send the oldest coins first. "
+                   "Never pick coins for them.")
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
-              "Show the user detail, the years and the changes (and pending apart: rules fixed since those rows "
-              "were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
+              "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
+              "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
               "arguments and {param} set to this answer's confirm. A copy of the ledger is made first.")
+
+
+class ChosenCoinInput(BaseModel):
+    """Coins the user chose from one purchase or deposit (#711)."""
+    acquired_txn_id: int = Field(gt=0, description="The Buy or Deposit that acquired them: its transaction id "
+                                                   "(list_transactions).")
+    btc: AmountValue = Field(gt=0, description="How much of them, BTC (max 8 decimals).")
+
+
+CHOSEN_COINS = ("Only for a Transfer to another account, or a BTC Withdrawal, from one of the user's wallets, and "
+                "only when the user says they chose which coins to send by the time they left, with a record from "
+                "then (see the ledger guide): each purchase or deposit those coins came from and the BTC from "
+                "it, together exactly what leaves (a Transfer's amount, its fee in it; a Withdrawal's amount and "
+                "its BTC fee). Omitted: the oldest coins leave first. Never on an exchange.")
 
 
 class TransactionInput(BaseModel):
@@ -114,6 +134,7 @@ class TransactionInput(BaseModel):
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "
                                   "It's then saved, once (sent again, it's left out). Never set it on your own. "
                                   "An identical row beside it needs it too, or the request is refused as unclear.")
+    chosen_coins: list[ChosenCoinInput] | None = Field(default=None, description=CHOSEN_COINS)
 
 
 _client: BtctxClient | None = None
@@ -232,6 +253,8 @@ async def _write(method: str, path: str, confirm: str | None, **kwargs: Any) -> 
                                           **kwargs), None
     except PastYearWarning as warning:
         return None, warning.body
+    except ChooseAgain:
+        raise  # the caller's answer, not an error
     except BtctxError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -380,7 +403,7 @@ def _compact(tx: dict[str, Any], names: AccountNames) -> dict[str, Any]:
     }
     for key in ("fee_amount", "fee_currency", "source", "purpose", "cost_basis_usd",
                 "proceeds_usd", "gross_proceeds_usd", "fmv_usd", "fee_usd", "realized_gain_usd", "holding_period",
-                "broker_reporting", "acquired_at"):
+                "broker_reporting", "acquired_at", "chosen_coins", "coins_chosen_at"):
         val = tx.get(key)
         if val not in (None, "", "N/A") and not (key == "fee_amount" and Decimal(str(val)) == 0):
             out[key] = val
@@ -596,6 +619,8 @@ async def update_transaction(
     fee_usd: UsdValue | None = None,
     broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
     acquired_at: str | None = None,
+    chosen_coins: Annotated[list[ChosenCoinInput] | None, Field(description=CHOSEN_COINS + " [] sets it back "
+                                                                "to the oldest coins first.")] = None,
     confirm_move: Confirm = None,
 ) -> ToolResult:
     """Change fields of one existing transaction (only the fields you pass). The whole ledger is
@@ -629,8 +654,12 @@ async def update_transaction(
     acquired_at (MyBTC/Gift deposit) sets the date the coins were originally acquired, kept as
     that date (a date and time stands for its date in the tax timezone); "none" clears it (the
     holding period then starts at the deposit). For an Inherited deposit it is the date of
-    death, which it must keep. The answer is the transaction as list_transactions shows it,
-    from_price included."""
+    death, which it must keep.
+    chosen_coins records the coins the user says they sent (see its description and the ledger
+    guide). An edit that changes what leaves a transaction whose coins were chosen (its type,
+    accounts, amount or fee) needs them again: without them the answer is saved: false, saying
+    what to send. The answer is the transaction as list_transactions shows it, from_price and
+    chosen_coins included."""
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)
@@ -656,12 +685,17 @@ async def update_transaction(
         changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
     if acquired_at is not None:
         changes["acquired_at"] = None if acquired_at.strip().lower() == "none" else await _date_from(acquired_at)
+    if chosen_coins is not None:  # [] is oldest first, which the API takes as null
+        changes["chosen_coins"] = [line.model_dump(mode="json") for line in chosen_coins] or None
     if not changes:
         raise ToolError("No changes given.")
 
     await _complete_for_server_rules(transaction_id, changes, proceeds_given=proceeds_usd is not None)
     names = await _account_names()  # before the write: a failure after it would report a saved edit as failed
-    updated, asked = await _write("PUT", f"/api/transactions/{transaction_id}", confirm_move, json=changes)
+    try:
+        updated, asked = await _write("PUT", f"/api/transactions/{transaction_id}", confirm_move, json=changes)
+    except ChooseAgain as again:
+        return {"saved": False, "detail": again.detail, "to_go_on": TO_CHOOSE_AGAIN}
     return _asks(asked, "update_transaction", "confirm_move") if asked else _compact(updated, names)
 
 
@@ -718,6 +752,18 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
             changes.setdefault(key, current[key])
     if proceeds_given and changes.get("type", current["type"]) == "Sell":
         changes["gross_proceeds_usd"] = changes["proceeds_usd"]
+
+
+@mcp.tool(annotations=READ_ONLY)
+@with_version_notice
+async def get_coins_moved(transaction_id: int) -> ToolResult:
+    """The coins a saved Transfer moves, as BitcoinTX works them out: each piece's date
+    acquired, BTC, cost and whether it was inherited, in the order taken, and the BTC its
+    network fee disposes of. Without a choice, the From account's oldest coins first; with one
+    (chosen_coins), the coins chosen. Worked out on a copy of the ledger: nothing is saved.
+    Use it to show the user which coins a transfer moved before they change it. On a very
+    large ledger it can answer coins null, with BitcoinTX's reason in detail: try once more."""
+    return await _call("POST", f"/api/transactions/{transaction_id}/coins-moved", json={})
 
 
 @mcp.tool(annotations=ToolAnnotations(

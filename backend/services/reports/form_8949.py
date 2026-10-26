@@ -101,7 +101,14 @@ def taxable_disposals(db: Session, start, end) -> list[LotDisposal]:
           .order_by(Transaction.timestamp, LotDisposal.id)
           .all()
     )
-    return [d for d in disposals if d.is_fee or not _not_a_sale(d.transaction)]
+    return [d for d in disposals if on_form_8949(d)]
+
+
+def on_form_8949(disp: LotDisposal) -> bool:
+    """Whether a lot disposal goes on Form 8949: a sale's, a spend's or a
+    network fee's (a gift's fee too), never a gift's, donation's or lost
+    coins' own."""
+    return disp.is_fee or not _not_a_sale(disp.transaction)
 
 
 def _not_a_sale(tx: Transaction) -> bool:

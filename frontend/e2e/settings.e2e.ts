@@ -334,7 +334,14 @@ test.describe("Mac app: AI key file instead of a password", () => {
     expect(first.url).toBe(app.url);
     expect(statSync(keyFile).mode & 0o777).toBe(0o600);
 
-    await openSettings(page, "Connect an AI Assistant");
+    await page.getByRole("link", { name: "Settings" }).click();
+    // The app makes its key, so the closed section never says you create one (#724)
+    const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
+    await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
+    await expect(sectionButton).toHaveAccessibleDescription(
+      "An AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+    );
+    await openSection(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     await expect(ai.getByText("No AI key yet: press Reset key.")).toHaveCount(0); // it has one (#238)
     const prompt = ai.getByLabel("Setup prompt");
@@ -400,8 +407,29 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
   });
 });
 
-test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
+test("Set it up yourself opens with the app's one chevron, never the browser's triangle (#681)", async ({
+  authedPage: page,
+}) => {
   await openSettings(page, "Connect an AI Assistant");
+  const summary = page.locator("summary", { hasText: "Set it up yourself" });
+  // Chromium and today's WebKit draw a summary's marker only for a list item (Safari 15's
+  // ::-webkit-details-marker, hidden too, isn't one these engines report)
+  expect(await summary.evaluate((el) => [getComputedStyle(el).display, getComputedStyle(el).listStyleType]))
+    .toEqual(["flex", "none"]);
+  const chevron = summary.locator(".chevron");
+  await expect(chevron).toHaveCSS("transform", "none");
+  await summary.click();
+  await expect(chevron).not.toHaveCSS("transform", "none"); // turned over while open, as Settings' sections
+});
+
+test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
+  await page.getByRole("link", { name: "Settings" }).click();
+  const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
+  await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
+  await expect(sectionButton).toHaveAccessibleDescription(
+    "An AI app that reads your ledger and enters transactions, with a key you create",
+  );
+  await openSection(page, "Connect an AI Assistant");
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
   const anon = await playwrightRequest.newContext({ baseURL: app.url });
   const works = async (key: string) =>

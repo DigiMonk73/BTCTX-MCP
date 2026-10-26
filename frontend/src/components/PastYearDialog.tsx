@@ -59,6 +59,21 @@ const PendingChanges: React.FC<{ warning: PastYearWarning }> = ({ warning }) => 
   </div>
 );
 
+/**
+ * The zone the rows' dates are in, under them: the server's, the tax
+ * timezone (the one being saved, for a timezone), as Ledger Review's are,
+ * not the device's clock the form behind it shows (#737).
+ */
+const DatesNote: React.FC<{ warning: PastYearWarning }> = ({ warning }) =>
+  warning.timezone && warning.changes.length + warning.pending.length > 0
+    ? <p className="dialog-note">Dates in {warning.timezone}.</p>
+    : null;
+
+/** Beside a choice of coins on a transaction in an earlier tax year: when
+ * a choice counts, in the server's words (#711). */
+const CoinsChosenNote: React.FC<{ warning: PastYearWarning }> = ({ warning }) =>
+  warning.coins_chosen ? <p className="dialog-note">{warning.coins_chosen}</p> : null;
+
 const PastYearDialog: React.FC<PastYearDialogProps> = ({
   kind, warning, changed = null, busy, opener, onConfirm, onCancel,
 }) => {
@@ -103,6 +118,7 @@ const PastYearDialog: React.FC<PastYearDialogProps> = ({
         aria-labelledby="past-year-title" aria-describedby="past-year-detail">
         <h3 id="past-year-title" className="card-title">Change an earlier tax year?</h3>
         <p id="past-year-detail">{warning.detail}</p>
+        <CoinsChosenNote warning={warning} />
         {changed && (
           // Keyed by the warning, so a second change is announced again
           <div key={warning.confirm} className="note note-error" role="alert">
@@ -114,6 +130,7 @@ const PastYearDialog: React.FC<PastYearDialogProps> = ({
         {!warning.exact && warning.why_not_exact && <p className="dialog-note">{warning.why_not_exact}</p>}
         <ChangeList items={warning.changes} />
         {hasPending && <PendingChanges warning={warning} />}
+        <DatesNote warning={warning} />
         {kind === "add" && years && (
           <label className="dialog-tick">
             <input type="checkbox" checked={quiet} disabled={busy} onChange={(e) => setQuiet(e.target.checked)} />

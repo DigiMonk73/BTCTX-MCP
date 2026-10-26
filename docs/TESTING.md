@@ -216,7 +216,8 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (141 transactions, 2023 to 2026). Every
+`testdata/reference_ledger.json` (205 transactions, 2023 to 2026, and a
+deposit dated 2022 so 2023 starts holding coins). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the
@@ -227,13 +228,41 @@ originally acquired, and inherited coins are sold within a year of the death. Ev
 it loads with the price source Nobody. Each row's `why` says what it is for.
 From 2.0 it holds multiple wallets, exchanges or accounts: its `accounts`
 list adds two of each kind (wallets Coldcard and Jade, exchanges Kraken and
-Overseas, whose 1099-DA switch is off, banks Credit union and Savings),
-which the seed makes through the account API before the rows, and the rows
-marked `"since": "2.0"` use them, all in 2026, so no earlier year's
-figures move. The one exception is the last row, the fee-less split of a
-pooled wallet (Wallet to the Coldcard). `test_reference_ledger_354.py`
-proves every older row keeps its figures beside them (the equivalence
-check's ledgers leave them out) and that the split moves only those two
+Overseas, whose 1099-DA switch is off, banks Credit union and Savings) and
+a fourth wallet, the Sparrow, which the seed makes through the account API
+before the rows and, after them, names and hides as listed (Overseas is
+made as "Offshore" and renamed; the Jade is hidden while it still holds
+coins). The rows marked `"since": "2.0"` use them: B7a's in 2026, #702's
+from 2022 to 2026, each filling its year's 2.0 dimensions, and #730's in
+2025 and 2026, which choose which coins leave a wallet (#711). A row names
+the coins it acquired with a `key`, and a later row chooses them by it
+(`"chosen_coins": [{"key": …, "btc": …}]`): the seed sends each as the id
+the server gave that row, never by position, and stops before sending
+anything if a key is defined twice or chosen before its row.
+`test_seed_ledger.py` fails if one empties: each deposit source and
+withdrawal purpose in more than one wallet and exchange, each account
+route between more than one pair of accounts, each exchange's sales in the
+boxes its 1099-DA switch gives
+(`SALES_BOXES`), every Broker form choice against each switch (a spend's
+fee following it), gains and losses of both terms and inherited coins sold
+in each forms year (2024 to 2026), holdings at each year's start, a hidden
+and a renamed account on the dashboard, and each Ledger Review item a row
+can show (it names the others, with why no row can); and chosen coins
+for each withdrawal purpose and each move out of a wallet, choices in 2025
+and 2026, inherited coins chosen, a spend's coins and a donation's of both
+terms, one purchase chosen across two lots, and a choice equal to oldest
+first beside choices that aren't. Priced values stay
+empty: every value is typed, so it loads with the price source Off. The
+2.0 rows go only into 2.0's accounts (the one exception is the last row,
+the fee-less split of a pooled wallet, Wallet to the Coldcard), and
+#702's (marked `"added": "#702"`) each after that account's last earlier
+disposal (Kraken's and Overseas' bitcoin are emptied by the end of 2025);
+#730's (`"added": "#730"`) live in the Sparrow, filled only from External,
+and send chosen coins to the Jade and Kraken only after each one's last
+earlier row; so no older row's figure moves. `test_reference_ledger_354.py`
+proves it row by row, 1.x's beside every 2.0 row (the equivalence check's
+ledgers leave those out), 1.x's and B7a's beside #702's and #730's, and
+those and #702's beside #730's, and that the split moves only those two
 wallets' year-end lots and balances.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
@@ -275,7 +304,8 @@ review once every figures check is green.
 
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box
-totals, the gains summary, income, rebates, gifts, year-end lots) from the
+totals, each exchange's Sells, the gains summary, income, rebates, gifts,
+the lots held at each year's start and end) from the
 IRS's and the ledger's documented rules, importing nothing of the app
 (#150). `backend/tests/test_independent_figures.py` fails on any difference
 in those from `reference_figures.json`, so a change meant to move figures

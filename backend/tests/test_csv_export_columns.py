@@ -34,10 +34,11 @@ EXPORTED = {
     "proceeds_from_price": "proceeds_typed",
     "fmv_from_price": "fmv_typed",
     "price_moment": "price_moment",
+    "id": "id",  # a label for this file's chosen_coins (#711): the import gives new ids
+    "coins_chosen_at": "coins_chosen_at",
 }
 
 NOT_EXPORTED = {
-    "id": "the import numbers the rows anew",
     "created_at": "set when the row is saved",
     "updated_at": "set when the row is saved",
     "realized_gain_usd": "worked out from the lots on every recalculation",
@@ -45,7 +46,7 @@ NOT_EXPORTED = {
 }
 
 # CSV columns with no Transaction column behind them.
-CSV_ONLY = {"notes"}
+CSV_ONLY = {"notes", "chosen_coins"}  # chosen_coins: a table of its own (#711)
 
 
 def test_every_transaction_column_is_exported_or_listed():

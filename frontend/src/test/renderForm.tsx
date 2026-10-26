@@ -2,7 +2,8 @@
 // round trip on the mounted form, with its fill-ins), against a stubbed
 // server that answers from an account book, or as a test says (the
 // past-year warning's 409, #352). Every request is recorded, in order;
-// nothing leaves the test.
+// nothing leaves the test. Asking which coins a Transfer moves (#706) is a
+// POST that writes nothing: it's never one of the writes.
 import "./setup";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent, { type UserEvent } from "@testing-library/user-event";
@@ -44,9 +45,9 @@ export interface RenderedForm {
   requests: SentRequest[];
   /** Click Save, then wait until every request it made has its answer. */
   save: () => Promise<void>;
-  /** The body of the last POST or PUT. */
+  /** The body of the last write sent by POST or PUT. */
   sent: () => Record<string, unknown> | undefined;
-  /** The writes sent (POST, PUT and DELETE), in order. */
+  /** The writes sent (POST, PUT and DELETE, the coins a Transfer moves left out), in order. */
   writes: () => SentRequest[];
   /** Let every request made so far have its answer, and the form settle. */
   settle: () => Promise<void>;
@@ -63,6 +64,11 @@ export interface RenderedForm {
 // the hints keep their first sentence and nothing else is asked
 const PRICE_STATUS = { history: null };
 const NETWORK = { price_source: "unset", mempool_url: null, mempool_fallback: false, proxy_url: null };
+// The coins a Transfer moves (#706), unless a test answers: none
+const NO_COINS = { coins: [], fee_btc: "0.00000000", detail: null };
+
+/** A request for the coins a Transfer would move: a read sent as a POST. */
+const asksForCoins = (request: SentRequest) => request.url.endsWith("/coins-moved");
 
 function answer<T>(data: T, status = 200): AxiosResponse<T> {
   return { data, status, statusText: "OK", headers: {}, config: {} as AxiosResponse["config"] };
@@ -97,6 +103,7 @@ function serve(options: RenderFormOptions, request: SentRequest): Promise<AxiosR
   }
   if (method === "get" && url === "/bitcoin/price/status") return Promise.resolve(answer(PRICE_STATUS));
   if (method === "get" && url === "/settings/network") return Promise.resolve(answer(NETWORK));
+  if (asksForCoins(request)) return Promise.resolve(answer(NO_COINS));
   const saved = options.transaction;
   if (method === "get" && saved && url === `/transactions/${saved.id}`) return Promise.resolve(answer(savedRow(saved)));
   if (method === "post" && url === "/transactions") return Promise.resolve(answer({ id: 1, ...body }));
@@ -170,8 +177,8 @@ export async function renderForm(options: RenderFormOptions): Promise<RenderedFo
       await user.click(screen.getByRole("button", { name: "Save transaction" }));
       await settle(pending);
     },
-    sent: () => requests.filter((r) => r.method === "post" || r.method === "put").at(-1)?.body,
-    writes: () => requests.filter((r) => r.method !== "get"),
+    sent: () => requests.filter((r) => (r.method === "post" || r.method === "put") && !asksForCoins(r)).at(-1)?.body,
+    writes: () => requests.filter((r) => r.method !== "get" && !asksForCoins(r)),
     settle: () => settle(pending),
     toasts: () => [...shownToasts.values()],
     choose,

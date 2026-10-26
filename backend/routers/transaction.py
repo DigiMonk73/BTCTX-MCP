@@ -22,9 +22,9 @@ from backend.schemas.transaction import (
 from backend.services import past_years
 from backend.services.past_year_writes import Recalculation
 from backend.services import transaction as tx_service
-from backend.services import wipe
+from backend.services import transfer_coins, wipe
 from backend.services.account import account_book
-from backend.database import get_db
+from backend.database import RowId, get_db
 from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def _attach_utc_and_build_read_model(tx, db: Session, years: dict | None = None)
     data["values_from_price"] = tx_service.values_from_price(tx, account_book(db))
     data["price_used"] = tx_service.price_used(tx, db, years)
 
-    for field in ["timestamp", "created_at", "updated_at"]:
+    for field in ["timestamp", "created_at", "updated_at", "coins_chosen_at"]:
         val = data.get(field)
         if isinstance(val, datetime):
             iso_str = val.isoformat()
@@ -80,7 +80,7 @@ def what_delete_all_deletes(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/{tx_id}", response_model=TransactionRead)
-def get_transaction(tx_id: int, db: Session = Depends(get_db)):
+def get_transaction(tx_id: RowId, db: Session = Depends(get_db)):
     """One transaction, or 404."""
     tx = tx_service.get_transaction_by_id(db, tx_id)
     if not tx:
@@ -107,6 +107,41 @@ def create_transaction(tx: TransactionCreate, request: Request, confirm: str | N
     if not new_tx:
         raise HTTPException(status_code=400, detail="Transaction creation failed.")
     return _attach_utc_and_build_read_model(new_tx, db)
+
+
+def _require_login_to_list_coins(request: Request) -> None:
+    if not request.session.get("user_id"):  # never the AI key
+        raise HTTPException(status_code=403, detail="Listing the coins a transaction moves needs a login.")
+
+
+@router.post("/coins-moved")
+def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Session = Depends(get_db)):
+    """
+    Which coins a new Transfer, or a bitcoin Withdrawal from one of your
+    wallets, would move, as its save would (#706, #711), given the body its
+    save is sent: what it takes from its From account in the order its save
+    takes it, each with its date acquired, amount, cost and acquisition, and
+    the bitcoin its network fee disposes of; from a wallet, what the wallet
+    holds then, one line per acquisition, for the form's coin picker; and
+    whether it's dated today in the tax timezone. Saves nothing; one its
+    save would refuse answers that refusal, but a choice of coins its wallet
+    doesn't hold then answers with what it holds. Login only (never the AI
+    key).
+    """
+    _require_login_to_list_coins(request)
+    return transfer_coins.coins_moved(past_years.Write(past_years.ADD, tx.model_dump()), db)
+
+
+@router.post("/{transaction_id}/coins-moved")
+def coins_an_edited_transfer_moves(transaction_id: RowId, tx: TransactionUpdate, db: Session = Depends(get_db)):
+    """Which coins a Transfer or a Withdrawal from a wallet would move with
+    this edit, as its save would (#706, #711); as for a new one. 404 when
+    the transaction doesn't exist. Sent no change, the coins it moves now.
+    The AI key may ask too (#711, Q4: the AI shows which coins a
+    transaction moves), as for its preview: a dry run on a scratch copy
+    that saves nothing."""
+    write = past_years.Write(past_years.EDIT, tx.model_dump(exclude_unset=True), transaction_id)
+    return transfer_coins.coins_moved(write, db)
 
 
 @router.post("/recalculate")
@@ -137,7 +172,7 @@ def recalculate_ledger(request: Request, confirm: str | None = None, db: Session
 
 
 @router.put("/{transaction_id}", response_model=TransactionRead)
-def update_transaction(transaction_id: int, tx: TransactionUpdate, request: Request, confirm: str | None = None,
+def update_transaction(transaction_id: RowId, tx: TransactionUpdate, request: Request, confirm: str | None = None,
                        db: Session = Depends(get_db)):
     """
     Change the fields given, then recalculate the whole ledger. 404 when the
@@ -180,7 +215,7 @@ def delete_all_transactions_endpoint(
 
 
 @router.delete("/{transaction_id}", status_code=204)
-def delete_transaction(transaction_id: int, request: Request, confirm: str | None = None,
+def delete_transaction(transaction_id: RowId, request: Request, confirm: str | None = None,
                        db: Session = Depends(get_db)):
     """
     Delete one transaction and recalculate the ledger. 404 when it doesn't

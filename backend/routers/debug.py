@@ -6,7 +6,7 @@ tests and diagnosis; a logged-in session only, never the AI key (main.py).
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, selectinload
 
-from backend.database import get_db
+from backend.database import RowId, get_db
 from backend.models.transaction import BitcoinLot, LotDisposal, LedgerEntry
 
 router = APIRouter()
@@ -61,7 +61,7 @@ def list_all_lots(db: Session = Depends(get_db)):
 
 
 @router.get("/lots/{lot_id}", tags=["Debug"])
-def get_one_lot(lot_id: int, db: Session = Depends(get_db)):
+def get_one_lot(lot_id: RowId, db: Session = Depends(get_db)):
     """One lot with its disposals, or 404."""
     lot = db.get(BitcoinLot, lot_id)
     if not lot:
@@ -88,7 +88,7 @@ def list_all_ledger_entries(db: Session = Depends(get_db)):
 
 
 @router.get("/transactions/{tx_id}/ledger-entries", tags=["Debug"])
-def transaction_ledger_entries(tx_id: int, db: Session = Depends(get_db)):
+def transaction_ledger_entries(tx_id: RowId, db: Session = Depends(get_db)):
     """One transaction's ledger lines, or 404."""
     entries = db.query(LedgerEntry).filter(LedgerEntry.transaction_id == tx_id).all()
     if not entries:

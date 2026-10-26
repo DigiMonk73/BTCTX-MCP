@@ -28,7 +28,8 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   exchange sends me a Form 1099-DA" switch ([below](#wallets-exchanges-and-banks)).
 - **Dashboard**: what your banks, exchanges and wallets hold, each kind's
   total with a caret that lists its accounts when you have multiple
-  wallets, exchanges or banks; BTC holdings, realized and unrealized gains,
+  wallets, exchanges or banks, a wallet's or an exchange's bitcoin with its
+  own cost and unrealized gain; BTC holdings, realized and unrealized gains,
   income and fees. Beside every page, a Sats Converter (at a price you
   type, the live price, or BitcoinTX's stored price of a date and hour) and
   a calculator
@@ -141,25 +142,28 @@ rename, hide or delete them there:
   keys) isn't a second wallet.
 - **An exchange** keeps its dollars and its bitcoin as two accounts,
   "*name* USD" and "*name* BTC". Each exchange has its own "This exchange
-  sends me a Form 1099-DA" switch, on by default: turn it off for an exchange that
-  sends none (usually one outside the US), and its sales go in the Form
-  8949 boxes for no broker form.
+  sends me a Form 1099-DA" switch: adding an exchange asks "Does this
+  exchange send you a Form 1099-DA?" (Yes unless you choose No), and its
+  row's switch changes it later. Off, for an exchange that sends none
+  (usually one outside the US), its sales go in the Form 8949 boxes for no
+  broker form.
 - **External** is everything outside BitcoinTX: other people, merchants,
   an account you don't track.
 
 Coins move between your accounts by a Transfer, which keeps each lot's date
 and cost. A new account starts empty: move coins into it with a Transfer
-dated when they really moved (Per-wallet FIFO, in the box above, decides
-which coins move). A save that would change an earlier tax year's figures,
-one you may already have filed, shows which years and what changes, and
-asks before it saves.
+dated when they really moved (BitcoinTX moves the oldest coins first,
+unless you choose others in a wallet). A save that would change an earlier
+tax year's figures, one you may already have filed, shows which years and
+what changes, and asks before it saves.
 
 Hide an account you no longer use: its history stays, and the transaction
 form stops offering it. Delete one only while no transaction names it (your
 first bank, wallet and exchange are hidden instead). In a file, Bank,
 Wallet, Exchange USD and Exchange BTC always mean your first bank, wallet
 and exchange, whatever you've renamed them, so no other account can take
-those names. The full story, from the name rules to how a file saved before
+those names. A name uses letters, digits and punctuation the tax report can
+print: no emoji, and no letters outside Western European alphabets. The full story, from the name rules to how a file saved before
 a rename names an account: [docs/USING.md](docs/USING.md#wallets-exchanges-and-banks).
 
 BitcoinTX never lets you pick which coins to sell. It doesn't allocate your

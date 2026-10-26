@@ -29,6 +29,7 @@ from collections.abc import Callable
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -48,7 +49,7 @@ from backend.migrate import (
     sqlite_file,
 )
 from backend.models.transaction import Transaction
-from backend.services import hourly_prices, recalculated_by, review, tax_time, year_changes
+from backend.services import chosen_coins, hourly_prices, recalculated_by, review, tax_time, year_changes
 from backend.services import transaction as tx_service
 from backend.services.account import account_book
 
@@ -75,6 +76,10 @@ BY_DATE_WITH_FIXES = ("This can change the figures of tax year {year} and later 
                       "ledger is made first.")
 TOO_SLOW = ("BitcoinTX couldn't work out exactly what changes quickly enough here, so it names every year this "
             "can reach.")
+# Beside a write that adds or changes a choice of coins on a transaction
+# dated in an earlier tax year (#711): what counts is when the owner
+# decided, not when it's typed here (Treas. Reg. §1.1012-1(j)(2))
+COINS_CHOSEN = "A choice of coins counts only if you made it by the time they left and your records show it."
 BUSY = "Not saved: BitcoinTX was busy saving something else. Try again."
 NO_COPY = "Not saved: BitcoinTX couldn't make its copy of the database first."
 # What a session's replay is held by, carried onto the scratch copy its
@@ -140,6 +145,11 @@ class PastYearWrite:
         """The rows it deletes, as Ledger Review lists them, taken before they go."""
         return {}
 
+    def coins_chosen(self, db: Session, tz) -> str | None:
+        """The warning's line about a choice of coins it makes (COINS_CHOSEN),
+        or None; asked before it's made."""
+        return None
+
     def check_there(self, db: Session) -> None:
         """Under the confirmed save's lock: what it changes is still there."""
 
@@ -202,8 +212,12 @@ class Write(PastYearWrite):
 
     def appends(self, db: Session) -> bool:
         """An add dated at or after every row: it replays nothing, and so
-        applies no pending change (transaction._is_backdated)."""
+        applies no pending change (transaction._is_backdated). One choosing
+        coins while a lot doesn't know its acquisition replays the whole
+        ledger first (#711)."""
         if self.kind != ADD:
+            return False
+        if chosen_coins.replays_first([self.data], db):
             return False
         latest = db.query(func.max(Transaction.timestamp)).scalar()
         when = self.data.get("timestamp") or datetime.now(timezone.utc)
@@ -223,6 +237,25 @@ class Write(PastYearWrite):
         none for a row already gone (its save answers 404)."""
         row = db.get(Transaction, self.tx_id) if self.kind == DELETE else None
         return {} if row is None else {self.tx_id: review.row_item(row, tz, account_book(db), "", "")}
+
+    def coins_chosen(self, db: Session, tz) -> str | None:
+        """COINS_CHOSEN when it adds or changes a choice of coins on a
+        transaction dated in an earlier tax year: never for oldest first,
+        the IRS's default, nor a choice sent back as it's stored. Asked
+        before the write is made, so the dry run and the confirmed save ask
+        the same."""
+        if self.kind == DELETE or not self.data.get("chosen_coins"):
+            return None
+        stored = db.get(Transaction, self.tx_id) if self.kind == EDIT else None
+        sent = {line["acquired_txn_id"]: Decimal(str(line["btc"])) for line in self.data["chosen_coins"]}
+        if stored is not None and chosen_coins.saved_choice(stored) == sent:
+            return None
+        when = self.data.get("timestamp") or getattr(stored, "timestamp", None)
+        try:
+            earlier = when is not None and tax_time.local_date(when, tz).year < self.this_year(tz)
+        except tax_time.DateOutOfRange:
+            return None  # the save refuses the date
+        return COINS_CHOSEN if earlier else None
 
     def parts(self) -> list:
         return [self.kind, self.tx_id, self.data]
@@ -289,6 +322,7 @@ class _Found:
     gone: dict
     appended: bool
     tz: Any
+    coins_chosen: str | None
     result: Any = None
 
 
@@ -331,6 +365,7 @@ def _compare(write: PastYearWrite, db: Session, tz, needs_without: bool, appende
     """
     stored = year_changes.figures(db, tz)
     gone = write.gone_item(db, tz)
+    coins_line = write.coins_chosen(db, tz)
     with scratch_copy(db) if needs_without else nullcontext() as without:
         result = write.apply(db)
         db.flush()
@@ -342,7 +377,7 @@ def _compare(write: PastYearWrite, db: Session, tz, needs_without: bool, appende
             without.info.update({key: db.info[key] for key in CARRIED if key in db.info})
             before, pending, recalc_error = _without_pass(without, tz, stored)
     return _Found(year_changes.moved(before, after), pending, recalc_error, {**stored, **before, **after}, gone,
-                  appended, tz_after, result)
+                  appended, tz_after, coins_line, result)
 
 
 def _without_pass(db: Session, tz, stored: dict) -> tuple[dict, dict, str | None]:
@@ -379,6 +414,8 @@ def _warning(write: PastYearWrite, found: _Found, by_ai: bool, this_year: int, d
         "recalc_error": found.recalc_error,
         "exact": True,
         "why_not_exact": None,
+        "timezone": tz.key,  # the one its rows' dates are in, which no device's clock need match (#737)
+        **_coins_chosen(found.coins_chosen),
     })
 
 
@@ -404,7 +441,15 @@ def _by_date(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int)
         "recalc_error": None,
         "exact": False,
         "why_not_exact": TOO_SLOW,
+        "timezone": tz.key,
+        **_coins_chosen(write.coins_chosen(db, tz)),
     })
+
+
+def _coins_chosen(line: str | None) -> dict:
+    """The 409's line about a choice of coins, only when it has one: every
+    other 409, and its fingerprint, stays as it was."""
+    return {"coins_chosen": line} if line else {}
 
 
 def _with_fingerprint(write: PastYearWrite, body: dict) -> dict:

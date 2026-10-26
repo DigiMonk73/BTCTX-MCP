@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-// Settings' account book (#355): the page's one book, then, after a change
-// Settings made, the book as the server has it then.
+// Settings' account book (#355): the page's one book, asked for afresh as
+// Settings opens (#720) and shared with the screens opening with it, then,
+// after a change Settings made, the book as the server has it then.
 import "../test/setup";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { AxiosResponse } from "axios";

@@ -7,20 +7,27 @@ import { WALLET_HINT } from "../../utils/disclaimer";
 import { transferAmountProblem } from "../../utils/transferAmounts";
 import AccountPicker from "./AccountPicker";
 import FeeValueField from "./FeeValueField";
+import LeavingCoins from "./LeavingCoins";
 
-// A BTC account sent to itself (#159): how the choice reads, and what it records
+// A BTC account sent to itself (#159): how the choice reads, and what it records.
+// It moves no coins, so it never says "move" (#705)
 const WITHIN_LABEL: Partial<Record<AccountKind, (book: AccountBook, id: number) => string>> = {
-  wallet: (book, id) => `${accountName(book, id)}: consolidate / move within the same wallet`,
+  wallet: (book, id) => `${accountName(book, id)}: consolidate within the same wallet`,
   exchange: (book, id) => `${exchangeName(book, id)}: consolidate within the same exchange`,
 };
 const WITHIN_HINT =
   "Only the network fee is recorded: it's a disposal of your oldest coins at the fee's value (Form 8949, " +
   "box I or L; C or F before 2025). Your coins, their dates and cost basis stay as they are.";
-// A move to another exchange is a Transfer into that exchange's BTC account,
-// never a consolidation: each exchange keeps its own lots (2.0 spec 5.5)
-const OTHER_EXCHANGE_HINT =
-  "Moving coins to another exchange? Choose that exchange's BTC account as To Account, after adding the " +
-  "exchange in Settings → Wallets, exchanges and banks if it isn't listed.";
+// A move to another wallet or exchange is a Transfer into that account, never
+// a consolidation: each keeps its own lots (2.0 spec 5.5)
+const MOVE_ELSEWHERE_HINT: Partial<Record<AccountKind, string>> = {
+  wallet:
+    "Moving coins to another of your wallets? Choose that wallet as To Account, after adding it in " +
+    "Settings → Wallets, exchanges and banks if it isn't listed.",
+  exchange:
+    "Moving coins to another exchange? Choose that exchange's BTC account as To Account, after adding the " +
+    "exchange in Settings → Wallets, exchanges and banks if it isn't listed.",
+};
 
 /** The destination: an account of the From's currency, or the From itself
  * for a bitcoin account (#159); filled only when exactly one fits (5.13). */
@@ -43,7 +50,7 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
       deps={["amountTo"]}
     >
       {within && <small className="field-hint">{WITHIN_HINT}</small>}
-      {within && kind === "exchange" && <small className="field-hint">{OTHER_EXCHANGE_HINT}</small>}
+      {within && kind && MOVE_ELSEWHERE_HINT[kind] && <small className="field-hint">{MOVE_ELSEWHERE_HINT[kind]}</small>}
       {!within && accountKind(book, toId) === "wallet" && <small className="field-hint">{WALLET_HINT}</small>}
     </AccountPicker>
   );
@@ -53,19 +60,23 @@ const ToAccountField: React.FC<{ book: AccountBook; fromId: number | undefined }
  * A transfer between the user's accounts: the destination within the
  * source's currency (a bitcoin one can also be the same account, a
  * consolidation), and the fee is what was sent less what arrived, in
- * bitcoin or in dollars (#447; useFieldAutofill).
+ * bitcoin or in dollars (#447; useFieldAutofill). Between two bitcoin
+ * accounts, the coins that will move, before it saves (#706); out of
+ * one of your wallets, the coins can be chosen (#711).
  */
-const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
-  const { register, watch, getValues, setValue, formState: { errors, defaultValues } } =
-    useFormContext<TransactionFormData>();
+const TransferFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
+  const { register, watch, getValues, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
   const fromId = chosenId(watch("fromAccountId"));
-  // A new From never turns the To chosen into a consolidation, which records
-  // only a fee (#159): the To goes, as 1.x set the new From's own. Only the
-  // row's saved consolidation stays one.
-  const toNotItself = () => {
+  // A new From never changes what the To chosen means, so the To goes, as 1.x
+  // set the new From's own, when it would be the new From: a consolidation,
+  // which records only a fee (#159); and when it was the old From: that
+  // consolidation would move coins into the old From's lots (#719).
+  // react-hook-form has written the new From when it calls this, so the old
+  // one is `fromId`, the From this render showed.
+  const toKeepsItsMeaning = () => {
     const from = chosenId(getValues("fromAccountId"));
-    const savedItself = chosenId(defaultValues?.fromAccountId) === from && chosenId(defaultValues?.toAccountId) === from;
-    if (from !== undefined && chosenId(getValues("toAccountId")) === from && !savedItself) {
+    const to = chosenId(getValues("toAccountId"));
+    if (from !== fromId && to !== undefined && (to === from || to === fromId)) {
       setValue("toAccountId", undefined);
     }
   };
@@ -83,7 +94,7 @@ const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
         placeholder="Select From Account"
         requiredMessage="From Account is required"
         deps={["amountFrom", "amountTo"]} // messages about the old source go
-        onChange={toNotItself}
+        onChange={toKeepsItsMeaning}
       >
         {accountKind(book, fromId) === "wallet" && <small className="field-hint">{WALLET_HINT}</small>}
       </AccountPicker>
@@ -168,6 +179,8 @@ const TransferFields: React.FC<{ book: AccountBook }> = ({ book }) => {
           <small className="field-hint">Amount (From) less Amount (To): what the transfer cost.</small>
         </div>
       )}
+
+      <LeavingCoins book={book} transactionId={transactionId} />
     </>
   );
 };

@@ -42,6 +42,11 @@ export function rowNote(tx: ITransaction, book: AccountBook): string {
   return "";
 }
 
+/** "Coins chosen" on a row whose coins were chosen to leave a wallet (#711); else nothing. */
+export function coinsChosenNote(tx: ITransaction): string {
+  return tx.chosen_coins?.length ? "Coins chosen" : "";
+}
+
 const inDollars = (book: AccountBook, id: number | null) => accountCurrency(book, id ?? undefined) === "USD";
 
 /** The asset that moved (signed, as the account sees it) and its USD value. */

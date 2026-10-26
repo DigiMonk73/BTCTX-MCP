@@ -12,15 +12,16 @@ from backend.services.calculation import (
     get_account_balance,
     get_all_account_balances,
     get_gains_and_losses,
-    get_average_cost_basis
+    get_average_cost_basis,
+    held_by_account,
 )
-from backend.database import get_db
+from backend.database import RowId, get_db
 
 router = APIRouter(tags=["calculations"])
 
 
 @router.get("/account/{account_id}/balance")
-def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> dict:
+def api_get_account_balance(account_id: RowId, db: Session = Depends(get_db)) -> dict:
     """One account's balance: {"account_id", "balance"}."""
     balance = get_account_balance(db, account_id)
     return {"account_id": account_id, "balance": float(balance)}
@@ -29,15 +30,19 @@ def api_get_account_balance(account_id: int, db: Session = Depends(get_db)) -> d
 @router.get("/accounts/balances")
 def api_get_all_account_balances(db: Session = Depends(get_db)) -> list[dict]:
     """Every account's balance: [{"account_id", "name", "currency", "balance",
-    "kind", "exchange_id", "exchange", "hidden"}], the account's kind, its
-    exchange and hidden from the account book: the dashboard's balances go
-    by kind (2.0 spec 5.13)."""
+    "kind", "exchange_id", "exchange", "hidden", "cost_basis"}], the account's
+    kind, its exchange and hidden from the account book: the dashboard's
+    balances go by kind (2.0 spec 5.13). A bitcoin account's cost_basis is
+    what the BTC it holds cost (#709); a dollar or fee account has none."""
     book = account_book(db)
+    held = held_by_account(db)
     results = get_all_account_balances(db)
     for item in results:
         account_id = item["account_id"]
+        _, cost = held.get(account_id, (Decimal("0"), Decimal("0")))
         item.update(balance=float(item["balance"]), kind=book.kind(account_id), exchange_id=book.exchange_of(account_id),
-                    exchange=book.exchange_name(account_id), hidden=book.hidden(account_id))
+                    exchange=book.exchange_name(account_id), hidden=book.hidden(account_id),
+                    cost_basis=float(cost) if book.is_btc(account_id) else None)
     return results
 
 

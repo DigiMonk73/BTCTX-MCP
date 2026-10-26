@@ -26,6 +26,7 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
   // An account chosen for one type is none of another's (5.13)
   fromAccountId: undefined,
   toAccountId: undefined,
+  chosenCoins: null, // oldest first, until coins are chosen (#711)
 };
 
 /** The transaction form: a new transaction, or `transactionId`'s to edit. */
@@ -178,7 +179,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         )}
 
         <div className="form-fields-grid">
-          <div className="field">
+          <div className="field form-field-wide">
             <label htmlFor="tx-transaction-type">Transaction Type</label>
             <select
               id="tx-transaction-type"
@@ -197,7 +198,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </select>
           </div>
 
-          <div className="field">
+          <div className="field form-field-wide">
             <label htmlFor="tx-date-time">Date & Time</label>
             <input
               id="tx-date-time"
@@ -212,7 +213,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </div>
 
           {failed && (currentType || transactionId) && <p className="field-error">{ACCOUNTS_FAILED}</p>}
-          {book && <TypeFields type={currentType} book={book} />}
+          {book && <TypeFields type={currentType} book={book} transactionId={transactionId} />}
         </div>
 
         {/* Hidden delete trigger for TransactionPanel */}
