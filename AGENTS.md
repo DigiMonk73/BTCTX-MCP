@@ -582,13 +582,20 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   consolidation take no choice. A choice survives every recalculation; a
   write that would leave a later choice short of its coins is refused,
   naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
-  must send the coins again, or null (`SendAgain`). `coins_chosen_at` is
-  when the choice was saved, kept while it's sent back unchanged. The CSV
-  carries a choice by its rows' ids, never their positions
-  (`csv_choices.py`, #732); the tax report prints "Coins you chose", with
-  the day each was saved, and Ledger Review lists those saved after their
-  coins left (`coins_chosen_later`). The AI
-  key can't send one until the connector's step (C5).
+  must send the coins again, or null (`SendAgain`, its 422 naming the
+  transaction in `X-BitcoinTX-Choose-Again`, which the AI connector answers
+  as `saved: false`). `coins_chosen_at` is when the choice was saved, kept
+  while it's sent back unchanged. The CSV carries a choice by its rows'
+  ids, never their positions (`csv_choices.py`, #732); the tax report
+  prints "Coins you chose", with the day each was saved, and Ledger Review
+  lists those saved after their coins left (`coins_chosen_later`). The AI
+  key sends a choice too (the owner's Q4: only coins the user says they
+  chose at the time, its guide's rule, #733): its preview lists the coins a
+  row leaving a wallet takes and holds (`HELD_HOOK`; none for a row whose
+  wallet holds a lot that doesn't know its acquisition while nothing
+  replays), and a write that replays for a choice
+  (`chosen_coins.replays_first`) counts as replaying for its copy and the
+  past-year question.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -631,7 +638,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
 | `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page and afresh as Settings or its accounts section opens (#720); Settings' "Wallets, exchanges and banks" |
 | `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
-| `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form the coins held (`HELD_HOOK`) |
+| `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form, or the AI's preview, the coins held (`HELD_HOOK`) |
 | `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/TransferCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts will move, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`) |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |

@@ -51,6 +51,7 @@ TOOL_ARGS = {
     "preview_transactions": {"transactions": [ROW]}, "add_transactions": {"transactions": [ROW]},
     "update_transaction": {"transaction_id": 1, "amount": "0.1"},
     "delete_transaction": {"transaction_id": 1}, "recalculate_ledger": {}, "backup_ledger": {},
+    "get_coins_moved": {"transaction_id": 1},
 }
 
 
