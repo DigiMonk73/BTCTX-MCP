@@ -199,7 +199,7 @@ it's long-term. #14's fee is its own disposal.
 |---|---|
 | Dashboard > Portfolio Overview | Bank (USD) $45,000.00 · Exchange (USD) $37,990.00 · Exchange (BTC) 0.15000000 BTC · Wallet (BTC) 0.39970000 BTC · Total BTC 0.54970000 BTC · Avg. Cost per BTC $44,993.81 (with one account of each kind, no line has a caret; with more, the totals stay these) |
 | … Unrealized Gains/Losses (needs a price) | (current price − 44,993.81) × 0.5497, within $0.01 |
-| Dashboard > Realized Gains/Losses (FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
+| Dashboard > Realized Gains/Losses (Per-wallet FIFO) | Short-Term Gains +$9,365.40 · Short-Term Losses −$1,000.00 · Net Short-Term +$8,365.40 · Long-Term Gains +$11,067.70 · Long-Term Losses $0.00 · Net Long-Term +$11,067.70 · Total Net Capital Gains +$19,433.10 |
 | Dashboard > Income & Fees | Income (earned) $1,000.00 (0.02000000 BTC) · Interest (earned) $0.00 (0.00000000 BTC) · Rewards (earned) $0.00 (0.00000000 BTC) · Total Income $1,000.00 · Gifts (received) $0.00 (0.00000000 BTC) · Rebates (received) $0.00 (0.00000000 BTC) · Fees (USD) $10.00 · Fees (BTC) 0.00030000 BTC · Total Fees in USD (approx) = 10 + 0.0003 × price |
 | Form 8949 2024 (IRS Reports) | Part I, box C: `0.30000000 BTC · 03/01/2023 · 02/02/2024 · 15000.00 · 7200.00 · 7800.00`. Part II, box F: `0.10000000 BTC · 03/01/2023 · 03/02/2024 · 6000.00 · 2400.00 · 3600.00` |
 | Schedule D 2024 | line 3: 15000.00 / 7200.00 / 7800.00 · line 10: 6000.00 / 2400.00 / 3600.00 |
@@ -486,8 +486,9 @@ Start from the `clean` snapshot.
   filing", the bullet "From 2025, cost basis is figured wallet by wallet
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
-  §1.1012-1(j)). BitcoinTX uses first in, first out in each wallet and
-  exchange account and records no Rev. Proc. 2024-28 allocation." (1.x's
+  §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
+  uses its own oldest coins first for a sale, spend or transfer. BitcoinTX
+  records no Rev. Proc. 2024-28 allocation." (1.x's
   one-wallet bullet is gone), and the disclaimer; in 7, "Notes", "Coins you
   identified on your own books, or an exchange's own order of coins, can
   give other figures." Section 2 of each report

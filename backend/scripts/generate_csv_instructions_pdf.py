@@ -228,7 +228,7 @@ class _Guide:
             Paragraph("• Restoring from a CSV backup", self.bullet),
             Paragraph(
                 "<b>Important:</b> The database must be empty before importing. "
-                "This ensures clean FIFO cost basis calculations. If you have existing "
+                "Then every cost basis is figured from one complete history. If you have existing "
                 "transactions, delete them first from the Settings page. To add an exchange's "
                 "own CSV export to a ledger in use, use Settings → Import from an exchange instead.",
                 self.warning

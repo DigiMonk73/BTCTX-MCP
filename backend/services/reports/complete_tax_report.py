@@ -332,7 +332,7 @@ class _TaxReport:
     def facts(self) -> Table:
         facts = (
             ("Tax year", f"{self.year} ({self.data.get('period', '')})"),
-            ("Cost basis method", "First in, first out (FIFO), for each account"),
+            ("Cost basis method", "Per-wallet FIFO"),
             ("Tax timezone", f"{self.tz_name}: it decides each transaction's tax year, the dates shown "
                              "and the holding period"),
             ("Prices", "USD values as entered; one left blank: the BTC price when its hour began (UTC), "
@@ -474,8 +474,8 @@ class _TaxReport:
     # 2. Capital gains and losses
     def capital_gains_detail(self) -> list:
         story = self.section(2, "Capital gains and losses",
-                             "Every disposal of the year as on Form 8949: one line for each lot it used (first in, "
-                             "first out), with its box. A network fee paid in BTC is a disposal too.")
+                             "Every disposal of the year as on Form 8949: one line for each lot it used (per-wallet "
+                             "FIFO), with its box. A network fee paid in BTC is a disposal too.")
         if not self.disposals:
             return story + [self.nothing("disposals")]
         rows = [self.header("Sold", "Acquired", "Kind", "Box", "Term", "BTC", "Proceeds", "Cost basis",
@@ -847,11 +847,11 @@ class _TaxReport:
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
             "Print single-sided: otherwise Schedule D can start on the back of the last Form 8949 page.",
-            # 5.14's one wording of the rule, then what BitcoinTX does and doesn't record (3.7)
+            # 5.14's one wording of the rule, decision 30's of the method (#713), and what BitcoinTX doesn't record (3.7)
             "From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins "
             "you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). "
-            "BitcoinTX uses first in, first out in each wallet and exchange account and records no Rev. Proc. "
-            "2024-28 allocation.",
+            "Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
+            "spend or transfer. BitcoinTX records no Rev. Proc. 2024-28 allocation.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
@@ -868,8 +868,8 @@ class _TaxReport:
         notes = (
             "All amounts are in US dollars unless marked BTC. Losses are shown in parentheses, as on the IRS forms.",
             # Identified coins or a broker's own order give other figures, and the report says so (2.0 spec 3.7)
-            "Capital gains use the first in, first out (FIFO) method within each wallet and exchange account: a "
-            "disposal uses the oldest bitcoin held in that account. Coins you identified on your own books, or "
+            "Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
+            "spend or transfer. Coins you identified on your own books, or "
             "an exchange's own order of coins, can give other figures. Trading between BTC and USD is a taxable "
             "event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
