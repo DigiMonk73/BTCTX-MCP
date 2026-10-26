@@ -49,9 +49,10 @@ All notable changes to BitcoinTX are documented in this file.
   same of the method and the AI, and that a new account starts empty; the
   MCP API interface's description says AI access is off until you turn it
   on (it said nothing used it until you set up an AI app), in all five
-  languages; `startos/README.md` lists the AI's copy before a confirmed
-  change to an earlier tax year; `startos/AGENTS.md` sends package changes
-  to `staging`, not `develop`. No figure changes.
+  languages; `startos/README.md` says the same of the AI and lists the
+  AI's copy before a confirmed change to an earlier tax year;
+  `startos/AGENTS.md` sends package changes to `staging`, not `develop`.
+  No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 

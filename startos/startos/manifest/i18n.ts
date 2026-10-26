@@ -4,13 +4,13 @@ export const short = {
   en_US:
     'Bitcoin tax tracker for multiple wallets and exchanges, with optional AI entry',
   es_ES:
-    'Control fiscal de Bitcoin para varios monederos y exchanges, registro IA opcional',
+    'Control fiscal de Bitcoin para múltiples monederos y exchanges, con IA opcional',
   de_DE:
     'Bitcoin-Steuer-Tracker für mehrere Wallets und Börsen, KI-Erfassung optional',
   pl_PL:
     'Rozliczanie podatków od Bitcoina dla wielu portfeli i giełd, opcjonalnie z AI',
   fr_FR:
-    'Suivi fiscal Bitcoin multi-portefeuilles et plateformes, saisie IA en option',
+    'Suivi fiscal Bitcoin pour portefeuilles et plateformes multiples, IA en option',
 }
 
 export const long = {
