@@ -189,6 +189,7 @@ class _TaxReport:
         self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
         self.rebates = data.get("rebates", [])
         self.gifts = [g for g in data.get("gifts_donations_lost", []) if g.get("asset") == "BTC"]
+        self.chosen = data.get("coins_you_chose", [])
         balances = data.get("end_of_year_balances", [])
         self.lots = [b for b in balances if b.get("asset", "").startswith("BTC")]
         self.year_end_total = next((b for b in balances if b.get("asset") == "Total"), None)
@@ -200,6 +201,7 @@ class _TaxReport:
             PageBreak(),
             *self.summary(),
             *self.capital_gains_detail(),
+            *self.coins_chosen_detail(),
             *self.income_detail(),
             *self.gifts_detail(),
             *self.holdings_detail(),
@@ -487,6 +489,40 @@ class _TaxReport:
         # (54 pt), Term "Short"; a longer account name wraps
         return story + [data_table(rows, [0.72, 0.75, 0.9, 0.35, 0.42, 0.86, 1.0, 1.0, 1.0], total=True),
                         *self.sales_by_exchange()]
+
+    def coins_chosen_detail(self) -> list:
+        """The year's coins chosen in a wallet (#711): the record of each
+        specific identification for the preparer (Treas. Reg.
+        §1.1012-1(j)(2)), one line per purchase or deposit the coins came
+        from, with the day the choice was saved, marked when it's after the
+        coins left (Q1)."""
+        if not self.chosen:
+            return []
+        rows = [self.header("Date", "Wallet", "Kind", "Chosen on", "Date acquired", "BTC", "Cost", numbers_from=5)]
+        for c in self.chosen:
+            for i, coin in enumerate(c.get("coins", [])):
+                first = i == 0
+                rows.append([self.text(self.date(c["date"]) if first else ""), self.name(c["wallet"] if first else ""),
+                             self.text(c["kind"] if first else ""), self.text(self.chosen_on(c) if first else ""),
+                             self.text(self.day(coin["acquired"])),
+                             *self.numbers(fmt_btc(coin["btc"]), fmt_usd(coin["cost"]))])
+        later = [self.text("* Chosen after the coins left. A choice counts only if you made it by then and your "
+                           "records show it.", self.styles.normal)] if any(c.get("chosen_later") for c in self.chosen) else []
+        intro = ("In these transactions the coins that left one of your wallets are the ones you chose, not the oldest "
+                 "(specific identification, Treas. Reg. §1.1012-1(j)(2)): each line is a purchase or deposit they "
+                 "came from. Chosen on is the day the choice was saved in BitcoinTX.")
+        return [*self.subheading("Coins you chose"), self.text(intro, self.styles.normal),
+                data_table(rows, [0.8, 1.1, 1.2, 0.85, 0.95, 1.1, 1.0]), *later]
+
+    def chosen_on(self, chosen: dict) -> str:
+        return self.day(chosen.get("chosen_on") or "") + (" *" if chosen.get("chosen_later") else "")
+
+    def day(self, text: str) -> str:
+        """A date (YYYY-MM-DD) as MM/DD/YYYY, like the IRS forms; INHERITED as it is."""
+        try:
+            return datetime.date.fromisoformat(text).strftime("%m/%d/%Y")
+        except ValueError:
+            return text
 
     def disposal_row(self, d: dict) -> list:
         return [

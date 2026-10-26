@@ -26,8 +26,31 @@ All notable changes to BitcoinTX are documented in this file.
   oldest first. Exchanges stay first in, first out. Migration 0101 adds a
   table and two columns and writes nothing: **no figure changes**, since
   nothing is chosen in any ledger yet. The form's picker (C3), the CSV and
-  the reports (C4) and the AI connector (C5) follow; until then the AI
-  connector can't choose coins.
+  the reports (C4, below) and the AI connector (C5) follow; until then
+  the AI connector can't choose coins.
+- **The coins you chose travel in the CSV, print in the tax report, and
+  show in Ledger Review** (#711, step C4, #732; the owner's answer to Q1).
+  BitcoinTX's CSV gains three columns at its end: `id`, the row's
+  label in the file (its transaction's id where it was exported; blank on a
+  row you add by hand), `chosen_coins`, each purchase or deposit by its
+  row's id with the BTC chosen from it (`id 12: 0.01000000; id 30:
+  0.00500000`), and `coins_chosen_at`, when the choice was saved. An export
+  imports into an empty ledger with the same choices, whatever order its
+  rows are in: a choice follows its label, never a position. The import
+  names the row of an id that isn't a whole number, one two rows share, or
+  a choice naming an id no row has or a row that didn't acquire bitcoin. An
+  older file without the columns imports as before; an older BitcoinTX
+  reading a new file ignores them and takes the oldest coins. The template
+  shows the columns, with a spend of chosen coins. The tax report's
+  section 2 gains "Coins you chose": each transaction of the year that
+  chose its coins, the coins it took from each purchase (date acquired,
+  BTC, cost), and the day the choice was saved, marked when that's after
+  the coins left. The Transaction History marks such a row "coins chosen".
+  Ledger Review's new reminder lists the choices saved on a later day than
+  their coins left: a choice counts only if you made it by then and your
+  records show it. River's and every exchange's import write no choice: a
+  bitcoin receive from your wallet says its coins leave oldest first, and
+  can be chosen after the import. **No figure changes.**
 - **The Transfer form shows which coins will move, before it saves** (#706;
   found by Grok (Cursor) reading alpha.2; the owner's decision,
   2026-10-25). A Transfer out of a wallet or exchange moves that account's

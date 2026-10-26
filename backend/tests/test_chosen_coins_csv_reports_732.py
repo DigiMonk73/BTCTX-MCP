@@ -179,7 +179,7 @@ def test_ledger_review_lists_the_choices_saved_after_the_coins_left(chose_a2):  
     [check] = [c for c in review["checks"] if c["key"] == "coins_chosen_later"]
     assert check["kind"] == "reminder" and check["count"] == 1
     assert [item["id"] for item in check["items"]] == [ids["S"]]
-    assert "after the coins left on 2025-06-01" in check["items"][0]["detail"]
+    assert "after the coins left on 2025-06-01" in check["items"][0]["issue"]
     assert "A choice counts only if you made it by then and your records show it." in " ".join(check["explanation"])
 
 

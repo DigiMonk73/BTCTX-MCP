@@ -127,7 +127,8 @@ SALES_BOXES = {
 # and why no row saved through the API can show the others, so a new item
 # fails here until it's one or the other
 REVIEW_SHOWN = {"original_date_missing", "sale_may_differ_from_1099da", "gift_without_value",
-                "deposit_without_basis", "buy_without_basis", "zero_proceeds_spend"}
+                "deposit_without_basis", "buy_without_basis", "zero_proceeds_spend",
+                "coins_chosen_later"}  # #730's choices: saved when the ledger is seeded, after their coins left
 REVIEW_OUT_OF_REACH = {
     "withdrawal_purpose_unknown": "the API refuses a purpose it doesn't know",
     "inherited_without_date": "the API refuses an inheritance without its date of death",

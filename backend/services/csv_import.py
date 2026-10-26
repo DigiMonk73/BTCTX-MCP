@@ -45,7 +45,7 @@ from backend.services.transaction import (
     transfer_fee_problem,
 )
 from backend.schemas.csv_import import CSVRowPreview, CSVParseError
-from backend.services import hourly_prices, outbound, price_history
+from backend.services import csv_choices, hourly_prices, outbound, price_history
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import DateOutOfRange, as_utc, date_out_of_range, local_noon_utc
 from backend.constants import (
@@ -83,13 +83,15 @@ QUOTED_COLUMNS = frozenset({"type", "from_account", "to_account", "fee_currency"
 # Inherited deposit's date of death (required), the same "typed" for a
 # Spent's proceeds, and the moment the priced values'
 # price was for (hour, day; blank with a priced value: day, as every value
-# priced before hourly prices was).
+# priced before hourly prices was), and the coins a row chose
+# (csv_choices.COLUMNS: its id, its choice by its acquisitions' ids, when it
+# was saved).
 CSV_COLUMNS = [
     "date", "type", "amount", "from_account", "to_account",
     "cost_basis_usd", "proceeds_usd", "fee_amount", "fee_currency",
     "source", "purpose", "notes",
     "fee_usd", "fmv_usd", "broker_reporting", "fee_usd_typed", "cost_basis_typed", "acquired_at",
-    "proceeds_typed", "price_moment", "fmv_typed",
+    "proceeds_typed", "price_moment", "fmv_typed", *csv_choices.COLUMNS,
 ]
 
 
@@ -232,6 +234,8 @@ def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
         tx_data, preview, row_errors, row_warnings = _validate_row(normalized, row_number, tz, book)
         result.errors.extend(row_errors)
         result.warnings.extend(row_warnings)
+        if tx_data and not _read_choice(tx_data, normalized, row_number, result):
+            continue
         if tx_data and preview:
             if previous_date and preview.date < previous_date:
                 result.warnings.append(_warning(
@@ -241,9 +245,23 @@ def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
             result.transactions.append(tx_data)
             result.previews.append(preview)
 
+    result.errors.extend(_error(row, column, why) for row, column, why in
+                         csv_choices.check_across(result.transactions, book))
+    result.errors.sort(key=lambda e: e.row_number)
     if not result.transactions and not result.errors:
         result.errors.append(_file_error("No valid transactions found in file."))
     return result
+
+
+def _read_choice(tx_data: dict[str, Any], row: dict[str, str], row_number: int, result: ParseResult) -> bool:
+    """The row's id and chosen coins (#711) put in its data; False, with
+    the error, when it can't hold them."""
+    try:
+        tx_data.update(csv_choices.read(row, row_number))
+    except csv_choices.Unreadable as e:
+        result.errors.append(_error(row_number, e.column, e.message))
+        return False
+    return True
 
 
 def _decode(content: bytes) -> str:
@@ -997,10 +1015,13 @@ def execute_import(
 
 def create_in_time_order(db: Session, transactions: list[dict[str, Any]]) -> int:
     """Each transaction created, uncommitted, by timestamp (rows at the same
-    time in the file's order: execute_import); how many."""
+    time in the file's order: execute_import); how many. A row's chosen
+    coins name rows saved before it, by their ids in the file (#711)."""
     to_save = sorted(transactions, key=lambda x: x["timestamp"])
+    made: dict[int, tuple[int, int]] = {}
     for tx_data in to_save:
-        create_transaction_record(tx_data, db, auto_commit=False)
+        csv_choices.name_by_ids(tx_data, made)
+        csv_choices.note_saved(create_transaction_record(tx_data, db, auto_commit=False), tx_data, made)
     return len(to_save)
 
 
@@ -1056,7 +1077,9 @@ TEMPLATE_ROWS = [
     ["2024-03-01T10:00:00Z", "Withdrawal", "5000.00", "Bank", "External",
      "", "", "", "", "", "", "USD withdrawal for expenses"],
     ["2024-03-10T10:00:00Z", "Withdrawal", "0.15", "Wallet", "External",
-     "", "9000.00", "0.0001", "BTC", "", "Spent", "Spent BTC on purchase (taxable event)", "6.85"],
+     "", "9000.00", "0.0001", "BTC", "", "Spent",
+     "Spent BTC on purchase (taxable event); chosen_coins: the coins you chose to send, by the id of the rows that "
+     "acquired them (blank: the oldest coins first)", "6.85"],
     ["2024-03-15T10:00:00Z", "Withdrawal", "0.1", "Wallet", "External",
      "", "", "0.0001", "BTC", "", "Gift", "Gifted BTC to family (non-taxable for giver); fmv_usd is its value when it left (blank: the price when that hour began)",
      "6.80", "6800.00"],
@@ -1067,11 +1090,19 @@ TEMPLATE_ROWS = [
 ]
 
 
+# The template's chosen coins (#711), by row id: the Spent of 2024-03-10
+# chooses its coins from the My BTC and Gift deposits, not the oldest (the
+# coins moved back from the exchange on 2024-02-20 were bought before them)
+TEMPLATE_CHOICES = {19: "id 5: 0.0501; id 6: 0.1"}
+
+
 def generate_template_csv() -> str:
-    """The CSV template: the header and TEMPLATE_ROWS."""
+    """The CSV template: the header and TEMPLATE_ROWS, each row's id its
+    place (a label: any whole numbers would do)."""
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(CSV_COLUMNS)
-    for cells in TEMPLATE_ROWS:
-        writer.writerow(cells + [""] * (len(CSV_COLUMNS) - len(cells)))
+    own = len(CSV_COLUMNS) - len(csv_choices.COLUMNS)
+    for row_id, cells in enumerate(TEMPLATE_ROWS, start=1):
+        writer.writerow(cells + [""] * (own - len(cells)) + [str(row_id), TEMPLATE_CHOICES.get(row_id, ""), ""])
     return output.getvalue()

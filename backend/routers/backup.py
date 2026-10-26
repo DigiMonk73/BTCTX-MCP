@@ -31,6 +31,7 @@ from backend import session_auth
 from backend.services import account as account_service, ai_key, exchange_mappings, first_run, outbound, tax_time
 from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
+from backend.services import csv_choices
 from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
 from backend.services.reports.safe_text import csv_text
@@ -467,6 +468,7 @@ def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
+        **csv_choices.export_cells(txn),  # its id, the coins it chose and when (#711)
     }
 
 

@@ -398,6 +398,7 @@
       "realized_gain_usd": 0.43
      }
     ],
+    "coins_you_chose": [],
     "data_sources": [
      "Gift",
      "Income",
@@ -1377,6 +1378,7 @@
       "realized_gain_usd": 7.9
      }
     ],
+    "coins_you_chose": [],
     "data_sources": [
      "Gift",
      "Income",
@@ -3379,6 +3381,80 @@
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 5994.0,
       "realized_gain_usd": 3589.2
+     }
+    ],
+    "coins_you_chose": [
+     {
+      "btc": 0.0121,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2024-02-01",
+        "acquired_txn_id": 62,
+        "btc": 0.0051,
+        "cost": 219.3
+       },
+       {
+        "acquired": "2025-02-01",
+        "acquired_txn_id": 66,
+        "btc": 0.007,
+        "cost": 714.0
+       }
+      ],
+      "date": "2025-06-16T14:00:00+00:00",
+      "kind": "Spent",
+      "wallet": "Sparrow"
+     },
+     {
+      "btc": 0.00405,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2025-02-01",
+        "acquired_txn_id": 66,
+        "btc": 0.00405,
+        "cost": 413.1
+       }
+      ],
+      "date": "2025-08-11T14:00:00+00:00",
+      "kind": "Gift",
+      "wallet": "Sparrow"
+     },
+     {
+      "btc": 0.006,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2023-03-10",
+        "acquired_txn_id": 61,
+        "btc": 0.003,
+        "cost": 61.5
+       },
+       {
+        "acquired": "2025-02-01",
+        "acquired_txn_id": 66,
+        "btc": 0.003,
+        "cost": 306.0
+       }
+      ],
+      "date": "2025-10-06T14:00:00+00:00",
+      "kind": "Donation",
+      "wallet": "Sparrow"
+     },
+     {
+      "btc": 0.002,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2024-02-01",
+        "acquired_txn_id": 62,
+        "btc": 0.002,
+        "cost": 86.0
+       }
+      ],
+      "date": "2025-11-17T14:00:00+00:00",
+      "kind": "Lost",
+      "wallet": "Sparrow"
      }
     ],
     "data_sources": [
@@ -6261,6 +6337,89 @@
       "holding_period": "LONG",
       "proceeds_usd_for_that_portion": 738.52,
       "realized_gain_usd": 623.52
+     }
+    ],
+    "coins_you_chose": [
+     {
+      "btc": 0.0061,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2023-03-10",
+        "acquired_txn_id": 61,
+        "btc": 0.0021,
+        "cost": 43.05
+       },
+       {
+        "acquired": "INHERITED",
+        "acquired_txn_id": 67,
+        "btc": 0.004,
+        "cost": 424.0
+       }
+      ],
+      "date": "2026-08-27T14:00:00+00:00",
+      "kind": "Transfer to Jade",
+      "wallet": "Sparrow"
+     },
+     {
+      "btc": 0.002,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2023-03-10",
+        "acquired_txn_id": 61,
+        "btc": 0.002,
+        "cost": 41.0
+       }
+      ],
+      "date": "2026-08-31T14:00:00+00:00",
+      "kind": "Transfer to Jade",
+      "wallet": "Sparrow"
+     },
+     {
+      "btc": 0.002,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "INHERITED",
+        "acquired_txn_id": 67,
+        "btc": 0.002,
+        "cost": 212.0
+       }
+      ],
+      "date": "2026-09-03T14:00:00+00:00",
+      "kind": "Spent",
+      "wallet": "Jade"
+     },
+     {
+      "btc": 0.003,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2023-03-10",
+        "acquired_txn_id": 61,
+        "btc": 0.003,
+        "cost": 61.5
+       }
+      ],
+      "date": "2026-09-04T14:00:00+00:00",
+      "kind": "Spent",
+      "wallet": "Jade"
+     },
+     {
+      "btc": 0.0051,
+      "chosen_later": true,
+      "coins": [
+       {
+        "acquired": "2025-02-01",
+        "acquired_txn_id": 66,
+        "btc": 0.0051,
+        "cost": 520.2
+       }
+      ],
+      "date": "2026-09-07T14:00:00+00:00",
+      "kind": "Transfer to Kraken BTC",
+      "wallet": "Sparrow"
      }
     ],
     "data_sources": [

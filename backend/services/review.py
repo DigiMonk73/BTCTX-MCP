@@ -227,6 +227,10 @@ CHECKS: dict[str, tuple] = {
         "Reminder: My BTC and Gift deposits counted from their deposit date",
         "To change one, edit the deposit: its Source, or its Date originally acquired.",
     ),
+    "coins_chosen_later": (
+        "Reminder: coins chosen after they left",
+        "Nothing to fix: check that your records from when the coins left show this choice.",
+    ),
     "sale_may_differ_from_1099da": (
         "Reminder: exchange sales your exchange's Form 1099-DA may show differently",
         "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file shows the "
@@ -260,6 +264,13 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "can change a year's gain, up or down. Coins kept more than a year after the deposit are long-term "
         "either way. Enter a date only if you can back it up (a receipt, a statement, a message from the "
         "giver).",
+    ),
+    "coins_chosen_later": (
+        "A choice counts only if you made it by then and your records show it.",
+        "BitcoinTX keeps the day each choice was saved. A choice saved later, from a note or wallet records made "
+        "when the coins left, still counts: what matters is when you decided, not when you typed it here. "
+        "Without such a record, the IRS counts the oldest coins as the ones that left (Treas. Reg. "
+        "§1.1012-1(j)). A tax professional can tell you whether your records are enough.",
     ),
     "sale_may_differ_from_1099da": (
         "Your exchange may have reported other coins for these sales. Without their purchase dates, an exchange "
@@ -503,6 +514,7 @@ def build_review(db: Session) -> dict[str, Any]:
     found["gift_without_value"] = _gift_without_value_items(db, rows, tz, missing)
     found["income_value_off"] = _income_value_items(db, rows, tz, missing)
     found["sale_may_differ_from_1099da"] = _sale_may_differ_items(db, tz, book)
+    found["coins_chosen_later"] = _chosen_later_items(db, tz, book)
 
     checks = [
         {"key": key, "kind": "reminder" if key in REMINDERS else "check", "title": title, "action": action,
@@ -521,6 +533,22 @@ def build_review(db: Session) -> dict[str, Any]:
         "no_price_for": missing,
         "recalc_error": recalc_error,
     }
+
+
+def _chosen_later_items(db: Session, tz, book: AccountBook) -> list[dict[str, Any]]:
+    """Choices saved on a later day than their coins left (#711, Q1): one
+    counts only if made by then, which BitcoinTX can't know, so the day it
+    was saved is listed for the owner and their preparer. Days, not
+    times: a transaction's time is often typed roughly (plan 6.6)."""
+    chosen = (db.query(Transaction).filter(Transaction.coins_chosen_at.isnot(None))
+              .order_by(Transaction.timestamp, Transaction.id))
+    items = []
+    for t in chosen:
+        chosen_on, left_on = local_date(t.coins_chosen_at, tz), local_date(t.timestamp, tz)
+        if chosen_on > left_on:
+            items.append(row_item(t, tz, book, f"Chosen on {chosen_on.isoformat()}, after the coins left on "
+                                               f"{left_on.isoformat()}.", ""))
+    return items
 
 
 def _row_issues(t: Transaction, tz, book: AccountBook):

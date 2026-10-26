@@ -88,7 +88,7 @@ def _pdf_cells(tx: Transaction, row: dict, tz) -> dict:
     detail = tx.source if tx.type == "Deposit" else tx.purpose if tx.type == "Withdrawal" else None
     return {
         "_date": format_tax_date(tx.timestamp, tz),
-        "_kind": f"{tx.type} ({detail})" if detail and detail != "N/A" else tx.type,
+        "_kind": (f"{tx.type} ({detail})" if detail and detail != "N/A" else tx.type) + (", coins chosen" if tx.chosen_coins else ""),
         "_amount": _with_currency(row["amount"], row["asset"]),
         "_fee": _with_currency(row["fee_amount"], row["fee_currency"]),
         **{col: _usd(row[col]) for col in ("cost_basis_usd", "proceeds_usd", "realized_gain_usd")},
@@ -126,7 +126,8 @@ def _build_row(accounts: dict, tx: Transaction, book: AccountBook) -> dict:
         "proceeds_usd": _format_decimal(tx.proceeds_usd),
         "realized_gain_usd": _format_decimal(tx.realized_gain_usd),
         "holding_period": tx.holding_period or "",
-        "description": _map_description(tx),
+        # The coins it chose (#711): the tax report lists them ("Coins you chose")
+        "description": "; ".join(part for part in (_map_description(tx), "coins chosen" if tx.chosen_coins else "") if part),
     }
 
 

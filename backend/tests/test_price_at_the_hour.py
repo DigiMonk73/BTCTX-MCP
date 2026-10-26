@@ -259,7 +259,7 @@ def test_the_csv_export_carries_the_marks_and_an_older_file_means_the_day(auth_c
     spend(auth_client)
     export = auth_client.get("/api/backup/csv").text
     header = export.splitlines()[0].split(",")
-    assert header[-3:] == ["proceeds_typed", "price_moment", "fmv_typed"]
+    assert header[-6:-3] == ["proceeds_typed", "price_moment", "fmv_typed"]  # then a choice of coins' three (#711)
 
     def imported(text: str) -> list[dict]:
         auth_client.delete("/api/transactions/delete_all?confirm=DELETE")
@@ -270,7 +270,7 @@ def test_the_csv_export_carries_the_marks_and_an_older_file_means_the_day(auth_c
     again = imported(export)
     assert [(t["type"], t["price_moment"], t["proceeds_from_price"]) for t in again] == [
         ("Buy", None, False), ("Deposit", "hour", False), ("Withdrawal", "hour", True)]
-    older = "\n".join(",".join(line.split(",")[:-2]) for line in export.splitlines())  # before 1.3
+    older = "\n".join(",".join(line.split(",")[:-5]) for line in export.splitlines())  # before 1.3 (and #711's three)
     assert [t["price_moment"] for t in imported(older)] == [None, "day", "day"]
 
 

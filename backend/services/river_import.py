@@ -363,6 +363,7 @@ class FileRow:
 
 
 BUY, SELL, SEND, RECEIVE = "buy", "sell", "send", "receive"
+OLDEST_FROM_THE_WALLET = "From your wallet, oldest coins first: you can choose the coins after the import."
 # A payout's kind, by the deposit source it is (#399: a mining payout is a
 # Reward, income like the others; #98: a Rebate is valued so, never income)
 PAYOUT_SOURCES = {"income": "Income", "interest": "Interest", "reward": "Reward", "rebate": "Rebate"}
@@ -617,6 +618,8 @@ class _Adapter:
         if not row.btc or row.btc <= 0:
             self.warn(row, "BTC receive row missing amount — skipped.")
             return None
+        # A file can't say which coins a wallet sent (#711, 6.4): none are chosen
+        self.warn(row, OLDEST_FROM_THE_WALLET)
         return self.proposal(
             row, type="Transfer", from_account_id=self.accounts.wallet, to_account_id=self.accounts.exchange_btc,
             amount=row.btc, type_choices=["Transfer", "Deposit"], guessed="from",
