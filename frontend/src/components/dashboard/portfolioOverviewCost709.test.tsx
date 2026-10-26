@@ -94,12 +94,12 @@ describe("each account's cost when a bitcoin line is opened", () => {
     }
   });
 
-  it("the totals stay as they are: Total BTC, the average cost and the card's gain from it", async () => {
+  it("the totals: Total BTC, the average cost as the server gives it, and the accounts' gains added up (#770)", async () => {
     const { container } = mount(MULTIPLE);
     await opened("Wallet (BTC)");
     const totals = [...container.querySelectorAll(".portfolio-overview > hr ~ p")].map((p) => p.textContent);
     expect(totals).toEqual([
-      "Total BTC1.06000000 BTC", "Avg. Cost per BTC$20,000.00", "Unrealized Gains/Losses+$42,400.00"]);
+      "Total BTC1.06000000 BTC", "Avg. Cost per BTC$20,000.00", "Unrealized Gains/Losses+$41,464.93"]);
   });
 });
 
@@ -108,8 +108,8 @@ describe("with one account of each kind", () => {
     const { container } = mount(ONE_OF_EACH);
     expect([...container.querySelectorAll(".portfolio-overview p")].map((p) => p.textContent)).toEqual([
       "Bank (USD)$1,500.25", "Exchange (USD)$20.00", "Exchange (BTC)0.25000000 BTC", "Wallet (BTC)0.50000000 BTC",
-      "Total BTC0.75000000 BTC", "Avg. Cost per BTC$20,000.00", "Unrealized Gains/Losses+$30,000.00",
-    ]);
+      "Total BTC0.75000000 BTC", "Avg. Cost per BTC$20,000.00", "Unrealized Gains/Losses+$29,999.99",
+    ]); // the gain is the two accounts' own ($20,999.99 + $9,000.00, #770)
     expect(container.querySelectorAll(".balance-line-cost")).toHaveLength(0);
   });
 });
