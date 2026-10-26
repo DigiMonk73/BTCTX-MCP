@@ -14,7 +14,7 @@ const balance = (
   account_id: number, name: string, kind: AccountBalance["kind"], currency: string, value: string,
   extra: Partial<Pick<AccountBalance, "exchange_id" | "exchange" | "hidden">> = {},
 ): AccountBalance => ({ account_id, name, kind, currency, balance: value, exchange_id: null, exchange: null,
-  hidden: false, ...extra });
+  hidden: false, cost_basis: null, ...extra });
 
 const EXCHANGE = { exchange_id: 1, exchange: "Exchange" };
 const KRAKEN = { exchange_id: 2, exchange: "Kraken" };

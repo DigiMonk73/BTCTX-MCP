@@ -62,8 +62,8 @@ describe("the rows", () => {
 
 describe("a row's balance", () => {
   // The balances route names each account's kind, exchange and hidden too (#356)
-  const mine = { exchange_id: null, exchange: null, hidden: false };
-  const exchange = { kind: "exchange" as const, exchange_id: 1, exchange: "Exchange", hidden: false };
+  const mine = { exchange_id: null, exchange: null, hidden: false, cost_basis: null };
+  const exchange = { kind: "exchange" as const, exchange_id: 1, exchange: "Exchange", hidden: false, cost_basis: null };
   const balances: AccountBalance[] = [
     { account_id: 1, name: "Bank", currency: "USD", balance: "80000.00", kind: "bank", ...mine },
     { account_id: 2, name: "Wallet", currency: "BTC", balance: "0.4999", kind: "wallet", ...mine },
