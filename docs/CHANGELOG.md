@@ -154,6 +154,23 @@ All notable changes to BitcoinTX are documented in this file.
   had focus (a click in Safari focuses no button). In Safari, whose Tab
   skips buttons by default (the Mac app too), Tab now stays in every
   dialog. No figure changes.
+- **A Coinbase buy's cost basis and a sale's proceeds, from a file
+  downloaded now** (#789, found by the 2.0 testing plan's import run, T3,
+  #689; in alpha.1 to alpha.3). Coinbase's current "Transaction history"
+  (13 columns) puts a spread, not its fee, in a buy's or sale's "Fees and/or
+  Spread": the fee shows only in the Total. BitcoinTX read the cost or
+  gross as Subtotal and the fee from that column, so a buy's basis came out
+  too low and a sale's proceeds too high, by Coinbase's fee: a $35.00 buy
+  had a basis of $33.01, a sale that brought in $15.91 had proceeds of
+  $16.15, and the gains were too high. It now takes a buy's or sale's
+  Total, what was paid or arrived, and the fee as the gap between it and
+  Subtotal. Coinbase writes the file when it's downloaded, so a file
+  downloaded now has this shape for every tax year's rows, and Ledger
+  Review doesn't flag them (both values look typed). Older Coinbase files,
+  whose columns add up, give the same figures as before. **What to do:** if
+  you imported a Coinbase file with alpha.1, alpha.2 or alpha.3, check its
+  buys and sales against the file's Total column, or delete them and
+  import it again.
 - **The importer asks for the file's exchange before Preview** (#773,
   found by the 2.0 testing plan's screens session). With more than one
   exchange, Preview waits until you choose the exchange the file is from
