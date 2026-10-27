@@ -30,6 +30,13 @@ for (let i = 0; i < 30; i++) {
         document.addEventListener(kind, (e) => w.__log.push(`${performance.now().toFixed(0)} ${kind} ${name(e.target)}`), true);
       }
     });
+    // The list's reload held a moment, so the row is reloaded away, as on most machines. When the
+    // reload answers before React draws "loading" (CI's fast runner), React keeps the row, and focus
+    // rightly goes back to its own Edit instead (#793)
+    await page.route((url) => url.pathname === "/api/transactions", async (route) => {
+      if (route.request().method() === "GET") await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
     await panel.getByRole("button", { name: "Update transaction" }).click();
     await expect(panel).toHaveCount(0);
     const add = page.getByRole("button", { name: "Add transaction" });

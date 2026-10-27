@@ -81,6 +81,13 @@ test("after an edit is saved, its row reloaded away, the keyboard is on Add tran
   await page.keyboard.press("Enter");
   const panel = page.getByRole("dialog", { name: "Edit Transaction" });
   await panel.getByLabel("Amount", { exact: true }).fill("60");
+  // The list's reload held a moment, so the row is reloaded away, as on most machines. When the
+  // reload answers before React draws "loading" (CI's fast runner), React keeps the row, and focus
+  // rightly goes back to its own Edit instead (#793)
+  await page.route((url) => url.pathname === "/api/transactions", async (route) => {
+    if (route.request().method() === "GET") await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
   await panel.getByRole("button", { name: "Update transaction" }).click();
   await expect(panel).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add transaction" })).toBeFocused();
