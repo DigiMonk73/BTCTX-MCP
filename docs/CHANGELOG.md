@@ -244,6 +244,15 @@ notes. The AI connector is `btctx-mcp==2.0.0b1`.
   request gave up at its limit by what only a limit does (its slow answer
   left unfinished, its lookup cancelled, its thread ended), and the
   waiters' "at once" checks have room against a longer limit.
+- **StartOS: the package packs** (#792; never in a published version).
+  start-cli counts the store listing's descriptions in UTF-8 bytes, not
+  characters (start-core's `s9pk/v2/manifest.rs`), and the Polish and
+  French long descriptions written in #779 were 2,025 and 2,041 bytes,
+  over its 2,000, so `start-cli s9pk pack` refused the package. Polish,
+  French and German are shortened to at most 1,950 bytes with their
+  meaning kept (the owner's clause on choosing coins in a wallet and the
+  IRS rule word for word), and `test_startos_conformance.py` now counts
+  bytes, as start-cli does. No figure changes.
 
 ## [v2.0.0-alpha.3] - 2026-10-26 - 2.0's third alpha: choose which coins leave a wallet
 
