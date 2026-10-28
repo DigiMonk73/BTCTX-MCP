@@ -30,8 +30,6 @@ RED = (217, 45, 32)  # white on it: 4.8 to 1
 SIZES = {"16x16": 16, "16x16@2x": 32, "32x32": 32, "32x32@2x": 64, "128x128": 128, "128x128@2x": 256,
          "256x256": 256, "256x256@2x": 512, "512x512": 512, "512x512@2x": 1024}
 SMALLEST_WITH_WORD = 64
-# How far in from each side, at 1024 pixels, a corner can reach the band
-CORNER_COLUMNS = 24
 
 
 def main() -> None:
@@ -43,14 +41,18 @@ def main() -> None:
         preview.mkdir()
         for name, px in SIZES.items():
             source = with_word if px >= SMALLEST_WITH_WORD else stripe
-            source.resize((px, px), Image.LANCZOS).save(preview / f"icon_{name}.png")
+            # Resized with its transparency taken into account, so no colour comes back past the corners
+            if px != source.width:
+                source = source.convert("RGBa").resize((px, px), Image.LANCZOS).convert("RGBA")
+            source.save(preview / f"icon_{name}.png")
         subprocess.run(["iconutil", "-c", "icns", str(preview), "-o", str(RESOURCES / "icon-preview.icns")],
                        check=True)
 
 
 def banded(icon: Image.Image, word: bool) -> Image.Image:
     """The icon with the band across it, a darker line along each edge so it
-    stands off the gold, and the word on it."""
+    stands off the gold, and the word on it; the band's ends stay inside the
+    icon's rounded corners, transparent outside them as the icon is (#680)."""
     out = icon.copy()
     draw = ImageDraw.Draw(out)
     size = out.width
@@ -60,23 +62,10 @@ def banded(icon: Image.Image, word: bool) -> Image.Image:
     draw.rectangle([0, top, size, bottom], fill=RED)
     draw.rectangle([0, top, size, top + edge], fill=shade)
     draw.rectangle([0, bottom - edge, size, bottom], fill=shade)
-    _keep_the_corners(out, icon, top, bottom)
+    out.putalpha(icon.getchannel("A"))
     if word:
         _write_word(draw, size, top, bottom)
     return out
-
-
-def _keep_the_corners(out: Image.Image, icon: Image.Image, top: int, bottom: int) -> None:
-    """The icon's rounded corners are painted white, and the band's ends
-    reach into the lower two: there the white shows through, so the band
-    stays inside the icon's shape."""
-    for x in [*range(CORNER_COLUMNS), *range(out.width - CORNER_COLUMNS, out.width)]:
-        for y in range(top, bottom + 1):
-            original = icon.getpixel((x, y))
-            white = min(1.0, max(0.0, (min(original[:3]) - 120) / 120))
-            if white:
-                band = out.getpixel((x, y))
-                out.putpixel((x, y), tuple(round(b + (o - b) * white) for b, o in zip(band, original, strict=True)))
 
 
 def _write_word(draw: ImageDraw.ImageDraw, size: int, top: int, bottom: int) -> None:

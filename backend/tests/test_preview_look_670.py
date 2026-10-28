@@ -8,6 +8,9 @@ its executable takes the app's own name, which crash reports, Console and ps
 show. A release keeps BitcoinTX's icon and executable. The banner on every
 page and the Preview's first-page line are the frontend's
 (PrereleaseBanner.tsx, ChooseOwnLogin.tsx).
+
+Both icons' corners, outside the rounded square, are transparent at every
+size (#680): painted white, they showed on a dark Dock.
 """
 
 import importlib.util
@@ -75,10 +78,14 @@ def test_the_preview_icon_is_bitcointxs_with_a_red_band():
     for x in (12, 1011):  # the band's ends, left and right of the word
         assert preview.getpixel((x, middle)) == RED
     assert plain.getpixel((12, middle)) != RED
-    # The lower corners, painted white, reach into the band's ends: they stay white
+    # The lower corners reach into the band's ends: they stay transparent (#680)
     for x in (0, 1023):
-        assert min(plain.getpixel((x, 870))) > 240
-        assert preview.getpixel((x, 870)) == plain.getpixel((x, 870))
+        assert _alpha(RESOURCES / "icon.icns", (x, 870)) == _alpha(RESOURCES / "icon-preview.icns", (x, 870)) == 0
+
+
+def _alpha(path: Path, xy: tuple[int, int]) -> int:
+    with Image.open(path) as icns:
+        return icns.convert("RGBA").getpixel(xy)[3]
 
 
 # Every image macOS picks from: 16 and 32 pixels (Finder's list view), up to 1024
@@ -108,8 +115,8 @@ def _argb(body: bytes, px: int) -> Image.Image:
         else:
             out += body[at + 1:at + 2 + n]
             at += n + 2
-    channels = [bytes(out[k * px * px:(k + 1) * px * px]) for k in (1, 2, 3)]
-    return Image.merge("RGB", [Image.frombytes("L", (px, px), c) for c in channels])
+    channels = [bytes(out[k * px * px:(k + 1) * px * px]) for k in (1, 2, 3, 0)]
+    return Image.merge("RGBA", [Image.frombytes("L", (px, px), c) for c in channels])
 
 
 def test_every_size_of_the_preview_icon_shows_the_band():
@@ -122,6 +129,28 @@ def test_every_size_of_the_preview_icon_shows_the_band():
         assert red[0] > 150 and red[1] < 90 and red[2] < 80, (kind, red)
     plain = _images(RESOURCES / "icon.icns")["ic04"].getpixel((1, round(sum(BAND) / 2 * 16)))
     assert not (plain[0] > 150 and plain[1] < 90), plain
+
+
+@pytest.mark.parametrize("icon", ["icon.icns", "icon-preview.icns"])
+def test_both_icons_have_transparent_corners_at_every_size(icon):
+    """Outside the rounded square nothing is painted, so a dark Dock or Finder
+    window shows through, never a white square (#680); inside, it's opaque."""
+    images = _images(RESOURCES / icon)
+    assert set(images) == set(IMAGES)
+    for kind, image in images.items():
+        rgba, last = image.convert("RGBA"), image.width - 1
+        # Each corner (its arc's radius is about 17% of the side) and a little
+        # along its sides; inside, the middles of the sides and the centre
+        outside = [(0, 0), (last, 0), (0, last), (last, last)]
+        if image.width >= 64:  # smaller, the corner is a pixel or two
+            tip = round(0.03 * image.width)
+            outside += [(tip, 0), (0, tip), (last - tip, last), (last, last - tip)]
+        inside = [(image.width // 2, 0), (0, image.height // 2), (last, image.height // 2),
+                  (image.width // 2, last), (image.width // 2, image.height // 2)]
+        # At 16 and 32 pixels a corner pixel is partly the curve, drawn faintly (8% at most)
+        faint = 0 if image.width >= 64 else 24
+        assert all(rgba.getpixel(xy)[3] <= faint for xy in outside), (kind, [rgba.getpixel(xy) for xy in outside])
+        assert [rgba.getpixel(xy)[3] for xy in inside] == [255] * len(inside), (kind, image.size)
 
 
 on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="PlistBuddy, macOS's")

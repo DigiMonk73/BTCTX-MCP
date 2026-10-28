@@ -388,6 +388,15 @@ done
 iconutil -c icns icon.iconset -o desktop/resources/icon.icns
 ```
 
+Nothing is painted outside its rounded square (#680): a dark Dock or Finder
+window shows through the corners. A new picture with its corners painted
+white gets them cut by `scripts/icon_corners.py`, which rewrites
+`icon.icns`, every size made from its 1024-pixel image:
+
+```bash
+.venv/bin/python scripts/icon_corners.py
+```
+
 BitcoinTX Preview's `desktop/resources/icon-preview.icns` (#670) is checked
 in too: the same icon with a red "PREVIEW" band across its lower part (a
 plain stripe at 16 and 32 pixels, where the word would blur). After a new
@@ -398,4 +407,4 @@ plain stripe at 16 and 32 pixels, where the word would blur). After a new
 ```
 
 `backend/tests/test_preview_look_670.py` checks it is `icon.icns` with the
-band, at every size.
+band, at every size, and that both icons' corners are transparent.
