@@ -124,8 +124,8 @@ All notable changes to BitcoinTX are documented in this file.
   release (#805). 2.5.1 and 2.5.2 fix three things: packing an image
   whose `/etc/resolv.conf` is a symlink (BitcoinTX's isn't), a crash when
   its output is piped into a command that stops reading early, and its
-  macOS build stopping at launch on newer macOS. The SHA-256 is the release notes' and GitHub's
-  own digest of `start-cli_x86_64-linux`.
+  macOS build stopping at launch on newer macOS. The SHA-256 is the
+  release notes' and GitHub's own digest of `start-cli_x86_64-linux`.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
