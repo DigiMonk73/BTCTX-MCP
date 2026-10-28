@@ -5,8 +5,7 @@
 // deleted. Cancel and Escape send nothing and give the keyboard back to
 // Delete, under StrictMode too and after a click that focused nothing (Safari);
 // the dialog's Delete sends one request, saying so while it runs. The
-// click-through is in
-// e2e/settings-accounts-355.e2e.ts.
+// click-through is in e2e/settings-accounts-355.e2e.ts.
 import "../../test/setup";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -91,13 +90,15 @@ it("its Delete sends one request, says so while it runs, then closes, the keyboa
   vi.mocked(api.delete).mockReturnValue(new Promise((resolve) => (answer = () => resolve({ status: 204 }))));
   const { user, dialog } = await askToDelete("Coldcard");
   const confirm = within(dialog).getByRole("button", { name: "Delete Coldcard" });
-  await user.dblClick(confirm);
+  // By the keyboard, so the dialog takes the focus from its disabled Delete itself (a click would move it too)
+  await user.keyboard("{Tab}{Enter}");
+  expect(document.activeElement).toBe(dialog);
+  await user.click(confirm); // pressed again: nothing more is sent
   expect(api.delete).toHaveBeenCalledTimes(1);
   expect(api.delete).toHaveBeenCalledWith("/accounts/100");
   expect(confirm.textContent).toBe("Deleting...");
   expect(confirm).toHaveProperty("disabled", true);
   expect(within(dialog).getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", true);
-  expect(document.activeElement).toBe(dialog);
   await user.keyboard("{Escape}");
   expect(screen.getByRole("dialog")).toBe(dialog);
   await act(async () => answer());
