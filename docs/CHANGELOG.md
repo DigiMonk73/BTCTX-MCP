@@ -23,6 +23,16 @@ All notable changes to BitcoinTX are documented in this file.
   methods they take (`Allow: GET, HEAD`), and Starlette needs Python
   3.11, BitcoinTX's minimum since #546. The icons BitcoinTX shows are
   drawn the same. Nothing changes on screen or in any figure.
+- **start-sdk 3.1.1** (from 3.1.0), the StartOS package's SDK, current
+  before the next pull request to Start9's fork (their Pre-Publish
+  Checklist asks for it; #805). Its two fixes are for a service whose
+  image has no `/proc` or a symlinked `/etc/resolv.conf`; BitcoinTX's
+  image has neither, so nothing changes in how its service starts. Its
+  minimum StartOS stays 0.4.0.2, the bundled sibling packages (Mempool's,
+  Tor's) are unchanged, and npm now keeps the SDK's own packages in one
+  place in the lockfile. It ships with the next package version, since the
+  community registry serves 1.2.10 (startos/UPDATING.md, "Bumping the
+  SDK", step 4).
 
 ### Documentation
 - **Trying 2.0 before it's released** (the README's "Versions"; 2.0 plan
@@ -107,6 +117,12 @@ All notable changes to BitcoinTX are documented in this file.
   lab that day, start-cli 2.4.1 and 2.4.2 failed on `registry package
   install` against Start9's new start-registry 1.2.0, though Start9's notes
   say older start-clis keep working; CI reads no registry.
+- **start-cli 2.5.2** (from 2.5.0) packs `btctx.s9pk` in CI and the
+  release (#805). 2.5.1 and 2.5.2 fix packing an image whose
+  `/etc/resolv.conf` is a symlink (BitcoinTX's isn't), output piped into
+  a command that stops reading early, and its macOS build aborting at
+  launch on newer macOS. The SHA-256 is the release notes' and GitHub's
+  own digest of `start-cli_x86_64-linux`.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
