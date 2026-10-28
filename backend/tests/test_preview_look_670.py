@@ -154,20 +154,35 @@ def test_both_icons_have_transparent_corners_at_every_size(icon):
         # At 16 and 32 pixels a corner pixel is partly the curve, drawn faintly (under a tenth)
         faint = 0 if image.width >= 64 else 24
         assert all(rgba.getpixel(xy)[3] <= faint for xy in outside), (kind, [rgba.getpixel(xy) for xy in outside])
-        # Along the cut, the edge is the square's own colour: no light line left round it that
-        # shows (a resized edge also holds pixels almost clear, whose colour rounds to anything)
+        # No near-white line left along the cut, at any size, that shows (a resized edge also
+        # holds pixels almost clear, whose colour rounds to anything)
         light_edge = [p for p in rgba.get_flattened_data() if 24 < p[3] < 255 and min(p[:3]) >= icon_corners.WHITE]
         assert not light_edge, (kind, light_edge[:5])
         assert [rgba.getpixel(xy)[3] for xy in inside] == [255] * len(inside), (kind, image.size)
 
 
+def test_the_full_size_edge_is_the_squares_own_colour():
+    """Along the cut, each partly clear pixel of the 1024-pixel image is the
+    colour just inside it, never its old blend with the white: no grey line
+    round the icon on a dark Dock (#680's re-check)."""
+    with Image.open(RESOURCES / "icon.icns") as icns:
+        icon = icns.convert("RGBA")
+    pixels, size = icon.load(), icon.width
+    edge = [(x, y) for y in range(size) for x in range(size) if 0 < pixels[x, y][3] < 255]
+    assert edge
+    assert [xy for xy in edge if pixels[xy][:3] != icon_corners._inward(pixels, size, *xy)[:3]] == []
+
+
 def test_the_corner_script_cuts_only_opaque_white():
-    """A square on white: the white joined to its corners goes, the square
-    stays; cut again, with white left under its clear pixels (as iconutil
-    keeps it), it comes out the same (#680's review)."""
-    icon = Image.new("RGBA", (64, 64), (255, 255, 255, 255))
-    ImageDraw.Draw(icon).rounded_rectangle([0, 0, 63, 63], 12, fill=(30, 50, 90, 255))
+    """A square on white, its edge anti-aliased: the white joined to its
+    corners goes, the edge turns partly clear, the square stays; cut again,
+    with white left under its clear pixels (as iconutil keeps it), it comes
+    out the same, its edge still partly clear (#680's review)."""
+    drawn = Image.new("RGBA", (256, 256), (255, 255, 255, 255))
+    ImageDraw.Draw(drawn).rounded_rectangle([0, 0, 255, 255], 48, fill=(30, 50, 90, 255))
+    icon = drawn.resize((64, 64), Image.LANCZOS)
     cut = icon_corners.without_corners(icon)
+    assert any(0 < a < 255 for a in cut.getchannel("A").get_flattened_data())
     assert [cut.getpixel(xy)[3] for xy in [(0, 0), (63, 0), (0, 63), (63, 63)]] == [0, 0, 0, 0]
     assert [cut.getpixel(xy)[3] for xy in [(32, 0), (0, 32), (32, 32)]] == [255, 255, 255]
     clear = Image.new("RGBA", cut.size, (255, 255, 255, 0))
