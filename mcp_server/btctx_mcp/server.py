@@ -76,7 +76,7 @@ TO_CHOOSE_AGAIN = ("Nothing was saved: this transaction's coins were chosen, and
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
               "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
               "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
-              "arguments and {param} set to this answer's confirm. A copy of the ledger is made first.")
+              "arguments and confirm set to this answer's confirm. A copy of the ledger is made first.")
 
 
 class ChosenCoinInput(BaseModel):
@@ -90,7 +90,7 @@ CHOSEN_COINS = ("Only for a Transfer to another account, or a BTC Withdrawal, fr
                 "only when the user says they chose which coins to send by the time they left, with a record from "
                 "then (see the ledger guide): each purchase or deposit those coins came from and the BTC from "
                 "it, together exactly what leaves (a Transfer's amount, its fee in it; a Withdrawal's amount and "
-                "its BTC fee). Omitted: the oldest coins leave first. Never on an exchange.")
+                "its BTC fee). Never on an exchange.")
 
 
 class TransactionInput(BaseModel):
@@ -134,7 +134,8 @@ class TransactionInput(BaseModel):
                                   "preview_transactions matched as a duplicate: that row's matched_transaction_id. "
                                   "It's then saved, once (sent again, it's left out). Never set it on your own. "
                                   "An identical row beside it needs it too, or the request is refused as unclear.")
-    chosen_coins: list[ChosenCoinInput] | None = Field(default=None, description=CHOSEN_COINS)
+    chosen_coins: list[ChosenCoinInput] | None = Field(
+        default=None, description=CHOSEN_COINS + " Omitted: the oldest coins leave first.")
 
 
 _client: BtctxClient | None = None
@@ -259,11 +260,11 @@ async def _write(method: str, path: str, confirm: str | None, **kwargs: Any) -> 
         raise ToolError(str(exc)) from exc
 
 
-def _asks(warning: dict[str, Any], tool: str, param: str = "confirm") -> dict[str, Any]:
+def _asks(warning: dict[str, Any], tool: str) -> dict[str, Any]:
     """The tool's answer to a past-year warning: saved false, what the user
     is asked about, and how to confirm it."""
     return {"saved": False, **{key: warning.get(key) for key in WARNING_FIELDS},
-            "to_confirm": TO_CONFIRM.format(tool=tool, param=param)}
+            "to_confirm": TO_CONFIRM.format(tool=tool)}
 
 
 async def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
@@ -621,8 +622,9 @@ async def update_transaction(
     fee_usd: UsdValue | None = None,
     broker_reporting: Literal["automatic", "none", "proceeds", "basis"] | None = None,
     acquired_at: str | None = None,
-    chosen_coins: Annotated[list[ChosenCoinInput] | None, Field(description=CHOSEN_COINS + " [] sets it back "
-                                                                "to oldest first.")] = None,
+    chosen_coins: Annotated[list[ChosenCoinInput] | None, Field(
+        description=CHOSEN_COINS + " Omitted: the coins chosen are kept while what leaves stays the same. [] sets "
+                                   "it back to oldest first.")] = None,
     confirm: Confirm = None,
     confirm_move: Annotated[str | None, Field(description="confirm's older name, the same value: send confirm.")] = None,
 ) -> ToolResult:
@@ -666,7 +668,7 @@ async def update_transaction(
     chosen_coins included."""
     if confirm and confirm_move and confirm != confirm_move:
         raise ToolError("Send one confirm: confirm_move is its older name.")
-    confirm = confirm or confirm_move  # the 2.0 betas' name, kept (#797)
+    confirm = confirm or confirm_move  # its name in 2.0's pre-releases, kept (#797)
     changes: dict[str, Any] = {}
     if date is not None:
         changes["timestamp"] = await _timestamp_from(date)

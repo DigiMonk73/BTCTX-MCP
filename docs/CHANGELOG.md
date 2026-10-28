@@ -5,7 +5,7 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Fixed
-- **The AI connector's words no longer set two small traps** (#797, found
+- **The AI connector's words no longer set three small traps** (#797, found
   by Grok's test of beta.1; no figure changes):
   - when an edit changes what leaves a transaction whose coins were
     chosen, BitcoinTX's answer and the connector's now both say to set it
@@ -17,7 +17,7 @@ All notable changes to BitcoinTX are documented in this file.
     were still on the exchange; its description and the AI's guide say so;
   - `update_transaction` takes the past-year `confirm` by that name, as
     `add_transactions`, `delete_transaction` and `recalculate_ledger` do;
-    `confirm_move`, its name in the betas, still works.
+    `confirm_move`, its name in 2.0's pre-releases, still works.
 
 ### Development
 - **Two click-through tests no longer depend on timing or engine** (#793).

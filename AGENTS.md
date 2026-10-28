@@ -583,7 +583,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   consolidation take no choice. A choice survives every recalculation; a
   write that would leave a later choice short of its coins is refused,
   naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
-  must send the coins again, or null (`SendAgain`, its 422 naming the
+  must send the coins again, or `[]` (null works too) (`SendAgain`, its 422 naming the
   transaction in `X-BitcoinTX-Choose-Again`, which the AI connector answers
   as `saved: false`). `coins_chosen_at` is when the choice was saved, kept
   while it's sent back unchanged. The CSV carries a choice by its rows'

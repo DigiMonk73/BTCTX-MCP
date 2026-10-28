@@ -7,6 +7,7 @@ What an AI reads to set the connector up (AI_SETUP.md), what a user reads
 ledger guide and the tools' descriptions) say what the 2.0 connector does.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -168,3 +169,15 @@ async def test_the_tools_say_what_2_0_does(mcp_client):  # noqa: F811
     assert "making a transaction a Buy needs cost_basis_usd" not in tools["update_transaction"]
     assert "a Buy's cost_basis_usd (a bitcoin deposit's own is kept when you send none)" in tools["update_transaction"]
     assert "the FIFO result" not in tools["preview_transactions"]
+
+
+async def test_chosen_coins_says_what_leaving_it_out_does_on_each_tool(mcp_client):  # noqa: F811
+    """#797's review: an edit without chosen_coins keeps the choice; only a
+    new row without one sends the oldest coins first."""
+    schemas = {t.name: json.dumps(t.input_schema) for t in (await mcp_client.list_tools()).tools}
+    for name in ("preview_transactions", "add_transactions"):
+        assert "Never on an exchange. Omitted: the oldest coins leave first." in schemas[name]
+    update = schemas["update_transaction"]
+    assert "Omitted: the oldest coins leave first" not in update
+    assert "Omitted: the coins chosen are kept while what leaves stays the same. [] sets it back to oldest first." \
+        in update
