@@ -219,10 +219,11 @@ test("a new user's second wallet, before any transaction, gets no note", async (
 test("hide, show and delete an unused account; your first wallet is hidden, never deleted", async ({
   authedPage: page,
 }) => {
+  // Never the browser's own box (#651)
   const dialogs: string[] = [];
   page.on("dialog", async (d) => {
     dialogs.push(d.message());
-    await d.accept();
+    await d.dismiss();
   });
   const made = await page.request.post("/api/accounts/", { data: { kind: "wallet", name: "Phone" } });
   expect(made.status()).toBe(201);
@@ -252,8 +253,20 @@ test("hide, show and delete an unused account; your first wallet is hidden, neve
   await expect(row(wallets, "Phone")).toBeFocused();
 
   await row(wallets, "Phone").click();
-  await section.getByRole("region", { name: "Phone" }).getByRole("button", { name: "Delete" }).click();
-  expect(dialogs).toEqual(["Delete Phone? It has no transactions."]);
+  const remove = section.getByRole("region", { name: "Phone" }).getByRole("button", { name: "Delete" });
+  // BitcoinTX's own dialog: Escape deletes nothing and gives the keyboard back to Delete
+  await remove.press("Enter");
+  const asked = page.getByRole("dialog", { name: "Delete Phone?" });
+  await expect(asked).toContainText(
+    "This deletes the wallet Phone. Only an account with no transactions can be deleted, and it has none.",
+  );
+  await expect(asked.getByRole("button", { name: "Cancel" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(asked).toHaveCount(0);
+  await expect(remove).toBeFocused();
+  await remove.click();
+  await asked.getByRole("button", { name: "Delete Phone" }).click();
+  await expect(asked).toHaveCount(0);
   await expect(row(wallets, "Phone")).toHaveCount(0);
   await expect(wallets.getByRole("button", { name: "Add a wallet" })).toBeFocused();
   expect((await listed(page)).map((a) => a.name)).not.toContain("Phone");
@@ -263,6 +276,7 @@ test("hide, show and delete an unused account; your first wallet is hidden, neve
   const first = section.getByRole("region", { name: "Wallet" });
   await expect(first.getByRole("button", { name: "Delete" })).toHaveCount(0);
   await expect(first).toContainText("Your first bank, wallet and exchange can't be deleted. Hide one you don't use.");
+  expect(dialogs).toEqual([]);
 });
 
 // River's file: a send of River's to the wallet (row 2) and a buy (row 3)

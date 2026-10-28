@@ -4,6 +4,7 @@ import { extractErrorMessage } from "../utils/apiError";
 import { accountGroups, ledgerIds, type AccountRow, type YourKind } from "../utils/ledgerAccounts";
 import { ACCOUNTS_FAILED, type AccountsState } from "../utils/useAccounts";
 import AccountGroupList from "./ledgerAccounts/AccountGroupList";
+import DeleteAccountDialog from "./ledgerAccounts/DeleteAccountDialog";
 import PastYearDialog from "./PastYearDialog";
 import { usePastYearWarning } from "./transactionForm/usePastYearWarning";
 
@@ -17,7 +18,8 @@ interface LedgerAccountsProps extends AccountsState {
 /**
  * Settings' "Wallets, exchanges and banks" (2.0 spec 5.9; P7's mockups,
  * #572): your accounts grouped by kind, each a row whose details open below
- * it; Add, Rename (#356), Hide or Show, Delete while unused, and each
+ * it; Add, Rename (#356), Hide or Show, Delete while unused (asked in a
+ * dialog, #651), and each
  * exchange's 1099-DA switch, through the past-year warning (5.8). Each
  * change is one request, then the book and the balances again; the server's
  * refusal is shown in its words.
@@ -79,16 +81,19 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
     void change(row, () => api.put(`/accounts/${row.id}`, { hidden }));
   };
 
+  // Delete asks first, in a dialog (#651); it stays open, saying so, while the request runs
+  const [deleting, setDeleting] = useState<AccountRow | null>(null);
+  const cancelDelete = useCallback(() => setDeleting(null), []);
+
   // Refused, the book may be out of date (the account used since it was read, by the AI connector or another tab,
   // #720, or deleted there): it and the balances are read again, so the row says what the server has and offers
   // Delete only if it still may; the keyboard goes back to the row, its Delete button perhaps gone
-  const remove = (row: AccountRow) => {
-    if (!window.confirm(`Delete ${row.name}? It has no transactions.`)) return;
-    void change(row, () => api.delete(`/accounts/${row.id}`)).then(async (deleted) => {
-      if (deleted) return;
-      await Promise.all([reload(), loadBalances()]);
-      setRefocus(row);
-    });
+  const remove = async (row: AccountRow) => {
+    const deleted = await change(row, () => api.delete(`/accounts/${row.id}`));
+    setDeleting(null);
+    if (deleted) return;
+    await Promise.all([reload(), loadBalances()]);
+    setRefocus(row);
   };
 
   // A new exchange has no sales, so its 1099-DA answer moves no figure: one request, no past-year warning
@@ -137,12 +142,15 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
       {accountGroups(book).map((group) => (
         <AccountGroupList key={group.kind} group={group} book={book} balances={balances} busy={busy} switching={switching}
           openRow={openRow} onToggleRow={toggleRow}
-          onHide={hide} onDelete={remove} onSwitch1099da={(row, on) => void switch1099da(row, on)} onRename={rename}
+          onHide={hide} onDelete={setDeleting} onSwitch1099da={(row, on) => void switch1099da(row, on)} onRename={rename}
           onAdd={add}
           onAddClosed={() => setRefusal("")} />
       ))}
       {refusal && <p className="note note-error" role="alert">{refusal}</p>}
       {pastYears.question && <PastYearDialog {...pastYears.question} />}
+      {deleting && (
+        <DeleteAccountDialog row={deleting} busy={busy} onConfirm={() => void remove(deleting)} onCancel={cancelDelete} />
+      )}
       <p className="settings-note">
         An account with transactions can be hidden, never deleted: its history stays on your tax forms.
       </p>
