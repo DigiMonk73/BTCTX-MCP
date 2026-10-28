@@ -33,6 +33,21 @@ All notable changes to BitcoinTX are documented in this file.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
+- **The before-and-after check takes both snapshots again when a midnight
+  falls during its run** (#661). `scripts/equivalence_check.py` takes the
+  release's snapshot, then this checkout's; a run begun a few minutes
+  before midnight in one of its ledgers' tax timezones showed the reports'
+  "Made" date (and a coin choice's day) as a difference no change made.
+  It now takes both again, under the new date, when that date changed
+  while they were taken.
+- **The test of the owner's save during the largest AI preview measures
+  the preview's own time** (#643). On a busy computer the preview outlasted
+  the save's 5 s wait for the database, and the save rightly answered
+  busy, failing the test. The save is now checked whenever the preview let
+  go of the database within that wait, and the test is skipped, naming
+  the time it measured, when the computer was too slow for it. How long it
+  takes on a slow server is measured on the StartOS test VM. Tests only:
+  the app doesn't change.
 - **Two click-through tests no longer depend on timing or engine** (#793).
   The panel's "after an edit is saved" test opens Edit by the keyboard: in
   Linux WebKit a click on Edit left focus on another control, where it
