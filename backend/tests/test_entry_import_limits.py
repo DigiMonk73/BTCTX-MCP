@@ -185,9 +185,9 @@ def test_the_owners_save_during_the_largest_ai_preview_allowed_goes_through(refe
 
     How long the preview takes is the machine's: on a busy one it outlasted
     the save's wait, and the save rightly answered busy (#643). So the test
-    measures the preview's own time, and checks the save only when the
-    preview let go of the lock within that wait; a slow server's figure is
-    measured on the StartOS test VM."""
+    measures the save's own wait: busy is allowed only once the save has
+    waited all of it, and the test then skips, naming the preview's time.
+    A slow server's figure is the StartOS test VM's to measure."""
     owner, ai = reference
     rows = buys(largest_allowed(count(owner)), BEFORE_IT_ALL)
     preview = {}
@@ -202,14 +202,14 @@ def test_the_owners_save_during_the_largest_ai_preview_allowed_goes_through(refe
     time.sleep(0.3)  # the preview is replaying the ledger, holding the write lock
     started = time.monotonic()
     r = owner.put("/api/settings/ai-access", json={"on": False})
+    waited = time.monotonic() - started
     worker.join()
 
     assert preview["response"].status_code == 200, preview["response"].text
     assert started < preview["ended"]  # the save was asked for during the preview
-    held = preview["ended"] - started  # the longest the save can have waited for the preview's lock
-    if r.status_code == 503 and held >= LOCK_WAIT:
+    if r.status_code == 503 and waited >= LOCK_WAIT:  # busy only after its whole wait: never at once
         assert owner.get("/api/settings/ai-access").json()["on"] is True  # refused, nothing saved
-        pytest.skip(f"The preview took {preview['ended'] - began:.1f} s on this machine, {held:.1f} s of it "
-                    f"after the save was asked for: past the save's {LOCK_WAIT} s wait (#643)")
+        pytest.skip(f"The preview took {preview['ended'] - began:.1f} s on this machine, past the save's "
+                    f"{LOCK_WAIT} s wait (it answered busy after {waited:.1f} s, #643)")
     assert r.status_code == 200, r.text
     assert owner.get("/api/settings/ai-access").json()["on"] is False

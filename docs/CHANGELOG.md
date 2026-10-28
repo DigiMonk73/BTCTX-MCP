@@ -43,11 +43,11 @@ All notable changes to BitcoinTX are documented in this file.
 - **The test of the owner's save during the largest AI preview measures
   the preview's own time** (#643). On a busy computer the preview outlasted
   the save's 5 s wait for the database, and the save rightly answered
-  busy, failing the test. The save is now checked whenever the preview let
-  go of the database within that wait, and the test is skipped, naming
-  the time it measured, when the computer was too slow for it. How long it
-  takes on a slow server is measured on the StartOS test VM. Tests only:
-  the app doesn't change.
+  busy, failing the test. The test now measures the save's own wait: a
+  busy answer is allowed only once the save has waited all 5 s, and the
+  test is then skipped, naming how long the preview took. How long it
+  takes on a slow server is for the StartOS test VM to measure. Tests
+  only: the app doesn't change.
 - **Two click-through tests no longer depend on timing or engine** (#793).
   The panel's "after an edit is saved" test opens Edit by the keyboard: in
   Linux WebKit a click on Edit left focus on another control, where it

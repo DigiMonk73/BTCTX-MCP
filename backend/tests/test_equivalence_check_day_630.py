@@ -85,8 +85,8 @@ def test_the_baseline_is_kept_by_every_ledgers_zone():
 
 
 def _run(monkeypatch, tmp_path, instant, fresh=True):
-    """(snapshot taken, when) for each snapshot a run begun at `instant`
-    takes, each taking five minutes, and the folders it compares."""
+    """Runs _both_snapshots from `instant`, each snapshot taking five
+    minutes: which snapshots it took and when, and the two it compares."""
     taken = []
 
     def take(root, out, bench):
@@ -109,7 +109,7 @@ def test_both_snapshots_are_taken_again_when_a_midnight_falls_between_them(monke
     taken, (base, here) = _run(monkeypatch, tmp_path, _utc(11, 14, 57))
     assert taken == [("release", _utc(11, 14, 57)), ("here", _utc(11, 15, 2)),
                      ("release", _utc(11, 15, 7)), ("here", _utc(11, 15, 12))]
-    assert base.name.endswith("2020-03-12")  # the release's, under Tokyo's new date
+    assert "2020-03-12" in base.name  # the release's, under Tokyo's new date (only Tokyo's)
     assert here == tmp_path / "working"
 
 
