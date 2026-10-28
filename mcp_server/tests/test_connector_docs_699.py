@@ -161,6 +161,8 @@ async def test_the_tools_say_what_2_0_does(mcp_client):  # noqa: F811
     assert tools["get_coins_moved"].startswith(
         "The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes")
     assert "held:" in tools["get_coins_moved"] and "dated_today" in tools["get_coins_moved"]
+    assert "acquired_in: the account it was bought or deposited into" in tools["get_coins_moved"]  # #797
+    assert "and confirm set to that confirm" in tools["update_transaction"]
     assert "coins chosen after they left" in tools["review_ledger"]
     # T8's note 4: a deposit's cost basis carries over into a Buy
     assert "making a transaction a Buy needs cost_basis_usd" not in tools["update_transaction"]

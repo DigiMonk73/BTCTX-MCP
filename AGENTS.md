@@ -290,8 +290,8 @@ switch (`PUT /api/accounts/{id}` `{sends_1099da}`: boxes compared, no
 replay) and, with the AI key,
 Recalculate Ledger (what it changes is `pending`; with a login it never
 asks). The AI connector answers a 409 as the tool's answer (`saved: false`,
-the fields, how to confirm: `confirm`, `update_transaction`'s
-`confirm_move`), and gives the writes that can answer one, and Ledger
+the fields, how to confirm: `confirm`, which `update_transaction` also
+takes as `confirm_move`), and gives the writes that can answer one, and Ledger
 Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 #637).
 

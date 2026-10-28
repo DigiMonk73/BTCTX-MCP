@@ -250,14 +250,16 @@ chosen coins, the oldest of them first.
   have; coins is null, with a warning saying why, when BitcoinTX can't list
   them yet); get_coins_moved shows the same for a saved Transfer or BTC
   Withdrawal from a wallet (coins, and, when it leaves the wallet, held:
-  each with oldest_first, what the oldest coins first would take of it).
+  each with oldest_first, what the oldest coins first would take of it,
+  and acquired_in: the account it was bought or deposited into, not where
+  its coins are now).
   Its dated_today is for BitcoinTX's own form: ignore it. A purchase in the same request has no
   id yet: add it first, then the row that chooses its coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in
   BitcoinTX (coins_chosen_at). An edit that changes what leaves a
   transaction with a choice needs its coins again: update_transaction then
-  answers saved: false; ask the user, and send chosen_coins again, or []
-  for the oldest coins first.
+  answers saved: false; ask the user, and send chosen_coins again, or
+  set it back to oldest first (chosen_coins: []).
 - A choice saved on a later day than its coins left (any choice you record
   afterwards: coins_chosen_at is the day it was saved) shows in
   review_ledger under "Reminder: coins chosen after they left": pass it on
@@ -358,8 +360,8 @@ which Form 8949 box the sale (or the spend and its fee) lands in, never a gain.
    saved: false with the years, the changes and a confirm
    (preview_transactions shows the same as past_years). Show the user the
    years and the changes and ask; only if they say yes, call the same tool
-   again with the same arguments and that confirm (update_transaction's is
-   confirm_move). Never send a confirm the user didn't say yes to.
+   again with the same arguments and that confirm. Never send a confirm
+   the user didn't say yes to.
 4. For corrections use list_transactions to find the id, then
    update_transaction or delete_transaction - confirm with the user first.
    A listed Sell's or Spent's proceeds_usd is AFTER its fee; its

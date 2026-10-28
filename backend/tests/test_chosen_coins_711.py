@@ -502,7 +502,7 @@ def test_an_older_river_file_that_takes_the_coins_away_is_refused_whole(chose_a4
 
 def send_again(tx_id: int, btc: str = "0.10010000") -> str:
     return (f"Transaction {tx_id} has coins chosen for {btc} BTC leaving Wallet, and this changes what leaves: "
-            "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: null).")
+            "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: []).")
 
 
 @pytest.mark.parametrize("edit", [{"amount": "0.2"}, {"fee_amount": "0.0002"}, {"from_account_id": COLD},
@@ -535,9 +535,11 @@ def test_a_transfer_moved_into_its_own_wallet_must_send_the_coins_again(owner):
     assert r.json()["chosen_coins"] == [{"acquired_txn_id": owner.ids["A2"], "btc": "0.20010000"}]
 
 
-def test_null_sets_it_back_to_oldest_first(chose_a2):
+# [] is what SEND_AGAIN names (#797: the connector can send only it); null works too
+@pytest.mark.parametrize("oldest_first", [[], None])
+def test_an_empty_choice_or_null_sets_it_back_to_oldest_first(chose_a2, oldest_first):
     ids = chose_a2.ids
-    r = chose_a2.put(f"/api/transactions/{ids['S']}", json={"amount": "0.2", "chosen_coins": None})
+    r = chose_a2.put(f"/api/transactions/{ids['S']}", json={"amount": "0.2", "chosen_coins": oldest_first})
     assert r.status_code == 200, r.text
     assert r.json()["chosen_coins"] is None and r.json()["coins_chosen_at"] is None
     assert [p[0] for p in pieces(chose_a2, ids["S"])] == [ids["A1"], ids["A1"]]

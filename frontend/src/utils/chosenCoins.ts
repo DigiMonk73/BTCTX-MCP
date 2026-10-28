@@ -12,7 +12,7 @@ export interface HeldLine {
   acquired_txn_id: number | null; // null: a lot from before the upgrade, which the server replays first
   kind: string | null; // the acquisition's type: "Buy" or "Deposit"
   source: string | null; // a deposit's source, as listed ("MyBTC", "Gift"…)
-  account: string | null; // where it was acquired
+  acquired_in: string | null; // the account it was bought or deposited into, not where its coins are now
   date: string | null; // the acquisition's date, YYYY-MM-DD in the tax timezone
   acquired: string; // its coins' date acquired, YYYY-MM-DD (holding period, Form 8949)
   inherited: boolean;
@@ -153,7 +153,7 @@ function fill(taken: Array<[HeldLine, number]>): ChosenCoin[] {
 export function howAcquired(line: HeldLine): string {
   const how = line.kind === "Buy" ? "Buy" : SOURCE_WORDS[line.source ?? ""] ?? "Deposit";
   const when = line.date ? dayText(line.date) : null;
-  return [how, line.account, when].filter(Boolean).join(" · ");
+  return [how, line.acquired_in, when].filter(Boolean).join(" · ");
 }
 
 const day = (iso: string) => new Date(iso).toLocaleDateString(
