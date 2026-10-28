@@ -1,7 +1,7 @@
 // The question before an unused account is deleted (#651), in BitcoinTX's
 // own dialog as Delete All's is, never the browser's confirm box: what goes
 // (an exchange: both its accounts) and the rule the server keeps.
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { keepFocusIn } from "../../utils/dialogFocus";
 import type { AccountRow } from "../../utils/ledgerAccounts";
 
@@ -16,6 +16,8 @@ interface DeleteAccountDialogProps {
 /** "the wallet Coldcard", or "the exchange Kraken and both its accounts, Kraken USD and Kraken BTC". */
 function whatGoes(row: AccountRow): string {
   if (row.kind !== "exchange") return `the ${row.kind} ${row.name}`;
+  // Always two from the API; one, only from a database changed by hand: then just the exchange
+  if (row.accounts.length !== 2) return `the exchange ${row.name}`;
   const [usd, btc] = row.accounts.map((account) => account.name);
   return `the exchange ${row.name} and both its accounts, ${usd} and ${btc}`;
 }
@@ -23,38 +25,25 @@ function whatGoes(row: AccountRow): string {
 const DeleteAccountDialog: React.FC<DeleteAccountDialogProps> = ({ row, busy, onConfirm, onCancel }) => {
   const dialog = useRef<HTMLDivElement>(null);
   const cancelButton = useRef<HTMLButtonElement>(null);
-  // Cancel first, so Enter or Space straight away deletes nothing; cancelled, the keyboard goes back to
-  // what opened it (Delete). Deleted or refused, the section puts it on the row instead.
-  const cancelled = useRef(false);
+  // Cancel first, so Enter or Space straight away deletes nothing. Where the keyboard goes as it closes is
+  // the section's: back to Delete when cancelled, to the row (or what replaced it) once deleted or refused.
   useEffect(() => {
-    const from = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     cancelButton.current?.focus();
-    return () => {
-      if (cancelled.current) from?.focus();
-    };
   }, []);
   // While its request runs nothing in it can take focus: it holds it itself
   useEffect(() => {
     if (busy) dialog.current?.focus();
   }, [busy]);
-  const cancel = useCallback(() => {
-    cancelled.current = true;
-    onCancel();
-  }, [onCancel]);
-  // On the document, before Settings' own keys: Escape here is the dialog's, busy or not
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        if (!busy) cancel();
-      }
+      if (e.key === "Escape" && !busy) onCancel();
       keepFocusIn(dialog.current, e);
     };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [busy, cancel]);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onCancel]);
 
-  const many = row.kind === "exchange";
+  const many = row.accounts.length > 1;
   return (
     <div className="dialog-backdrop">
       <div ref={dialog} tabIndex={-1} className="dialog dialog-narrow card" role="dialog" aria-modal="true"
@@ -66,7 +55,7 @@ const DeleteAccountDialog: React.FC<DeleteAccountDialogProps> = ({ row, busy, on
         </p>
         <p className="dialog-note">An account with transactions can be hidden instead: its history stays.</p>
         <div className="dialog-actions">
-          <button ref={cancelButton} type="button" className="btn btn-secondary" onClick={cancel} disabled={busy}>
+          <button ref={cancelButton} type="button" className="btn btn-secondary" onClick={onCancel} disabled={busy}>
             Cancel
           </button>
           <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={busy}>

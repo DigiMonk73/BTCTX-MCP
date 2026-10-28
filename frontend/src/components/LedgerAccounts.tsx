@@ -83,7 +83,11 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
 
   // Delete asks first, in a dialog (#651); it stays open, saying so, while the request runs
   const [deleting, setDeleting] = useState<AccountRow | null>(null);
-  const cancelDelete = useCallback(() => setDeleting(null), []);
+  // Cancelled, the keyboard goes back to the row's Delete, found by its id: in Safari a click focuses no button
+  const cancelDelete = useCallback(() => {
+    if (deleting) document.getElementById(ledgerIds.rowDelete(deleting.key))?.focus();
+    setDeleting(null);
+  }, [deleting]);
 
   // Refused, the book may be out of date (the account used since it was read, by the AI connector or another tab,
   // #720, or deleted there): it and the balances are read again, so the row says what the server has and offers
