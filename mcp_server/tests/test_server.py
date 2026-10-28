@@ -166,8 +166,9 @@ async def test_ledger_guide_explains_a_past_year_confirm():
 
     flat = " ".join(LEDGER_GUIDE.split())
     assert "saved: false" in flat
-    for word in ("confirm", "confirm_move", "past_years"):
+    for word in ("confirm", "past_years"):
         assert word in flat, word
+    assert "confirm_move" not in flat  # every write takes confirm (#797)
     assert "Never send a confirm the user didn't say yes to" in flat
 
 
@@ -771,13 +772,33 @@ async def test_the_preview_shows_the_past_years_the_add_asks_about(mcp_client, p
     assert (await call(mcp_client, "preview_transactions", {"transactions": [this_year]}))["past_years"] is None
 
 
-async def test_update_transactions_confirm_move(mcp_client, past_year_ledger):
+async def test_update_transaction_confirms_as_the_other_writes_do(mcp_client, past_year_ledger):
+    """#797: confirm, as on add_transactions, delete_transaction and
+    recalculate_ledger; confirm_move, its older name, says the same."""
     change = {"transaction_id": past_year_ledger["buy"], "cost_basis_usd": "400.00"}
     asked = await call(mcp_client, "update_transaction", change)
     assert set(asked) == ASKED and asked["years"] == [2024, 2025]  # the lots it made, and the sale from them
-    assert "update_transaction again with the same arguments and confirm_move" in asked["to_confirm"]
-    updated = await call(mcp_client, "update_transaction", {**change, "confirm_move": asked["confirm"]})
+    assert "update_transaction again with the same arguments and confirm set to this answer's confirm" \
+        in asked["to_confirm"]
+    error = await call(mcp_client, "update_transaction",
+                       {**change, "confirm": asked["confirm"], "confirm_move": "another"}, expect_error=True)
+    assert "Send one confirm: confirm_move is its older name." in error, error
+    [buy] = (await call(mcp_client, "list_transactions", {"type": "Buy"}))["transactions"]
+    assert Decimal(buy["cost_basis_usd"]) != Decimal("400.00")  # nothing saved
+    updated = await call(mcp_client, "update_transaction", {**change, "confirm": asked["confirm"]})
     assert Decimal(updated["cost_basis_usd"]) == Decimal("400.00")
+
+
+async def test_update_transaction_still_takes_confirm_move(mcp_client, past_year_ledger):
+    change = {"transaction_id": past_year_ledger["buy"], "cost_basis_usd": "400.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    updated = await call(mcp_client, "update_transaction",
+                         {**change, "confirm_move": asked["confirm"], "confirm": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("400.00")
+    change = {**change, "cost_basis_usd": "500.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    updated = await call(mcp_client, "update_transaction", {**change, "confirm_move": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("500.00")
 
 
 async def test_delete_transactions_confirm(mcp_client, past_year_ledger):

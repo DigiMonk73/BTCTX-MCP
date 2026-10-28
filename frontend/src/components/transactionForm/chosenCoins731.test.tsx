@@ -16,7 +16,7 @@ import { CHOOSE_RULE } from "../../utils/chosenCoins";
 import { COINS_WAIT_MS } from "./useCoinsMoved";
 
 const held = (id: number, acquired: string, btc: string, cost: string, oldest: string, term = "LONG") => ({
-  acquired_txn_id: id, kind: "Deposit", source: "MyBTC", account: "Sparrow", date: acquired, acquired,
+  acquired_txn_id: id, kind: "Deposit", source: "MyBTC", acquired_in: "Sparrow", date: acquired, acquired,
   inherited: false, btc, cost_usd: cost, term, oldest_first: oldest,
 });
 // Sparrow holds 0.3 BTC from 2017 ($1,000 a BTC) and 0.5 from 2025 ($90,000 a BTC)

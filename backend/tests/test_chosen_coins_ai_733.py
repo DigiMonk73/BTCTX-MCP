@@ -31,7 +31,7 @@ from backend.tests.test_chosen_coins_711 import (  # noqa: F401  (owner, chose_a
 )
 
 SEND_AGAIN = ("Transaction {id} has coins chosen for {btc} BTC leaving Wallet, and this changes what leaves: "
-              "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: null).")
+              "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: []).")
 # A spend the AI is told of: 0.01 BTC and a 0.0001 network fee leave the Wallet
 SPENT = {"date": "2025-07-01T12:00:00Z", "type": "Withdrawal", "amount": "0.01", "from_account": "Wallet",
          "to_account": "External", "purpose": "Spent", "proceeds_usd": "1000", "fee_amount": "0.0001",

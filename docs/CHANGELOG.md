@@ -4,6 +4,23 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
+- **The AI connector's words no longer set three small traps** (#797, found
+  by Grok's test of beta.1; no figure changes):
+  - when an edit changes what leaves a transaction whose coins were
+    chosen, BitcoinTX's answer and the connector's now both say to set it
+    back to oldest first with `chosen_coins: []` (BitcoinTX said `null`,
+    which the connector can't send), and `update_transaction` no longer
+    says that leaving `chosen_coins` out sends the oldest coins first: on
+    an edit, the coins chosen are kept;
+  - `get_coins_moved`'s list of what a wallet held names the account each
+    purchase or deposit was made in as `acquired_in`, no longer `account`,
+    which read as if coins bought on an exchange and moved to a wallet
+    were still on the exchange; its description and the AI's guide say so;
+  - `update_transaction` takes the past-year `confirm` by that name, as
+    `add_transactions`, `delete_transaction` and `recalculate_ledger` do;
+    `confirm_move`, its name in 2.0's pre-releases, still works.
+
 ### Development
 - **Two click-through tests no longer depend on timing or engine** (#793).
   The panel's "after an edit is saved" test opens Edit by the keyboard: in

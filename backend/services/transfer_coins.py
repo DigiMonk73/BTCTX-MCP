@@ -183,7 +183,8 @@ def _held_line(line: chosen_coins.Held, acquired_by: Transaction | None, tx: Tra
         "kind": getattr(acquired_by, "type", None),
         "source": tx_service.listed_spelling(acquired_by.source, tx_service.DEPOSIT_SOURCES)
         if acquired_by is not None and acquired_by.type == "Deposit" else None,
-        "account": book.name(acquired_by.to_account_id) if acquired_by is not None else None,
+        # The account it was bought or deposited into, never where its coins are now (#797)
+        "acquired_in": book.name(acquired_by.to_account_id) if acquired_by is not None else None,
         "date": tax_time.local_date(acquired_by.timestamp, tz).isoformat() if acquired_by is not None else None,
         "acquired": tax_time.local_date(line.acquired, tz).isoformat(),
         "inherited": line.inherited,

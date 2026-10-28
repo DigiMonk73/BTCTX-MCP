@@ -77,6 +77,9 @@ async def test_an_edit_that_changes_what_leaves_says_to_choose_the_coins_again(m
     assert answer["saved"] is False
     assert answer["detail"].startswith(f"Transaction {spent_id} has coins chosen for 0.01010000 BTC leaving Wallet")
     assert "chosen_coins" in answer["to_go_on"]
+    # One spelling for oldest first, the one the tool can send (#797)
+    for words in (answer["detail"], answer["to_go_on"]):
+        assert "set it back to oldest first (chosen_coins: [])" in words and "null" not in words, words
 
     updated = await call(mcp_client, "update_transaction", {
         "transaction_id": spent_id, "amount": "0.02", "chosen_coins": [{"acquired_txn_id": new, "btc": "0.0201"}]})
@@ -93,6 +96,9 @@ async def test_get_coins_moved_shows_what_a_saved_transfer_moves(mcp_client, bac
     move_id = (await call(mcp_client, "add_transactions", {"transactions": [move]}))["created"][0]["id"]
     moved = await call(mcp_client, "get_coins_moved", {"transaction_id": move_id})
     assert [(c["acquired"][:10], c["btc"]) for c in moved["coins"]] == [("2025-01-15", "0.05000000")]
+    # Where each purchase was made, never where its coins are now (#797)
+    assert [(h["kind"], h["acquired_in"]) for h in moved["held"]] == [("Deposit", "Wallet"), ("Deposit", "Wallet")]
+    assert all("account" not in h for h in moved["held"])
 
 
 async def test_the_guide_says_when_coins_may_be_chosen():
@@ -104,5 +110,5 @@ async def test_the_guide_says_when_coins_may_be_chosen():
     assert "can't record coins the user identified" not in flat
     for words in ("chosen_coins", "they chose those coins by the time they left", "Never pick coins for them",
                   "Never suggest choosing coins after the fact to lower their tax", "Never on an exchange",
-                  "get_coins_moved"):
+                  "get_coins_moved", "acquired_in: the account it was bought or deposited into"):
         assert words in flat, words

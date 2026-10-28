@@ -163,7 +163,7 @@ exchange's 1099-DA switch (MLT-4), an exchange file's import (River's or
 another's: one question for the file), and, with the AI key, `add_transactions`, `update_transaction`,
 `delete_transaction` and `recalculate_ledger`, whose answer is then
 `saved: false` with the years, the changes and a `confirm` to call the
-tool again with (`update_transaction`'s is `confirm_move`). PYW checks the
+tool again with (`update_transaction` also takes it as `confirm_move`). PYW checks the
 dialog's own rules.
 
 In the form, an account picker starts blank whenever more than one
@@ -1085,7 +1085,7 @@ Set `KEY` to the key from AI-3, and use
   `transaction_id=<its id>` and `cost_basis_usd=1100`: `saved: false` again,
   `detail` "This changes the figures of tax year 2025, …", the change "basis
   1000.00 -> 1100.00; cost of the lots it made 1000.00 -> 1100.00."; send it
-  again with `confirm_move` set to its `confirm`. Expect: the UI shows
+  again with `confirm` set to its `confirm`. Expect: the UI shows
   $1,100.00. `delete_transaction`: `saved: false`, the change "Deleted: basis
   1100.00; cost of the lots it made 1100.00."; it removes the row once sent
   again with its `confirm`. Expect: 14 rows, every golden figure unchanged,

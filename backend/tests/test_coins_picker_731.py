@@ -37,9 +37,9 @@ def coin(acquired: str, btc: str, cost: str, acquired_txn_id: int, inherited: bo
 
 
 def held(acquired_txn_id: int, acquired: str, btc: str, cost: str, term: str, oldest_first: str, *,
-         source: str | None = "MyBTC", kind: str = "Deposit", account: str = "Wallet", dated: str | None = None,
+         source: str | None = "MyBTC", kind: str = "Deposit", acquired_in: str = "Wallet", dated: str | None = None,
          inherited: bool = False) -> dict:
-    return {"acquired_txn_id": acquired_txn_id, "kind": kind, "source": source, "account": account,
+    return {"acquired_txn_id": acquired_txn_id, "kind": kind, "source": source, "acquired_in": acquired_in,
             "date": dated or acquired, "acquired": acquired, "inherited": inherited, "btc": btc, "cost_usd": cost,
             "term": term, "oldest_first": oldest_first}
 
@@ -107,7 +107,7 @@ def test_inherited_and_bought_coins_say_how_and_where_they_were_acquired(owner):
     assert lines[a3] == held(a3, "2021-12-01", "0.01000000", "400.00", "LONG", "0.00000000", source="Inherited",
                              dated="2022-01-10", inherited=True)
     assert lines[a4] == held(a4, "2025-02-01", "0.30000000", "30000.00", "SHORT", "0.00000000", kind="Buy",
-                             source=None, account="Exchange BTC")
+                             source=None, acquired_in="Exchange BTC")
 
 
 def test_a_backdated_transfer_and_an_edit_hear_what_the_wallet_held_on_their_date(owner):  # noqa: F811

@@ -45,7 +45,7 @@ NOT_AN_ACQUISITION = "Transaction {id} didn't acquire bitcoin: choose coins by t
 DOESNT_ADD_UP = ("The coins chosen add up to {chosen} BTC, but {leaves} BTC leaves {wallet}{parts}. Choose coins "
                  "for all of it, or none to send the oldest first.")
 SEND_AGAIN = ("Transaction {id} has coins chosen for {btc} BTC leaving {wallet}, and this changes what leaves: "
-              "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: null).")
+              "choose its coins again (chosen_coins), or set it back to oldest first (chosen_coins: []).")
 # SEND_AGAIN's header, naming the transaction: the AI connector answers it as
 # its tool's answer (saved: false, what to send), not as an error (#733)
 CHOOSE_AGAIN_HEADER = "X-BitcoinTX-Choose-Again"

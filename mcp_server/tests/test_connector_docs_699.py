@@ -7,6 +7,7 @@ What an AI reads to set the connector up (AI_SETUP.md), what a user reads
 ledger guide and the tools' descriptions) say what the 2.0 connector does.
 """
 
+import json
 import re
 from pathlib import Path
 
@@ -161,8 +162,22 @@ async def test_the_tools_say_what_2_0_does(mcp_client):  # noqa: F811
     assert tools["get_coins_moved"].startswith(
         "The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes")
     assert "held:" in tools["get_coins_moved"] and "dated_today" in tools["get_coins_moved"]
+    assert "acquired_in: the account it was bought or deposited into" in tools["get_coins_moved"]  # #797
+    assert "and confirm set to that confirm" in tools["update_transaction"]
     assert "coins chosen after they left" in tools["review_ledger"]
     # T8's note 4: a deposit's cost basis carries over into a Buy
     assert "making a transaction a Buy needs cost_basis_usd" not in tools["update_transaction"]
     assert "a Buy's cost_basis_usd (a bitcoin deposit's own is kept when you send none)" in tools["update_transaction"]
     assert "the FIFO result" not in tools["preview_transactions"]
+
+
+async def test_chosen_coins_says_what_leaving_it_out_does_on_each_tool(mcp_client):  # noqa: F811
+    """#797's review: an edit without chosen_coins keeps the choice; only a
+    new row without one sends the oldest coins first."""
+    schemas = {t.name: json.dumps(t.input_schema) for t in (await mcp_client.list_tools()).tools}
+    for name in ("preview_transactions", "add_transactions"):
+        assert "Never on an exchange. Omitted: the oldest coins leave first." in schemas[name]
+    update = schemas["update_transaction"]
+    assert "Omitted: the oldest coins leave first" not in update
+    assert "Omitted: the coins chosen are kept while what leaves stays the same. [] sets it back to oldest first." \
+        in update

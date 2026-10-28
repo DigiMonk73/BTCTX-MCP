@@ -13,13 +13,13 @@ import { coinsChosenNote } from "./transactionRows";
 
 const line = (id: number, acquired: string, btc: string, cost: string, oldest: string, more: Partial<HeldLine> = {}):
   HeldLine => ({
-  acquired_txn_id: id, kind: "Deposit", source: "MyBTC", account: "Sparrow", date: acquired, acquired,
+  acquired_txn_id: id, kind: "Deposit", source: "MyBTC", acquired_in: "Sparrow", date: acquired, acquired,
   inherited: false, btc, cost_usd: cost, term: "LONG", oldest_first: oldest, ...more,
 });
 // Sparrow holds 0.3 BTC acquired 2017 ($1,000/BTC), 0.5 from 2025 ($90,000/BTC) and 0.2 from 2024 ($60,000/BTC)
 const HELD = [
   line(11, "2017-03-01", "0.30000000", "300.00", "0.30000000"),
-  line(12, "2024-05-01", "0.20000000", "12000.00", "0.10010000", { kind: "Buy", source: null, account: "River BTC" }),
+  line(12, "2024-05-01", "0.20000000", "12000.00", "0.10010000", { kind: "Buy", source: null, acquired_in: "River BTC" }),
   line(13, "2025-01-15", "0.50000000", "45000.00", "0.00000000", { term: "SHORT" }),
 ];
 const spend = (amount: string, fee: string): TransactionFormData =>
