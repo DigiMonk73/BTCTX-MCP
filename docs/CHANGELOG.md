@@ -10,7 +10,9 @@ All notable changes to BitcoinTX are documented in this file.
   - when an edit changes what leaves a transaction whose coins were
     chosen, BitcoinTX's answer and the connector's now both say to set it
     back to oldest first with `chosen_coins: []` (BitcoinTX said `null`,
-    which the connector can't send);
+    which the connector can't send), and `update_transaction` no longer
+    says that leaving `chosen_coins` out sends the oldest coins first: on
+    an edit, the coins chosen are kept;
   - `get_coins_moved`'s list of what a wallet held names the account each
     purchase or deposit was made in as `acquired_in`, no longer `account`,
     which read as if coins bought on an exchange and moved to a wallet

@@ -663,9 +663,9 @@ async def update_transaction(
     death, which it must keep.
     chosen_coins records the coins the user says they sent (see its description and the ledger
     guide). An edit that changes what leaves a transaction whose coins were chosen (its type,
-    accounts, amount or fee) needs them again: without them the answer is saved: false, saying
-    what to send. The answer is the transaction as list_transactions shows it, from_price and
-    chosen_coins included."""
+    From account, amount or fee, or a To that makes it a move within the wallet) needs them again:
+    without them the answer is saved: false, saying what to send. The answer is the transaction
+    as list_transactions shows it, from_price and chosen_coins included."""
     if confirm and confirm_move and confirm != confirm_move:
         raise ToolError("Send one confirm: confirm_move is its older name.")
     confirm = confirm or confirm_move  # its name in 2.0's pre-releases, kept (#797)
