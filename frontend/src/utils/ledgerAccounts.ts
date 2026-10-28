@@ -90,6 +90,7 @@ function row(key: string, kind: YourKind, name: string, accounts: LedgerAccount[
 export const ledgerIds = {
   rowToggle: (key: string) => `ledger-account-${key}-toggle`,
   rowDetails: (key: string) => `ledger-account-${key}`,
+  rowDelete: (key: string) => `ledger-account-${key}-delete`,
   group: (kind: YourKind) => `ledger-group-${kind}`,
   addButton: (kind: YourKind) => `ledger-group-${kind}-add-button`,
   addForm: (kind: YourKind) => `ledger-group-${kind}-add`,

@@ -65,8 +65,8 @@ const AccountRowItem: React.FC<AccountRowItemProps> = ({
               {row.hidden ? "Show" : "Hide"}
             </button>
             {deletable && (
-              <button type="button" className="btn btn-danger btn-sm" disabled={busy || switching}
-                onClick={() => onDelete(row)}>
+              <button type="button" id={ledgerIds.rowDelete(row.key)} className="btn btn-danger btn-sm"
+                disabled={busy || switching} onClick={() => onDelete(row)}>
                 Delete
               </button>
             )}

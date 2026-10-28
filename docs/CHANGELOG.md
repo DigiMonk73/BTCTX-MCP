@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Changed
+- **Deleting an account asks in BitcoinTX's own dialog** (#651), as
+  Delete All does, instead of the browser's confirm box: in Settings ›
+  Wallets, exchanges and banks, Delete names the account (an exchange's,
+  both its accounts) and says only an account with no transactions can be
+  deleted. Cancel and Escape delete nothing. No figure changes.
+
 ### Fixed
 - **The AI connector's words no longer set three small traps** (#797, found
   by Grok's test of beta.1; no figure changes):

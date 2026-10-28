@@ -66,12 +66,13 @@ it("reads it again after a refused delete: the server's words, and the row as th
   const { user, details } = await openColdcard();
   const remove = await within(details).findByRole("button", { name: "Delete" });
   server = USED; // used by the AI connector while Settings stayed open
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   vi.spyOn(api, "delete").mockRejectedValue(refused(409, IN_USE));
   const balances = () => vi.mocked(api.get).mock.calls.filter(([url]) => url !== "/accounts/").length;
   const balancesBefore = balances();
   await user.click(remove);
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete Coldcard" }));
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", IN_USE);
+  expect(screen.queryByRole("dialog")).toBeNull();
   await waitFor(() => expect(within(details).queryByRole("button", { name: "Delete" })).toBeNull());
   expect(within(details).getByText(IN_USE)).toBeTruthy();
   expect(balances()).toBe(balancesBefore + 1);
