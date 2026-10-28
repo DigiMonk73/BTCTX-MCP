@@ -191,10 +191,54 @@ and the few small improvements already planned for it
 New features go into BitcoinTX 2.0, now in the works, which adds multiple
 wallets, exchanges and bank accounts, each wallet and exchange with its own
 cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
-Because 2.0 changes how the ledger is stored, it will be tested as a beta
-first, on GitHub pre-releases for as long as it needs, then on StartOS in
-Start9's Community Beta once it's ready, before it replaces 1.x. We don't
-promise dates; until then, the latest 1.x is the version to use.
+Because 2.0 changes how the ledger is stored, it's tested first on GitHub
+pre-releases, alphas and then betas, for as long as it needs. Then 2.0 is
+released here, replacing 1.x, and reaches StartOS through Start9's Community
+Beta. We don't promise dates; until then, the latest 1.x is the version to
+use for your records.
+
+### Trying 2.0 before it's released
+
+Anyone who chooses may try 2.0's pre-releases: the first is
+[v2.0.0-alpha.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1),
+and the later ones are on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
+marked **Pre-release**. They're for testing and may have bugs. An alpha, the
+earliest stage, is only for trying 2.0, never for your real records: try it
+with a test ledger or a copy of your records, and keep 1.x for your records.
+Nobody gets one as an update: the Mac app's download, Docker's `:latest` and
+Start9's store stay on 1.x. From alpha.2, a banner above every page says
+which pre-release you're using.
+
+- **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta),
+  installed beside BitcoinTX with its own ledger, folder and port: your
+  BitcoinTX and its ledger are never opened. From 2.0.0-alpha.2 its icon
+  has a red **PREVIEW** band, and the banner says **BitcoinTX Preview** and
+  its version (alpha.1 still has BitcoinTX's icon: tell them apart by the
+  name) ([#670](https://github.com/DigiMonk73/BTCTX-MCP/issues/670)). It starts
+  with an empty ledger; to try your records in it, download a backup in
+  BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX
+  Preview.
+- **StartOS:** sideloaded, it updates your BitcoinTX in place. **Make a
+  StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x,
+  uninstall BitcoinTX (which deletes its data) and restore that backup.
+  While your BitcoinTX runs a pre-release, StartOS offers it no 1.x update
+  until 2.0 is out: fixes, security fixes included, come in the next
+  pre-release.
+- **Docker:** each pre-release has its own image tag (`:v2.0.0-alpha.1`,
+  never `:latest`). Start it on a new volume and restore a backup into it.
+  Started on your 1.x volume, it upgrades that ledger, and going back takes
+  the steps in its [Going back to 1.x](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.1/docs/MAINTENANCE.md#going-back-to-1x).
+- **An AI:** each pre-release's Settings (Connect an AI Assistant) gives the
+  setup for its own connector (`btctx-mcp==2.0.0a1` for alpha.1), named
+  `bitcointx-preview`. On StartOS your `bitcointx` entry is updated instead:
+  set it back to your 1.x version if you go back.
+
+What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0
+database or backup. Report what you find in [a new issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose):
+the "2.0 alpha or beta report", or, until GitHub lists it, a Bug report
+whose title starts with the pre-release's name (for example
+"2.0.0-alpha.1:"). Show the problem on a test ledger, never your real data;
+report a security problem privately, as [SECURITY.md](SECURITY.md) explains.
 
 ## Install
 

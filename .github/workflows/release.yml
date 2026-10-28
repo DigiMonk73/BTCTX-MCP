@@ -189,8 +189,8 @@ jobs:
       package: ${{ steps.pack.outputs.package }}
     env:
       # the same start-cli as ci.yml's START_CLI_VERSION and START_CLI_SHA256
-      START_CLI_VERSION: v2.5.0
-      START_CLI_SHA256: 023f410cbad4b2971cb6ccdac117aaa27d80cc48eef52212a6f3755697962294
+      START_CLI_VERSION: v2.5.2
+      START_CLI_SHA256: 539ef6ccd2ecc6b616f0f109377c397f4a537037bb9d2e002be9366cca8d0bff
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
