@@ -25,9 +25,11 @@ ICON = Path(__file__).resolve().parents[1] / "desktop" / "resources" / "icon.icn
 # Each image iconutil packs, and its size in pixels
 SIZES = {"16x16": 16, "16x16@2x": 32, "32x32": 32, "32x32@2x": 64, "128x128": 128, "128x128@2x": 256,
          "256x256": 256, "256x256@2x": 512, "512x512": 512, "512x512@2x": 1024}
-# Paint at least this light in every channel is the white around the square
+# The white around the square: opaque, and at least this light in every
+# channel. The square's own rim is never lighter than about 190.
 WHITE = 200
-# How far in from an edge pixel its own colour is read, in pixels at 1024
+# How far in from an edge pixel its own colour is read, in pixels at 1024:
+# past the edge's anti-aliasing, a pixel wide, still on the rim
 INWARD = 3
 
 
@@ -60,15 +62,21 @@ def without_corners(icon: Image.Image) -> Image.Image:
 def _white_from_the_corners(pixels, size: int) -> set[tuple[int, int]]:
     """Every white pixel reached from a corner through white ones."""
     corners = [(0, 0), (size - 1, 0), (0, size - 1), (size - 1, size - 1)]
-    seen, queue = set(), deque(c for c in corners if min(pixels[c][:3]) >= WHITE)
+    seen, queue = set(), deque(c for c in corners if _white(pixels[c]))
     seen.update(queue)
     while queue:
         x, y = queue.popleft()
         for near in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
-            if near not in seen and 0 <= near[0] < size and 0 <= near[1] < size and min(pixels[near][:3]) >= WHITE:
+            if near not in seen and 0 <= near[0] < size and 0 <= near[1] < size and _white(pixels[near]):
                 seen.add(near)
                 queue.append(near)
     return seen
+
+
+def _white(pixel: tuple[int, ...]) -> bool:
+    """Painted white: a transparent pixel is never, whatever colour it holds,
+    so an icon already cut comes out the same."""
+    return pixel[3] == 255 and min(pixel[:3]) >= WHITE
 
 
 def _along(outside: set[tuple[int, int]], size: int) -> set[tuple[int, int]]:

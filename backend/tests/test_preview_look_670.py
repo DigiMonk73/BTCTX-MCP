@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "desktop"
@@ -34,6 +34,10 @@ _spec = importlib.util.spec_from_file_location("preview_icon", ROOT / "scripts" 
 preview_icon = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(preview_icon)
 BAND, RED = preview_icon.BAND, preview_icon.RED
+# What cuts the icon's corners (#680)
+_spec = importlib.util.spec_from_file_location("icon_corners", ROOT / "scripts" / "icon_corners.py")
+icon_corners = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(icon_corners)
 
 RESOURCES = DESKTOP / "resources"
 SPEC = (DESKTOP / "BitcoinTX.spec").read_text()
@@ -147,10 +151,28 @@ def test_both_icons_have_transparent_corners_at_every_size(icon):
             outside += [(tip, 0), (0, tip), (last - tip, last), (last, last - tip)]
         inside = [(image.width // 2, 0), (0, image.height // 2), (last, image.height // 2),
                   (image.width // 2, last), (image.width // 2, image.height // 2)]
-        # At 16 and 32 pixels a corner pixel is partly the curve, drawn faintly (8% at most)
+        # At 16 and 32 pixels a corner pixel is partly the curve, drawn faintly (under a tenth)
         faint = 0 if image.width >= 64 else 24
         assert all(rgba.getpixel(xy)[3] <= faint for xy in outside), (kind, [rgba.getpixel(xy) for xy in outside])
+        # Along the cut, the edge is the square's own colour: no light line left round it that
+        # shows (a resized edge also holds pixels almost clear, whose colour rounds to anything)
+        light_edge = [p for p in rgba.get_flattened_data() if 24 < p[3] < 255 and min(p[:3]) >= icon_corners.WHITE]
+        assert not light_edge, (kind, light_edge[:5])
         assert [rgba.getpixel(xy)[3] for xy in inside] == [255] * len(inside), (kind, image.size)
+
+
+def test_the_corner_script_cuts_only_opaque_white():
+    """A square on white: the white joined to its corners goes, the square
+    stays; cut again, with white left under its clear pixels (as iconutil
+    keeps it), it comes out the same (#680's review)."""
+    icon = Image.new("RGBA", (64, 64), (255, 255, 255, 255))
+    ImageDraw.Draw(icon).rounded_rectangle([0, 0, 63, 63], 12, fill=(30, 50, 90, 255))
+    cut = icon_corners.without_corners(icon)
+    assert [cut.getpixel(xy)[3] for xy in [(0, 0), (63, 0), (0, 63), (63, 63)]] == [0, 0, 0, 0]
+    assert [cut.getpixel(xy)[3] for xy in [(32, 0), (0, 32), (32, 32)]] == [255, 255, 255]
+    clear = Image.new("RGBA", cut.size, (255, 255, 255, 0))
+    clear.paste(cut, mask=cut.getchannel("A").point(lambda a: 255 if a else 0))
+    assert icon_corners.without_corners(clear).tobytes() == clear.tobytes()
 
 
 on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="PlistBuddy, macOS's")
