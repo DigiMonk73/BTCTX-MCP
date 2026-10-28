@@ -8,6 +8,9 @@ its executable takes the app's own name, which crash reports, Console and ps
 show. A release keeps BitcoinTX's icon and executable. The banner on every
 page and the Preview's first-page line are the frontend's
 (PrereleaseBanner.tsx, ChooseOwnLogin.tsx).
+
+Both icons' corners, outside the rounded square, are transparent at every
+size (#680): painted white, they showed on a dark Dock.
 """
 
 import importlib.util
@@ -19,7 +22,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[2]
 DESKTOP = ROOT / "desktop"
@@ -31,6 +34,10 @@ _spec = importlib.util.spec_from_file_location("preview_icon", ROOT / "scripts" 
 preview_icon = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(preview_icon)
 BAND, RED = preview_icon.BAND, preview_icon.RED
+# What cuts the icon's corners (#680)
+_spec = importlib.util.spec_from_file_location("icon_corners", ROOT / "scripts" / "icon_corners.py")
+icon_corners = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(icon_corners)
 
 RESOURCES = DESKTOP / "resources"
 SPEC = (DESKTOP / "BitcoinTX.spec").read_text()
@@ -75,10 +82,14 @@ def test_the_preview_icon_is_bitcointxs_with_a_red_band():
     for x in (12, 1011):  # the band's ends, left and right of the word
         assert preview.getpixel((x, middle)) == RED
     assert plain.getpixel((12, middle)) != RED
-    # The lower corners, painted white, reach into the band's ends: they stay white
+    # The lower corners reach into the band's ends: they stay transparent (#680)
     for x in (0, 1023):
-        assert min(plain.getpixel((x, 870))) > 240
-        assert preview.getpixel((x, 870)) == plain.getpixel((x, 870))
+        assert _alpha(RESOURCES / "icon.icns", (x, 870)) == _alpha(RESOURCES / "icon-preview.icns", (x, 870)) == 0
+
+
+def _alpha(path: Path, xy: tuple[int, int]) -> int:
+    with Image.open(path) as icns:
+        return icns.convert("RGBA").getpixel(xy)[3]
 
 
 # Every image macOS picks from: 16 and 32 pixels (Finder's list view), up to 1024
@@ -108,8 +119,8 @@ def _argb(body: bytes, px: int) -> Image.Image:
         else:
             out += body[at + 1:at + 2 + n]
             at += n + 2
-    channels = [bytes(out[k * px * px:(k + 1) * px * px]) for k in (1, 2, 3)]
-    return Image.merge("RGB", [Image.frombytes("L", (px, px), c) for c in channels])
+    channels = [bytes(out[k * px * px:(k + 1) * px * px]) for k in (1, 2, 3, 0)]
+    return Image.merge("RGBA", [Image.frombytes("L", (px, px), c) for c in channels])
 
 
 def test_every_size_of_the_preview_icon_shows_the_band():
@@ -122,6 +133,61 @@ def test_every_size_of_the_preview_icon_shows_the_band():
         assert red[0] > 150 and red[1] < 90 and red[2] < 80, (kind, red)
     plain = _images(RESOURCES / "icon.icns")["ic04"].getpixel((1, round(sum(BAND) / 2 * 16)))
     assert not (plain[0] > 150 and plain[1] < 90), plain
+
+
+@pytest.mark.parametrize("icon", ["icon.icns", "icon-preview.icns"])
+def test_both_icons_have_transparent_corners_at_every_size(icon):
+    """Outside the rounded square nothing is painted, so a dark Dock or Finder
+    window shows through, never a white square (#680); inside, it's opaque."""
+    images = _images(RESOURCES / icon)
+    assert set(images) == set(IMAGES)
+    for kind, image in images.items():
+        rgba, last = image.convert("RGBA"), image.width - 1
+        # Each corner (its arc's radius is about 17% of the side) and a little
+        # along its sides; inside, the middles of the sides and the centre
+        outside = [(0, 0), (last, 0), (0, last), (last, last)]
+        if image.width >= 64:  # smaller, the corner is a pixel or two
+            tip = round(0.03 * image.width)
+            outside += [(tip, 0), (0, tip), (last - tip, last), (last, last - tip)]
+        inside = [(image.width // 2, 0), (0, image.height // 2), (last, image.height // 2),
+                  (image.width // 2, last), (image.width // 2, image.height // 2)]
+        # At 16 and 32 pixels a corner pixel is partly the curve, drawn faintly (under a tenth)
+        faint = 0 if image.width >= 64 else 24
+        assert all(rgba.getpixel(xy)[3] <= faint for xy in outside), (kind, [rgba.getpixel(xy) for xy in outside])
+        # No near-white line left along the cut, at any size, that shows (a resized edge also
+        # holds pixels almost clear, whose colour rounds to anything)
+        light_edge = [p for p in rgba.get_flattened_data() if 24 < p[3] < 255 and min(p[:3]) >= icon_corners.WHITE]
+        assert not light_edge, (kind, light_edge[:5])
+        assert [rgba.getpixel(xy)[3] for xy in inside] == [255] * len(inside), (kind, image.size)
+
+
+def test_the_full_size_edge_is_the_squares_own_colour():
+    """Along the cut, each partly clear pixel of the 1024-pixel image is the
+    colour just inside it, never its old blend with the white: no grey line
+    round the icon on a dark Dock (#680's re-check)."""
+    with Image.open(RESOURCES / "icon.icns") as icns:
+        icon = icns.convert("RGBA")
+    pixels, size = icon.load(), icon.width
+    edge = [(x, y) for y in range(size) for x in range(size) if 0 < pixels[x, y][3] < 255]
+    assert edge
+    assert [xy for xy in edge if pixels[xy][:3] != icon_corners._inward(pixels, size, *xy)[:3]] == []
+
+
+def test_the_corner_script_cuts_only_opaque_white():
+    """A square on white, its edge anti-aliased: the white joined to its
+    corners goes, the edge turns partly clear, the square stays; cut again,
+    with white left under its clear pixels (as iconutil keeps it), it comes
+    out the same, its edge still partly clear (#680's review)."""
+    drawn = Image.new("RGBA", (256, 256), (255, 255, 255, 255))
+    ImageDraw.Draw(drawn).rounded_rectangle([0, 0, 255, 255], 48, fill=(30, 50, 90, 255))
+    icon = drawn.resize((64, 64), Image.LANCZOS)
+    cut = icon_corners.without_corners(icon)
+    assert any(0 < a < 255 for a in cut.getchannel("A").get_flattened_data())
+    assert [cut.getpixel(xy)[3] for xy in [(0, 0), (63, 0), (0, 63), (63, 63)]] == [0, 0, 0, 0]
+    assert [cut.getpixel(xy)[3] for xy in [(32, 0), (0, 32), (32, 32)]] == [255, 255, 255]
+    clear = Image.new("RGBA", cut.size, (255, 255, 255, 0))
+    clear.paste(cut, mask=cut.getchannel("A").point(lambda a: 255 if a else 0))
+    assert icon_corners.without_corners(clear).tobytes() == clear.tobytes()
 
 
 on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="PlistBuddy, macOS's")

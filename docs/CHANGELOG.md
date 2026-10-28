@@ -27,6 +27,10 @@ All notable changes to BitcoinTX are documented in this file.
   - `update_transaction` takes the past-year `confirm` by that name, as
     `add_transactions`, `delete_transaction` and `recalculate_ledger` do;
     `confirm_move`, its name in 2.0's pre-releases, still works.
+- **The Mac app's icon no longer sits in a white square on a dark Dock**
+  (#680): its corners, outside the rounded square, were painted white, in
+  BitcoinTX's icon and BitcoinTX Preview's. They're transparent now, at
+  every size; the browser's and StartOS's icons already were.
 
 ### Development
 - **Two click-through tests no longer depend on timing or engine** (#793).
