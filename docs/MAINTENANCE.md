@@ -173,7 +173,7 @@ AGENTS.md, "Branches"). Nothing reaches `main` before a release.
   pywebview and setuptools (it builds proxy-tools). setuptools is in
   `.github/release-tools/`'s lock too, and the audit reads both locks at
   once, so Dependabot's pull request for one of them fails it: take the
-  update in both `requirements.in` files and `make lock`, in one pull
+  update in both `requirements.in` files and run `make lock`, in one pull
   request of our own (#759). When a `backend/` PR
   moves a package the Mac lock shares (typing-extensions, cffi…),
   `test_pinning.py` fails on it until `make lock` is run on that branch.
