@@ -82,6 +82,9 @@ def test_a_row_of_a_dollar_word_that_carries_bitcoin_says_so(auth_client):
 
 
 @pytest.mark.parametrize("mapping_id, words", [
+    ("river", ("river.com", "Documents", "Statements", "Custom", "Bitcoin activity", "not Account activity")),
+    ("coinbase", ("not Advanced", "Accounts", "Statements", "Transactions", "all assets, all transactions",
+                  "CSV")),
     ("kraken", ("Documents", "Create export", "Ledgers", "first day to today", "all assets, types and fields",
                 "ledgers.csv")),
     ("strike", ("Documents", "each past year's statement and this year's months", "Export as CSV",

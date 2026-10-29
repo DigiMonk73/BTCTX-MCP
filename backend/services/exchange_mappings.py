@@ -141,7 +141,8 @@ class Mapping:
 
 RIVER = Mapping(
     id="river", name="River", reader=RIVER_FILE,
-    help="river.com → Taxes & Documents → Bitcoin activity (CSV).",
+    help="river.com → profile icon → Documents → Statements → Custom → Bitcoin activity (not Account activity) "
+         "→ Generate CSV.",
 )
 
 # Coinbase's "Transaction history" (2021 to 2023, from 2024 with an ID column
@@ -173,7 +174,8 @@ COINBASE = Mapping(
     after_fee=frozenset({BUY, SELL}), optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
     leave_out=(LeaveOut("Spot Price Currency", "", NOT_DOLLARS, other_than="usd"),
                LeaveOut("Price Currency", "", NOT_DOLLARS, other_than="usd")),
-    help="coinbase.com → Profile → Reports → Generate report → Transaction history (CSV).",
+    help="coinbase.com (not Advanced) → grid icon → Accounts → Statements → Transactions → all assets, all "
+         "transactions, from your first day, CSV (a year at a time, if it asks).",
 )
 
 KRAKEN = Mapping(
