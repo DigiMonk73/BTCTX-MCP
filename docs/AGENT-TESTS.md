@@ -1270,10 +1270,12 @@ Set `KEY` to the key from AI-3, and use
   `testdata/exchange_files/kraken_ledgers.csv` (the tested commit's: 20
   rows of 2025 in Kraken's published "ledgers" format; times in UTC). In
   **Import from an exchange**, **Exchange file** `Kraken`. Expect the hint
-  "kraken.com → profile icon → Documents → Create export → Ledgers, all
-  assets, types and fields, CSV (a .zip holds ledgers.csv).", the warning "Read as Kraken publishes its file, not yet
-  checked against a real one: check the preview's rows against your file
-  before you import them.", and the file's field "Kraken CSV file". Choose
+  "kraken.com → profile icon → Documents → Create export → Ledgers, from
+  your first day to today, all assets, types and fields, CSV (a .zip
+  holds ledgers.csv).", the warning "Read as Kraken publishes its file,
+  not yet checked against a real one: check the preview's rows against
+  your file before you import them.", and the file's field "Kraken CSV
+  file". Choose
   **Exchange** `Kraken` and **Wallet for sends and receives** `Coldcard`,
   the file, then **Preview**. Expect "6 new", "0 already in ledger", "20
   rows in file"; the note "Rows dated in tax year 2025 can change the

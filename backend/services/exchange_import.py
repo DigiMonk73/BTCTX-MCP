@@ -314,10 +314,10 @@ def _gives_bitcoin(row: Cells, mapping: Mapping) -> bool:
 def _dollars_with_bitcoin(word: str) -> Reason:
     """Why a row of a word that means dollars, giving an amount of bitcoin
     all the same, is left out: Strike's Withdrawal may be bitcoin's (#813)."""
-    return Reason(f"are “{word}”, which this mapping reads as dollars, but give an amount of bitcoin: add any that "
-                  "moved bitcoin by hand",
-                  f"is “{word}”, which this mapping reads as dollars, but it gives an amount of bitcoin: add it by "
-                  "hand if it moved bitcoin")
+    return Reason(f"are “{word}”, which this mapping reads as dollars, but their bitcoin column holds an amount: "
+                  "add any that moved bitcoin by hand",
+                  f"is “{word}”, which this mapping reads as dollars, but its bitcoin column holds an amount: add it "
+                  "by hand if it moved bitcoin")
 
 
 def _not_bitcoin(asset: str, word: str) -> Reason:

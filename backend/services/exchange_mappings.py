@@ -179,8 +179,8 @@ COINBASE = Mapping(
 KRAKEN = Mapping(
     id="kraken", name="Kraken", reader=KRAKEN_LEDGER,
     checked=False,
-    help="kraken.com → profile icon → Documents → Create export → Ledgers, all assets, types and fields, CSV (a "
-         ".zip holds ledgers.csv).",
+    help="kraken.com → profile icon → Documents → Create export → Ledgers, from your first day to today, all "
+         "assets, types and fields, CSV (a .zip holds ledgers.csv).",
 )
 
 # Strike's account statements and its activity report (Strike writes UTC),
@@ -199,8 +199,8 @@ STRIKE = Mapping(
     after_fee=frozenset({BUY, SELL}), done=frozenset({"completed"}), optional=frozenset({"status"}),
     merge_same_id=True, signs=frozenset({"btc", "usd"}),
     checked=False,
-    help="strike.me → profile icon → Documents → each year's statement, or this year's months → ⋯ → Export as CSV "
-         "(not a year and its months: they hold the same rows), or Activity → Generate report.",
+    help="strike.me → profile icon → Documents → each past year's statement and this year's months → ⋯ → Export "
+         "as CSV (never a year and its own months: they hold the same rows), or Activity → Generate report.",
 )
 
 # Swan's "Deposits and purchases" (Swan writes UTC): a purchase's
@@ -253,8 +253,8 @@ CASH_APP = Mapping(
     not_done=("fail", "revers", "cancel", "pending", "refund", "declin"), optional=frozenset({"status"}),
     leave_out=(LeaveOut("Currency", "", NOT_DOLLARS, other_than="usd"),), signs=frozenset({"usd"}),
     checked=False,
-    help="Cash App → Profile → Documents → Bitcoin → each year's Transactions CSV, or cash.app/account/activity → "
-         "Statements → Export CSV (not both: they hold the same trades).",
+    help="Cash App → Profile → Documents → Bitcoin → each year's Transactions CSV; or, instead of them, "
+         "cash.app/account/activity → Statements → Export CSV.",
 )
 
 READY_MADE: dict[str, Mapping] = {
