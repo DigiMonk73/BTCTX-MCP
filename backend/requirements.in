@@ -3,14 +3,14 @@
 # is installed: after an edit here, run `make lock` (docs/MAINTENANCE.md).
 
 # Core framework
-fastapi==0.143.5
+fastapi==0.161.1
 pydantic==2.14.1
-starlette==1.8.0
+starlette==1.9.0
 uvicorn==0.54.0
 
 # Database
-sqlalchemy==2.0.54
-alembic==1.20.0  # schema migrations (backend/migrations/, run at startup)
+sqlalchemy==2.0.55
+alembic==1.20.1  # schema migrations (backend/migrations/, run at startup)
 
 # Authentication
 bcrypt==5.0.0
@@ -32,4 +32,4 @@ cryptography==50.0.2
 
 # PDF generation & manipulation
 pypdf==6.21.2
-reportlab==5.0.1
+reportlab==5.1.0
