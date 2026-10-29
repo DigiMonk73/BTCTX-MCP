@@ -88,7 +88,9 @@ jobs:
       # module marked xdist_group on one worker (test_printed_forms.py)
       - name: This shard's tests (incl. slow stress tests)
         run: pytest -q -n auto --dist loadgroup --durations=10 --shard ${{ matrix.shard }}/3 --ran-list ran.json
+      # Also after a failed test: what ran, and how long it took
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
         with:
           name: python-tests-py${{ matrix.python }}-${{ matrix.shard }}
           path: |

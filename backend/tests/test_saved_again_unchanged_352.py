@@ -62,8 +62,8 @@ def save_again(client, tx_id: int, body: dict) -> None:
     assert r.status_code == 200, (tx_id, r.text)
 
 
-# About 27 rows a part, so a part takes under a minute on CI
-PARTS = 8
+# About 22 rows a part, so a part takes under a minute on CI (8 parts took 67 s)
+PARTS = 10
 
 
 def part_of(txs: list, part: int) -> list:

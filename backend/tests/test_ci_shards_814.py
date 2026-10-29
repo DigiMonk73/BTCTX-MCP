@@ -62,17 +62,16 @@ def test_with_no_times_at_all_the_files_share_out_evenly():
     assert sorted(len(shard) for shard in planned) == [3, 3, 4]
 
 
-def test_a_shard_runs_its_files_whole_longest_first_each_in_its_own_order():
+def test_a_shard_runs_its_files_whole_in_the_collections_order():
+    """The order the whole suite runs in, so a test that leaves something
+    behind still runs after the tests it would upset (#814)."""
     items = items_of(FILES)
     seen = []
     for number in (1, 2, 3):
         kept, others = shards.select(items, number, 3, TIMED)
         assert len(kept) + len(others) == len(items)
-        files = list(dict.fromkeys(shards.file_of(item.nodeid) for item in kept))
-        assert files == shards.plan(FILES, TIMED, 3)[number - 1]
-        for name in files:
-            assert [item.nodeid for item in kept if item.nodeid.startswith(name)] == \
-                [f"{name}::test_{n}" for n in range(3)]
+        assert sorted({shards.file_of(item.nodeid) for item in kept}) == sorted(shards.plan(FILES, TIMED, 3)[number - 1])
+        assert kept == [item for item in items if item in kept]
         seen += kept
     assert sorted(item.nodeid for item in seen) == sorted(item.nodeid for item in items)
 

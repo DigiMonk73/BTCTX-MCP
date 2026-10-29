@@ -7,8 +7,11 @@ A file is never split between shards, so its module fixtures are set up in
 one shard only (test_printed_forms.py's takes a minute). The files are
 shared out by how long each took on CI (test_durations.json), the longest
 first into the shard with the least so far, so the shards end together; a
-file not timed yet counts as the average one. In its shard the longest file
-goes first, so a long test never starts last and holds the shard up.
+file not timed yet counts as the average one. A shard runs its tests in the
+collection's order, as the whole suite did: a test that leaves something
+behind (a logger's level, an override) then still runs after the tests it
+would upset, as it always has. Run longest first, two such leftovers failed
+other modules' tests (#814).
 
 Every test still runs, in exactly one shard: CI's guard
 (scripts/check_test_shards.py) compares what the shards ran (`--ran-list`)
@@ -48,12 +51,11 @@ def plan(files: list[str], durations: dict[str, float], count: int) -> list[list
 
 
 def select(items: list, number: int, count: int, durations: dict[str, float]) -> tuple[list, list]:
-    """Shard `number`'s tests, its longest file first and each file's tests
-    in their own order, and the others."""
+    """Shard `number`'s tests, in the collection's order, and the others."""
     files = list(dict.fromkeys(file_of(item.nodeid) for item in items))
-    rank = {name: place for place, name in enumerate(plan(files, durations, count)[number - 1])}
-    kept = sorted((item for item in items if file_of(item.nodeid) in rank), key=lambda item: rank[file_of(item.nodeid)])
-    return kept, [item for item in items if file_of(item.nodeid) not in rank]
+    mine = set(plan(files, durations, count)[number - 1])
+    return [item for item in items if file_of(item.nodeid) in mine], \
+        [item for item in items if file_of(item.nodeid) not in mine]
 
 
 def read_durations() -> dict[str, float]:

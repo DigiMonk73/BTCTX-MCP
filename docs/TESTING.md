@@ -79,8 +79,10 @@ its own (#814):
 
 - `pytest -n auto --dist loadgroup --shard 2/3` runs shard 2 of 3 here, as
   CI does. A shard runs whole test files, shared out by how long each took
-  on CI (`backend/tests/test_durations.json`), the longest first; a file not
-  timed yet counts as the average one (`backend/tests/shards.py`).
+  on CI (`backend/tests/test_durations.json`) so the shards end together; a
+  file not timed yet counts as the average one (`backend/tests/shards.py`).
+  It runs them in the order the whole suite does, so a test that leaves
+  something behind still runs after the tests it would upset.
 - Each shard also collects the whole suite in a run of its own, and records
   what it ran (`--ran-list`). The guard job (`scripts/check_test_shards.py`)
   fails "CI passed" unless every test collected ran in exactly one shard, so

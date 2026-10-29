@@ -132,19 +132,21 @@ All notable changes to BitcoinTX are documented in this file.
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,
   shared out by how long each took on CI (`backend/tests/shards.py`,
-  `test_durations.json`, `--shard 2/3`). A guard job
+  `test_durations.json`, `--shard 2/3`), in the order the whole suite runs
+  them. A guard job
   (`scripts/check_test_shards.py`) fails "CI passed" unless every test a
   full collection finds ran in exactly one shard, and hands out the run's
   timings. No test is cut: the four longest are split into parts that run
   side by side, checking all they did. Every reference row is still saved
-  again, in eight parts of the ledger in order, twice. The property tests
+  again, in ten parts of the ledger in order, twice. The property tests
   still draw at least 120 ledgers of each kind, in six runs of 21, one
   more each for the simplest ledger every run starts from. The printed
   forms' minute-long setup runs once a shard (`--dist loadgroup`), not once
-  a worker. The connector tests' `backend_db` put back no database
-  override when it ended, so a backend test after it on the same worker
-  had none; it puts back the one before. Tests and CI only: the app
-  doesn't change.
+  a worker. Two tests left something behind that upset a later module's
+  tests on the same worker, once a shard ran its files in another order:
+  the connector tests' `backend_db` put back no database override, and
+  `test_report_without_prices.py` left pypdf's warnings off. Both now put
+  back what was there. Tests and CI only: the app doesn't change.
 - **Two known flaky tests, placed** (#598, #584). #598's module already
   seeds its own ledger (#610), and its test still fails on the old seeding
   code. #584 (WebKit's blank `/login` at the 64th and 128th test of a full
