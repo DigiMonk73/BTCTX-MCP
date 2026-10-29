@@ -420,6 +420,26 @@ def test_a_fee_priced_by_an_edit_of_a_day_spend_takes_the_day(auth_client, monke
     assert (edited["price_moment"], edited["gross_proceeds_usd"], edited["fee_usd"]) == ("day", "1500.00", "3.00")
 
 
+@pytest.mark.parametrize("currency", [{}, {"fee_currency": None}])
+@pytest.mark.parametrize("purpose", ["Spent", "Gift"])
+def test_a_fee_sent_without_its_currency_to_a_day_withdrawal_takes_the_day(auth_client, monkeypatch, purpose,
+                                                                          currency):
+    """#649: an API edit adding a fee to a withdrawal saved without one,
+    priced at the day, sending no currency (or a null one), priced the fee
+    at the hour and marked the row "hour", while its proceeds or gift value
+    kept the day's price: the save filled the fee's currency only after it
+    had asked whether the values share the day's price."""
+    buy(auth_client)
+    stub_daily_prices(monkeypatch, lambda day: 30000)
+    stub_prices_at(monkeypatch, lambda when: D(30000), moment="day")
+    tx = spend(auth_client, purpose=purpose, fee_amount="0", fee_currency=None)
+    assert (tx["fee_currency"], tx["price_moment"]) == (None, "day")
+    stub_prices_at(monkeypatch, price_of)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"fee_amount": "0.0001", **currency})
+    assert r.status_code == 200, r.text
+    assert (r.json()["fee_currency"], r.json()["fee_usd"], r.json()["price_moment"]) == ("BTC", "3.00", "day")
+
+
 def test_a_transfer_fee_priced_again_is_at_the_hour(auth_client, monkeypatch):
     buy(auth_client)
     stub_prices_at(monkeypatch, price_of, moment="day")

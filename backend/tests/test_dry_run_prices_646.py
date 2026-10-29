@@ -24,6 +24,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import app
+from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history
 from backend.services import transaction as tx_service
 from backend.tests.conftest import default_login
@@ -64,8 +65,8 @@ SHOWN = ("type", "timestamp", "from_account_id", "to_account_id", "amount", "fee
 class Ledger:
     """A ledger of its own; each price asked for is noted: (found first?, "hour" or "day", when)."""
 
-    def __init__(self, client, tax_year):
-        self.client, self.tax_year = client, tax_year
+    def __init__(self, client, tax_year, session):
+        self.client, self.tax_year, self.session = client, tax_year, session
         self.finding, self.moment, self.asked = False, "hour", []
 
     def add(self, row: dict, moment: str = "hour") -> int:
@@ -79,9 +80,16 @@ class Ledger:
     def edit(self, tx_id: int, change: dict) -> tuple[set, set]:
         """The edit sent in 2026, without its confirm: (the prices found
         first, the prices the dry run's save asked for)."""
+        return self._sent_in_2026("put", f"/api/transactions/{tx_id}", change)
+
+    def add_in_2026(self, row: dict) -> tuple[set, set]:
+        """The row added in 2026, without its confirm, as edit's are."""
+        return self._sent_in_2026("post", "/api/transactions", row)
+
+    def _sent_in_2026(self, method: str, url: str, body: dict) -> tuple[set, set]:
         self.tax_year(2026)
         self.asked.clear()
-        r = self.client.put(f"/api/transactions/{tx_id}", json=change)
+        r = getattr(self.client, method)(url, json=body)
         self.tax_year(2009)
         assert r.status_code in (200, 409), r.text
         return ({(at, when) for first, at, when in self.asked if first},
@@ -103,7 +111,7 @@ class Ledger:
 @pytest.fixture
 def ledger(fresh_app, monkeypatch, tax_year):
     """A 2024 deposit to spend from, and every price noted."""
-    lg = Ledger(TestClient(app), tax_year)
+    lg = Ledger(TestClient(app), tax_year, fresh_app)
 
     def price_at(db, when):
         lg.asked.append((lg.finding, "hour", hourly_prices.hour_of(when)))
@@ -279,11 +287,31 @@ def test_an_inheritance_made_income_is_found_at_the_hour(ledger):
     assert asked == {hour(ROWS["inherited"]["timestamp"])} and found == asked
 
 
-def test_a_fee_added_without_its_currency_to_a_day_spend_is_found_as_the_save_prices_it(ledger):
-    """The save asks _keeps_a_day_price before it fills the fee's currency,
-    so it prices this fee at the hour (#649); found first the same way, so
-    the two stay in step when #649 moves that fill."""
+def test_a_fee_added_without_its_currency_to_a_day_spend_is_found_at_the_day(ledger):
+    """The fee's currency is filled before the save asks whether the spend's
+    values share the day's price, so the fee takes the day's, as its
+    proceeds keep it (#649); found first the same way."""
     tx_id = ledger.add({k: v for k, v in spend("2024-03-08").items() if k != "fee_currency"} | {"fee_amount": "0"},
                        moment="day")
     found, asked = ledger.edit(tx_id, {"fee_amount": "0.0001"})
-    assert asked and found == asked
+    assert found == asked == {("day", price_history.utc_day(datetime(2024, 3, 8, 12, tzinfo=timezone.utc)))}
+
+
+def test_an_old_0_income_value_an_edit_leaves_alone_finds_no_price(ledger):
+    """#653: an income deposit holding a $0 value never priced (only a row
+    saved before income deposits were always valued holds one), edited
+    without any input of its value: the save leaves the value as it is
+    (_revalue_income_deposit), and nothing is found first for it."""
+    tx_id = ledger.add(ROWS["income"])
+    with ledger.session() as db:
+        db.query(Transaction).filter_by(id=tx_id).update({"cost_basis_usd": 0, "cost_basis_from_price": False})
+        db.commit()
+    assert ledger.edit(tx_id, {"fee_amount": "0"}) == (set(), set())
+
+
+def test_a_past_year_spend_added_with_only_its_gross_finds_no_price(ledger):
+    """#653: a Spent an API client adds with gross_proceeds_usd and no
+    proceeds_usd: the save keeps the gross given (_withdrawal_gross_proceeds),
+    and nothing is found first for it."""
+    found, asked = ledger.add_in_2026(spend("2024-03-09", gross_proceeds_usd="5000", **NO_FEE))
+    assert found == asked == set()

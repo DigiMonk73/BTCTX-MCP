@@ -12,6 +12,40 @@ All notable changes to BitcoinTX are documented in this file.
   deleted. Cancel and Escape delete nothing. No figure changes.
 
 ### Fixed
+- **A network fee the AI connector or an API client adds without its
+  currency takes the same price as the rest of its transaction** (#649,
+  tax figures). A Spent bitcoin withdrawal's proceeds and its network
+  fee's value come from one price, and so do a gift's, donation's or lost
+  coins' value and its fee (#173). When such a withdrawal had been priced
+  at the day's price (saved before hourly prices, or imported without its
+  moment) and had no fee, an edit adding one with `fee_amount` but no
+  `fee_currency` (or a blank one) priced the fee at the hour's price
+  instead and marked the transaction "hour", so its fee and its proceeds
+  or value came from two prices. The fee's currency is now filled first,
+  and the fee takes the day's price too. BitcoinTX's own form always
+  sends the currency: edits made there were never affected. What moves:
+  that fee's value, by the difference between the hour's and the day's
+  price on the fee (cents on a typical fee). On Form 8949, the fee's row
+  moves by it; for a spend, its own row moves the other way by the same
+  amount, since a spend and its fee together realize what was received;
+  for a gift, donation or lost coins, the year's gain moves by it.
+
+  **Affected:** 1.2.8 to 1.2.10 and 2.0's pre-releases, any tax year,
+  only such an edit sent through the AI connector or the API. **What to
+  do:** nothing, unless the AI connector or an API client added a network
+  fee to a spend or gift priced at the day: its fee then holds the hour's
+  price and its proceeds or value the day's, and Ledger Review doesn't
+  list it. Open it, clear **Proceeds (USD)** (a gift's **FMV (USD)**) and
+  save: both are then priced at the hour.
+- **The past-year question no longer looks up two prices its save never
+  uses** (#653, found by #646's re-check; no figure changes). Before it
+  works out what a change to an earlier tax year moves, BitcoinTX finds the
+  prices the save will use. It also looked one up for an old income
+  deposit holding a $0 value never priced, edited without any change to
+  what its value depends on (the save leaves that value as it is), and for
+  a spend an API client adds with only `gross_proceeds_usd` (the save keeps
+  that gross). With a price source on, each cost a request, or a wait for
+  a year's price file.
 - **The AI connector's words no longer set three small traps** (#797, found
   by Grok's test of beta.1; no figure changes):
   - when an edit changes what leaves a transaction whose coins were
