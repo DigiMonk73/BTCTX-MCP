@@ -37,7 +37,7 @@ async function importRows(page: Page, count: number) {
 test("a ready-made mapping's file: chosen, previewed, imported, and found again", async ({ authedPage: page }) => {
   const card = await openImport(page);
   await card.getByLabel("Exchange file").selectOption({ label: "Kraken" });
-  await expect(card.getByText(/kraken\.com → Documents → Export → Ledgers/)).toBeVisible();
+  await expect(card.getByText(/kraken\.com → profile icon → Documents → Create export → Ledgers/)).toBeVisible();
   // Built from Kraken's published format, not a real export: the owner checks the preview
   await expect(card.getByText(/not yet checked against a real one/)).toBeVisible();
   await card.getByLabel("Kraken CSV file").setInputFiles({

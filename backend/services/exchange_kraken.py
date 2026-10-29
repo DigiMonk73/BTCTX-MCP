@@ -48,6 +48,18 @@ PENDING = Reason("are Kraken's pending copies of a deposit or withdrawal (no txi
 REPEATED = Reason("repeat an earlier line (txid)", "repeats an earlier line (txid)")
 WITHIN_KRAKEN = Reason("move coins between Kraken's own balances (spot, staking, earn)",
                        "moves coins between Kraken's own balances (spot, staking, earn)")
+# A transfer with no subtype isn't always a move within Kraken: Kraken writes it for airdrops and
+# forks, its OTC desk and Kraken Futures (Kraken's ledger fields; BittyTax, rotki: #813)
+NO_SUBTYPE = Reason("are Kraken “transfer” rows with no subtype (an airdrop or a fork, a deal with Kraken's OTC "
+                    "desk, or a move to or from Kraken Futures): add any that moved bitcoin in or out of Kraken by "
+                    "hand",
+                    "is a Kraken “transfer” with no subtype (an airdrop or a fork, a deal with Kraken's OTC desk, or "
+                    "a move to or from Kraken Futures): add it by hand if it moved bitcoin in or out of Kraken")
+# A ledger exported without its subtype column can't tell a move within Kraken from one in or out
+NO_SUBTYPE_COLUMN = Reason("are Kraken “transfer” rows from a ledger exported without its subtype column, so a "
+                           "move within Kraken can't be told from coins in or out: export the ledger with all fields",
+                           "is a Kraken “transfer” from a ledger exported without its subtype column, so a move "
+                           "within Kraken can't be told from coins in or out: export the ledger with all fields")
 DOLLARS_ONLY = Reason("move dollars, not bitcoin", "moves dollars, not bitcoin")
 # An event of fee-credit lines alone: a fee of its own (a margin rollover's), paid with no money
 CREDITS_ONLY = Reason("are fees paid with Kraken fee credits (KFEE), not bitcoin",
@@ -168,7 +180,7 @@ def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError])
     first = next((line for line in lines if line.get(("asset",)).upper().split(".")[0] in BITCOIN), lines[0])
     numbers = [line.number for line in lines]
     if kinds <= WITHIN or (kinds == {"earn"} and subtypes <= WITHIN):
-        return _left(left_out, numbers, WITHIN_KRAKEN)
+        return _left(left_out, numbers, _within(kinds, subtypes, first))
     if summed.others:
         others = ", ".join(sorted(set(summed.others)))
         how = ("by hand (bitcoin given up as a Withdrawal, purpose Spent, at its dollar value: a disposal, IRS "
@@ -184,6 +196,15 @@ def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError])
     if kinds <= TRADES:
         return _trade(first, numbers, moment, summed, kinds, left_out, warnings)
     return _move(first, numbers, moment, summed, kinds, subtypes, left_out, warnings)
+
+
+def _within(kinds: set, subtypes: set, line: Cells) -> Reason:
+    """Why an event of Kraken's moves between its own balances is left out:
+    a transfer with no subtype may be coins in or out, and one from a ledger
+    without the subtype column can't be told apart."""
+    if kinds != {"transfer"} or subtypes != {""}:
+        return WITHIN_KRAKEN
+    return NO_SUBTYPE if line.header.place(SUBTYPE) is not None else NO_SUBTYPE_COLUMN
 
 
 def _left(left_out: LeftOut, numbers: list[int], reason: Reason) -> None:

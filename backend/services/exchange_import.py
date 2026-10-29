@@ -302,6 +302,24 @@ def _dollars(word: str) -> Reason:
     return Reason(f"move dollars, not bitcoin{said}", f"moves dollars, not bitcoin{said}")
 
 
+def _gives_bitcoin(row: Cells, mapping: Mapping) -> bool:
+    """Whether the row gives an amount of bitcoin (one that can't be read
+    gives none: the row is left out all the same)."""
+    try:
+        return bool(_number(row, mapping.columns.btc, mapping, "BTC")[0])
+    except RowError:
+        return False
+
+
+def _dollars_with_bitcoin(word: str) -> Reason:
+    """Why a row of a word that means dollars, giving an amount of bitcoin
+    all the same, is left out: Strike's Withdrawal may be bitcoin's (#813)."""
+    return Reason(f"are “{word}”, which this mapping reads as dollars, but their bitcoin column holds an amount: "
+                  "add any that moved bitcoin by hand",
+                  f"is “{word}”, which this mapping reads as dollars, but its bitcoin column holds an amount: add it "
+                  "by hand if it moved bitcoin")
+
+
 def _not_bitcoin(asset: str, word: str) -> Reason:
     """Why a row of another asset is left out."""
     if asset.upper() in ("USD", "ZUSD"):
@@ -335,7 +353,7 @@ def _kind(row: Cells, mapping: Mapping, left_out: LeftOut) -> str | None:
     if kind in EVENTS:
         return kind
     if kind == DOLLARS:
-        left_out.add(_dollars(word), row.number)
+        left_out.add(_dollars_with_bitcoin(word) if _gives_bitcoin(row, mapping) else _dollars(word), row.number)
     elif kind == CONVERT:
         left_out.add(_convert(word), row.number)
     elif kind == LEAVE_OUT:
