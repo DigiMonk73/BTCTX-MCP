@@ -88,7 +88,8 @@ jobs:
       # module marked xdist_group on one worker (test_printed_forms.py)
       - name: This shard's tests (incl. slow stress tests)
         run: pytest -q -n auto --dist loadgroup --durations=10 --shard ${{ matrix.shard }}/3 --ran-list ran.json
-      # Also after a failed test: what ran, and how long it took
+      # Also after a failed test: what ran, and how long it took. A re-run
+      # of a failed shard replaces its record
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
@@ -96,6 +97,8 @@ jobs:
           path: |
             collected.txt
             ran.json
+          if-no-files-found: error
+          overwrite: true
           retention-days: 7
 
   python-guard:

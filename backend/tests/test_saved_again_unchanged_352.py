@@ -6,9 +6,12 @@ an earlier tax year (this tax year is 2027 here), each goes through the dry
 run, and nothing may move, so none asks: every disposal's proceeds, basis,
 gain, box, term and date acquired, every lot made, every stored figure.
 
-Each of the two runs saves every row in turn, in parts that run side by
-side (#814): a part takes its share of the rows, in their order, on a
-ledger of its own, and the parts together take every row once.
+Each of the two runs saves every row, in parts that run side by side
+(#814): a part takes its share of the rows, by id, on a ledger of its own,
+and the parts together take every row once. Each part also finds every
+transaction stored as it was, so no part's saves could change what another
+part's rows are saved on: the parts check what one run through every row
+did.
 """
 
 import importlib.util
@@ -17,7 +20,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from sqlalchemy import select
+
 from backend.main import app
+from backend.models.account import Account
+from backend.models.transaction import ChosenCoin, Transaction
 from backend.services import first_run, outbound, year_changes
 from backend.services.tax_time import get_tax_timezone
 
@@ -62,43 +69,60 @@ def save_again(client, tx_id: int, body: dict) -> None:
     assert r.status_code == 200, (tx_id, r.text)
 
 
+def stored(Session) -> dict[str, list]:
+    """Every transaction as stored, and the coins it chose, but for when it
+    was last saved and a dollar deposit's basis, which means nothing
+    (figures, above)."""
+    with Session() as db:
+        dollars = set(db.scalars(select(Account.id).where(Account.currency == "USD")))
+        transactions = []
+        for tx in db.scalars(select(Transaction).order_by(Transaction.id)):
+            row = {column.key: getattr(tx, column.key) for column in Transaction.__table__.columns
+                   if column.key != "updated_at"}
+            if tx.type == "Deposit" and tx.to_account_id in dollars:
+                del row["cost_basis_usd"]
+            transactions.append(row)
+        coins = [tuple(row) for row in db.execute(select(*ChosenCoin.__table__.columns).order_by(ChosenCoin.id))]
+    return {"transactions": transactions, "chosen_coins": coins}
+
+
 # About 22 rows a part, so a part takes under a minute on CI (8 parts took 67 s)
 PARTS = 10
 
 
 def part_of(txs: list, part: int) -> list:
-    """Part `part`'s rows: its share of the list, in their order."""
-    size = -(-len(txs) // PARTS)
-    return txs[part * size:(part + 1) * size]
+    """Part `part`'s rows: its share of them, by id."""
+    ordered = sorted(txs, key=lambda tx: tx["id"])
+    size = -(-len(ordered) // PARTS)
+    return ordered[part * size:(part + 1) * size]
 
 
-def test_the_parts_take_every_row_once_in_order():
+def test_the_parts_take_every_row_once():
     for count in (1, PARTS - 1, PARTS, 213, 214):
-        txs = list(range(count))
-        assert [tx for part in range(PARTS) for tx in part_of(txs, part)] == txs
+        txs = [{"id": n} for n in reversed(range(count))]
+        assert [tx["id"] for part in range(PARTS) for tx in part_of(txs, part)] == list(range(count))
+
+
+def save_part_again(seeded, tax_year, part: int, body) -> None:
+    """Part `part`'s rows saved again, each with body(row): nothing moves."""
+    client, Session = seeded
+    before, rows_before = figures(Session), stored(Session)
+    tax_year(2027)
+    rows = part_of(client.get("/api/transactions").json(), part)
+    assert rows
+    for tx in rows:
+        save_again(client, tx["id"], body(tx))
+    assert figures(Session) == before
+    assert stored(Session) == rows_before
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize("part", range(PARTS))
 def test_every_reference_row_saved_again_unchanged_keeps_its_figures(seeded, tax_year, part):
-    client, Session = seeded
-    before = figures(Session)
-    tax_year(2027)
-    rows = part_of(client.get("/api/transactions").json(), part)
-    assert rows
-    for tx in rows:
-        save_again(client, tx["id"], {})
-    assert figures(Session) == before
+    save_part_again(seeded, tax_year, part, lambda tx: {})
 
 
 @pytest.mark.slow
 @pytest.mark.parametrize("part", range(PARTS))
 def test_and_with_its_own_date_and_amount_sent_back(seeded, tax_year, part):
-    client, Session = seeded
-    before = figures(Session)
-    tax_year(2027)
-    rows = part_of(client.get("/api/transactions").json(), part)
-    assert rows
-    for tx in rows:
-        save_again(client, tx["id"], {"timestamp": tx["timestamp"], "amount": tx["amount"]})
-    assert figures(Session) == before
+    save_part_again(seeded, tax_year, part, lambda tx: {"timestamp": tx["timestamp"], "amount": tx["amount"]})

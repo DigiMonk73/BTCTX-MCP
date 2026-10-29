@@ -20,7 +20,7 @@ interface BtcPriceCardProps {
  */
 function goToPriceCard(e: React.MouseEvent<HTMLAnchorElement>) {
   e.preventDefault();
-  whenShown("price-card-title", (title) => {
+  whenShown("price-card-title", e.currentTarget, (title) => {
     title.scrollIntoView();
     title.focus({ preventScroll: true });
   });

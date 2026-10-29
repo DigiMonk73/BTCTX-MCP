@@ -123,8 +123,8 @@ form (`e2e/fixtures.ts`).
   ledgers must keep the tax invariants (balances = lots, gain = proceeds −
   basis, basis conservation, holding periods, Form 8949 = Schedule D = the
   complete report, recalculation and entry order change nothing). 8 examples
-  in the fast set, 120 in the slow set (six runs of 21 that go side by side,
-  each starting from the simplest ledger); a second generator does the same over
+  in the fast set, 120 in the slow set (six runs of 22 that go side by side:
+  each starts from the simplest ledgers, which repeat); a second generator does the same over
   multiple wallets, exchanges and banks
   (`test_random_ledgers_over_multiple_accounts_keep_the_invariants`). A
   failure prints the smallest ledger that breaks it.

@@ -8,10 +8,9 @@ one shard only (test_printed_forms.py's takes a minute). The files are
 shared out by how long each took on CI (test_durations.json), the longest
 first into the shard with the least so far, so the shards end together; a
 file not timed yet counts as the average one. A shard runs its tests in the
-collection's order, as the whole suite did: a test that leaves something
-behind (a logger's level, an override) then still runs after the tests it
-would upset, as it always has. Run longest first, two such leftovers failed
-other modules' tests (#814).
+collection's order, as the whole suite does: a test that leaves something
+behind (a logger's level, a database override) still runs after the tests
+it would upset.
 
 Every test still runs, in exactly one shard: CI's guard
 (scripts/check_test_shards.py) compares what the shards ran (`--ran-list`)

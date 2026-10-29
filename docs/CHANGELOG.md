@@ -138,11 +138,12 @@ All notable changes to BitcoinTX are documented in this file.
   full collection finds ran in exactly one shard, and hands out the run's
   timings. No test is cut: the four longest are split into parts that run
   side by side, checking all they did. Every reference row is still saved
-  again, in ten parts of the ledger in order, twice. The property tests
-  still draw at least 120 ledgers of each kind, in six runs of 21, one
-  more each for the simplest ledger every run starts from. The printed
-  forms' minute-long setup runs once a shard (`--dist loadgroup`), not once
-  a worker. Two tests left something behind that upset a later module's
+  again, twice, in ten parts by id, each on a ledger of its own that must
+  end with every figure and every stored transaction as it was, so no part
+  could change what another's rows are saved on. The property tests draw
+  six runs of 22 ledgers of each kind: on CI, 129 and 125 different ones,
+  where one run of 120 drew 124 and 122. The printed forms' minute-long
+  setup runs once a version (`--dist loadgroup`), not once a worker. Two tests left something behind that upset a later module's
   tests on the same worker, once a shard ran its files in another order:
   the connector tests' `backend_db` put back no database override, and
   `test_report_without_prices.py` left pypdf's warnings off. Both now put
