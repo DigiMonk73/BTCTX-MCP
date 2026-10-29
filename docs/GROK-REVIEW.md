@@ -6,7 +6,7 @@ at live in `AGENTS.md` ("Who does what," "Reviews," "Bugs and security,"
 "Tax invariants," "Releasing"). It restates no rule in full: each area
 names what to check against them.
 
-`docs/HARDENING_FINDINGS.md` is a record of past findings, not this
+`docs/archive/HARDENING_FINDINGS.md` is a record of past findings, not this
 routine. `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it, is the checklist for area 3.
 
 ## Who does what
@@ -22,8 +22,9 @@ routine. `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it, is the 
 - **Grok Build** is the spare workshop when Claude is out of tokens, for a
   job the owner already chose. It may write docs, tests, and small fixes
   outside the money path, the doors (login and security), the database,
-  and StartOS: not in the files of monthly areas 1–4 below, nor
-  `backend/migrations/`. A one-line change there is still Claude's.
+  and StartOS: not in the files of monthly areas 1–4 below, nor the
+  database's (`backend/migrations/`, `backend/migrate.py`,
+  `backend/database.py`, `backend/models/`). A one-line change there is still Claude's.
   Grok never merges. Every change it writes gets a fresh Claude
   review, and Claude or the owner's "merge" lands it. It does not review
   its own change. Comments end `— Grok (Build)`. It does not cut a
@@ -42,7 +43,8 @@ Do not name model versions or speed tiers in this file. They go stale.
 
 ## Before you start
 
-`git fetch`, and read `origin/develop`, not a stale checkout. Temp
+`git fetch`, and read `origin/develop` (`origin/2.0` for BitcoinTX 2.0,
+until its release), not a stale checkout. Temp
 databases, `make preview`, or the StartOS test VM only. Never the owner's
 real Mac ledger, and never the installed app's data. On this machine the
 Python to trust is the repo's `.venv`.
@@ -59,7 +61,9 @@ write. No release, no move of `main`, nothing sent to Start9.
 When the owner asks, before a release (a second set of eyes, not a
 release gate), read what changed since the last release tag
 (`git log --oneline $(git describe --tags --abbrev=0 origin/main)..origin/develop`;
-tags look like `v1.2.8`). App
+tags look like `v1.2.8`; for a 2.0 pre-release,
+`git log --oneline $(git describe --tags --abbrev=0 --match 'v*' origin/2.0)..origin/2.0`,
+whose tags look like `v2.0.0-beta.1`). App
 code, the database, prices, auth, backup, the connector, and `startos/`.
 Skip a file that only moved words, except the StartOS release notes and
 the instructions a user follows.
@@ -78,12 +82,16 @@ One area, then the next, then start over. Not the whole repo. The owner
 names the area (the latest pass on #41 says which is next); if not, ask.
 
 1. **Money.** `backend/services/transaction.py`,
-   `backend/services/tax_time.py`,
+   `backend/services/tax_time.py`, the account book
+   (`backend/services/account.py`), the coins chosen
+   (`backend/services/chosen_coins.py`, `transfer_coins.py`), the
+   past-year question (`past_years.py`, `year_changes.py`,
+   `past_year_writes.py`, `recalculated_by.py`),
    `backend/services/reports/form_8949.py`,
    `backend/services/reports/reporting_core.py`, and the reference ledger
    (`testdata/reference_ledger.json`, `scripts/independent_figures.py`).
    Check the tax invariants in `AGENTS.md`. A recalculation must be
-   rebuildable from the Transaction row. Dates use the tax timezone.
+   rebuildable from the Transaction row and the coins it chose. Dates use the tax timezone.
    Nothing prices at $0.
 2. **Doors.** `backend/session_auth.py`,
    `backend/services/login_throttle.py`,
@@ -109,7 +117,11 @@ names the area (the latest pass on #41 says which is next); if not, ask.
    Do not describe the service as on Tor or the public internet. The user
    chooses where an interface is reachable.
 5. **Imports and the connector.** `backend/services/csv_import.py`,
-   `backend/services/river_import.py`, `backend/services/entry_import.py`,
+   `csv_choices.py`, `backend/services/river_import.py`, the import from
+   any exchange (`exchange_import.py`, `exchange_mappings.py`,
+   `exchange_cells.py`, `exchange_kraken.py`,
+   `backend/routers/exchange_import.py`),
+   `backend/services/entry_import.py`,
    `mcp_server/btctx_mcp/server.py`, `mcp_server/btctx_mcp/guide.py`,
    `AI_KEY_ROUTES`, and the CSV BitcoinTX writes
    (`backend/services/reports/safe_text.py`, `csv_text`). A CSV cell
@@ -119,7 +131,8 @@ names the area (the latest pass on #41 says which is next); if not, ask.
    copy (`_copy_before_ai_changes`, `backend/routers/transaction.py`), and
    so is an import holding a row dated before the ledger's latest, which
    recalculates it (#414); any other import makes none (the connector
-   offers `backup_ledger`).
+   offers `backup_ledger`). A past-year change the AI key confirms makes a
+   fresh copy first, whatever the hour (#352).
 
 ## How to report
 

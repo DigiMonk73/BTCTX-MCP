@@ -18,19 +18,20 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages; and in jsdom, `*.test.tsx`, the transaction form mounted against a stubbed server, `src/test/renderForm.tsx`: its account pickers and a row's accounts kept on edit) | secs |
-| Unit + integration | `make test-fast` | ~3,200 tests (backend and MCP server), on every core: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~2 min |
-| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~10 min |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages; and in jsdom, `*.test.tsx` beside their components, mounted against a stubbed server with `src/test/`'s helpers: the transaction form, its account pickers and coin picker, Settings' accounts, the import from an exchange, the past-year question, the dashboard…) | secs |
+| Unit + integration | `make test-fast` | Every test but the slow ones (backend and MCP server), on every core: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
+| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests, the property tests' long runs, and every reference row saved again (#352) | ~6 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
-| Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
+| Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports and the import from any exchange, every report download, Settings and its wallets, exchanges and banks, the past-year question, the coin picker, the widgets. Each test gets its own server on a temp database with stubbed prices | ~20 min (one worker) |
 | Docker | `make docker-smoke` | Builds the image from this checkout and runs CI's container checks on it locally: first-run setup code, smoke test, data on `/data`, the app as its own user `btctx`, health, maintenance CLI. `scripts/docker_update_check.sh <image>` runs CI's update from the published 1.2.8 image, whose `/data` is root's (#202) | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
-| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~6 min |
+| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~7 min |
 | Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
 
 ## When they run
 
-- **Before every `git push`** (`.githooks/pre-push`): lint, static
+- **Before every `git push`** (`.githooks/pre-push`): first the branch
+  rules (`.githooks/branch-rules.sh`: AGENTS.md, "Branches"), then lint, static
   Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
   smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
   exists), StartOS package format check (`npm run format:check`), then type
@@ -50,7 +51,9 @@ make hooks          # installs the pre-push gate
     every change merged (a cancelled run's red "CI passed" isn't a
     failure). Every other pull request (into `develop`, `main` or any
     other branch) runs the full set. AGENTS.md, "Branches".
-- **Daily:** `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+- **Daily** (from the release that brings it to `main`, since GitHub runs a
+  schedule only from there; until then each session runs the script, AGENTS.md,
+  "Starting a session"): `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
   packaging guide or shared package workflows, a failed build on the mirror
@@ -80,14 +83,23 @@ def test_my_fix(auth_client):              # logged-in client, temp database
 
 Mark anything slower than ~5 s with `@pytest.mark.slow`.
 
+"This tax year" is pinned to 2009 in the tests (`tax_time.current_tax_year`,
+`conftest.py`), so no save meets the past-year warning by chance; a test of
+the warning sets the year with the `tax_year` fixture (`tax_year(2026)`). A
+click-through spec that writes into an earlier tax year meets its 409 and
+confirms it: `createTx` and `sendConfirmed` for the API, `saveForm` for the
+form (`e2e/fixtures.ts`).
+
 ## Property tests and golden years
 
 - `backend/tests/test_invariants_property.py` (Hypothesis): random valid
   ledgers must keep the tax invariants (balances = lots, gain = proceeds −
   basis, basis conservation, holding periods, Form 8949 = Schedule D = the
   complete report, recalculation and entry order change nothing). 8 examples
-  in the fast set, 120 in the slow set. A failure prints the smallest ledger
-  that breaks it.
+  in the fast set, 120 in the slow set; a second generator does the same over
+  multiple wallets, exchanges and banks
+  (`test_random_ledgers_over_multiple_accounts_keep_the_invariants`). A
+  failure prints the smallest ledger that breaks it.
 - `backend/tests/test_golden_years.py`: three tax years worked out by hand
   in the docstring, with the exact Form 8949 rows, boxes and Schedule D lines.
   If a change moves one of these numbers, it changes users' tax forms.
@@ -100,15 +112,23 @@ hint pass), compare everything the app produces with a release:
 ```bash
 python scripts/equivalence_check.py            # against v1.2.2-1, ~5 min
 python scripts/equivalence_check.py --bench    # plus recalculation time (fails if >5% slower)
-python scripts/equivalence_check.py --against v1.3.0
+python scripts/equivalence_check.py --against v1.2.10
+python scripts/equivalence_check.py --against origin/2.0   # on 2.0: its tip, or a step's pin
 ```
+
+On `2.0`, compare against `2.0` itself (its tip, or `pin/2.0-step-N`): a
+build from before 2.0's coin choice (dc2cab07) refuses the chosen-coins
+ledger below, the default release included.
 
 It checks out the release in a temporary git worktree and snapshots both
 it and this checkout on the same inputs:
-- **Ledgers:** the golden ledger, the reference test ledger
-  (`testdata/reference_ledger.json`), and 40
-  random ledgers from the property test's generator (fixed seeds, in UTC,
-  Chicago and Tokyo time).
+- **Ledgers:** 1.x's golden ledger and random generator, frozen in
+  `scripts/equivalence_ledgers_1x.py` (so a release before 2.0 can take
+  them), the reference test ledger's 1.x rows
+  (`testdata/reference_ledger.json` without its `"since"` rows), 40 random
+  ledgers from that generator (fixed seeds, in UTC, Chicago and Tokyo
+  time), and a ledger whose wallet chooses its coins
+  (`equivalence_inputs.CHOSEN_LEDGER`).
 - **Bad inputs:** each invalid API payload, CSV row and file in
   `scripts/equivalence_inputs.py`.
 
@@ -157,7 +177,7 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 - Figures are read as numbers (`figure()`, `parseFigure()` in
   `e2e/fixtures.ts`), so thousands separators or a Unicode minus don't break
   them.
-- The `tokyo` project reruns the create, edit, list and sidebar-matrix specs
+- The `tokyo` project reruns the create, edit, list, sidebar-matrix and chosen-coins specs
   in UTC+9. The `webkit` project (the Mac app's engine) runs only with
   `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
   `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
@@ -186,8 +206,8 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   run the sidebar's converter and calculator under every price-source
   state, checking that nothing is asked before a choice or while off and
   that no request names the day.
-- A `test.fail()` marks a known bug the test describes correctly (see
-  `docs/HARDENING_FINDINGS.md`); remove it with the fix.
+- A `test.fail()` marks a known bug the test describes correctly, naming
+  its `bug` issue; remove it with the fix.
 - Install the browsers once per Playwright version: `npx playwright install
   chromium` (and `webkit` for its project). Claude Code's cloud sessions
   (claude.ai/code) aren't known to ship Playwright's browsers: Anthropic's
@@ -205,9 +225,13 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 ## Smoke-testing a live instance
 
 ```bash
-python scripts/smoke_test.py --url http://127.0.0.1:8080
+python scripts/smoke_test.py --url http://127.0.0.1:8080 \
+  --user NAME --password <12 characters or more> --setup-code XXXX-XXXX-XXXX
 ```
 
+`--setup-code` claims a fresh install's default login first (the code is in
+`docker logs` and `/data/setup-code.txt`); without it the smoke test logs in
+as `admin` / `password`, which a fresh install refuses without the code.
 Only against an **empty** instance (a fresh Docker container, never your real
 data) — it creates transactions. `make docker-smoke` does this for an image
 built from the checkout (`scripts/docker_smoke.sh --keep` leaves the container
@@ -216,7 +240,7 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (213 transactions, 2023 to 2026, and a
+`testdata/reference_ledger.json` (2023 to 2026, and a
 deposit dated 2022 so 2023 starts holding coins). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
@@ -237,7 +261,7 @@ it), which the seed makes through the account API
 before the rows and, after them, names and hides as listed (Overseas is
 made as "Offshore" and renamed; the Jade is hidden while it still holds
 coins). The rows marked `"since": "2.0"` use them: B7a's in 2026, #702's
-from 2022 to 2026, each filling its year's 2.0 dimensions, and #730's in
+in 2022 and from 2024 to 2026, each filling its year's 2.0 dimensions, and #730's in
 2025 and 2026, which choose which coins leave a wallet (#711). A row names
 the coins it acquired with a `key`, and a later row chooses them by it
 (`"chosen_coins": [{"key": …, "btc": …}]`): the seed sends each as the id
@@ -299,7 +323,8 @@ install where accounts were added by hand); one a Delete All left is used
 again.
 `--setup-code` claims a fresh Docker install first. On the StartOS test VM,
 the lab's `tools/vmtest seed` loads it and installs the next year's draft
-forms (the app ships the 2026 drafts as a preview until 2027-01-01; see
+forms (the app ships the IRS's drafts for the year after its newest final forms, as a
+preview until January 1 after that year; see
 docs/IRS_FORM_GENERATION.md, "Draft forms: the preview, and test installs").
 For a box: export it there as CSV (Settings) and import that.
 
@@ -382,9 +407,9 @@ make preview PY=.venv/bin/python   # http://127.0.0.1:8777
 
 `scripts/preview.py` builds the frontend and serves the checked-out code on
 a throwaway database (deleted when it stops) with the smoke test's stubbed
-offline prices, logged in as the smoke test's account (`SMOKE_USER`,
-`SMOKE_PASSWORD` in `scripts/smoke_test.py`). Claude's browser preview starts
-it from `.claude/launch.json` ("preview").
+offline prices, with the smoke test's login (`SMOKE_USER`,
+`SMOKE_PASSWORD` in `scripts/smoke_test.py`), which you sign in with.
+Claude's browser preview starts it from `.claude/launch.json` ("preview").
 
 ## Schema migrations
 
@@ -394,6 +419,15 @@ code (`backend/tests/fixtures/v0_7_0.db`), including older variants and
 restored backups. CI also starts the Docker image on that database and checks
 the upgrade (`scripts/check_upgraded_instance.py`). Every test database is
 built by the migrations, not `create_all()`.
+
+2.0's migrations start at 0100 (`docs/MAINTENANCE.md`, "Database
+migrations"), and two databases written by 1.x's own code test the way up
+to them: `fixtures/old_accounts_1x.db` (`test_migrations.py`), and
+`fixtures/reference_1x.db`, the reference test ledger as the last 1.x
+release saved it, with 1.x's figures for it in `reference_1x_figures.json`
+(`test_reference_1x.py`: migrated and recalculated, it must give the same
+figures). `fixtures/make_reference_1x_db.py` makes it and its figures again for a new 1.x
+release or new reference rows.
 
 ## Yearly IRS templates
 

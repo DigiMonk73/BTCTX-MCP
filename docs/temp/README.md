@@ -2,9 +2,9 @@
 
 To-dos and plans are GitHub issues on this repository (`AGENTS.md`,
 "Working through GitHub"). This folder holds only what doesn't fit an issue
-well: a long checklist for work under way, one file per topic, named for what
-it is (`2.0-accounts.md`, not `notes.md`), with its steps as
-checkboxes and a link to its issue.
+well: a long checklist or plan for work under way (2.0's spec and its
+plans), one file per topic, named for what it is (`2.0-accounts.md`, not
+`notes.md`), with its steps as checkboxes and a link to its issue.
 
 When it's all done, move anything worth keeping somewhere lasting (the code
 and CHANGELOG, a doc), close the issue, tick its box in `docs/ROADMAP.md` if
@@ -14,5 +14,5 @@ What's next overall is in `docs/ROADMAP.md`. The StartOS package keeps no
 to-do file (Start9's template): its to-dos are issues labelled `start9`.
 Checklists stay here, never in `startos/`.
 
-`backend/tests/test_todo_lists.py` checks that every item is a checkbox and
-that no separate to-do file comes back.
+`backend/tests/test_todo_lists.py` checks that every item of
+`docs/ROADMAP.md` is a checkbox and that no separate to-do file comes back.
