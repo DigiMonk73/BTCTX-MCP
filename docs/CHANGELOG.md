@@ -29,6 +29,11 @@ All notable changes to BitcoinTX are documented in this file.
   deleted. Cancel and Escape delete nothing. No figure changes.
 
 ### Fixed
+- **The Dashboard's "Choose a source" link always goes to the price card**
+  (#612). The link shows once the live price has answered, the card once
+  its settings have loaded, which can be later on a slow server. A press
+  in between found no card, so nothing scrolled and the keyboard stayed on
+  the link. It now goes there as soon as the card is shown (within 5 s).
 - **Import from an exchange reads a Kraken trade whose fee Kraken's fee
   credits paid** (#829, tax figures). Kraken writes such a trade with a
   third line in its fee credits (KFEE), moving nothing. The importer took
@@ -123,6 +128,30 @@ All notable changes to BitcoinTX are documented in this file.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
+- **The Python suite runs across machines, and CI checks that every test
+  ran** (#814). Each version's suite is three shards, on machines of their
+  own, about a third of the time it took: each shard runs whole test files,
+  shared out by how long each took on CI (`backend/tests/shards.py`,
+  `test_durations.json`, `--shard 2/3`). A guard job
+  (`scripts/check_test_shards.py`) fails "CI passed" unless every test a
+  full collection finds ran in exactly one shard, and hands out the run's
+  timings. No test is cut: the four longest are split into parts that run
+  side by side, checking all they did. Every reference row is still saved
+  again, in eight parts of the ledger in order, twice. The property tests
+  still draw at least 120 ledgers of each kind, in six runs of 21, one
+  more each for the simplest ledger every run starts from. The printed
+  forms' minute-long setup runs once a shard (`--dist loadgroup`), not once
+  a worker. The connector tests' `backend_db` put back no database
+  override when it ended, so a backend test after it on the same worker
+  had none; it puts back the one before. Tests and CI only: the app
+  doesn't change.
+- **Two known flaky tests, placed** (#598, #584). #598's module already
+  seeds its own ledger (#610), and its test still fails on the old seeding
+  code. #584 (WebKit's blank `/login` at the 64th and 128th test of a full
+  run on a Mac) was Playwright 1.56.1's WebKit: the whole WebKit suite, 279
+  tests on the Mac mini, still times out loading `/login` at exactly those
+  two tests on 1.56.1, and passes them on 1.64.1, the version since #563.
+  The open files of WebKit's processes stayed steady on both.
 - **The developer guides and AGENTS.md are read again against 2.0**
   (#807, docs steps D6 and D7a). TESTING, MAINTENANCE,
   STARTOS_COMPATIBILITY, the Mac app's developer sections and
