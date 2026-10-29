@@ -131,24 +131,32 @@ def use(**settings):
     outbound._current = outbound.NetworkSettings(**settings)
 
 
-# The download takes well under a second, but a shared CI runner once held
-# one past 10 s with nothing wrong in it (#841): wait as long as it takes,
-# up to a limit only a stuck download reaches, and then say where it is
+# The download takes well under a second, but on a shared CI runner one
+# once hadn't ended after 10 s (#841): wait as long as it takes, up to a
+# limit only a stuck download reaches, then say where it is. Once one wait
+# has run out, the next give up at once: a download that never ends would
+# otherwise cost the whole limit in every test.
 FINISH_SECONDS = 120
+_ran_out: list[str] = []
 
 
 def finish_download():
+    limit = 1 if _ran_out else FINISH_SECONDS
     with hp._changed:
-        done = hp._changed.wait_for(lambda: not hp._state["running"], timeout=FINISH_SECONDS)
-    assert done, f"the download still runs after {FINISH_SECONDS} s:\n{download_stacks()}"
+        done = hp._changed.wait_for(lambda: not hp._state["running"], timeout=limit)
+    if not done:
+        _ran_out.append("ran out")
+    assert done, f"the download still runs after {limit} s:\n{download_stacks()}"
 
 
 def download_stacks() -> str:
-    """Where each download thread is now."""
+    """Where each download thread is now; with none alive, every thread."""
     frames = sys._current_frames()
-    return "\n".join("".join(traceback.format_stack(frames[thread.ident]))
-                     for thread in threading.enumerate()
-                     if thread.name == "btc-price-download" and thread.ident in frames)
+    threads = [thread for thread in threading.enumerate() if thread.ident in frames]
+    downloads = [thread for thread in threads if thread.name == "btc-price-download"]
+    heading = "" if downloads else "no download thread is alive; every thread:\n"
+    return heading + "\n".join(f"{thread.name}:\n" + "".join(traceback.format_stack(frames[thread.ident]))
+                                for thread in downloads or threads)
 
 
 def test_a_wait_that_runs_out_says_where_the_download_is():
@@ -164,6 +172,9 @@ def test_a_wait_that_runs_out_says_where_the_download_is():
     finally:
         stop.set()
         thread.join()
+    without = download_stacks()
+    assert without.startswith("no download thread is alive; every thread:\n")
+    assert f"{threading.current_thread().name}:\n" in without
 
 
 def year_blocks(year: int, last: int) -> list[int]:

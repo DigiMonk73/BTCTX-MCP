@@ -152,14 +152,16 @@ All notable changes to BitcoinTX are documented in this file.
 - **Three known flaky tests, placed** (#598, #584, #841). #598's module
   already seeds its own ledger (#610), and its test still fails on the old
   seeding code. #841: the hourly prices' tests waited 10 s for their
-  download, which takes well under a second, and once on CI didn't end in
-  time though its work was done; it didn't come back in 20 runs beside a
-  full shard. They now wait up to 120 s, and a wait that runs out says where
-  the download is. #584 (WebKit's blank `/login` at the 64th and 128th test
-  of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole WebKit
-  suite, 279 tests on the Mac mini, still times out loading `/login` at
-  exactly those two tests on 1.56.1, and passes them on 1.64.1, the version
-  since #563. The open files of WebKit's processes stayed steady on both.
+  download, which takes well under a second; once on CI it hadn't ended
+  after 10 s, though both its years were saved. The cause wasn't found, and
+  it didn't come back in 20 runs beside a full shard. They now wait up to
+  120 s (a wait that runs out makes the next give up at once), and say which
+  threads were where. #584 (WebKit's blank `/login` at the 64th and 128th
+  test of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole
+  WebKit suite, 279 tests on the Mac mini, still times out loading `/login`
+  at exactly those two tests on 1.56.1, and passes them on 1.64.1, the
+  version since #563. The open files of WebKit's processes stayed steady on
+  both.
 - **The developer guides and AGENTS.md are read again against 2.0**
   (#807, docs steps D6 and D7a). TESTING, MAINTENANCE,
   STARTOS_COMPATIBILITY, the Mac app's developer sections and
