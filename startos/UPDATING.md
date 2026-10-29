@@ -13,8 +13,13 @@ The upstream is the BitcoinTX app, released from DigiMonk73/BTCTX-MCP as
 `vX.Y.Z` together with its image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`:
 
 ```sh
-gh release view -R DigiMonk73/BTCTX-MCP --json tagName -q .tagName
+gh release list -R DigiMonk73/BTCTX-MCP --exclude-pre-releases --limit 5
 ```
+
+Take the newest `vX.Y.Z` from the list, not GitHub's "Latest" (Start9's
+`maintaining-a-package.md`, "Skip prereleases, and don't trust
+'Latest'"): never a pre-release (`vX.Y.Z-alpha.N`, `-beta.N`), and a
+`vX.Y.Z-N` is a package-only revision of app `X.Y.Z`.
 
 The current pin is `images.main.source.dockerTag` in
 `startos/manifest/index.ts` (`ghcr.io/digimonk73/btctx-mcp:v<version>`).
@@ -83,22 +88,22 @@ code only and moves by fast-forwarding to `develop`.
 6. Check the landing page (BTCTX-MCP's `AGENTS.md`, "Releasing", step 5).
 
 Between releases, a change to `startos/` that is docs only (its root-level
-`*.md`) reaches the mirror at once: fast-forward `main` and run
+`*.md`) reaches the mirror at once, when everything on `develop` not yet on
+`main` is docs, tests or tooling: fast-forward `main` and run
 `scripts/sync-startos-mirror.sh --push` (BTCTX-MCP's `AGENTS.md`,
-"Releasing"). Anything else in `startos/` waits for a release.
+"Branches" and "Releasing"). Once Start9 has forked the mirror, such a sync
+also needs its pull request to their fork (or rides in one of ours still
+open), or Start9 never gets it. Anything else in `startos/` waits for a
+release, except a change Start9's review asks for (below).
 
-A 2.0 pre-release, an alpha or a beta, is published the same way from a
+A 2.0 pre-release, an alpha or a beta, is published the same way, from a
 branch `prerelease/v2.0.0-alpha.N` or `prerelease/v2.0.0-beta.N` pushed
-from `2.0`'s tip, its version bumped in `2.0` (`current.ts` at
-`<VERSION>:0`, never a revision: a fix is the next pre-release). It is a
-GitHub pre-release only (BitcoinTX Preview on the Mac, the image's own tag,
-`btctx-mcp==2.0.0aN` or `2.0.0bN`): no mirror, no Start9. A failed run's
-jobs are re-run on the same commit, or the next try is the next
-pre-release; the branch is never pushed again from another commit.
-2.0's own release follows B10b (`docs/temp/2.0-accounts.md`, 7.4): its
-version bump goes into `2.0`, not `develop` (step 1), and `develop` takes
-nothing from the last `develop` merge until `2.0` is in it (BTCTX-MCP's
-`AGENTS.md`, "Branches" and "Releasing").
+from `2.0`'s tip, as a GitHub pre-release, never "Latest" (BitcoinTX
+Preview on the Mac, the image's own tag, `btctx-mcp==2.0.0aN` or
+`2.0.0bN`), and never to the mirror or Start9. 2.0's own release takes its
+version bump into `2.0`, not `develop`. BTCTX-MCP's `AGENTS.md`
+("Branches", "Releasing") has the rest: the version a pre-release
+carries, and what to do when its run fails.
 
 ## After Start9 forks the mirror
 
@@ -220,8 +225,8 @@ start-registry 1.2.0), and their reviewers hold the
 package to their current guide and SDK. So BTCTX-MCP watches them daily
 (BTCTX-MCP's `.github/workflows/start9-watch.yml` and `scripts/start9-watch.sh`; the owner,
 2026-10-23; GitHub runs the schedule only from `main`, so until `main`
-carries the workflow, each session runs the script: BTCTX-MCP's
-`AGENTS.md`, "Starting a session"): one issue, labelled `start9`, for each newer start-sdk or
+carries the workflow, the script is run by hand at the start of each day's
+work: BTCTX-MCP's `AGENTS.md`, "Starting a session"): one issue, labelled `start9`, for each newer start-sdk or
 start-cli than `develop` pins, each StartOS release (test the package on it,
 the lab VM first), each start-registry release (check our start-cli still
 reads the registries), each day Start9's packaging guide or shared package
