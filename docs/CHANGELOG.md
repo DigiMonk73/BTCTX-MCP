@@ -12,6 +12,23 @@ All notable changes to BitcoinTX are documented in this file.
   deleted. Cancel and Escape delete nothing. No figure changes.
 
 ### Fixed
+- **Import from an exchange reads a Kraken trade whose fee Kraken's fee
+  credits paid** (#829, tax figures). Kraken writes such a trade with a
+  third line in its fee credits (KFEE), moving nothing. The importer took
+  that line for a coin the bitcoin was traded for, so it left the whole
+  trade out, and advised adding the bitcoin by hand as a spend, which
+  would record a buy as a disposal. The trade is now read from its
+  bitcoin and dollar lines: a buy's cost is the dollars paid, a sale's
+  proceeds the dollars received, and only a fee paid in dollars counts
+  (the credits are a promotion of Kraken's, never the owner's dollars).
+  A note names each such trade. Nothing already in a ledger changes: it
+  moves only what a Kraken file's preview proposes. **Affected:** 2.0's
+  pre-releases, Kraken ledger files with trades paid with fee credits.
+  **What to do:** if you imported such a file, preview it again into the
+  same exchange: those trades are now read (they were missing), and what
+  you imported before shows as already in the ledger. If you followed that
+  warning, first delete each Withdrawal (purpose Spent) you added for such
+  a trade.
 - **The AI connector refuses to choose coins on a BitcoinTX 1.x** (#834,
   found by the release tests' AI-16 before beta.2; tax figures). 1.x has no
   choice of coins: given a row or an edit naming the coins, it saved the
