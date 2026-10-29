@@ -30,7 +30,8 @@ seed_ledger = _script("seed_ledger")
 
 @pytest.fixture
 def seeded(fresh_app, monkeypatch):
-    """The reference ledger in a fresh install, as test_seed_ledger seeds it."""
+    """The reference ledger in a fresh install, as test_seed_ledger seeds it
+    but for #715's rows valued from a stored price (the seed's default)."""
     async def find_prices(day, full):
         return {}, False
 

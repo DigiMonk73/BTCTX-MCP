@@ -255,9 +255,10 @@ can show (it names the others, with why no row can); and chosen coins
 for each withdrawal purpose and each move out of a wallet, choices in 2025
 and 2026, inherited coins chosen, a spend's coins and a donation's of both
 terms, one purchase chosen across two lots, and a choice equal to oldest
-first beside choices that aren't. Priced values stay
-empty: every value is typed, so it loads with the price source Off. The
-2.0 rows go only into 2.0's accounts (the one exception is the last row,
+first beside choices that aren't. #715's, in the Trezor, take their
+values from the stored-price fixture, so every year lists values from a
+price; every other value is typed, so the rest loads with the price
+source Off. The 2.0 rows go only into 2.0's accounts (the one exception is the last row,
 the fee-less split of a pooled wallet, Wallet to the Coldcard), and
 #702's (marked `"added": "#702"`) each after that account's last earlier
 disposal (Kraken's and Overseas' bitcoin are emptied by the end of 2025);

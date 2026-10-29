@@ -13,6 +13,6 @@
   {"hour": "2026-06-03T14:00:00Z", "usd": "105000.00", "source": "bitstamp", "why": "The Trezor's 2026 income typed at $80.00, more than 5% from 0.001 BTC at this price ($105.00): Ledger Review lists it (income_value_off)."}
  ],
  "hours_found_later": [
-  {"hour": "2025-03-11T13:00:00Z", "usd": "79880.00", "source": "bitstamp", "why": "The hour of the Trezor's 2025 rebate, found after it was priced at the day: at this price it would be worth $23.96, not $24.31."}
+  {"hour": "2025-03-11T13:00:00Z", "usd": "77000.00", "source": "bitstamp", "why": "The hour of the Trezor's 2025 rebate, found after it was priced at the day: at this price it would be worth $23.10, not $24.31, a change of $1 or more, which Ledger Review lists."}
  ]
 }

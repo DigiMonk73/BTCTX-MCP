@@ -49,6 +49,7 @@ left as they are. A test tool: it lives in scripts/, which no build ships.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import ipaddress
 import json
 import os
@@ -358,7 +359,7 @@ def store_prices(path: Path, later: bool = False) -> int:
     wanted = [("btc_price_daily", "day", d["day"], d) for d in fixture["days"]] + [
         ("btc_price_hourly", "hour", _unix_hour(h["hour"]), h) for h in hours]
     added = 0
-    with sqlite3.connect(path) as con:
+    with contextlib.closing(sqlite3.connect(path)) as con, con:  # committed, or rolled back, then closed
         for table, key, when, price in wanted:
             stored = con.execute(f"SELECT usd, source FROM {table} WHERE {key} = ?", (when,)).fetchone()
             if stored is None:
@@ -402,7 +403,7 @@ def check_test_database(path: Path) -> bool:
     if not path.is_file():
         raise SeedError(f"{path}: no such database. Make it first (backend.cli set-password), then store prices.")
     try:
-        with sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True) as con:
+        with contextlib.closing(sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True)) as con:
             tables = {row[0] for row in con.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             if not {"transactions", "btc_price_daily", "btc_price_hourly"} <= tables:
                 raise SeedError(f"{path} isn't a BitcoinTX database.")
@@ -442,6 +443,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--store-prices", metavar="DATABASE", type=Path,
                     help="only store the fixture's prices in a test database's file, before its server starts")
     args = ap.parse_args(argv)
+    if args.store_prices and args.url:
+        ap.error("--store-prices runs alone, before the server starts: then seed with --url and --with-prices")
     if args.store_prices:
         return _store_prices_command(args.store_prices)
     if not (args.url and args.user):
@@ -467,6 +470,9 @@ def _store_prices_command(path: Path) -> int:
         added = store_prices(real, later=check_test_database(real))
     except SeedError as e:
         print(f"✗ {e}", file=sys.stderr)
+        return 1
+    except sqlite3.Error as e:  # SQLite's own words: "database is locked" while its server runs
+        print(f"✗ {path}: {e}. Stop its server first; nothing was stored.", file=sys.stderr)
         return 1
     print(f"✓ {added} prices stored in {real}")
     return 0

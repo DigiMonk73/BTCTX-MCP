@@ -451,6 +451,8 @@ def test_ledger_review_shows_each_item_a_row_can(seeded):
         checks = build_review(db)["checks"]
     assert {c["key"] for c in checks if c["count"]} == REVIEW_SHOWN
     assert {c["key"] for c in checks} == REVIEW_SHOWN | set(REVIEW_OUT_OF_REACH)
+    # #715's rebate, listed to apply: its hour's price, found later, moves it $1 or more
+    assert next(c for c in checks if c["key"] == "day_priced_values")["items"]
 
 
 def test_every_value_a_price_would_fill_is_given():
