@@ -24,7 +24,8 @@ const ExchangeFileRow: React.FC<ExchangeFileRowProps> = ({
     <div className="option-info">
       <span className="settings-option-title">{river ? "River Bitcoin Activity CSV" : `${name} CSV`}</span>
       <p className="settings-option-subtitle">
-        {river && <>Download your bitcoin activity CSV from river.com → Taxes &amp; Documents, then upload it here. </>}
+        {river && <>Download your Bitcoin activity CSV from river.com → profile icon → Documents → Statements → Custom,
+          then upload it here. </>}
         Transactions already in your ledger are found and left out, so overlapping date ranges can be imported
         again.
       </p>
