@@ -1144,8 +1144,9 @@ Set `KEY` to the key from AI-3, and use
   create an AI key and turn AI access on (1.x's Settings shows every
   section). Run the candidate's connector as `mcp` (Inputs; a
   pre-release's `uvx btctx-mcp==2.0.0bN`) against it: `API`, `KEY` and
-  `ca.crt` set to this 1.2.10's (on WAY-6's Docker, `API` its
-  `http://127.0.0.1:8792/api` and no `BTCTX_CA_BUNDLE`). Expect:
+  `ca.crt` set to this 1.2.10's (on WAY-6's Docker, with WAY-6's own
+  container stopped first: `API` `http://127.0.0.1:8792/api`, and `mcp`
+  without its `-e BTCTX_CA_BUNDLE=…`). Expect:
   - every tool's answer, or its error, to start with "Your BitcoinTX
     connector is v<connector> but BitcoinTX is v1.2.10. Update BitcoinTX,
     or set the connector back to v1.2.10 in your AI app's settings."
