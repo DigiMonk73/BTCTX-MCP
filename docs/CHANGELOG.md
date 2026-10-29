@@ -80,6 +80,23 @@ Where each exchange keeps its export: [the download guides](https://github.com/D
   forms for 2024 to 2026 came out byte for byte the same, 35 report pages
   pixel for pixel, and the before-and-after check found no difference.
   Nothing changes on screen or in any figure.
+- **Import from an exchange says how to download each exchange's file
+  today, and two of its reasons for leaving a row out are now true of the
+  row** (#813, checked against public sources on 2026-10-29; no figure
+  changes: the same rows are read and left out). Each ready-made
+  mapping's hint follows its exchange's menus as they are now: Kraken's
+  ledger export from your first day, with all assets, types and fields (a
+  ledger filtered to bitcoin loses its trades' dollars), each past year's
+  Strike statement and this year's months (never a year and its own
+  months), Swan's archived account from an earlier custodian, and Cash
+  App's yearly bitcoin files or, instead, its activity file. A Kraken
+  "transfer" with no subtype (an airdrop or a fork, a deal with Kraken's
+  OTC desk, a move to or from Kraken Futures) is no longer said to move
+  coins between Kraken's own balances: it says to add it by hand if it
+  moved bitcoin in or out of Kraken; from a ledger exported without its
+  subtype column, it says to export every field. A row of a word a
+  mapping reads as dollars (Strike's Withdrawal) whose bitcoin column
+  holds an amount says so, rather than that it moves dollars alone.
 - **Deleting an account asks in BitcoinTX's own dialog** (#651), as
   Delete All does, instead of the browser's confirm box: in Settings ›
   Wallets, exchanges and banks, Delete names the account (an exchange's,
