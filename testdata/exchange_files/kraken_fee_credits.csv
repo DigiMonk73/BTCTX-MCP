@@ -1,0 +1,8 @@
+"txid","refid","time","type","subtype","aclass","subclass","asset","wallet","amount","fee","balance"
+"LBBBBB-BBBBB-BBBBB1","QBBBBBB-BBBBBB-BBBBB1","2025-05-01 09:00:00","deposit","","currency","","KFEE","spot / main",110.00,0.00,110.00
+"LBBBBB-BBBBB-BBBBB2","TBBBBB-BBBBB-BBBBB1","2025-05-02 10:00:00","trade","tradespot","currency","","KFEE","spot / main",0.00,80.00,30.00
+"LBBBBB-BBBBB-BBBBB3","TBBBBB-BBBBB-BBBBB1","2025-05-02 10:00:00","trade","tradespot","currency","","USD","spot / main",-200.0000,0.0000,300.0000
+"LBBBBB-BBBBB-BBBBB4","TBBBBB-BBBBB-BBBBB1","2025-05-02 10:00:00","trade","tradespot","currency","crypto","BTC","spot / main",0.0020000000,0.0000000000,0.0020000000
+"LBBBBB-BBBBB-BBBBB5","TBBBBB-BBBBB-BBBBB2","2025-05-03 11:00:00","trade","tradespot","currency","crypto","BTC","spot / main",-0.0010000000,0.0000000000,0.0010000000
+"LBBBBB-BBBBB-BBBBB6","TBBBBB-BBBBB-BBBBB2","2025-05-03 11:00:00","trade","tradespot","currency","","USD","spot / main",105.0000,0.1200,404.8800
+"LBBBBB-BBBBB-BBBBB7","TBBBBB-BBBBB-BBBBB2","2025-05-03 11:00:00","trade","tradespot","currency","","KFEE","spot / main",0.00,30.00,0.00
