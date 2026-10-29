@@ -1,8 +1,9 @@
 """
 The reference ledger's 2.0 rows (2.0 spec 5.15; card B7a #354): its
 `accounts` list adds two of each kind (wallets Coldcard and Jade, exchanges
-Kraken and Overseas, banks Credit union and Savings) and a fourth wallet,
-the Sparrow, which scripts/seed_ledger.py makes through the account API
+Kraken and Overseas, banks Credit union and Savings), a fourth wallet,
+the Sparrow, and a fifth, the Trezor (#715's rows valued from a stored
+price), which scripts/seed_ledger.py makes through the account API
 before the rows, and its "since": "2.0" rows use only those (B7a's in 2026;
 #702's from 2022 to 2026, each for the year it fills; #730's, which choose
 coins, in 2025 and 2026), but one: the split of a pooled wallet, a Transfer
@@ -16,7 +17,8 @@ from either.
   into the same 2.0 accounts only after each one's last earlier disposal
   (Kraken's and Overseas' bitcoin emptied by the end of 2025); and 1.x's,
   B7a's and #702's beside #730's, the Sparrow's, which send chosen coins
-  to the Jade and Kraken only after each one's last earlier row.
+  to the Jade and Kraken only after each one's last earlier row; and every
+  other row beside #715's, the Trezor's, which no other row uses.
 - The split row moves only Wallet's and the Coldcard's year-end lots and
   balances.
 - The seed makes the accounts with the ids the ledger lists, uses again
@@ -44,7 +46,7 @@ from backend.services.tax_time import get_tax_timezone, local_date
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
 WALLET, COLDCARD, EXTERNAL = 2, 100, 99
-NEW_ACCOUNTS = set(range(100, 109))
+NEW_ACCOUNTS = set(range(100, 110))
 USER, PASSWORD = "seed-user", "seed-password-123"
 
 
@@ -71,12 +73,14 @@ def split_row() -> dict:
 
 @pytest.fixture
 def owner(fresh_app, monkeypatch):
-    """A fresh install claimed by the seed's login, price source Off; yields (client, Session)."""
+    """A fresh install claimed by the seed's login, price source Off, the
+    stored-price fixture's prices stored (#715); yields (client, Session)."""
     async def find_prices(day, full):
         raise AssertionError(f"a price was asked for: {day}")
 
     monkeypatch.setattr("backend.services.price_history.find_prices", find_prices)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    seed_ledger.store_prices(Path(fresh_app.kw["bind"].url.database))
     c = TestClient(app)
     seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
     return c, fresh_app
@@ -89,7 +93,8 @@ def delete_all(c: TestClient) -> None:
 def seed_without(c: TestClient, leave_out) -> list[dict]:
     """The ledger's rows (notes and all) but those `leave_out` picks, seeded
     after its accounts; returns the rows sent, in order."""
-    kept = [(raw, sent) for raw, sent in zip(raw_rows(), seed_ledger.ledger_rows()) if not leave_out(raw)]
+    kept = [(raw, sent) for raw, sent in zip(raw_rows(), seed_ledger.ledger_rows(with_prices=True), strict=True)
+            if not leave_out(raw)]
     seed_ledger.seed(c, [sent for _, sent in kept], seed_ledger.ledger_accounts())
     return [raw for raw, _ in kept]
 
@@ -127,7 +132,8 @@ def old_rows_figures(Session, sent: list[dict], newer=lambda raw: "since" in raw
 
 
 @pytest.mark.parametrize("newer", [lambda raw: "since" in raw, lambda raw: "added" in raw,
-                                   lambda raw: raw.get("added") == "#730"], ids=["2.0", "#702 on", "#730"])
+                                   lambda raw: raw.get("added") == "#730", lambda raw: raw.get("added") == "#715"],
+                         ids=["2.0", "#702 on", "#730", "#715"])
 def test_old_rows_keep_their_figures(owner, newer):
     c, Session = owner
     with_new = old_rows_figures(Session, seed_without(c, lambda raw: False), newer)
@@ -198,7 +204,7 @@ def test_the_split_row_moves_only_wallets_and_the_coldcards_lots_and_balances(ow
 # The seed and the account API
 def test_the_ledgers_accounts_are_made_with_their_ids(owner):
     c, Session = owner
-    assert seed_ledger.seed(c) == len(raw_rows())
+    assert seed_ledger.seed(c, with_prices=True) == len(raw_rows())
     listed = json.loads(seed_ledger.LEDGER.read_text())["accounts"]
     made = {a["id"]: (a["name"], a["kind"], a["currency"]) for a in c.get("/api/accounts/").json()}
     assert {a["id"]: (a["name"], a["kind"], a["currency"]) for a in listed}.items() <= made.items()
@@ -212,7 +218,7 @@ def test_seeding_again_after_delete_all_uses_the_accounts_left(owner):
     seed_ledger.seed(c)
     before = c.get("/api/accounts/").json()
     delete_all(c)
-    assert seed_ledger.seed(c) == len(raw_rows())
+    assert seed_ledger.seed(c, with_prices=True) == len(raw_rows())
     assert [(a["id"], a["name"]) for a in c.get("/api/accounts/").json()] == [(a["id"], a["name"]) for a in before]
 
 
@@ -296,7 +302,7 @@ def test_given_rows_alone_never_call_the_account_api(owner):
         return sent(method, url, **kwargs)
 
     c.request = noted
-    rows = [sent_row for raw, sent_row in zip(raw_rows(), seed_ledger.ledger_rows()) if "since" not in raw]
+    rows = [sent_row for raw, sent_row in zip(raw_rows(), seed_ledger.ledger_rows(with_prices=True), strict=True) if "since" not in raw]
     assert seed_ledger.seed(c, rows) == len(rows)
     assert paths and not [p for p in paths if "/api/accounts" in p]
 

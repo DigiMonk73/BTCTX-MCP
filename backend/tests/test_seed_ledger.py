@@ -1,7 +1,9 @@
 """
 scripts/seed_ledger.py loads the full test ledger (2023-2026) into a running
 BitcoinTX over its API. Here against the in-process app on a fresh database:
-it loads with the price source Off and asks for no price; every year has
+it loads with the price source Off and asks for no price (#715's rows
+valued from a price take it from the stored-price fixture, stored first);
+every year has
 every kind of transaction and every report something in each part (every
 Form 8949 box of 2024, 2025 and 2026); every account route the app offers
 is in it, between 2.0's multiple wallets, exchanges or accounts too (its
@@ -27,6 +29,7 @@ import io
 import json
 import os
 import re
+import sqlite3
 from collections import defaultdict
 from collections.abc import Iterator
 from decimal import Decimal
@@ -128,13 +131,12 @@ SALES_BOXES = {
 # fails here until it's one or the other
 REVIEW_SHOWN = {"original_date_missing", "sale_may_differ_from_1099da", "gift_without_value",
                 "deposit_without_basis", "buy_without_basis", "zero_proceeds_spend",
-                "coins_chosen_later"}  # #730's choices: saved when the ledger is seeded, after their coins left
+                "coins_chosen_later",  # #730's choices: saved when the ledger is seeded, after their coins left
+                "income_value_off", "day_priced_values"}  # #715's, from the stored-price fixture
 REVIEW_OUT_OF_REACH = {
     "withdrawal_purpose_unknown": "the API refuses a purpose it doesn't know",
     "inherited_without_date": "the API refuses an inheritance without its date of death",
-    "income_without_value": "a $0 or blank income is priced, and the ledger loads with the price source Off",
-    "income_value_off": "it compares a typed value with the hour's price, and no price is stored",
-    "day_priced_values": "no value is priced at all: every one is typed",
+    "income_without_value": "every save prices a $0 or blank income, so no row saved through the API keeps one",
     "account_missing": "only a database from before 0.9.2, or one whose account was deleted, names one",
     "account_from_before_0_9_2": "only a database from before 0.9.2 has one",
     "lost_with_loss": "every save gives lost coins a $0 gain",
@@ -205,10 +207,16 @@ def _kind(t: Transaction, accounts: dict[int, tuple]) -> str:
     return t.type
 
 
+def database_file(Session) -> Path:
+    return Path(Session.kw["bind"].url.database)
+
+
 @pytest.fixture
 def seeded(fresh_app, monkeypatch):
-    """A fresh install claimed and seeded by the script, price source Off;
-    yields (client, Session, the days a price was asked for)."""
+    """A fresh install claimed and seeded by the script, price source Off,
+    with the stored-price fixture's prices stored before the rows and its
+    hours found later stored after them (#715); yields (client, Session,
+    the days a price was asked for)."""
     asked = []
 
     async def find_prices(day, full):
@@ -217,9 +225,11 @@ def seeded(fresh_app, monkeypatch):
 
     monkeypatch.setattr("backend.services.price_history.find_prices", find_prices)
     monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    seed_ledger.store_prices(database_file(fresh_app))
     c = TestClient(app)
     seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
-    assert seed_ledger.seed(c) == len(seed_ledger.ledger_rows())
+    assert seed_ledger.seed(c, with_prices=True) == len(seed_ledger.ledger_rows(with_prices=True))
+    seed_ledger.store_prices(database_file(fresh_app), later=True)
     yield c, fresh_app, asked
 
 
@@ -227,7 +237,7 @@ def test_the_whole_ledger_loads_with_prices_off_and_asks_for_none(seeded):
     c, Session, asked = seeded
     assert asked == []
     with Session() as db:
-        assert db.query(Transaction).count() == len(seed_ledger.ledger_rows())
+        assert db.query(Transaction).count() == len(seed_ledger.ledger_rows(with_prices=True))
 
 
 def test_every_year_has_every_kind_of_transaction(seeded):
@@ -247,7 +257,8 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
     only box C rows for the reports), short- and long-term; Schedule D:
     every line; the complete tax report: gains, income from each source,
     rebates, a gift, a donation and a loss, and holdings at both ends of
-    the year (2023's opening ones from a 2022 deposit)."""
+    the year (2023's opening ones from a 2022 deposit), and values from a
+    price (#715's)."""
     _, Session, _ = seeded
     with Session() as db:
         forms = build_form_8949_and_schedule_d(year, db)
@@ -257,7 +268,7 @@ def test_every_report_has_entries_in_every_part(seeded, year, boxes):
         assert set(forms["schedule_d"]["lines"]) == {"1b", "2", "3", "8b", "9", "10"}
         assert forms["short_term"] and forms["long_term"], year
     for part in ("capital_gains_transactions", "income_transactions", "gifts_donations_lost", "rebates",
-                 "start_of_year_balances", "end_of_year_balances"):
+                 "start_of_year_balances", "end_of_year_balances", "priced_values"):
         assert report[part], (year, part)
     # Each exchange adding up its Sells' rows (#349), in the boxes its switch and its Sells' choices give
     sales = defaultdict(list)
@@ -545,7 +556,7 @@ def test_a_ledger_with_transactions_is_refused(seeded):
     with pytest.raises(seed_ledger.SeedError, match="already has"):
         seed_ledger.seed(c)
     with Session() as db:
-        assert db.query(Transaction).count() == len(seed_ledger.ledger_rows())
+        assert db.query(Transaction).count() == len(seed_ledger.ledger_rows(with_prices=True))
 
 
 @pytest.mark.parametrize("url", [
@@ -574,3 +585,129 @@ def test_a_bad_address_is_a_message_not_a_traceback(monkeypatch, capsys):
     for url in ("http://host:abc", "http://a..b:8765"):
         assert seed_ledger.main(["--url", url, "--user", USER]) == 1
         assert "not a valid address" in capsys.readouterr().err
+
+
+# #715: the rows valued from a stored price (testdata/reference_prices.json)
+def raw_rows() -> list[dict]:
+    return json.loads(seed_ledger.LEDGER.read_text())["transactions"]
+
+
+def priced_fields(row: dict) -> set[str]:
+    """The values a price fills when a row leaves them out (AGENTS.md, "Prices")."""
+    fields = set()
+    if row["type"] == "Deposit" and row.get("source") in ("Income", "Interest", "Reward", "Rebate", "Inherited"):
+        fields.add("cost_basis_usd")
+    if row["type"] == "Withdrawal" and row.get("purpose") == "Spent":
+        fields.add("gross_proceeds_usd")
+    if row["type"] == "Withdrawal" and row.get("purpose") in ("Gift", "Donation", "Lost"):
+        fields.add("fmv_usd")
+    if row["fee_currency"] == "BTC" and Decimal(row["fee_amount"]) > 0:
+        fields.add("fee_usd")
+    return fields
+
+
+def test_each_priced_row_leaves_out_only_what_a_stored_price_fills():
+    prices = json.loads(seed_ledger.PRICES.read_text())
+    days, hours = {d["day"] for d in prices["days"]}, {h["hour"] for h in prices["hours"]}
+    priced = [r for r in raw_rows() if r.get("priced")]
+    assert len(priced) == len(seed_ledger.ledger_rows(with_prices=True)) - len(seed_ledger.ledger_rows()) > 0
+    for row in priced:
+        assert priced_fields(row) and not priced_fields(row) & set(row), row
+        if row.get("source") == "Inherited":
+            assert row["acquired_at"][:10] in days, row  # the date of death's price
+        else:
+            assert row["timestamp"] in hours or row["timestamp"][:10] in days, row
+    assert not any("priced" in row for row in seed_ledger.ledger_rows(with_prices=True))  # a note, never sent
+
+
+def test_without_prices_the_seed_leaves_the_priced_rows_out_and_says_how_many(fresh_app, monkeypatch):
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings(price_source="off"))
+    c = TestClient(app)
+    seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
+    created = seed_ledger.seed(c)
+    left_out = len(seed_ledger.ledger_rows(with_prices=True)) - created
+    assert created == len(seed_ledger.ledger_rows()) and left_out > 0
+    said = seed_ledger.loaded("http://test", created, with_prices=False)
+    assert f"{created} transactions loaded" in said and f"{left_out} rows valued from a stored price left out" in said
+    assert "left out" not in seed_ledger.loaded("http://test", created + left_out, with_prices=True)
+
+
+def _app_folder(home: Path, name: str = "BitcoinTX") -> Path:
+    folder = home / "Library" / "Application Support" / name
+    folder.mkdir(parents=True)
+    return folder
+
+
+@pytest.mark.parametrize("name", ["BitcoinTX", "BitcoinTX Preview"])
+def test_store_prices_refuses_the_installed_apps_data(fresh_app, tmp_path, monkeypatch, capsys, name):
+    """Their ledgers are real data: refused however the path is written
+    (another case, through a link), and nothing is opened."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    folder = _app_folder(tmp_path, name)
+    database = folder / "btctx.db"
+    database.write_bytes(database_file(fresh_app).read_bytes())
+    (tmp_path / "link").symlink_to(folder)
+    for path in (database, tmp_path / "link" / "btctx.db", Path(str(database).replace(name, name.lower()))):
+        assert seed_ledger.main(["--store-prices", str(path)]) == 1
+        assert "installed app's data" in capsys.readouterr().err
+    assert database.read_bytes() == database_file(fresh_app).read_bytes()
+
+
+def test_store_prices_refuses_a_ledger_that_isnt_the_seeds(seeded, tmp_path, capsys):
+    """A database with transactions the seed didn't make is someone's
+    ledger; a file that isn't a BitcoinTX database, or none, isn't one to
+    write to. Each is left as it was."""
+    c, Session, _ = seeded
+    theirs = tmp_path / "theirs.db"
+    assert c.delete("/api/transactions/delete_all?confirm=DELETE").status_code == 204
+    assert seed_ledger.seed(c, rows=seed_ledger.ledger_rows()[:3], accounts=[]) == 3
+    theirs.write_bytes(database_file(Session).read_bytes())
+    other = tmp_path / "notes.db"
+    other.write_bytes(b"")
+    for path, said in ((theirs, "has transactions the seed didn't make"), (other, "isn't a BitcoinTX database"),
+                       (tmp_path / "missing.db", "no such database")):
+        before = path.read_bytes() if path.exists() else None
+        assert seed_ledger.main(["--store-prices", str(path)]) == 1
+        assert said in capsys.readouterr().err
+        assert (path.read_bytes() if path.exists() else None) == before
+
+
+def _prices(path: Path) -> tuple[list, list]:
+    with sqlite3.connect(path) as con:
+        return (con.execute("SELECT day, usd, source FROM btc_price_daily ORDER BY day").fetchall(),
+                con.execute("SELECT hour, usd, source FROM btc_price_hourly ORDER BY hour").fetchall())
+
+
+def test_store_prices_writes_only_the_fixtures_prices_and_asks_nothing(fresh_app, monkeypatch, capsys):
+    """An empty database gets the prices the rows are priced from; the
+    seed's own also the hours found after them; again, nothing changes; a
+    different price stored there stops it. No request is made."""
+    def no_network(*args, **kwargs):
+        raise AssertionError("a request was made")
+
+    monkeypatch.setattr(seed_ledger, "connect", no_network)
+    monkeypatch.setattr(seed_ledger.httpx, "Client", no_network)
+    path = database_file(fresh_app)
+    fixture = json.loads(seed_ledger.PRICES.read_text())
+    assert seed_ledger.main(["--store-prices", str(path)]) == 0
+    assert f"{len(fixture['days']) + len(fixture['hours'])} prices stored" in capsys.readouterr().out
+    days, hours = _prices(path)
+    assert [d[0] for d in days] == [d["day"] for d in fixture["days"]]
+    assert len(hours) == len(fixture["hours"])
+    assert seed_ledger.main(["--store-prices", str(path)]) == 0
+    assert _prices(path) == (days, hours)
+    with sqlite3.connect(path) as con:
+        con.execute("UPDATE btc_price_daily SET usd = 1 WHERE day = ?", (fixture["days"][0]["day"],))
+    assert seed_ledger.main(["--store-prices", str(path)]) == 1
+    assert "already has another price" in capsys.readouterr().err
+
+
+def test_store_prices_adds_the_hours_found_later_to_the_seeds_own(seeded, capsys):
+    _, Session, _ = seeded
+    path = database_file(Session)
+    later = json.loads(seed_ledger.PRICES.read_text())["hours_found_later"]
+    with sqlite3.connect(path) as con:
+        con.execute("DELETE FROM btc_price_hourly")
+    assert seed_ledger.main(["--store-prices", str(path)]) == 0
+    _, hours = _prices(path)
+    assert len(hours) == len(json.loads(seed_ledger.PRICES.read_text())["hours"]) + len(later)

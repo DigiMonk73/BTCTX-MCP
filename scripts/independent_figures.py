@@ -59,6 +59,15 @@ a consolidation's fee, always leave oldest first. A choice the rules don't
 allow, or one the wallet doesn't hold when the coins leave, stops the
 replay.
 
+A value left out for a price to fill (#715: the reference ledger's rows
+marked "priced") is worked out from the stored-price fixture
+(testdata/reference_prices.json), as the app fills it at save (AGENTS.md,
+"Prices", and the rules for income, rebates, inheritances, gifts, spends and
+fees): the amount at the opening price of its UTC hour, else of its UTC day
+(an inheritance's at its date of death's day), rounded to the cent with an
+exact half cent to the even cent (#556). A value with no price stops the
+replay, as the app refuses the row.
+
 A test tool: it lives in scripts/, which no build ships.
 """
 
@@ -70,7 +79,7 @@ import sys
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
-from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
+from decimal import ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -78,6 +87,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
+PRICES = ROOT / "testdata" / "reference_prices.json"
 
 # Copied, not imported: this script shares no code with the app. Every
 # ledger has these, a 1.x ledger's; an `accounts` list adds to them.
@@ -103,6 +113,8 @@ ACCOUNT_FIELDS = ("id", "name", "kind", "currency")
 NOTES = ("hidden", "renamed_from", "why", "since")
 OPTIONAL_FIELDS = ("exchange_id", "sends_1099da") + NOTES
 INCOME_SOURCES = ("Income", "Interest", "Reward")
+# Deposits valued at receipt: their basis is their value then (AGENTS.md, "Income deposits", "Rebates", "Inherited")
+VALUED_AT_RECEIPT = (*INCOME_SOURCES, "Rebate", "Inherited")
 # The rows whose coins a choice may name, and those that may choose (#711,
 # docs/temp/2.0-coin-choice.md 2.2): only coins leaving a wallet.
 ACQUIRING = ("Buy", "Deposit")
@@ -299,10 +311,50 @@ def replay(transactions: list[dict], rounding: str = ROUND_HALF_UP, *,
     return ledger
 
 
-def replay_ledger(data: dict, rounding: str = ROUND_HALF_UP) -> Ledger:
-    """A ledger file replayed in its own accounts and tax timezone."""
-    return replay(data["transactions"], rounding, accounts=read_accounts(data),
-                  tax_timezone=data.get("tax_timezone", "UTC"))
+def replay_ledger(data: dict, rounding: str = ROUND_HALF_UP, prices: dict | None = None) -> Ledger:
+    """A ledger file replayed in its own accounts and tax timezone, the
+    values it leaves out priced from `prices` (the stored-price fixture's
+    shape; that file when None)."""
+    accounts, zone = read_accounts(data), data.get("tax_timezone", "UTC")
+    prices = json.loads(PRICES.read_text()) if prices is None else prices
+    transactions = [with_values_from_prices(tx, accounts, prices, _tax_zone(zone)) for tx in data["transactions"]]
+    return replay(transactions, rounding, accounts=accounts, tax_timezone=zone)
+
+
+def with_values_from_prices(tx: dict, accounts: dict[int, Account], prices: dict, zone: ZoneInfo) -> dict:
+    """The row with each value it leaves out for a price filled in, as the
+    app fills it when the row is saved: a valued deposit's basis (blank or
+    $0) into a bitcoin account, a spend's proceeds, a gift's, donation's or
+    lost coins' value, and a bitcoin network fee's value."""
+    filled = dict(tx)
+    btc = Fraction(Decimal(tx["amount"]))
+    into_btc = accounts.get(tx["to_account_id"]) is not None and accounts[tx["to_account_id"]].currency == "BTC"
+    if tx["type"] == "Deposit" and tx.get("source") in VALUED_AT_RECEIPT and into_btc \
+            and _money(tx.get("cost_basis_usd")) == 0:
+        # An inheritance is valued at the death (IRC §1014): its date of death's price
+        death = _noon_of(tx["acquired_at"], zone).astimezone(zone).date() if tx["source"] == "Inherited" else None
+        filled["cost_basis_usd"] = _priced(btc, tx, prices, day=death)
+    if tx["type"] == "Withdrawal" and tx.get("purpose") == "Spent" and tx.get("gross_proceeds_usd") in (None, ""):
+        filled["gross_proceeds_usd"] = _priced(btc, tx, prices)
+    if tx["type"] == "Withdrawal" and tx.get("purpose") in NOT_SALES and tx.get("fmv_usd") in (None, ""):
+        filled["fmv_usd"] = _priced(btc, tx, prices)
+    if _btc_fee(tx) and tx.get("fee_usd") in (None, ""):
+        filled["fee_usd"] = _priced(_btc_fee(tx), tx, prices)
+    return filled
+
+
+def _priced(btc: Fraction, tx: dict, prices: dict, day: date | None = None) -> str:
+    """`btc` at the price of the row's UTC hour, else of its UTC day (or of
+    `day`'s, given), to the cent: an exact half cent to the even cent."""
+    when = _moment(tx["timestamp"])
+    hours = {_moment(h["hour"]): h["usd"] for h in prices["hours"]}
+    days = {date.fromisoformat(d["day"]): d["usd"] for d in prices["days"]}
+    usd = days.get(day) if day is not None else hours.get(when.replace(minute=0, second=0, microsecond=0),
+                                                            days.get(when.date()))
+    if usd is None:
+        raise ValueError(f"No stored price for the {tx['type']} of {tx['timestamp']}: the app refuses it.")
+    value = btc * Fraction(Decimal(usd))
+    return str((Decimal(value.numerator) / Decimal(value.denominator)).quantize(CENT, rounding=ROUND_HALF_EVEN))
 
 
 def year_figures(ledger: Ledger, year: int) -> dict:

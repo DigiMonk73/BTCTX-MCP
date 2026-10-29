@@ -1,5 +1,5 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind and a fourth wallet (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). #730's, in 2025 and 2026, choose which coins leave a wallet (#711): a fourth wallet, the Sparrow, filled only from External, spends, gives, donates and loses chosen coins, and sends them to the Jade and to Kraken; a row names the coins it acquired with a 'key', and a later row chooses them by it ('chosen_coins'), which scripts/seed_ledger.py sends as the id the server gave that row. 'added' names the change that added a 2.0 row (#702's, #730's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), and #730's into the Jade and Kraken only after each one's last earlier row, so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind, a fourth wallet and a fifth (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). #730's, in 2025 and 2026, choose which coins leave a wallet (#711): a fourth wallet, the Sparrow, filled only from External, spends, gives, donates and loses chosen coins, and sends them to the Jade and to Kraken; a row names the coins it acquired with a 'key', and a later row chooses them by it ('chosen_coins'), which scripts/seed_ledger.py sends as the id the server gave that row. 'added' names the change that added a 2.0 row (#702's, #730's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), and #730's into the Jade and Kraken only after each one's last earlier row, so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off, but in #715's rows marked 'priced': in a fifth wallet, the Trezor, they take their values from the stored-price fixture (testdata/reference_prices.json), so the report's priced values and Ledger Review's price checks are filled; scripts/seed_ledger.py sends them only with --with-prices, to a database it stored those prices in first (--store-prices), and says how many it left out otherwise. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
  "accounts": [
   {
    "id": 100,
@@ -74,6 +74,13 @@
    "kind": "wallet",
    "currency": "BTC",
    "why": "A fourth wallet, for the rows that choose which coins leave (#711, #730): filled only from External, so no older row takes from it; it sends chosen coins to the Jade and to Kraken after each one's last earlier row."
+  },
+  {
+   "id": 109,
+   "name": "Trezor",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A fifth wallet, for the rows valued from a stored price (#715, testdata/reference_prices.json): filled only from External and used by no other row, so no older row takes from it and none of its coins goes elsewhere."
   }
  ],
  "transactions": [
@@ -198,6 +205,20 @@
    "cost_basis_usd": "53.60",
    "acquired_at": "2023-05-20T12:00:00Z",
    "why": "Inherited (#154): its cost basis is its value on the date of death (acquired_at), and it's long-term whenever sold. Newer than the wallet's coins that are sold, so it stays in the year-end lots."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2023-06-14T15:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Reward",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A reward with no value given: valued at its hour's stored price, $259.12 of income (#715)."
   },
   {
    "type": "Deposit",
@@ -496,6 +517,20 @@
    "fee_currency": "USD"
   },
   {
+   "type": "Deposit",
+   "timestamp": "2024-05-08T10:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Income with no value given, at its hour's stored price: $305.005, an exact half cent, rounds to the even cent, $305.00 (#556)."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2024-05-10T11:00:00Z",
    "from_account_id": 4,
@@ -608,6 +643,20 @@
    "fee_currency": "BTC",
    "source": "Income",
    "cost_basis_usd": "7200.00"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2024-09-17T14:00:00Z",
+   "from_account_id": 109,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0.00005",
+   "fee_currency": "BTC",
+   "purpose": "Spent",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A spend with neither its proceeds nor its network fee's value given: both at the hour's stored price ($116.50, the fee $2.91), its proceeds less the fee; long-term, from the 2023 reward's coins (box F)."
   },
   {
    "type": "Buy",
@@ -904,6 +953,20 @@
   },
   {
    "type": "Deposit",
+   "timestamp": "2025-03-11T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.0003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A rebate with no value given, priced at its day ($24.31): its hour's price is stored only later, so Ledger Review lists it (day_priced_values)."
+  },
+  {
+   "type": "Deposit",
    "timestamp": "2025-03-15T08:00:00Z",
    "from_account_id": 99,
    "to_account_id": 2,
@@ -1092,6 +1155,20 @@
    "fee_currency": "BTC",
    "source": "Reward",
    "cost_basis_usd": "3450.00"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-07-22T16:00:00Z",
+   "from_account_id": 109,
+   "to_account_id": 99,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "purpose": "Gift",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A gift with no value given: its value at the hour's stored price, $118.40."
   },
   {
    "type": "Withdrawal",
@@ -1554,6 +1631,21 @@
    "why": "The Coldcard to Kraken: 0.03 arrives, keeping its 2026-01-20 date; the fee is Box I."
   },
   {
+   "type": "Deposit",
+   "timestamp": "2026-03-02T15:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "acquired_at": "2026-02-10",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Inherited with no value given: its value is the date of death's (acquired_at) 00:00 stored price, $140.50."
+  },
+  {
    "type": "Buy",
    "timestamp": "2026-03-05T13:00:00Z",
    "from_account_id": 102,
@@ -1631,6 +1723,20 @@
    "fee_currency": "BTC",
    "source": "MyBTC",
    "cost_basis_usd": "4140.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-04-15T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.0004",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Interest with no value given, at its hour's stored price: $33.65."
   },
   {
    "type": "Transfer",
@@ -1785,6 +1891,20 @@
    "fee_usd": "2.80",
    "since": "2.0",
    "why": "A consolidation in the Coldcard: only its fee, Box I."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-06-03T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "80.00",
+   "since": "2.0",
+   "added": "#715",
+   "why": "Income typed at $80.00 (not valued from a price, so it loads anywhere): where its hour's price ($105.00 for it) is stored, Ledger Review lists it as more than 5% off (income_value_off)."
   },
   {
    "type": "Transfer",

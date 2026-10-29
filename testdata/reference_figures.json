@@ -1,6 +1,6 @@
 {
  "dashboard": {
-  "average_cost_basis": "59570.64",
+  "average_cost_basis": "59520.18",
   "balances": [
    {
     "account_id": 1,
@@ -28,7 +28,7 @@
    },
    {
     "account_id": 5,
-    "balance": "0.00154000",
+    "balance": "0.00159000",
     "currency": "BTC",
     "name": "BTC Fees"
    },
@@ -91,34 +91,40 @@
     "balance": "0.04265000",
     "currency": "BTC",
     "name": "Sparrow"
+   },
+   {
+    "account_id": 109,
+    "balance": "0.01565000",
+    "currency": "BTC",
+    "name": "Trezor"
    }
   ],
   "gains_and_losses": {
    "fees": {
-    "BTC": 0.00154,
+    "BTC": 0.00159,
     "USD": 794.19
    },
    "gifts_btc": 0.183,
    "gifts_received": 6612.5,
-   "income_btc": 0.466,
-   "income_earned": 33519.0,
-   "interest_btc": 0.0585,
-   "interest_earned": 2250.0,
-   "long_term_gains": 106556.8,
+   "income_btc": 0.472,
+   "income_earned": 33904.0,
+   "interest_btc": 0.0589,
+   "interest_earned": 2283.65,
+   "long_term_gains": 106620.18,
    "long_term_losses": 2642.97,
-   "long_term_net": 103913.83,
-   "rebates_btc": 0.04165,
-   "rebates_received": 5805.7,
-   "rewards_btc": 0.235,
-   "rewards_earned": 13506.0,
+   "long_term_net": 103977.21,
+   "rebates_btc": 0.04195,
+   "rebates_received": 5830.01,
+   "rewards_btc": 0.245,
+   "rewards_earned": 13765.12,
    "sells_proceeds": 311085.29,
    "short_term_gains": 36515.23,
    "short_term_losses": 2575.53,
    "short_term_net": 33939.7,
-   "total_income": 49275.0,
+   "total_income": 49952.77,
    "total_losses": 0.0,
-   "total_net_capital_gains": 137853.53,
-   "withdrawals_spent": 32298.05
+   "total_net_capital_gains": 137916.91,
+   "withdrawals_spent": 32411.64
   }
  },
  "years": {
@@ -492,6 +498,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2023-06-14T15:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 259.12,
+      "description": "No BTC price for when 2023 ended: not priced",
+      "quantity": 0.01,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -538,9 +553,9 @@
      },
      {
       "asset": "Total",
-      "cost": 71260.03,
+      "cost": 71519.15,
       "description": "",
-      "quantity": 2.86503,
+      "quantity": 2.87503,
       "value": null
      }
     ],
@@ -604,8 +619,8 @@
     "income_summary": {
      "Income": 5550.0,
      "Interest": 1350.0,
-     "Reward": 2840.0,
-     "Total": 9740.0
+     "Reward": 3099.12,
+     "Total": 9999.12
     },
     "income_transactions": [
      {
@@ -615,6 +630,14 @@
       "description": "Interest",
       "type": "Interest",
       "value_usd": 1350.0
+     },
+     {
+      "amount": 0.01,
+      "asset": "BTC",
+      "date": "2023-06-14T15:00:00+00:00",
+      "description": "Reward",
+      "type": "Reward",
+      "value_usd": 259.12
      },
      {
       "amount": 0.02,
@@ -642,7 +665,15 @@
      }
     ],
     "period": "2023-01-01 to 2023-12-31",
-    "priced_values": [],
+    "priced_values": [
+     {
+      "date": "2023-06-14T15:00:00+00:00",
+      "priced_at": "When its hour began (2023-06-14 15:00 UTC), Bitstamp",
+      "transaction": "Deposit (Reward)",
+      "usd": 259.12,
+      "value": "Value (income and basis)"
+     }
+    ],
     "rebates": [
      {
       "amount": 0.0002,
@@ -838,6 +869,26 @@
     },
     {
      "box": "F",
+     "cost": "1.30",
+     "date_acquired": "06/14/2023",
+     "date_sold": "09/17/2024",
+     "description": "0.00005000 BTC",
+     "gain_loss": "1.61",
+     "holding_period": "LONG",
+     "proceeds": "2.91"
+    },
+    {
+     "box": "F",
+     "cost": "51.82",
+     "date_acquired": "06/14/2023",
+     "date_sold": "09/17/2024",
+     "description": "0.00200000 BTC",
+     "gain_loss": "61.77",
+     "holding_period": "LONG",
+     "proceeds": "113.59"
+    },
+    {
+     "box": "F",
      "cost": "0.63",
      "date_acquired": "01/20/2023",
      "date_sold": "10/15/2024",
@@ -892,19 +943,19 @@
      {
       "asset": "BTC",
       "loss": 2996.32,
-      "net": 19510.54,
-      "profit": 22506.86
+      "net": 19573.92,
+      "profit": 22570.24
      }
     ],
     "capital_gains_summary": {
      "long_term": {
-      "basis": 18963.76,
-      "gain": 18584.82,
+      "basis": 19016.88,
+      "gain": 18648.2,
       "losses": 2039.97,
-      "proceeds": 37548.58,
-      "profits": 20624.79
+      "proceeds": 37665.08,
+      "profits": 20688.17
      },
-     "number_of_disposals": 19,
+     "number_of_disposals": 21,
      "short_term": {
       "basis": 5264.57,
       "gain": 925.72,
@@ -913,9 +964,9 @@
       "profits": 1882.07
      },
      "total": {
-      "basis": 24228.33,
-      "gain": 19510.54,
-      "proceeds": 43738.87
+      "basis": 24281.45,
+      "gain": 19573.92,
+      "proceeds": 43855.37
      }
     },
     "capital_gains_transactions": [
@@ -1113,6 +1164,34 @@
       "holding_period": "LONG",
       "kind": "Network fee",
       "proceeds": 1.8,
+      "type": "Withdrawal"
+     },
+     {
+      "account": "Trezor",
+      "amount": 5e-05,
+      "asset": "BTC",
+      "box": "F",
+      "cost": 1.3,
+      "date_acquired": "2023-06-14T15:00:00+00:00",
+      "date_sold": "2024-09-17T14:00:00+00:00",
+      "gain_loss": 1.61,
+      "holding_period": "LONG",
+      "kind": "Network fee",
+      "proceeds": 2.91,
+      "type": "Withdrawal"
+     },
+     {
+      "account": "Trezor",
+      "amount": 0.002,
+      "asset": "BTC",
+      "box": "F",
+      "cost": 51.82,
+      "date_acquired": "2023-06-14T15:00:00+00:00",
+      "date_sold": "2024-09-17T14:00:00+00:00",
+      "gain_loss": 61.77,
+      "holding_period": "LONG",
+      "kind": "Spend",
+      "proceeds": 113.59,
       "type": "Withdrawal"
      },
      {
@@ -1328,6 +1407,26 @@
       "realized_gain_usd": 1.17
      },
      {
+      "amount_disposed": 5e-05,
+      "asset": "BTC",
+      "date_acquired": "2023-06-14T15:00:00+00:00",
+      "date_sold": "2024-09-17T14:00:00+00:00",
+      "disposal_basis_usd": 1.3,
+      "holding_period": "LONG",
+      "proceeds_usd_for_that_portion": 2.91,
+      "realized_gain_usd": 1.61
+     },
+     {
+      "amount_disposed": 0.002,
+      "asset": "BTC",
+      "date_acquired": "2023-06-14T15:00:00+00:00",
+      "date_sold": "2024-09-17T14:00:00+00:00",
+      "disposal_basis_usd": 51.82,
+      "holding_period": "LONG",
+      "proceeds_usd_for_that_portion": 113.59,
+      "realized_gain_usd": 61.77
+     },
+     {
       "amount_disposed": 3e-05,
       "asset": "BTC",
       "date_acquired": "2023-01-20T09:00:00+00:00",
@@ -1463,6 +1562,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2023-06-14T15:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 206.0,
+      "description": "No BTC price for when 2024 ended: not priced",
+      "quantity": 0.00795,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -1553,6 +1661,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2024-05-08T10:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 305.0,
+      "description": "No BTC price for when 2024 ended: not priced",
+      "quantity": 0.005,
+      "value": null
+     },
+     {
       "account": "Exchange BTC",
       "acquired": "2024-06-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -1635,9 +1752,9 @@
      },
      {
       "asset": "Total",
-      "cost": 195126.6,
+      "cost": 195637.6,
       "description": "",
-      "quantity": 4.305895,
+      "quantity": 4.318845,
       "value": null
      }
     ],
@@ -1684,11 +1801,11 @@
      },
      {
       "box": "F",
-      "cost": 10257.1,
-      "gain_loss": 5103.47,
+      "cost": 10310.22,
+      "gain_loss": 5166.85,
       "line": "10",
-      "proceeds": 15360.57,
-      "rows": 13
+      "proceeds": 15477.07,
+      "rows": 15
      }
     ],
     "gifts_donations_lost": [
@@ -1739,10 +1856,10 @@
      }
     ],
     "income_summary": {
-     "Income": 15200.0,
+     "Income": 15505.0,
      "Interest": 195.0,
      "Reward": 6500.0,
-     "Total": 21895.0
+     "Total": 22200.0
     },
     "income_transactions": [
      {
@@ -1752,6 +1869,14 @@
       "description": "Interest",
       "type": "Interest",
       "value_usd": 195.0
+     },
+     {
+      "amount": 0.005,
+      "asset": "BTC",
+      "date": "2024-05-08T10:00:00+00:00",
+      "description": "Income",
+      "type": "Income",
+      "value_usd": 305.0
      },
      {
       "amount": 0.1,
@@ -1779,7 +1904,29 @@
      }
     ],
     "period": "2024-01-01 to 2024-12-31",
-    "priced_values": [],
+    "priced_values": [
+     {
+      "date": "2024-05-08T10:00:00+00:00",
+      "priced_at": "When its hour began (2024-05-08 10:00 UTC), Bitstamp",
+      "transaction": "Deposit (Income)",
+      "usd": 305.0,
+      "value": "Value (income and basis)"
+     },
+     {
+      "date": "2024-09-17T14:00:00+00:00",
+      "priced_at": "When its hour began (2024-09-17 14:00 UTC), Bitstamp",
+      "transaction": "Withdrawal (Spent)",
+      "usd": 116.5,
+      "value": "Proceeds (before fees)"
+     },
+     {
+      "date": "2024-09-17T14:00:00+00:00",
+      "priced_at": "When its hour began (2024-09-17 14:00 UTC), Bitstamp",
+      "transaction": "Withdrawal (Spent)",
+      "usd": 2.91,
+      "value": "Network fee value"
+     }
+    ],
     "rebates": [
      {
       "amount": 0.00015,
@@ -1861,6 +2008,12 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "avg_cost_basis": 25912.0,
+      "quantity": 0.01,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
@@ -1909,9 +2062,9 @@
    "schedule_d": {
     "lines": {
      "10": {
-      "cost": "10257.10",
-      "gain_loss": "5103.47",
-      "proceeds": "15360.57"
+      "cost": "10310.22",
+      "gain_loss": "5166.85",
+      "proceeds": "15477.07"
      },
      "1b": {
       "cost": "1150.92",
@@ -1940,9 +2093,9 @@
      }
     },
     "long_term": {
-     "cost": "18963.76",
-     "gain_loss": "18584.82",
-     "proceeds": "37548.58"
+     "cost": "19016.88",
+     "gain_loss": "18648.20",
+     "proceeds": "37665.08"
     },
     "short_term": {
      "cost": "5264.57",
@@ -3544,6 +3697,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2023-06-14T15:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 180.09,
+      "description": "No BTC price for when 2025 ended: not priced",
+      "quantity": 0.00695,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -3622,6 +3784,15 @@
       "cost": 4548.03,
       "description": "No BTC price for when 2025 ended: not priced",
       "quantity": 0.06983,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "acquired": "2024-05-08T10:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 305.0,
+      "description": "No BTC price for when 2025 ended: not priced",
+      "quantity": 0.005,
       "value": null
      },
      {
@@ -3751,6 +3922,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2025-03-11T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 24.31,
+      "description": "No BTC price for when 2025 ended: not priced",
+      "quantity": 0.0003,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2025-03-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -3833,9 +4013,9 @@
      },
      {
       "asset": "Total",
-      "cost": 209281.37,
+      "cost": 209790.77,
       "description": "",
-      "quantity": 3.62434,
+      "quantity": 3.63659,
       "value": null
      }
     ],
@@ -3899,6 +4079,21 @@
        {
         "btc": 0.025,
         "cost_basis": 525.0,
+        "term": "LONG"
+       }
+      ],
+      "proceeds_usd": 0.0,
+      "type": "Gift"
+     },
+     {
+      "amount": 0.001,
+      "asset": "BTC",
+      "date": "2025-07-22T16:00:00+00:00",
+      "fmv_usd": 118.4,
+      "lots_by_term": [
+       {
+        "btc": 0.001,
+        "cost_basis": 25.91,
         "term": "LONG"
        }
       ],
@@ -4094,8 +4289,28 @@
      }
     ],
     "period": "2025-01-01 to 2025-12-31",
-    "priced_values": [],
+    "priced_values": [
+     {
+      "date": "2025-03-11T13:00:00+00:00",
+      "priced_at": "That day's (2025-03-11) 00:00 UTC price, Kraken",
+      "transaction": "Deposit (Rebate)",
+      "usd": 24.31,
+      "value": "Value (cost basis)"
+     },
+     {
+      "date": "2025-07-22T16:00:00+00:00",
+      "priced_at": "When its hour began (2025-07-22 16:00 UTC), Bitstamp",
+      "transaction": "Withdrawal (Gift)",
+      "usd": 118.4,
+      "value": "Value (fair market value)"
+     }
+    ],
     "rebates": [
+     {
+      "amount": 0.0003,
+      "date": "2025-03-11T13:00:00+00:00",
+      "value_usd": 24.31
+     },
      {
       "amount": 0.04,
       "date": "2025-11-01T10:00:00+00:00",
@@ -4171,6 +4386,12 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "avg_cost_basis": 25911.94968553459,
+      "quantity": 0.00795,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
@@ -4234,6 +4455,12 @@
       "account": "Exchange BTC",
       "avg_cost_basis": 65130.0,
       "quantity": 0.3,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "avg_cost_basis": 61000.0,
+      "quantity": 0.005,
       "value": null
      },
      {
@@ -6503,6 +6730,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2023-06-14T15:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 180.09,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.00695,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2023-06-15T12:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -6581,6 +6817,15 @@
       "cost": 4548.03,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.06983,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "acquired": "2024-05-08T10:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 305.0,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.005,
       "value": null
      },
      {
@@ -6692,6 +6937,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2025-03-11T13:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 24.31,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.0003,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "acquired": "2025-03-15T08:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -6800,6 +7054,15 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "acquired": "2026-02-10T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 140.5,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.002,
+      "value": null
+     },
+     {
       "account": "Kraken BTC",
       "acquired": "2026-03-05T13:00:00+00:00",
       "asset": "BTC (Bitcoin)",
@@ -6833,6 +7096,15 @@
       "cost": 4140.0,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.03,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "acquired": "2026-04-15T12:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 33.65,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.0004,
       "value": null
      },
      {
@@ -6905,6 +7177,15 @@
       "cost": 426.0,
       "description": "No BTC price for when 2026 ended: not priced",
       "quantity": 0.003,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "acquired": "2026-06-03T14:00:00+00:00",
+      "asset": "BTC (Bitcoin)",
+      "cost": 80.0,
+      "description": "No BTC price for when 2026 ended: not priced",
+      "quantity": 0.001,
       "value": null
      },
      {
@@ -7035,9 +7316,9 @@
      },
      {
       "asset": "Total",
-      "cost": 198276.69,
+      "cost": 199040.24,
       "description": "",
-      "quantity": 3.32843,
+      "quantity": 3.34408,
       "value": null
      }
     ],
@@ -7219,12 +7500,20 @@
      }
     ],
     "income_summary": {
-     "Income": 2269.0,
-     "Interest": 495.0,
+     "Income": 2349.0,
+     "Interest": 528.65,
      "Reward": 716.0,
-     "Total": 3480.0
+     "Total": 3593.65
     },
     "income_transactions": [
+     {
+      "amount": 0.0004,
+      "asset": "BTC",
+      "date": "2026-04-15T12:00:00+00:00",
+      "description": "Interest",
+      "type": "Interest",
+      "value_usd": 33.65
+     },
      {
       "amount": 0.002,
       "asset": "BTC",
@@ -7248,6 +7537,14 @@
       "description": "Interest",
       "type": "Interest",
       "value_usd": 140.0
+     },
+     {
+      "amount": 0.001,
+      "asset": "BTC",
+      "date": "2026-06-03T14:00:00+00:00",
+      "description": "Income",
+      "type": "Income",
+      "value_usd": 80.0
      },
      {
       "amount": 0.01,
@@ -7315,7 +7612,22 @@
      }
     ],
     "period": "2026-01-01 to 2026-12-31",
-    "priced_values": [],
+    "priced_values": [
+     {
+      "date": "2026-03-02T15:00:00+00:00",
+      "priced_at": "Its date of death's (2026-02-10) 00:00 UTC price, Kraken",
+      "transaction": "Deposit (Inherited)",
+      "usd": 140.5,
+      "value": "Value (cost basis)"
+     },
+     {
+      "date": "2026-04-15T12:00:00+00:00",
+      "priced_at": "When its hour began (2026-04-15 12:00 UTC), Bitstamp",
+      "transaction": "Deposit (Interest)",
+      "usd": 33.65,
+      "value": "Value (income and basis)"
+     }
+    ],
     "rebates": [
      {
       "amount": 0.0005,
@@ -7400,6 +7712,12 @@
       "value": null
      },
      {
+      "account": "Trezor",
+      "avg_cost_basis": 25912.230215827338,
+      "quantity": 0.00695,
+      "value": null
+     },
+     {
       "account": "Wallet",
       "avg_cost_basis": 26000.0,
       "quantity": 0.02,
@@ -7445,6 +7763,12 @@
       "account": "Wallet",
       "avg_cost_basis": 65000.0,
       "quantity": 0.003,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "avg_cost_basis": 61000.0,
+      "quantity": 0.005,
       "value": null
      },
      {
@@ -7535,6 +7859,12 @@
       "account": "Exchange BTC",
       "avg_cost_basis": 100200.0,
       "quantity": 0.15,
+      "value": null
+     },
+     {
+      "account": "Trezor",
+      "avg_cost_basis": 81033.33333333333,
+      "quantity": 0.0003,
       "value": null
      },
      {
