@@ -170,7 +170,11 @@ AGENTS.md, "Branches"). Nothing reaches `main` before a release.
   are `uv` entries: Dependabot edits the pin in `requirements.in` and
   recompiles `requirements.txt` with the command in its header (so the
   header must stay `make lock`'s). `desktop/` updates only pyinstaller,
-  pywebview and setuptools (it builds proxy-tools); when a `backend/` PR
+  pywebview and setuptools (it builds proxy-tools). setuptools is in
+  `.github/release-tools/`'s lock too, and the audit reads both locks at
+  once, so Dependabot's pull request for one of them fails it: take the
+  update in both `requirements.in` files and run `make lock`, in one pull
+  request of our own (#759). When a `backend/` PR
   moves a package the Mac lock shares (typing-extensions, cffi…),
   `test_pinning.py` fails on it until `make lock` is run on that branch.
 - Dependabot reads a Dockerfile `FROM` only at the start of a line, so the
