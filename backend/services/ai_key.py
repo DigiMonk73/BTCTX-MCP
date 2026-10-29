@@ -78,7 +78,7 @@ AI_KEY_ROUTES = (
     # The user's accounts by name (2.0 spec 5.12): read only; adding, hiding
     # and deleting one stay the owner's (Q11)
     ("GET", "/api/accounts/", "get_portfolio, preview_transactions, add_transactions, list_transactions, "
-                              "update_transaction"),
+                              "update_transaction, delete_transaction, get_coins_moved"),
 )
 _ALLOWED = {(method, route) for method, route, _ in AI_KEY_ROUTES}
 

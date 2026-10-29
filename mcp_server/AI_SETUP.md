@@ -253,6 +253,7 @@ BitcoinTX upgrade.
 | Certificate errors | `BTCTX_CA_BUNDLE` missing or pointing at the wrong file |
 | `… no /api/import/entries endpoint`, or a 404 from `review_ledger` or `backup_ledger` | BitcoinTX is older than the server: update BitcoinTX, or pin the server to its version |
 | `This AI connector is older than BitcoinTX 2.0 …` | The ledger has more than one wallet, or more than one exchange (a hidden one counted), and the server's version is older than 2.0: change it to the version the prompt gives (the rules above) and restart the app. Reads still work until then |
+| `This BitcoinTX is 1.x: …` | The server is 2.0 or later and BitcoinTX is 1.x, which always sends an account's oldest coins first: choosing coins, and `get_coins_moved`, need BitcoinTX 2.0. Update BitcoinTX, or pin the server to its version (the rules above) and restart the app; everything else still works until then |
 | `… no longer running` | The Mac app was quit (or it runs under another Mac account): open BitcoinTX again, as yourself. If it's open, it may not have been able to write its key file when it started: the user presses **Reset key** in **Settings → Connect an AI Assistant** |
 | The app doesn't list the server | It wasn't restarted, or it can't find `uvx` (use the full path) |
 | `current Python version (3.10…) does not satisfy Python>=3.11` | The machine's only Python is 3.10, which the server no longer supports: run `uv python install 3.13` once, then restart the AI app |
