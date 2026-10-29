@@ -73,6 +73,13 @@ TO_CHOOSE_AGAIN = ("Nothing was saved: this transaction's coins were chosen, and
                    "call update_transaction again with the same changes and chosen_coins (their choice, adding up "
                    "to what leaves now), or set it back to oldest first (chosen_coins: []). "
                    "Never pick coins for them.")
+# A BitcoinTX before 2.0 has no choice of coins: it would save a row naming
+# them first in, first out, while the answer reads as if the choice were
+# saved (#834)
+CHOICE_NEEDS_2_0 = ("This BitcoinTX is 1.x: choosing which coins move needs BitcoinTX 2.0. Nothing was saved. "
+                    "Without the choice, 1.x sends the oldest coins first, not the ones the user chose: tell "
+                    "them, and leave chosen_coins out only if they say so.")
+COINS_MOVED_NEEDS_2_0 = "This BitcoinTX is 1.x: listing the coins a transaction moves needs BitcoinTX 2.0."
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
               "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
               "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
@@ -297,15 +304,10 @@ async def _account_names(fresh: bool = False) -> AccountNames:
     return _accounts["names"]
 
 
-# A BitcoinTX before 2.0 has no choice of coins: it saved a row naming them
-# first in, first out, and the answer read as if the choice were saved (#834)
-CHOICE_NEEDS_2_0 = "This BitcoinTX is 1.x: choosing which coins move needs BitcoinTX 2.0. Nothing was saved."
-COINS_MOVED_NEEDS_2_0 = "This BitcoinTX is 1.x: listing the coins a transaction moves needs BitcoinTX 2.0."
-
-
 async def _refused_before_2_0(refusal: str) -> None:
-    """ToolError, nothing sent, when BitcoinTX is older than 2.0."""
-    if (await _account_names()).before_2_0:
+    """ToolError, nothing sent, when BitcoinTX is older than 2.0. A list read
+    as 1.x's is read again first: BitcoinTX may have been updated since."""
+    if (await _account_names()).before_2_0 and (await _account_names(fresh=True)).before_2_0:
         raise ToolError(refusal)
 
 

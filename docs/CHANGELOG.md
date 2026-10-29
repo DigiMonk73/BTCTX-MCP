@@ -39,12 +39,16 @@ All notable changes to BitcoinTX are documented in this file.
   before sending anything: "This BitcoinTX is 1.x: choosing which coins
   move needs BitcoinTX 2.0. Nothing was saved." Everything else 1.x can do
   still works, oldest first (`chosen_coins: []`) included, and nothing
-  changes on a 2.0 BitcoinTX. **Affected:** the connector of 2.0.0-alpha.3
+  changes on a 2.0 BitcoinTX. The refusal also tells the AI that without
+  the choice 1.x sends the oldest coins first, and to leave the choice out
+  only if the user says so. **Affected:** the connector of 2.0.0-alpha.3
   and 2.0.0-beta.1 (`btctx-mcp==2.0.0a3`, `2.0.0b1`) used with a BitcoinTX
-  1.x. **What to do:** if it added or edited a spend or transfer naming the
-  coins on a 1.x ledger, that row went oldest first: set the connector to
-  BitcoinTX's own version (its Settings, Connect an AI Assistant, gives it),
-  and choose the coins again once BitcoinTX is 2.0.
+  1.x; any tax year. **What to do:** if it added or edited a spend or
+  transfer naming the coins on a 1.x ledger, that row went oldest first:
+  set the connector to BitcoinTX's own version (its Settings, Connect an
+  AI Assistant, gives it), and choose the coins again once BitcoinTX is
+  2.0. Ledger Review then lists them under "Reminder: coins chosen after
+  they left", as it lists any choice saved after the coins left.
 - **A network fee the AI connector or an API client sends without its
   currency takes the same price as the rest of its transaction** (#649,
   tax figures). A Spent bitcoin withdrawal's proceeds and its network
