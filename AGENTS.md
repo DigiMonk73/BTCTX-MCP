@@ -890,10 +890,10 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # every hermetic test but the slow ones (backend + MCP), on every core, ~2 min
+make test-fast   # every hermetic test but the slow ones (backend + MCP), on every core, ~3 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
-make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
+make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~20 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
