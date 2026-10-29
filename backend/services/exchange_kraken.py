@@ -2,7 +2,8 @@
 Kraken's ledger file (ledgers.csv, B5b): one line for each asset an event
 moves, the lines of one event sharing a reference (refid). Kraken's rule is
 balance = previous balance + amount - fee, each line in its own asset, so a
-trade is a bitcoin line and a dollar line, either carrying the fee; a
+trade is a bitcoin line and a dollar line, either carrying the fee (a fee
+Kraken's fee credits paid is a third line of its own, in KFEE); a
 withdrawal's amount is what was sent, its fee on top. Its trades file isn't
 read: it lacks deposits, withdrawals and rewards. Times are UTC.
 """
@@ -24,6 +25,7 @@ from backend.services.exchange_cells import (
     find_header,
     read_moment,
     read_number,
+    rows_said,
     to_cents,
     to_sats,
 )
@@ -35,6 +37,8 @@ SUBTYPE = ("subtype",)
 
 # Kraken's asset codes, its reward balances' suffixes (.M, .S, .F, .B…) aside
 BITCOIN, DOLLARS = frozenset({"XXBT", "XBT", "BTC"}), frozenset({"ZUSD", "USD"})
+# Kraken's fee credits, which pay a trade's fee from a promotion, never the owner's dollars (#829)
+FEE_CREDITS = "KFEE"
 TRADES = frozenset({"trade", "spend", "receive"})
 # Moves between Kraken's own balances (spot, staking, earn): never in or out of the exchange
 WITHIN = frozenset({"transfer", "allocation", "deallocation", "autoallocation", "autoallocate", "migration"})
@@ -51,6 +55,9 @@ NO_SUBTYPE = Reason("are Kraken “transfer” rows with no subtype (an airdrop 
                     "is a Kraken “transfer” with no subtype (an airdrop or a fork, a delisted coin, or a deal with "
                     "Kraken's OTC desk): add it by hand if it moved bitcoin in or out")
 DOLLARS_ONLY = Reason("move dollars, not bitcoin", "moves dollars, not bitcoin")
+# An event of fee-credit lines alone: a fee of its own (a margin rollover's), paid with no money
+CREDITS_ONLY = Reason("are fees paid with Kraken fee credits (KFEE), not bitcoin",
+                      "is a fee paid with Kraken fee credits (KFEE), not bitcoin")
 
 
 def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
@@ -61,6 +68,7 @@ def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
     data = [Cells(number, header, cells) for number, cells in rows if number > header.number]
     read, left_out = FileRead(total_rows=len(data)), LeftOut()
     data = _under_the_header(data, header, read, left_out)
+    paid_in_credits = []
     for lines in _events(data, left_out).values():
         try:
             event = _event(lines, left_out, read.warnings)
@@ -69,9 +77,34 @@ def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
             continue
         if event is not None:
             read.rows.append(event)
+            if event.kind in (BUY, SELL) and any(_fee_credits(line) for line in lines):
+                paid_in_credits.append(event.row_number)
     read.rows.sort(key=lambda r: r.row_number)
     read.warnings.extend(left_out.warnings())
+    if paid_in_credits:
+        read.warnings.append(_paid_in_credits(sorted(paid_in_credits)))
     return read
+
+
+def _fee_credits(line: Cells) -> bool:
+    """Whether the line is a fee Kraken's fee credits paid: KFEE, moving
+    nothing (its fee is the credits used). A KFEE line whose amount can't be
+    read isn't one: it's left out with any other asset, its numbers unread."""
+    if line.get(("asset",)).upper() != FEE_CREDITS:
+        return False
+    try:
+        return not read_number(line.get(("amount",)), column="amount")
+    except RowError:
+        return False
+
+
+def _paid_in_credits(numbers: list[int]) -> CSVParseError:
+    """The note naming the trades Kraken's fee credits paid a fee of (all of
+    it, or what the rest of the fee didn't): no money of the owner's, so the
+    credits count as no fee, and a buy's cost is what it paid."""
+    return CSVParseError(row_number=0, column=None, severity="warning",
+                         message=f"{rows_said(numbers)} paid a fee with Kraken fee credits (KFEE), which aren't your "
+                                 "money: the credits count as no fee.")
 
 
 def _under_the_header(lines: list[Cells], header, read, left_out: LeftOut) -> list[Cells]:
@@ -117,6 +150,8 @@ class _Lines:
         self.has_btc = self.has_usd = False
         self.others: list[str] = []
         for line in lines:
+            if _fee_credits(line):
+                continue  # no asset the trade moved: its dollar line says what it cost or brought
             asset = line.get(("asset",)).upper().split(".")[0]
             if asset not in BITCOIN | DOLLARS:
                 self.others.append(line.get(("asset",)) or "no asset")  # left out, its numbers never read
@@ -151,7 +186,7 @@ def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError])
         return _left(left_out, numbers, Reason(f"are {others}, not bitcoin (BitcoinTX tracks bitcoin only)",
                                                f"is {others}, not bitcoin (BitcoinTX tracks bitcoin only)"))
     if not summed.has_btc:
-        return _left(left_out, numbers, DOLLARS_ONLY)
+        return _left(left_out, numbers, DOLLARS_ONLY if summed.has_usd else CREDITS_ONLY)
     moment = read_moment(first.get(("time",)), "UTC", column="time")
     if kinds <= TRADES:
         return _trade(first, numbers, moment, summed, kinds, left_out, warnings)
