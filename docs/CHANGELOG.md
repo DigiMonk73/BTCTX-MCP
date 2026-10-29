@@ -25,13 +25,14 @@ row oldest first while alpha.3's and beta.1's connector answered as if the
 choice were saved (#834): coins chosen that way are to be chosen again
 once BitcoinTX is 2.0. Also: the AI connector's words no longer set three
 small traps (#797); deleting an account asks in BitcoinTX's own dialog
-(#651); the Mac app's icon has no white corners (#680); the server's and
-the PDFs' libraries are current, with no figure or printed form changed;
-the StartOS package uses start-sdk 3.1.1 and start-cli 2.5.2; and the
-Docker image's system CA bundle drops the roots distrusted after the
-eMudhra compromise (#638). Updating from beta.1 changes no stored figure.
-The way back to 1.x and what's in 2.0 are in alpha.1's notes. The AI
-connector is `btctx-mcp==2.0.0b2`.
+(#651); the exchange import's download hints follow each exchange's
+menus today (#813); the Mac app's icon has no white corners (#680); the
+server's and the PDFs' libraries are current, with no figure or printed
+form changed; the StartOS package uses start-sdk 3.1.1 and start-cli
+2.5.2; and the Docker image's system CA bundle drops the roots distrusted
+after the eMudhra compromise (#638). Updating from beta.1 changes no
+stored figure. The way back to 1.x and what's in 2.0 are in alpha.1's
+notes. The AI connector is `btctx-mcp==2.0.0b2`.
 
 **Help check the exchange imports.** BitcoinTX's ready-made mappings for
 Coinbase, Kraken, Strike, Swan and Cash App were built from each
