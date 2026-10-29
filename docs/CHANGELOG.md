@@ -10,10 +10,11 @@ All notable changes to BitcoinTX are documented in this file.
 to try 2.0 before it's released: never for real records. It's a GitHub
 pre-release, and Start9's store stays on 1.x. New since
 [v2.0.0-beta.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-beta.1),
-two tax-figures fixes. Kraken trades paid with Kraken's fee credits (KFEE)
-are read: in 2.0's pre-releases a Kraken file's preview left such a trade
-out and advised adding the bitcoin as a spend (#829). If you followed that
-advice, delete each Withdrawal (purpose Spent) you added for one, then
+two tax-figures fixes. Kraken trades whose fee Kraken's fee credits
+(KFEE) paid are read: in 2.0's pre-releases a Kraken file's preview left
+such a trade out and advised adding the bitcoin as a spend (#829). If you
+followed that advice, delete each Withdrawal (purpose Spent) you added for
+one, then
 preview the Kraken file again into the same exchange. And a network fee
 the AI connector or an API client sends without its currency takes the
 day's price its spend or gift was priced at, not the hour's (#649; from
