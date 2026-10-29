@@ -8,7 +8,7 @@ import { MATCH_COLUMNS } from "../../utils/exchangeMapping";
 import ExchangeFilePicker from "./ExchangeFilePicker";
 
 const MAPPINGS: ExchangeMapping[] = [
-  { id: "river", name: "River", ready_made: true, help: "river.com → Taxes & Documents → Bitcoin activity (CSV).", checked: true },
+  { id: "river", name: "River", ready_made: true, help: "river.com → profile icon → Documents → Statements → Custom → Bitcoin activity.", checked: true },
   { id: "kraken", name: "Kraken", ready_made: true, help: "kraken.com → Documents → Export → Ledgers.", checked: false },
   { id: "own-1", name: "Example Exchange", ready_made: false, help: "", checked: true },
 ];
