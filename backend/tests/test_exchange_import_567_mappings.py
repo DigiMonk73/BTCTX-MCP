@@ -177,6 +177,26 @@ def test_kraken_ledger(client):
         assert expected in said, (expected, said)
 
 
+def test_kraken_trades_paid_with_fee_credits(client):
+    """A fee Kraken's fee credits paid is a third line of the trade's, KFEE,
+    moving nothing (#829): the trade is read from its bitcoin and dollar
+    lines, the credits are no dollars of the owner's, never another coin
+    the bitcoin was traded for."""
+    answer = preview(client, "kraken", "kraken_fee_credits.csv")
+    assert rows(answer) == [
+        # 200 dollars for 0.002 BTC, the whole fee paid in credits: the cost is what was paid, no fee
+        row(5, "Buy", BANK, EX_BTC, "0.002", at(2025, 5, 2, 10), cost="200.00"),
+        # 0.001 BTC sold for 105 dollars, the credits running out: only the dollars' 0.10 is a fee
+        row(6, "Sell", EX_BTC, EX_USD, "0.001", at(2025, 5, 3, 11), proceeds="105.00", fee="0.10"),
+    ]
+    assert answer["total_rows"] == 7 and answer["errors"] == []
+    said = warned(answer)
+    assert "Row 2 is KFEE, not bitcoin" in said  # the credits arriving
+    assert ("Rows 5 and 6 paid a fee with Kraken fee credits (KFEE): they aren't dollars, so only a fee paid in "
+            "dollars is counted.") in said
+    assert "trade bitcoin for KFEE" not in said
+
+
 def test_strike_statement(client):
     answer = preview(client, "strike", "strike_statement.csv")
     assert rows(answer) == [
