@@ -69,6 +69,22 @@ All notable changes to BitcoinTX are documented in this file.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
+- **The reference test ledger fills the report's values from a price**
+  (#715). A stored-price fixture (`testdata/reference_prices.json`) and
+  eight rows in a fifth wallet, the Trezor, which no other row uses: a
+  reward, income worth an exact half cent (rounded to the even cent), a
+  spend and its network fee, a rebate priced at its day, a gift, an
+  inheritance and interest, each leaving its value to a stored price, and
+  income typed far from its hour's price. Every year's Complete Tax Report
+  now lists values from a price, and Ledger Review shows "Values priced at
+  the day's price that the hour would change" and "Income and rebate values
+  you typed, far from that hour's price". The reference figures move by
+  exactly those rows; the independent calculation prices them by the
+  rules. `scripts/seed_ledger.py` sends those rows only with
+  `--with-prices`, to a test database whose file `--store-prices` filled
+  first (never an installed app's data, nor a ledger the seed didn't
+  make), and says how many it left out otherwise. Tests only: the app
+  doesn't change.
 - **The before-and-after check takes both snapshots again when a midnight
   falls during its run** (#661). `scripts/equivalence_check.py` takes the
   release's snapshot, then this checkout's; a run begun a few minutes

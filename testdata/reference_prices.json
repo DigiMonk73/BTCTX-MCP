@@ -1,0 +1,18 @@
+{
+ "about": "The reference test ledger's stored-price fixture (#715): made-up BTC prices, stored as an install stores the prices it found, so the ledger's rows marked 'priced' take their values from them with the price source Off and nothing asked of the network. 'days' are UTC days' 00:00 prices and 'hours' UTC hours' opening prices, stored before those rows are saved; 'hours_found_later' are stored after them, as an hour's price an install finds once a value was priced at its day, so Ledger Review lists that value (day_priced_values). None is a tax year's first or last day in any timezone, so no year's holdings are valued by them. scripts/seed_ledger.py stores them (--store-prices, and the in-process tests), and scripts/independent_figures.py prices the same rows from them by the rules.",
+ "days": [
+  {"day": "2025-03-11", "usd": "81045.00", "source": "kraken", "why": "The Trezor's 2025 rebate, priced at the day: no hour of it is stored when it's saved."},
+  {"day": "2026-02-10", "usd": "70250.00", "source": "kraken", "why": "The date of death of the Trezor's inheritance, whose value is that day's 00:00 price."}
+ ],
+ "hours": [
+  {"hour": "2023-06-14T15:00:00Z", "usd": "25912.34", "source": "bitstamp", "why": "The Trezor's 2023 reward."},
+  {"hour": "2024-05-08T10:00:00Z", "usd": "61001.00", "source": "bitstamp", "why": "The Trezor's 2024 income: 0.005 BTC is worth $305.005, an exact half cent, which a value from a price rounds to the even cent, $305.00 (#556)."},
+  {"hour": "2024-09-17T14:00:00Z", "usd": "58250.50", "source": "bitstamp", "why": "The Trezor's 2024 spend: its proceeds and its network fee's value, at one price."},
+  {"hour": "2025-07-22T16:00:00Z", "usd": "118400.00", "source": "bitstamp", "why": "The Trezor's 2025 gift."},
+  {"hour": "2026-04-15T12:00:00Z", "usd": "84120.40", "source": "bitstamp", "why": "The Trezor's 2026 interest."},
+  {"hour": "2026-06-03T14:00:00Z", "usd": "105000.00", "source": "bitstamp", "why": "The Trezor's 2026 income typed at $80.00, more than 5% from 0.001 BTC at this price ($105.00): Ledger Review lists it (income_value_off)."}
+ ],
+ "hours_found_later": [
+  {"hour": "2025-03-11T13:00:00Z", "usd": "77000.00", "source": "bitstamp", "why": "The hour of the Trezor's 2025 rebate, found after it was priced at the day: at this price it would be worth $23.10, not $24.31, a change of $1 or more, which Ledger Review lists."}
+ ]
+}
