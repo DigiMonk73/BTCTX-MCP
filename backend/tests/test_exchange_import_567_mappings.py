@@ -205,8 +205,8 @@ def test_kraken_fee_credits_paying_a_fee_of_their_own_or_unreadable(client):
     header = '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"\n'
     content = header + (
         '"LC1","RC1","2025-06-01 00:00:00","rollover","","currency","KFEE","spot / main",0.00,5.00,25.00\n'
-        '"LC2","TC1","2025-06-02 00:00:00","transfer","","currency","KFEE","spot / main",abc,0.00,25.00\n'
-        '"LC3","TC1","2025-06-02 00:00:00","transfer","","currency","BTC","spot / main",0.0010000000,0,0.001\n'
+        '"LC2","TC1","2025-06-02 00:00:00","transfer","spottostaking","currency","KFEE","spot / main",abc,0.00,25.00\n'
+        '"LC3","TC1","2025-06-02 00:00:00","transfer","spottostaking","currency","BTC","spot / main",0.0010000000,0,0.001\n'
         # Credits never pay a withdrawal's fee (Kraken): a stray KFEE line beside one leaves its send as it is
         '"LC4","WC1","2025-06-03 00:00:00","withdrawal","","currency","BTC","spot / main",-0.0005000000,0.00001,0.00049\n'
         '"LC5","WC1","2025-06-03 00:00:00","withdrawal","","currency","KFEE","spot / main",0.00,0.00,25.00\n')
