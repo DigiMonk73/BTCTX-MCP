@@ -73,6 +73,13 @@ TO_CHOOSE_AGAIN = ("Nothing was saved: this transaction's coins were chosen, and
                    "call update_transaction again with the same changes and chosen_coins (their choice, adding up "
                    "to what leaves now), or set it back to oldest first (chosen_coins: []). "
                    "Never pick coins for them.")
+# A BitcoinTX before 2.0 has no choice of coins: it would save a row naming
+# them first in, first out, while the answer reads as if the choice were
+# saved (#834)
+CHOICE_NEEDS_2_0 = ("This BitcoinTX is 1.x: choosing which coins move needs BitcoinTX 2.0. Nothing was saved. "
+                    "Without the choice, 1.x sends the oldest coins first, not the ones the user chose: tell "
+                    "them, and leave chosen_coins out only if they say so.")
+COINS_MOVED_NEEDS_2_0 = "This BitcoinTX is 1.x: listing the coins a transaction moves needs BitcoinTX 2.0."
 TO_CONFIRM = ("Nothing was saved: this would change the figures of tax years the user may already have filed. "
               "Show the user detail, the years and the changes, whose dates are in timezone (and pending apart: "
               "rules fixed since those rows were saved), and ask whether to go ahead. Only if they say yes, call {tool} again with the same "
@@ -276,6 +283,8 @@ async def _rows(transactions: list[TransactionInput]) -> list[dict[str, Any]]:
     for row in rows:
         for side in ("from_account", "to_account"):
             row[side] = (await _account(row[side]))[1]
+    if any(row.get("chosen_coins") for row in rows):  # [] is oldest first, as 1.x does too
+        await _refused_before_2_0(CHOICE_NEEDS_2_0)
     return rows
 
 
@@ -293,6 +302,13 @@ async def _account_names(fresh: bool = False) -> AccountNames:
             raise ToolError(str(exc)) from exc
         _accounts["names"] = AccountNames(listed)
     return _accounts["names"]
+
+
+async def _refused_before_2_0(refusal: str) -> None:
+    """ToolError, nothing sent, when BitcoinTX is older than 2.0. A list read
+    as 1.x's is read again first: BitcoinTX may have been updated since."""
+    if (await _account_names()).before_2_0 and (await _account_names(fresh=True)).before_2_0:
+        raise ToolError(refusal)
 
 
 async def _account(name: str, fresh: bool = False) -> tuple[int, str]:
@@ -694,6 +710,8 @@ async def update_transaction(
         changes["broker_reporting"] = None if broker_reporting == "automatic" else broker_reporting
     if acquired_at is not None:
         changes["acquired_at"] = None if acquired_at.strip().lower() == "none" else await _date_from(acquired_at)
+    if chosen_coins:
+        await _refused_before_2_0(CHOICE_NEEDS_2_0)
     if chosen_coins is not None:  # [] is oldest first, which the API takes as null
         changes["chosen_coins"] = [line.model_dump(mode="json") for line in chosen_coins] or None
     if not changes:
@@ -777,6 +795,7 @@ async def get_coins_moved(transaction_id: int) -> ToolResult:
     other transaction is refused. Worked out on a copy of the ledger: nothing is saved. Use it
     to show the user which coins a transaction took before they change it. On a very large
     ledger it can answer coins null, with BitcoinTX's reason in detail: try once more."""
+    await _refused_before_2_0(COINS_MOVED_NEEDS_2_0)
     return await _call("POST", f"/api/transactions/{transaction_id}/coins-moved", json={})
 
 

@@ -29,6 +29,26 @@ All notable changes to BitcoinTX are documented in this file.
   you imported before shows as already in the ledger. If you followed that
   warning, first delete each Withdrawal (purpose Spent) you added for such
   a trade.
+- **The AI connector refuses to choose coins on a BitcoinTX 1.x** (#834,
+  found by the release tests' AI-16 before beta.2; tax figures). 1.x has no
+  choice of coins: given a row or an edit naming the coins, it saved the
+  spend or transfer first in, first out, and the 2.0 connector answered as
+  if the choice were saved; `get_coins_moved` answered "405: Method Not
+  Allowed". Against a BitcoinTX before 2.0, the connector now refuses a
+  choice of coins (in a preview, an add or an edit) and `get_coins_moved`
+  before sending anything: "This BitcoinTX is 1.x: choosing which coins
+  move needs BitcoinTX 2.0. Nothing was saved." Everything else 1.x can do
+  still works, oldest first (`chosen_coins: []`) included, and nothing
+  changes on a 2.0 BitcoinTX. The refusal also tells the AI that without
+  the choice 1.x sends the oldest coins first, and to leave the choice out
+  only if the user says so. **Affected:** the connector of 2.0.0-alpha.3
+  and 2.0.0-beta.1 (`btctx-mcp==2.0.0a3`, `2.0.0b1`) used with a BitcoinTX
+  1.x; any tax year. **What to do:** if it added or edited a spend or
+  transfer naming the coins on a 1.x ledger, that row went oldest first:
+  set the connector to BitcoinTX's own version (its Settings, Connect an
+  AI Assistant, gives it), and choose the coins again once BitcoinTX is
+  2.0. Ledger Review then lists them under "Reminder: coins chosen after
+  they left", as it lists any choice saved after the coins left.
 - **A network fee the AI connector or an API client sends without its
   currency takes the same price as the rest of its transaction** (#649,
   tax figures). A Spent bitcoin withdrawal's proceeds and its network
