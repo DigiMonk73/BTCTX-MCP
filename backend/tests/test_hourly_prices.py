@@ -13,7 +13,10 @@ Every outside service is faked.
 
 import logging
 import random
+import sys
+import threading
 import time
+import traceback
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -128,9 +131,39 @@ def use(**settings):
     outbound._current = outbound.NetworkSettings(**settings)
 
 
+# The download takes well under a second, but a shared CI runner once held
+# one past 10 s with nothing wrong in it (#841): wait as long as it takes,
+# up to a limit only a stuck download reaches, and then say where it is
+FINISH_SECONDS = 120
+
+
 def finish_download():
     with hp._changed:
-        assert hp._changed.wait_for(lambda: not hp._state["running"], timeout=10)
+        done = hp._changed.wait_for(lambda: not hp._state["running"], timeout=FINISH_SECONDS)
+    assert done, f"the download still runs after {FINISH_SECONDS} s:\n{download_stacks()}"
+
+
+def download_stacks() -> str:
+    """Where each download thread is now."""
+    frames = sys._current_frames()
+    return "\n".join("".join(traceback.format_stack(frames[thread.ident]))
+                     for thread in threading.enumerate()
+                     if thread.name == "btc-price-download" and thread.ident in frames)
+
+
+def test_a_wait_that_runs_out_says_where_the_download_is():
+    stop = threading.Event()
+
+    def stuck_on_a_request():
+        stop.wait(10)
+
+    thread = threading.Thread(target=stuck_on_a_request, name="btc-price-download", daemon=True)
+    thread.start()
+    try:
+        assert "stuck_on_a_request" in download_stacks()
+    finally:
+        stop.set()
+        thread.join()
 
 
 def year_blocks(year: int, last: int) -> list[int]:

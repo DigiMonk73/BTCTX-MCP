@@ -149,13 +149,17 @@ All notable changes to BitcoinTX are documented in this file.
   connector tests' `backend_db` put back no database override, and
   `test_report_without_prices.py` left pypdf's warnings off. Both now put
   back what was there. Tests and CI only: the app doesn't change.
-- **Two known flaky tests, placed** (#598, #584). #598's module already
-  seeds its own ledger (#610), and its test still fails on the old seeding
-  code. #584 (WebKit's blank `/login` at the 64th and 128th test of a full
-  run on a Mac) was Playwright 1.56.1's WebKit: the whole WebKit suite, 279
-  tests on the Mac mini, still times out loading `/login` at exactly those
-  two tests on 1.56.1, and passes them on 1.64.1, the version since #563.
-  The open files of WebKit's processes stayed steady on both.
+- **Three known flaky tests, placed** (#598, #584, #841). #598's module
+  already seeds its own ledger (#610), and its test still fails on the old
+  seeding code. #841: the hourly prices' tests waited 10 s for their
+  download, which takes well under a second, and once on CI didn't end in
+  time though its work was done; it didn't come back in 20 runs beside a
+  full shard. They now wait up to 120 s, and a wait that runs out says where
+  the download is. #584 (WebKit's blank `/login` at the 64th and 128th test
+  of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole WebKit
+  suite, 279 tests on the Mac mini, still times out loading `/login` at
+  exactly those two tests on 1.56.1, and passes them on 1.64.1, the version
+  since #563. The open files of WebKit's processes stayed steady on both.
 - **The developer guides and AGENTS.md are read again against 2.0**
   (#807, docs steps D6 and D7a). TESTING, MAINTENANCE,
   STARTOS_COMPATIBILITY, the Mac app's developer sections and
