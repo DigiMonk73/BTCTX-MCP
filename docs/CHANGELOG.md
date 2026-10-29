@@ -12,33 +12,33 @@ All notable changes to BitcoinTX are documented in this file.
   deleted. Cancel and Escape delete nothing. No figure changes.
 
 ### Fixed
-- **A network fee the AI connector or an API client adds without its
+- **A network fee the AI connector or an API client sends without its
   currency takes the same price as the rest of its transaction** (#649,
   tax figures). A Spent bitcoin withdrawal's proceeds and its network
   fee's value come from one price (#173), and so do a gift's, donation's
   or lost coins' value and its fee (#271). When such a withdrawal had been
   priced at the day's price (saved when its hour had no price yet, as
-  before hourly prices, or imported without its moment) and had no fee, an
-  edit adding one with `fee_amount` but no `fee_currency` (or a blank one)
-  priced the fee at the hour's price instead and marked the transaction
-  "hour", so its fee and its proceeds or value came from two prices. The
-  fee's currency is now filled first, and the fee takes the day's price
-  too. BitcoinTX's own form always sends the currency: edits made there
-  were never affected. What moves: that fee's value, by the difference
-  between the hour's and the day's price on the fee (cents on a typical
-  fee). On Form 8949, the fee's row moves by it; for a spend, its own row
-  moves the other way by the same amount, since a spend and its fee
-  together realize what was received; for a gift, donation or lost coins,
-  the year's gain moves by it.
+  before hourly prices, or imported without its moment), an edit sending
+  its fee with no currency (`fee_currency` left out on one saved without a
+  fee, or sent blank) priced the fee at the hour's price instead and
+  marked the transaction "hour", so its fee and its proceeds or value came
+  from two prices. The fee's currency is now filled first, and the fee
+  takes the day's price too. BitcoinTX's own form always sends the
+  currency: edits made there were never affected. What moves: that fee's
+  value, by the difference between the hour's and the day's price on the
+  fee (cents on a typical fee). On Form 8949, the fee's row moves by it;
+  for a spend, its own row moves the other way by the same amount, since
+  a spend and its fee together realize what was received; for a gift,
+  donation or lost coins, the year's gain moves by it.
 
   **Affected:** a spend from 1.2.8, a gift, donation or lost coins from
   1.2.9, through 1.2.10 and 2.0's pre-releases; any tax year; only such an
   edit sent through the AI connector or the API. **What to do:** nothing,
-  unless the AI connector or an API client added a network fee to a spend
-  or gift priced at the day: its fee then holds the hour's price and its
-  proceeds or value the day's, and Ledger Review doesn't list it. Open it,
-  clear **Proceeds (USD)** (a gift's **FMV (USD)**) and save: both are
-  then priced at the hour.
+  unless the AI connector or an API client added or changed a network fee
+  on a spend or gift priced at the day without its currency: its fee then
+  holds the hour's price and its proceeds or value the day's, and Ledger
+  Review doesn't list it. Open it, clear **Proceeds (USD)** (a gift's
+  **FMV (USD)**) and save: both are then priced at the hour.
 - **The past-year question no longer looks up two prices its save never
   uses** (#653, found by #646's re-check; no figure changes). Before it
   works out what a change to an earlier tax year moves, BitcoinTX finds the

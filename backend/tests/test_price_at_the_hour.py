@@ -442,6 +442,14 @@ def test_a_fee_sent_without_its_currency_to_a_day_withdrawal_takes_the_day(auth_
     assert edited["gross_proceeds_usd" if purpose == "Spent" else "fmv_usd"] == "1500.00"  # kept at the day's
 
 
+def test_a_fee_changed_with_a_blank_currency_on_a_day_spend_takes_the_day(auth_client, monkeypatch):
+    """The re-check of #649: a fee already there, changed with its currency sent null, the same."""
+    tx = day_priced_spend(auth_client, monkeypatch)
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"fee_amount": "0.0002", "fee_currency": None})
+    assert r.status_code == 200, r.text
+    assert (r.json()["fee_usd"], r.json()["price_moment"], r.json()["gross_proceeds_usd"]) == ("6.00", "day", "1500.00")
+
+
 def test_a_transfer_fee_priced_again_is_at_the_hour(auth_client, monkeypatch):
     buy(auth_client)
     stub_prices_at(monkeypatch, price_of, moment="day")
