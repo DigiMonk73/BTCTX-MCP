@@ -509,9 +509,9 @@ def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction
     _send_gross_of_an_old_withdrawal_sold(tx, tx_data)
     _check_inherited_date_sent(tx, tx_data, db)
     _drop_original_date_if_not_allowed(tx, tx_data, db)
-    # Before _keeps_a_day_price reads the fee: a fee sent without its currency
-    # was no BTC fee to it, and took the hour's price (#649). edited_inputs
-    # fills it in the same place
+    # Before _keeps_a_day_price reads the fee: else a fee sent without its
+    # currency is no BTC fee to it, and takes the hour's price beside a value
+    # kept at the day's (#649). edited_inputs fills it in the same place
     _fill_the_fee_currency(tx_data, _stored_inputs(tx), db)
     with _priced_at_the_day(db, _keeps_a_day_price(tx, tx_data, book)):
         _check_edit(tx, tx_data, type_changed, db)
@@ -1113,20 +1113,33 @@ def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
     row = {**stored, "fee_usd": None if fee_again else tx.fee_usd,
            "fee_usd_from_price": "fee_usd" not in edit and not fee_again and tx.fee_usd is not None
            and not tx.fee_usd_manual, **edit}
-    _what_the_save_keeps(row, edit)
+    _what_the_save_keeps(row, tx, edit)
     _blank_what_the_save_prices(row, tx, edit, db, book)
     row["price_moment"] = _moment_the_edit_prices_at(row, keeps_the_day, db, book)
     return row
 
 
-def _what_the_save_keeps(row: dict, edit: dict) -> None:
+def _what_the_save_keeps(row: dict, tx: Transaction, edit: dict) -> None:
     """The row as the edit's save stores it, where a new row reads otherwise
     (#653): proceeds sent without a gross are the new gross (_apply_proceeds),
-    and a deposit's value the edit sends no input of is left as it is, an
-    old $0 one included (_revalue_income_deposit)."""
+    and a deposit's value is left as it is, an old $0 one included, when
+    _revalue_income_deposit finds no input of it in the edit."""
     if "proceeds_usd" in edit and "gross_proceeds_usd" not in edit:
         row["gross_proceeds_usd"] = edit["proceeds_usd"]
-    row[_BASIS_KEPT] = not any(k in edit for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",))
+    row[_BASIS_KEPT] = _basis_left_alone(tx, edit)
+
+
+def _basis_left_alone(tx: Transaction, edit: dict) -> bool:
+    """Whether the save finds no input of a deposit's value in the edit: none
+    sent, and none the save adds on its way, as it does to put right a
+    stored spelling of the source, a fraction of a second or a date
+    originally acquired (_check_edit, _drop_original_date_if_not_allowed).
+    Unsure, no: a price found and not used costs a request, one used and
+    not found a second try (hourly_prices.with_prices_found)."""
+    if any(k in edit for k in _INCOME_VALUE_INPUTS + ("cost_basis_usd",)):
+        return False
+    return tx.acquired_at is None and tx.timestamp.microsecond == 0 \
+        and _canonical(tx.source, DEPOSIT_SOURCES) in (None, tx.source)
 
 
 def _edit_as_saved(tx: Transaction, tx_data: dict, book: AccountBook) -> dict:

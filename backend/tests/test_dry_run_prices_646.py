@@ -303,10 +303,27 @@ def test_an_old_0_income_value_an_edit_leaves_alone_finds_no_price(ledger):
     without any input of its value: the save leaves the value as it is
     (_revalue_income_deposit), and nothing is found first for it."""
     tx_id = ledger.add(ROWS["income"])
-    with ledger.session() as db:
-        db.query(Transaction).filter_by(id=tx_id).update({"cost_basis_usd": 0, "cost_basis_from_price": False})
-        db.commit()
+    _store(ledger, tx_id, cost_basis_usd=0, cost_basis_from_price=False)
     assert ledger.edit(tx_id, {"fee_amount": "0"}) == (set(), set())
+
+
+@pytest.mark.parametrize("stored", [{"source": "income"},
+                                    {"timestamp": datetime(2024, 5, 1, 12, 0, 0, 500000, tzinfo=timezone.utc)}])
+def test_an_old_0_income_value_the_save_puts_right_is_found_first(ledger, stored):
+    """The review of #653: a source in an old spelling, or a fraction of a
+    second, which the save puts right, is an input of the value to it: the
+    save prices it, and so it's found first."""
+    tx_id = ledger.add(ROWS["income"])
+    _store(ledger, tx_id, cost_basis_usd=0, cost_basis_from_price=False, **stored)
+    found, asked = ledger.edit(tx_id, {"fee_amount": "0"})
+    assert asked and found == asked
+
+
+def _store(ledger, tx_id: int, **values) -> None:
+    """Stored as an older BitcoinTX left the row."""
+    with ledger.session() as db:
+        db.query(Transaction).filter_by(id=tx_id).update(values)
+        db.commit()
 
 
 def test_a_past_year_spend_added_with_only_its_gross_finds_no_price(ledger):

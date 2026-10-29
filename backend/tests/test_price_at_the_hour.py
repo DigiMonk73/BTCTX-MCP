@@ -437,7 +437,9 @@ def test_a_fee_sent_without_its_currency_to_a_day_withdrawal_takes_the_day(auth_
     stub_prices_at(monkeypatch, price_of)
     r = auth_client.put(f"/api/transactions/{tx['id']}", json={"fee_amount": "0.0001", **currency})
     assert r.status_code == 200, r.text
-    assert (r.json()["fee_currency"], r.json()["fee_usd"], r.json()["price_moment"]) == ("BTC", "3.00", "day")
+    edited = r.json()
+    assert (edited["fee_currency"], edited["fee_usd"], edited["price_moment"]) == ("BTC", "3.00", "day")
+    assert edited["gross_proceeds_usd" if purpose == "Spent" else "fmv_usd"] == "1500.00"  # kept at the day's
 
 
 def test_a_transfer_fee_priced_again_is_at_the_hour(auth_client, monkeypatch):
