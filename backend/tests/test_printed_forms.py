@@ -55,6 +55,11 @@ _spec = importlib.util.spec_from_file_location("seed_ledger", ROOT / "scripts" /
 seed_ledger = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(seed_ledger)
 
+# Its setup prints every ledger's forms, about a minute on CI: with
+# `--dist loadgroup` (CI, make test) one worker runs the whole module, so the
+# forms are printed once a run, not once a worker (#814)
+pytestmark = pytest.mark.xdist_group("printed_forms")
+
 USER, PASSWORD = "forms-user", "forms-password-123"
 # The day the forms are made: inside 2026, so the shipped 2026 drafts are offered
 FORMS_DAY = date(2026, 10, 10)
