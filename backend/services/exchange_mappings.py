@@ -179,7 +179,8 @@ COINBASE = Mapping(
 KRAKEN = Mapping(
     id="kraken", name="Kraken", reader=KRAKEN_LEDGER,
     checked=False,
-    help="kraken.com → Documents → Export → Ledgers (CSV), unzipped: ledgers.csv.",
+    help="kraken.com → profile icon → Documents → Create export → Ledgers, all assets, types and fields, CSV (a "
+         ".zip holds ledgers.csv).",
 )
 
 # Strike's account statements and its activity report (Strike writes UTC),
@@ -198,7 +199,8 @@ STRIKE = Mapping(
     after_fee=frozenset({BUY, SELL}), done=frozenset({"completed"}), optional=frozenset({"status"}),
     merge_same_id=True, signs=frozenset({"btc", "usd"}),
     checked=False,
-    help="Strike → Documents → Account statements → Export as CSV, or Activity → Generate report.",
+    help="strike.me → profile icon → Documents → each year's statement, or this year's months → ⋯ → Export as CSV "
+         "(not a year and its months: they hold the same rows), or Activity → Generate report.",
 )
 
 # Swan's "Deposits and purchases" (Swan writes UTC): a purchase's
@@ -218,7 +220,8 @@ SWAN = Mapping(
                                "is Swan moving coins between its custodians: they never left Swan")),),
     funding="bank",
     checked=False,
-    help="Swan → Profile → Documents → Export account data: Deposits and purchases (CSV).",
+    help="Swan → Profile → Documents → Export account data → Deposits and purchases (CSV); an archived account's "
+         "too, if your dashboard shows one.",
 )
 
 # Swan's "Withdrawals": every row a send, which Swan's custodian pays the
@@ -230,7 +233,8 @@ SWAN_WITHDRAWALS = Mapping(
                LeaveOut("Executed At", None, Reason("haven't been sent (no Executed At)",
                                                     "hasn't been sent (no Executed At)"))),
     checked=False,
-    help="Swan → Profile → Documents → Export account data: Withdrawals (CSV).",
+    help="Swan → Profile → Documents → Export account data → Withdrawals (CSV); an archived account's too, if "
+         "your dashboard shows one.",
 )
 
 # Cash App's bitcoin "Transactions CSV" and its activity CSV: its dates
@@ -249,7 +253,8 @@ CASH_APP = Mapping(
     not_done=("fail", "revers", "cancel", "pending", "refund", "declin"), optional=frozenset({"status"}),
     leave_out=(LeaveOut("Currency", "", NOT_DOLLARS, other_than="usd"),), signs=frozenset({"usd"}),
     checked=False,
-    help="Cash App → Profile → Documents → Bitcoin → Transactions CSV, or Activity → Statements → Export CSV.",
+    help="Cash App → Profile → Documents → Bitcoin → each year's Transactions CSV, or cash.app/account/activity → "
+         "Statements → Export CSV (not both: they hold the same trades).",
 )
 
 READY_MADE: dict[str, Mapping] = {

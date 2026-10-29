@@ -5,6 +5,21 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Changed
+- **Import from an exchange says how to download each exchange's file
+  today, and two of its reasons for leaving a row out are now true of the
+  row** (#813, checked against public sources on 2026-10-29; no figure
+  changes: the same rows are read and left out). Each ready-made
+  mapping's hint follows its exchange's menus as they are now: Kraken's
+  ledger export with all assets, types and fields (a ledger filtered to
+  bitcoin loses its trades' dollars), Strike's yearly or monthly
+  statements (not both), Swan's archived account from an earlier
+  custodian, Cash App's yearly bitcoin files or its activity file (not
+  both). A Kraken "transfer" with no subtype (an airdrop or a fork, a
+  delisted coin, a deal with Kraken's OTC desk) is no longer said to move
+  coins between Kraken's own balances: it says to add it by hand if it
+  moved bitcoin. A row of a word a mapping reads as dollars (Strike's
+  Withdrawal) that gives an amount of bitcoin says so, rather than that
+  it moves dollars alone.
 - **Deleting an account asks in BitcoinTX's own dialog** (#651), as
   Delete All does, instead of the browser's confirm box: in Settings ›
   Wallets, exchanges and banks, Delete names the account (an exchange's,

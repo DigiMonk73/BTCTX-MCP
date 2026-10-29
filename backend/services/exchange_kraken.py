@@ -44,6 +44,12 @@ PENDING = Reason("are Kraken's pending copies of a deposit or withdrawal (no txi
 REPEATED = Reason("repeat an earlier line (txid)", "repeats an earlier line (txid)")
 WITHIN_KRAKEN = Reason("move coins between Kraken's own balances (spot, staking, earn)",
                        "moves coins between Kraken's own balances (spot, staking, earn)")
+# A transfer with no subtype isn't a move within Kraken: Kraken writes it for airdrops and forks, a
+# delisted coin, and its OTC desk (Kraken's ledger fields; BittyTax, rotki: #813)
+NO_SUBTYPE = Reason("are Kraken “transfer” rows with no subtype (an airdrop or a fork, a delisted coin, or a deal "
+                    "with Kraken's OTC desk): add any that moved bitcoin in or out by hand",
+                    "is a Kraken “transfer” with no subtype (an airdrop or a fork, a delisted coin, or a deal with "
+                    "Kraken's OTC desk): add it by hand if it moved bitcoin in or out")
 DOLLARS_ONLY = Reason("move dollars, not bitcoin", "moves dollars, not bitcoin")
 
 
@@ -133,7 +139,8 @@ def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError])
     first = next((line for line in lines if line.get(("asset",)).upper().split(".")[0] in BITCOIN), lines[0])
     numbers = [line.number for line in lines]
     if kinds <= WITHIN or (kinds == {"earn"} and subtypes <= WITHIN):
-        return _left(left_out, numbers, WITHIN_KRAKEN)
+        unmarked = kinds == {"transfer"} and subtypes == {""}
+        return _left(left_out, numbers, NO_SUBTYPE if unmarked else WITHIN_KRAKEN)
     if summed.others:
         others = ", ".join(sorted(set(summed.others)))
         how = ("by hand (bitcoin given up as a Withdrawal, purpose Spent, at its dollar value: a disposal, IRS "
