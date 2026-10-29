@@ -459,8 +459,9 @@ FAST = settings(max_examples=8, deadline=None, suppress_health_check=[HealthChec
 # The slow set's 120 ledgers of each kind, drawn in parts that run side by
 # side (#814). Each part is a run of Hypothesis's own, which starts from its
 # simplest ledgers, so those repeat from part to part: each draws two more.
-# Counted under CI's profile (CI=true: the same ledgers every run), the parts
-# draw 129 and 125 different ledgers, where one run of 120 drew 124 and 122.
+# Counted under CI's profile (CI=true: the same ledgers every run), the
+# ledgers thrown away included, the parts draw 129 and 125 different ones,
+# where one run of 120 drew 124 and 122.
 MANY, PARTS = 120, 6
 SLOW = settings(max_examples=MANY // PARTS + 2, deadline=None,
                 suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])

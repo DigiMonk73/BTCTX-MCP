@@ -33,7 +33,8 @@ All notable changes to BitcoinTX are documented in this file.
   (#612). The link shows once the live price has answered, the card once
   its settings have loaded, which can be later on a slow server. A press
   in between found no card, so nothing scrolled and the keyboard stayed on
-  the link. It now goes there as soon as the card is shown (within 5 s).
+  the link. It now goes there as soon as the card is shown (within 5 s),
+  unless you've gone on to another page or control meanwhile.
 - **Import from an exchange reads a Kraken trade whose fee Kraken's fee
   credits paid** (#829, tax figures). Kraken writes such a trade with a
   third line in its fee credits (KFEE), moving nothing. The importer took
@@ -133,19 +134,19 @@ All notable changes to BitcoinTX are documented in this file.
   own, about a third of the time it took: each shard runs whole test files,
   shared out by how long each took on CI (`backend/tests/shards.py`,
   `test_durations.json`, `--shard 2/3`), in the order the whole suite runs
-  them. A guard job
-  (`scripts/check_test_shards.py`) fails "CI passed" unless every test a
-  full collection finds ran in exactly one shard, and hands out the run's
-  timings. No test is cut: the four longest are split into parts that run
-  side by side, checking all they did. Every reference row is still saved
-  again, twice, in ten parts by id, each on a ledger of its own that must
-  end with every figure and every stored transaction as it was, so no part
-  could change what another's rows are saved on. The property tests draw
-  six runs of 22 ledgers of each kind: on CI, 129 and 125 different ones,
-  where one run of 120 drew 124 and 122. The printed forms' minute-long
-  setup runs once a version (`--dist loadgroup`), not once a worker. Two tests left something behind that upset a later module's
-  tests on the same worker, once a shard ran its files in another order:
-  the connector tests' `backend_db` put back no database override, and
+  them. A guard job (`scripts/check_test_shards.py`) fails "CI passed"
+  unless every test a full collection finds ran in exactly one shard, and
+  hands out the run's timings. No test is cut: the four longest are split
+  into parts that run side by side, checking all they did. Every reference
+  row is still saved again, twice, in ten parts by id, each on a ledger of
+  its own that must end with every figure and every stored transaction as it
+  was, so no part could change what another's rows are saved on. The
+  property tests draw six runs of 22 ledgers of each kind: on CI, 129 and
+  125 different ones, where one run of 120 drew 124 and 122. The printed
+  forms' minute-long setup runs once a version (`--dist loadgroup`), not
+  once a worker. Two tests left something behind that upset a later module's
+  tests on the same worker, once a shard ran its files in another order: the
+  connector tests' `backend_db` put back no database override, and
   `test_report_without_prices.py` left pypdf's warnings off. Both now put
   back what was there. Tests and CI only: the app doesn't change.
 - **Two known flaky tests, placed** (#598, #584). #598's module already

@@ -57,7 +57,7 @@ def seeded(fresh_app, monkeypatch):
 def figures(Session) -> dict:
     """Every row's that has figures of a tax year (year_changes.counts). A
     dollar deposit's basis means nothing: an edit that sends its amount
-    stores the 0.00 its add left blank, as 1.x's edits always have."""
+    stores none where its add stored 0.00, as 1.x's edits always have."""
     with Session() as db:
         return {tx_id: row for tx_id, row in year_changes.figures(db, get_tax_timezone(db)).items()
                 if year_changes.counts(row)}
@@ -71,16 +71,16 @@ def save_again(client, tx_id: int, body: dict) -> None:
 
 def stored(Session) -> dict[str, list]:
     """Every transaction as stored, and the coins it chose, but for when it
-    was last saved and a dollar deposit's basis, which means nothing
-    (figures, above)."""
+    was last saved; a dollar deposit's basis of 0.00 is read as none, which
+    an edit sending its amount stores (figures, above)."""
     with Session() as db:
         dollars = set(db.scalars(select(Account.id).where(Account.currency == "USD")))
         transactions = []
         for tx in db.scalars(select(Transaction).order_by(Transaction.id)):
             row = {column.key: getattr(tx, column.key) for column in Transaction.__table__.columns
                    if column.key != "updated_at"}
-            if tx.type == "Deposit" and tx.to_account_id in dollars:
-                del row["cost_basis_usd"]
+            if tx.type == "Deposit" and tx.to_account_id in dollars and row["cost_basis_usd"] == 0:
+                row["cost_basis_usd"] = None
             transactions.append(row)
         coins = [tuple(row) for row in db.execute(select(*ChosenCoin.__table__.columns).order_by(ChosenCoin.id))]
     return {"transactions": transactions, "chosen_coins": coins}
