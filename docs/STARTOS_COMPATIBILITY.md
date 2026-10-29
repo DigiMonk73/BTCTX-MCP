@@ -35,10 +35,12 @@ changes come back here: `startos/UPDATING.md`.
 
 No system packages are installed: IRS forms are filled in pure Python (pypdf).
 Only the base image's `ca-certificates` is upgraded, so the system's CA
-bundle drops the distrusted emSign ECC Root CA - G3 (CVE-2026-91403, #638);
-the build fails if that store or certifi's still holds it. BitcoinTX's own
+bundle drops the roots distrusted after the eMudhra compromise (emSign ECC
+Root CA - G3 and Comodo AAA Services root, Debian #1151413; #638); the
+build fails if that store or certifi's still holds G3. The app's own
 connections never use the system's store (certifi, or a home Mempool's one
-approved root).
+approved root); only `cli install-draft-forms`, for a test install, fetches
+the IRS's draft forms through it.
 
 ### The app's user (#202)
 

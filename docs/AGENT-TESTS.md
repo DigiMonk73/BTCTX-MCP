@@ -1143,7 +1143,9 @@ Set `KEY` to the key from AI-3, and use
   **Decide in BitcoinTX instead**), start it, run `golden_loader.py`,
   create an AI key and turn AI access on (1.x's Settings shows every
   section). Run the candidate's connector as `mcp` (Inputs; a
-  pre-release's `uvx btctx-mcp==2.0.0bN`) with that key. Expect:
+  pre-release's `uvx btctx-mcp==2.0.0bN`) against it: `API`, `KEY` and
+  `ca.crt` set to this 1.2.10's (on WAY-6's Docker, `API` its
+  `http://127.0.0.1:8792/api` and no `BTCTX_CA_BUNDLE`). Expect:
   - every tool's answer, or its error, to start with "Your BitcoinTX
     connector is v<connector> but BitcoinTX is v1.2.10. Update BitcoinTX,
     or set the connector back to v1.2.10 in your AI app's settings."
@@ -1617,7 +1619,7 @@ Start from the `clean` snapshot.
     candidate's version, "Backed up the database to
     /data/backups/btctx-pre-2.0-from-0012-<time>.db before upgrading its
     schema", "Running upgrade 0012 -> 0100" and, after it, "Running
-    upgrade 0100 -> 0101" (from beta.1: coin choice's migration);
+    upgrade 0100 -> 0101" (from alpha.3: coin choice's migration);
     `$API/health` shows `"schema": "0101"`; `ls /data/backups` (as in
     IMP-3) lists that copy.
   - The 1.x tab left open: Add Transaction, a Deposit of `1` into its
