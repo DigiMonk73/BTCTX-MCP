@@ -4,6 +4,42 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits and a fee's price
+
+**About this beta.** BitcoinTX 2.0's second beta, for anyone who chooses
+to try 2.0 before it's released: never for real records. It's a GitHub
+pre-release, and Start9's store stays on 1.x. New since
+[v2.0.0-beta.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-beta.1),
+two tax-figures fixes. Kraken trades paid with Kraken's fee credits (KFEE)
+are read: in 2.0's pre-releases a Kraken file's preview left such a trade
+out and advised adding the bitcoin as a spend (#829). If you followed that
+advice, delete each Withdrawal (purpose Spent) you added for one, then
+preview the Kraken file again into the same exchange. And a network fee
+the AI connector or an API client sends without its currency takes the
+day's price its spend or gift was priced at, not the hour's (#649; from
+1.2.8, any tax year, cents on a real fee): if the AI connector added or
+changed such a fee, open the transaction, clear **Proceeds (USD)** (a
+gift's **FMV (USD)**) and save. Also: the AI connector's words no longer
+set three small traps (#797); deleting an account asks in BitcoinTX's own
+dialog (#651); the Mac app's icon has no white corners (#680); the
+server's and the PDFs' libraries are current, with no figure or printed
+form changed; the StartOS package uses start-sdk 3.1.1 and start-cli 2.5.2;
+and the Docker image's system CA bundle no longer holds the distrusted
+emSign ECC Root CA - G3 (#638). Updating from beta.1 changes no stored
+figure. The way back to 1.x and what's in 2.0 are in alpha.1's notes. The
+AI connector is `btctx-mcp==2.0.0b2`.
+
+### Security
+- **The Docker image's system CA bundle is refreshed** (#638, from Start9;
+  CVE-2026-91403). The image's final stage upgrades Debian's
+  `ca-certificates` to trixie's `20250419+deb13u1`, which drops the
+  distrusted emSign ECC Root CA - G3, and the build fails if the system's
+  store or certifi's still holds it. BitcoinTX's own connections never
+  used the system's store (the price sites are checked against certifi's,
+  a home Mempool only against the one root its owner trusts), so no user
+  was exposed: it's hygiene, in the image StartOS and Docker run. The Mac
+  app doesn't use the image.
+
 ### Changed
 - **Deleting an account asks in BitcoinTX's own dialog** (#651), as
   Delete All does, instead of the browser's confirm box: in Settings ›
