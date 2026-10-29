@@ -33,6 +33,31 @@ eMudhra compromise (#638). Updating from beta.1 changes no stored figure.
 The way back to 1.x and what's in 2.0 are in alpha.1's notes. The AI
 connector is `btctx-mcp==2.0.0b2`.
 
+**Help check the exchange imports.** BitcoinTX's ready-made mappings for
+Coinbase, Kraken, Strike, Swan and Cash App were built from each
+exchange's published file format and public examples; none has been
+checked against a real export yet (River's was). If you have an export
+from one of them, or from River, please try it:
+
+1. **Use a test copy only:** a new ledger in BitcoinTX Preview, or a
+   throwaway Docker volume. Never the copy that holds your records.
+2. **Settings → Import from an exchange**, choose the exchange's file,
+   **Preview**, then import it into the test copy.
+3. **Check** that every row of the file is either in the preview or named
+   in a warning, with a reason that makes sense, and that the totals match
+   the exchange's own: the bitcoin and dollar balances BitcoinTX shows for
+   that exchange against the exchange's (for a file covering all your
+   history), and the dollars your buys cost and your sales brought in.
+4. **Report anything that doesn't look right** as a
+   [Bug report](https://github.com/DigiMonk73/BTCTX-MCP/issues/new?template=bug_report.yml) whose title starts with "2.0.0-beta.2:" (the
+   pre-release form isn't offered yet, #668). **Never attach the file or
+   post real figures:** describe the row's shape with made-up numbers
+   instead (the word in its type column, which columns it fills, its
+   signs).
+
+Where each exchange keeps its export: [the download guides](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980)
+(River and Coinbase in [the next comment](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505945738)).
+
 ### Security
 - **The Docker image's system CA bundle is refreshed** (#638, from Start9,
   after the eMudhra compromise). The image's final stage upgrades Debian's

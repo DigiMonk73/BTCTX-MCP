@@ -30,6 +30,8 @@ export const current = VersionInfo.of({
 - **Underneath:** BitcoinTX's server and PDF libraries are updated (FastAPI, Starlette, ReportLab, SQLAlchemy, Alembic), with no figure or printed form changed; the package is built with start-sdk 3.1.1 and start-cli 2.5.2; and the image's system certificate store drops the roots distrusted after the eMudhra compromise, which the app's own connections never used.
 - **Reload BitcoinTX's page** in your browser to see them.
 
+**Testers wanted for the exchange imports.** If you have a CSV export from Coinbase, Kraken, Strike, Swan, Cash App or River, import it into a test copy only (a new BitcoinTX Preview ledger or a throwaway Docker volume, never your records). Check that every row is read or skipped with a sensible reason, and that the totals match the exchange's own. Report what's off as a Bug report on GitHub titled "2.0.0-beta.2: …", with made-up numbers: never the file or real figures. [Where each exchange keeps its export](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980).
+
 Updating from beta.1 changes no stored figure. StartOS won't install beta.1 or an alpha over it; the StartOS backup you made under 1.x still takes it back to 1.x (below).
 
 **Coming from 1.x**
@@ -55,6 +57,8 @@ Uninstall BitcoinTX (which deletes the beta's data, the copy above included) and
 - **Borrar una cuenta se pregunta en un diálogo propio de BitcoinTX** (Settings, Wallets, exchanges and banks), que nombra la cuenta, y la pregunta antes de que cambien las cifras de un año fiscal anterior ya no busca dos precios que su guardado nunca usa.
 - **Por dentro:** las bibliotecas del servidor y de PDF de BitcoinTX están actualizadas (FastAPI, Starlette, ReportLab, SQLAlchemy, Alembic), sin cambiar ninguna cifra ni ningún formulario impreso; el paquete se construye con start-sdk 3.1.1 y start-cli 2.5.2; y el almacén de certificados del sistema de la imagen deja fuera las raíces que perdieron la confianza tras el compromiso de eMudhra, que las conexiones propias de la aplicación nunca usaron.
 - **Vuelve a cargar la página de BitcoinTX** en tu navegador para ver los cambios.
+
+**Se buscan testers para las importaciones de exchanges.** Si tienes una exportación CSV de Coinbase, Kraken, Strike, Swan, Cash App o River, impórtala solo en una copia de prueba (un libro contable nuevo en BitcoinTX Preview o un volumen de Docker desechable, nunca tus registros). Comprueba que cada fila se lee o se omite con una razón sensata, y que los totales coinciden con los del propio exchange. Informa de lo que no cuadre con un Bug report en GitHub titulado "2.0.0-beta.2: …", con números inventados: nunca el archivo ni cifras reales. [Dónde guarda cada exchange su exportación](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980).
 
 Actualizar desde la 2.0.0-beta.1 no cambia ninguna cifra guardada. StartOS no permite instalar encima la beta.1 ni una alfa; la copia de seguridad de StartOS que hiciste con la 1.x sigue devolviéndolo a la 1.x (abajo).
 
@@ -82,6 +86,8 @@ Desinstala BitcoinTX (lo que borra los datos de la beta, incluida la copia de ar
 - **Im Hintergrund:** Die Server- und PDF-Bibliotheken von BitcoinTX sind aktualisiert (FastAPI, Starlette, ReportLab, SQLAlchemy, Alembic), ohne dass sich eine Zahl oder ein gedrucktes Formular ändert; das Paket wird mit start-sdk 3.1.1 und start-cli 2.5.2 gebaut; und der Zertifikatsspeicher des Systems im Image lässt die Wurzelzertifikate weg, denen nach der Kompromittierung von eMudhra das Vertrauen entzogen wurde und die die eigenen Verbindungen der App nie verwendet haben.
 - **Lade die Seite von BitcoinTX** in deinem Browser neu, um die Änderungen zu sehen.
 
+**Tester für die Importe der Börsen gesucht.** Wenn du einen CSV-Export von Coinbase, Kraken, Strike, Swan, Cash App oder River hast, importiere ihn nur in eine Testkopie (ein neues Journal in BitcoinTX Preview oder ein Docker-Volume zum Wegwerfen, nie deine Daten). Prüfe, dass jede Zeile gelesen oder mit einem einleuchtenden Grund übersprungen wird und dass die Summen mit denen der Börse übereinstimmen. Melde, was nicht stimmt, als Bug report auf GitHub mit dem Titel "2.0.0-beta.2: …", mit ausgedachten Zahlen: nie die Datei oder echte Zahlen. [Wo jede Börse ihren Export ablegt](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980).
+
 Das Update von 2.0.0-beta.1 ändert keine gespeicherte Zahl. StartOS installiert weder beta.1 noch eine Alpha wieder darüber; die StartOS-Sicherung, die du unter 1.x erstellt hast, bringt es weiterhin zu 1.x zurück (unten).
 
 **Wenn du von 1.x kommst**
@@ -108,6 +114,8 @@ Deinstalliere BitcoinTX (das löscht die Daten der Beta, die Kopie oben eingesch
 - **Pod spodem:** biblioteki serwera i PDF w BitcoinTX są zaktualizowane (FastAPI, Starlette, ReportLab, SQLAlchemy, Alembic), bez zmiany żadnego wyniku ani wydrukowanego formularza; pakiet jest budowany przez start-sdk 3.1.1 i start-cli 2.5.2; a systemowy magazyn certyfikatów obrazu pomija certyfikaty główne, którym odebrano zaufanie po kompromitacji eMudhra i których własne połączenia aplikacji nigdy nie używały.
 - **Odśwież stronę BitcoinTX** w przeglądarce, aby zobaczyć zmiany.
 
+**Szukamy testerów importu z giełd.** Jeśli masz eksport CSV z Coinbase, Kraken, Strike, Swan, Cash App lub River, zaimportuj go tylko do kopii testowej (nowej księgi w BitcoinTX Preview albo jednorazowego woluminu Dockera, nigdy do swoich danych). Sprawdź, czy każdy wiersz jest odczytany albo pominięty z sensownym powodem i czy sumy zgadzają się z sumami samej giełdy. Zgłoś, co się nie zgadza, jako Bug report na GitHubie z tytułem "2.0.0-beta.2: …", ze zmyślonymi liczbami: nigdy pliku ani prawdziwych kwot. [Gdzie każda giełda trzyma swój eksport](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980).
+
 Aktualizacja z 2.0.0-beta.1 nie zmienia żadnego zapisanego wyniku. StartOS nie pozwoli zainstalować z powrotem wersji beta.1 ani alfy; kopia zapasowa StartOS zrobiona w 1.x nadal przywraca 1.x (niżej).
 
 **Jeśli przechodzisz z 1.x**
@@ -133,6 +141,8 @@ Odinstaluj BitcoinTX (co usuwa dane bety, łącznie z kopią opisaną wyżej) i 
 - **Supprimer un compte se demande dans une boîte de dialogue de BitcoinTX** (Settings, Wallets, exchanges and banks) qui nomme le compte, et la question posée avant que les chiffres d’une année fiscale antérieure ne bougent ne cherche plus deux prix que son enregistrement n’utilise jamais.
 - **En coulisses :** les bibliothèques serveur et PDF de BitcoinTX sont à jour (FastAPI, Starlette, ReportLab, SQLAlchemy, Alembic), sans qu’aucun chiffre ni formulaire imprimé ne change ; le paquet est construit avec start-sdk 3.1.1 et start-cli 2.5.2 ; et le magasin de certificats du système de l’image écarte les racines retirées de la confiance après la compromission d’eMudhra, que les connexions propres de l’application n’ont jamais utilisées.
 - **Rechargez la page de BitcoinTX** dans votre navigateur pour voir ces changements.
+
+**Testeurs recherchés pour les imports des plateformes.** Si vous avez un export CSV de Coinbase, Kraken, Strike, Swan, Cash App ou River, importez-le uniquement dans une copie de test (un nouveau registre dans BitcoinTX Preview ou un volume Docker jetable, jamais vos registres). Vérifiez que chaque ligne est lue ou ignorée pour une raison sensée, et que les totaux correspondent à ceux de la plateforme. Signalez ce qui cloche par un Bug report sur GitHub intitulé "2.0.0-beta.2: …", avec des chiffres inventés : jamais le fichier ni de vrais chiffres. [Où chaque plateforme range son export](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980).
 
 La mise à jour depuis la 2.0.0-beta.1 ne change aucun chiffre enregistré. StartOS ne réinstalle ni la bêta.1 ni une alpha par-dessus ; la sauvegarde StartOS faite sous la 1.x le ramène toujours à la 1.x (ci-dessous).
 
