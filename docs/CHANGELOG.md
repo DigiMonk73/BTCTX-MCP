@@ -86,6 +86,24 @@ All notable changes to BitcoinTX are documented in this file.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
+- **The developer guides and AGENTS.md are read again against 2.0**
+  (#807, docs steps D6 and D7a). TESTING, MAINTENANCE,
+  STARTOS_COMPATIBILITY, the Mac app's developer sections and
+  `desktop/README.md`, the IRS guides, CODE_STYLE, GROK-REVIEW, the folder
+  READMEs, AGENTS.md and `startos/UPDATING.md` now describe 2.0: the
+  account book, the boxes per exchange and their switch, chosen coins,
+  the past-year question, the import from any exchange, BitcoinTX
+  Preview, the pre-releases, 2.0's migrations (merge revisions since
+  alpha.1) and its fixtures, and the copies 2.0 keeps. No document counts
+  the tests any more ("~3,200"; a test keeps counts out). The records that
+  aren't guides moved into `docs/archive/`: the v0.9.2 hardening findings,
+  the start-sdk 2.0.9 research and the 1.2.1 privacy audit; the privacy
+  checklist is re-checked for 2.0 (no new request, no new site).
+  CONTRIBUTING.md and AGENTS.md carry the owner's rules of 2026-10-29: a
+  pull request from outside is taken only for tests or documentation, read
+  line by line, its CI run only after the owner approves it; a
+  contribution verified as Start9's is looked at first, the same day, and
+  never accepted automatically. Words only: the app doesn't change.
 - **The reference test ledger fills the report's values from a price**
   (#715). A stored-price fixture (`testdata/reference_prices.json`) and
   eight rows in a fifth wallet, the Trezor, which no other row uses: a

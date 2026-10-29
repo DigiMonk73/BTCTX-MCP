@@ -7,10 +7,11 @@ and short; history belongs in `docs/CHANGELOG.md`.
 ## What this is
 
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
-(double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
-This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
-for AI-assisted entry. Work goes into `staging` by pull request; `develop`
-takes it once a day (see Branches).
+(double-entry ledger, per-wallet FIFO lots or the coins chosen in a
+wallet, IRS Form 8949 / Schedule D). This repo, **DigiMonk73/BTCTX-MCP**,
+is the project, including an MCP server for optional AI-assisted entry
+(off until the owner turns it on). Work goes into `staging` by pull
+request; `develop` takes it once a day (see Branches).
 
 | Part | Where | Notes |
 |---|---|---|
@@ -194,12 +195,13 @@ to; the release workflow still creates new ones. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
-  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's:
-  each `develop` merge re-points the first one's `down_revision` to
-  1.x's head until the first 2.0 pre-release is published, then 1.x's
-  join by Alembic merge revisions (#251, decision 3; #251 says which
-  applies now). On `develop`, 1.x numbers its migrations on from its
-  own head as always.
+  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's.
+  Until the first 2.0 pre-release (v2.0.0-alpha.1, 2026-10-24), each
+  `develop` merge re-pointed the first one's `down_revision` to 1.x's
+  head; since then their ids and parents are fixed, and a later 1.x
+  migration comes into `2.0` by an Alembic merge revision, never by
+  re-pointing (#251, decision 3). On `develop`, 1.x numbers its
+  migrations on from its own head as always.
 - **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
   `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
@@ -241,7 +243,8 @@ v0.7.0 schema). `backend/migrate.py` runs them at every start and on restored
 backups: fresh DBs are built from 0001, pre-migration DBs are repaired to the
 baseline and stamped, a copy goes to `<db dir>/backups/` before any change,
 and a schema newer than the code is refused. `database.create_tables` is an
-alias of `init_db` kept for the StartOS wrapper.
+alias of `init_db` kept for StartOS packages from before the CLI (0.8.0:1
+and older).
 
 Every update and delete, and a create dated before the latest transaction,
 runs `recalculate_all_transactions` ("scorched earth"): all ledger lines,
@@ -362,7 +365,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   Spent's had one), which is kept as its gross. With none above $0 stored
   (blank, or 1.2.8's 0, #329) it stays as it was: a $0 sale, its fee at its
   value, no gross recorded and never priced by a recalculation
-  (`_received_known`). Ledger Review lists them until the owner chooses.
+  (`transaction.received_known`). Ledger Review lists them until the owner chooses.
 - **Gift, Donation and Lost values** (#255): a blank `fmv_usd` on such a BTC
   withdrawal is filled at save from the hour's price and marked
   (`fmv_from_price`). An edit fills one it leaves blank, or a sale's $0 it
@@ -418,8 +421,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 - **River sends**: River's Sent Amount is what the destination got, its
   network fee on top (River's record gives the total as Sent + Fee, #39),
   so a Transfer's `amount` is Sent + fee. A send tagged `Withdrawal` is an
-  auto-withdrawal, to the address the owner set: a Transfer to Wallet like
-  any other send (#397). A `Mining` payout is a Reward deposit (#399).
+  auto-withdrawal, to the address the owner set: a Transfer to the
+  file's wallet (the one chosen for it, `guessed`) like any other send
+  (#397). A `Mining` payout is a Reward deposit (#399).
 - **Import duplicates** (#253, the owner's rule): the AI connector's and the
   River import's check (`river_import.annotate_duplicates`; every
   exchange's file is read into River's rows and checked as River's, B5b)
@@ -653,14 +657,14 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
 | `backend/services/reports/draft_forms.py` | next year's IRS draft forms: the shipped preview (`assets/irs_templates/drafts/`, until January 1 after its year) and a test install's (`<data dir>/irs-draft-forms/`, `cli install-draft-forms`) |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
-| `backend/services/reports/complete_tax_report.py`, `pdf_layout.py`, `frontend/src/utils/disclaimer.ts` | Complete Tax Report PDF (section 6 "Using these forms", the rebates table); the one disclaimer and one-wallet wording (`test_disclaimer.py` keeps them the same) |
+| `backend/services/reports/complete_tax_report.py`, `pdf_layout.py`, `frontend/src/utils/disclaimer.ts` | Complete Tax Report PDF (section 6 "Using these forms", the rebates table); the one disclaimer and the notice to add each wallet and exchange (`DISCLAIMER`, `ACCOUNTS_NOTICE`; `test_disclaimer.py` keeps them the same as the README's) |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
 | `backend/unexpected_errors.py` | an error nobody expected: a fixed sentence in the answer, its type in the log, its trace at DEBUG (`log_unexpected`, `UnexpectedErrorMiddleware`) |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing, no-store on the API; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing, no-store on the API; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1, localhost or [::1] |
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
@@ -829,7 +833,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   409 (`ai_key.from_an_old_connector`, #354): its guide put a second
   wallet's coins in Wallet. Its reads go on. Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
-  export, file imports (CSV, River), delete-all, Ledger Review fixes,
+  export, file imports (CSV, River, any exchange's), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
   debug.
 - Before the AI key's first change in an hour (an edit, a deletion,
@@ -871,11 +875,12 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   reads and parses a body before the login check, login and Create account
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
   chunked body passes it; once the answer has started (a file being sent
-  reads the body to see the client leave, Starlette 1.8), the rest is
+  reads the body to see the client leave, from Starlette 1.8), the rest is
   thrown away instead and the answer completes (`body_limit._Counted`).
   A route taking a file is listed in `main.py` with its own file limit
-  (plus room for the form) and keeps checking the file itself: the CSV
-  and River files 5 MB, read at most to the limit and one byte; the
+  (plus room for the form) and keeps checking the file itself: the CSV,
+  River and other exchanges' files 5 MB, read at most to the limit and
+  one byte; the
   restore 1 GiB, copied in 1 MiB pieces until past it. That larger
   allowance is for a logged-in owner's file: only a request whose
   session cookie is validly signed, unexpired, holds a `user_id` and names
@@ -1340,7 +1345,7 @@ one session. Claude suggests this setup when a request is that big.
     matter most, the job, and what it waits for;
   - on the umbrella, an index of the prompts: the order, and what each
     session waits for.
-- **Starting one:** the desktop app's one-click card (`spawn_task`), or
+- **Starting one:** the desktop app's one-click card (`start_session`), or
   the kickoff prompt pasted into a new session. Each title starts with
   its number ("6 · Build hourly prices (#144)").
 - **Every session starts from `staging`** (`2.0` during the 2.0 build:

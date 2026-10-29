@@ -9,7 +9,7 @@
 | Part | Where | Produces |
 |------|-------|----------|
 | App | `backend/`, `frontend/`, `Dockerfile` | image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (amd64 + arm64) |
-| macOS app | `desktop/` | `BitcoinTX-macOS.dmg` / `.zip` |
+| macOS app | `desktop/` | `BitcoinTX-macOS.dmg` / `.zip` (a 2.0 pre-release's: `BitcoinTX-Preview-macOS.dmg` / `.zip`) |
 | StartOS package | `startos/` (start-sdk 3.1.1, StartOS 0.4.0.2 or later) | `btctx.s9pk`, which runs the image above |
 
 All three carry the version in `VERSION` (checked by
@@ -80,7 +80,8 @@ copy of the drop to `btctx`.
   │                        the default login (mode 600; deleted once claimed;
   │                        never on StartOS, whose login is set before the first start)
   ├── btc-prices/          the hourly BTC price history, one YYYY.csv per year
-  │                        (about 3 MB), downloaded from Bitstamp once (at start,
+  │                        (a few MB, a little more each year), downloaded
+  │                        from Bitstamp once (at start,
   │                        when the choice is saved, or when a value needs a year
   │                        not yet here), if the choice allows public
   │                        price sites (public sites, or a mempool server with its
@@ -102,7 +103,8 @@ On every start the app migrates `btctx.db` to the current schema
 `/data/backups/` first when there is anything to change. An update is
 therefore: pull the new image, restart. A newer database than the image
 understands (after a downgrade) is refused with a clear error rather than
-opened.
+opened: going back from 2.0 to 1.x restores the `pre-2.0` copy instead
+(README, "Going back to 1.x").
 
 ## Data persistence
 
@@ -120,7 +122,7 @@ reads `DATABASE_FILE`; a relative path is resolved against the repo root.
 | Local development | `backend/bitcoin_tracker.db` | Default in code (or `.env`) |
 | Docker (standalone) | `/data/btctx.db` | Image default (`ENV` in `Dockerfile`) |
 | StartOS | `/data/btctx.db` | Image default; the wrapper also sets the same value |
-| macOS app | `~/Library/Application Support/BitcoinTX/btctx.db` | `desktop/entrypoint.py` |
+| macOS app | `~/Library/Application Support/BitcoinTX/btctx.db` (BitcoinTX Preview: `…/BitcoinTX Preview/btctx.db`, never BitcoinTX's folder) | `desktop/desktop_paths.py` (`data_dir`), or `BTCTX_DESKTOP_DATA_DIR` for a test run; `desktop/entrypoint.py` sets `DATABASE_FILE` from it |
 
 An `-e DATABASE_FILE=...` at run time still overrides the image default; its
 folder must then be a volume or a mounted folder itself (not a subfolder of
@@ -150,13 +152,14 @@ configured.
 3. Temporary files (report generation, uploads) use `tempfile`, not paths
    under `/app`.
 4. Test path/storage changes in Docker, not just local dev.
-5. Settings (tax timezone, Privacy & Network, AI key state), the daily
-   price history and the hours priced from a source are rows in the
-   database (`app_settings`, `btc_price_daily`, `btc_price_hourly`), not
-   files. The exceptions: the price settings below, which the server may
-   set instead, and the hourly price history's year files (`btc-prices/`,
-   above): re-downloadable, so not in the app's own backup (StartOS's backup
-   of the volume holds them).
+5. Settings (tax timezone, Privacy & Network, AI key state, the exchange
+   import's saved mappings, `import_mappings`), the accounts (`accounts`,
+   `exchanges`), the daily price history and the hours priced from a
+   source are rows in the database (`app_settings`, `btc_price_daily`,
+   `btc_price_hourly`), not files. The exceptions: the price settings
+   below, which the server may set instead, and the hourly price
+   history's year files (`btc-prices/`, above): re-downloadable, so not in
+   the app's own backup (StartOS's backup of the volume holds them).
 6. A test install may also hold the IRS's draft forms, in
    `irs-draft-forms/` (docs/IRS_FORM_GENERATION.md, "Draft forms: the
    preview, and test installs"); a normal install never has that folder.
@@ -263,8 +266,11 @@ Change these only together with the package (`startos/`):
   (Delete All, or Create account on a ledger with transactions:
   `btctx-before-delete-all-…`), and of the AI copies (asked for, or made
   before the AI key's first change in an hour) the newest 3, plus for a
-  week the oldest and each day's first before a change (at most 11), are
-  kept in `/data/backups/`.
+  week the oldest and each day's first before a change (at most 11), and
+  the newest 5 `pre-change` copies (before a past-year change the owner
+  confirmed), plus for a week each day's first, are kept in
+  `/data/backups/`. The `pre-2.0` copy of a 1.x database is never removed:
+  it is the way back to 1.x.
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
@@ -273,7 +279,11 @@ Change these only together with the package (`startos/`):
 `.github/workflows/image.yml` publishes `ghcr.io/digimonk73/btctx-mcp`
 (amd64 + arm64) on every push to `main`: `:v<VERSION>` and `:latest` the first
 time a VERSION is seen (version tags are never overwritten; a fix is a new
-patch version), plus `:main` and `:sha-<sha>`. The StartOS package (mirrored
+patch version), plus `:main` and `:sha-<sha>`; `release.yml` runs it for a
+release too. A 2.0 pre-release (`release.yml`, from
+`prerelease/vX.Y.Z-alpha.N` or `-beta.N`, `scripts/image-tags.sh`) gets
+only its own tag, `:vX.Y.Z-alpha.N` or `-beta.N`: never `:latest` or
+`:main`. The StartOS package (mirrored
 to DigiMonk73/BTCTX-StartOS) pins `:v<VERSION>` in
 `startos/startos/manifest/index.ts`.
 
@@ -299,8 +309,11 @@ docker run -d --name btctx-test -p 127.0.0.1:8080:80 -v btctx-test-data:/data bt
 docker exec btctx-test ls -la /data/          # every file btctx's
 docker exec btctx-test python -c "from backend.services.backup import DB_PATH; print(DB_PATH)"
 
-# End-to-end against the EMPTY test container (it creates transactions)
-python scripts/smoke_test.py --url http://127.0.0.1:8080
+# End-to-end against the EMPTY test container (it creates transactions),
+# claiming its default login with the first-run setup code, as CI does
+CODE=$(docker exec btctx-test cat /data/setup-code.txt)
+python scripts/smoke_test.py --url http://127.0.0.1:8080 \
+  --user me --password <12 characters or more> --setup-code "$CODE"
 
 # Persistence: data (and your login) survive a restart
 docker restart btctx-test
@@ -317,7 +330,7 @@ session):
 
 ```bash
 curl -c jar -H 'content-type: application/json' \
-  -d '{"username":"admin","password":"..."}' http://localhost:8080/api/login
+  -d '{"username":"me","password":"..."}' http://localhost:8080/api/login
 curl -b jar -X POST -F password=backup-pass-123 http://localhost:8080/api/backup/download -o backup.btx
 curl -b jar -X POST -F password=backup-pass-123 -F file=@backup.btx http://localhost:8080/api/backup/restore
 ```
