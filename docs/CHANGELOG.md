@@ -24,10 +24,11 @@ All notable changes to BitcoinTX are documented in this file.
   A note names each such trade. Nothing already in a ledger changes: it
   moves only what a Kraken file's preview proposes. **Affected:** 2.0's
   pre-releases, Kraken ledger files with trades paid with fee credits.
-  **What to do:** if you imported such a file and followed that warning,
-  delete each Withdrawal (purpose Spent) you added for such a trade. Then
-  preview the same file again into the same exchange: those trades are
-  now read, and what you imported before shows as already in the ledger.
+  **What to do:** if you imported such a file, preview it again into the
+  same exchange: those trades are now read (they were missing), and what
+  you imported before shows as already in the ledger. If you followed that
+  warning, first delete each Withdrawal (purpose Spent) you added for such
+  a trade.
 - **A network fee the AI connector or an API client sends without its
   currency takes the same price as the rest of its transaction** (#649,
   tax figures). A Spent bitcoin withdrawal's proceeds and its network

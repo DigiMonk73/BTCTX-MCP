@@ -71,7 +71,7 @@ def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
             continue
         if event is not None:
             read.rows.append(event)
-            if any(_fee_credits(line) for line in lines):
+            if event.kind in (BUY, SELL) and any(_fee_credits(line) for line in lines):
                 paid_in_credits.append(event.row_number)
     read.rows.sort(key=lambda r: r.row_number)
     read.warnings.extend(left_out.warnings())
@@ -94,11 +94,11 @@ def _fee_credits(line: Cells) -> bool:
 
 def _paid_in_credits(numbers: list[int]) -> CSVParseError:
     """The note naming the trades Kraken's fee credits paid a fee of (all of
-    it, or what the dollars didn't): no dollars of the owner's, so only a
-    fee in dollars is counted, and a buy's cost is the dollars paid."""
+    it, or what the rest of the fee didn't): no money of the owner's, so the
+    credits count as no fee, and a buy's cost is what it paid."""
     return CSVParseError(row_number=0, column=None, severity="warning",
-                         message=f"{rows_said(numbers)} paid a fee with Kraken fee credits (KFEE): they aren't "
-                                 "dollars, so only a fee paid in dollars is counted.")
+                         message=f"{rows_said(numbers)} paid a fee with Kraken fee credits (KFEE), which aren't your "
+                                 "money: the credits count as no fee.")
 
 
 def _under_the_header(lines: list[Cells], header, read, left_out: LeftOut) -> list[Cells]:
