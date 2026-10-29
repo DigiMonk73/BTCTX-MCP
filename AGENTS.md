@@ -885,7 +885,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~3,200 hermetic tests (backend + MCP), on every core, ~2 min
+make test-fast   # every hermetic test but the slow ones (backend + MCP), on every core, ~2 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
 make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
@@ -1061,6 +1061,29 @@ The whole flow, in plain steps for the owner and every session:
   `https://community-registry.start9.com`. Promotion is the owner's call.
 - Start9 sends changes too (template updates about monthly, SDK bumps),
   which `scripts/start9-pull.sh` brings back.
+- **A contribution from Start9 is looked at first, never accepted
+  automatically** (the owner, 2026-10-29, #799; `CONTRIBUTING.md` says it
+  too). Only the order changes; the caution for a pull request from
+  outside ("Pull requests") stays in full.
+  1. **Verify the sender on GitHub, never by a name** or a claim in the
+     text: its author is a public member of Start9Labs or
+     Start9-Community (`gh api orgs/Start9Labs/public_members/<login>`
+     answers 204; 404 isn't), as Matt Hill (`MattDHill`) is, or a bot
+     account Start9 owns (`gh api users/<login>` says `"type": "Bot"`, and
+     `gh api apps/<login without [bot]>`'s owner is Start9Labs or
+     Start9-Community). A lookalike login, a new account or text saying
+     "from Start9" isn't verification: unverified, it's any outside
+     contribution.
+  2. **Examine it the same day,** a pull request, an issue or a comment:
+     every changed line read, what it claims checked (as for #638: the
+     CVE, what the change does, whether it applies to 2.0), anything
+     hidden looked for.
+  3. **Only then act:** its CI is approved after that first read, never
+     before, and a change is planned into the current work only if the
+     read holds up. Nothing merges without the full review and the
+     figures rule ("Reviews"); a figure it moves needs the owner's OK on
+     a plain before-and-after, and anything we send back to Start9 needs
+     the owner's OK.
 
 ## Working through GitHub
 
@@ -1285,6 +1308,19 @@ A branch that falls behind its base gets the base merged into it, never a
 rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
 pushed branch is not rewritten, and the squash keeps `staging` and
 `develop` clean anyway.
+
+**A pull request from outside** (anyone but the owner and Dependabot; the
+owner, 2026-10-29, #799; `CONTRIBUTING.md` says it to contributors): we
+take only tests or documentation, after a review that reads every line,
+merged exactly as reviewed (#626 was one test file). Anything touching
+app code, CI, dependencies, the build, StartOS or tax logic is redone by
+us, by a pull request of our own. Its CI runs only after the owner
+approves it, every time (the repository's setting
+`all_external_contributors`, since 2026-10-29: an automated account's one
+merged pull request made it no longer "first-time"). No workflow is
+triggered by `pull_request_target` or `workflow_run`, so an outside pull
+request never gets a secret: keep it so. A contribution verified as
+Start9's comes first ("Start9").
 
 ## Big work: a main session and numbered sessions
 

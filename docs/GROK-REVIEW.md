@@ -6,7 +6,7 @@ at live in `AGENTS.md` ("Who does what," "Reviews," "Bugs and security,"
 "Tax invariants," "Releasing"). It restates no rule in full: each area
 names what to check against them.
 
-`docs/HARDENING_FINDINGS.md` is a record of past findings, not this
+`docs/archive/HARDENING_FINDINGS.md` is a record of past findings, not this
 routine. `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it, is the checklist for area 3.
 
 ## Who does what

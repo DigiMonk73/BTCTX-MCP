@@ -34,9 +34,11 @@ Use the **Feature request** form: the problem first, then your idea.
   `develop` takes `staging` once a day, after the whole suite has run on
   everything together; `main` holds released code only.
 - CI runs the full test suite, the frontend's tests, the StartOS checks
-  and a dependency audit on your pull request, and the click-through
-  tests and the Docker and StartOS builds once it's in `staging`. A pull
-  request merges only once its checks pass, and after a review.
+  and a dependency audit on your pull request (once the maintainer has
+  approved it: "Pull requests from outside", below), and the
+  click-through tests and the Docker and StartOS builds once it's in
+  `staging`. A pull request merges only once its checks pass, and after a
+  review.
 - A bug fix comes with a test that fails without the fix.
 - A change to tax figures, the database, the StartOS package or a release
   needs the maintainer's approval, and a before-and-after comparison of
@@ -53,6 +55,26 @@ Before writing code, read:
   process;
 - for the StartOS package, [startos/AGENTS.md](startos/AGENTS.md):
   it follows [Start9's packaging guide](https://docs.start9.com/packaging).
+
+## Pull requests from outside
+
+BitcoinTX's figures go on tax returns and its code runs on people's own
+servers, so a pull request from outside the project is handled with care:
+
+- **We take only tests or documentation from outside,** after reading
+  every line, and merge them exactly as reviewed.
+- **For anything else** (the app's code, CI, dependencies, the build, the
+  StartOS package or the tax logic), we write the change ourselves, from
+  your pull request's idea. A bug report or an idea is just as welcome.
+- **CI runs on a pull request from outside only after the maintainer
+  approves it,** each time: GitHub holds its checks until then.
+- **A contribution from Start9 is looked at first, the same day, but never
+  accepted automatically.** It counts as Start9's only when GitHub shows
+  it, never by a name or a claim in its text: its author is a public
+  member of the Start9Labs or Start9-Community organization, or a bot
+  account that one of them owns. Every line is read and every claim
+  checked before its CI is approved, and it then gets the same review as
+  any change.
 
 ## How BitcoinTX is developed
 
