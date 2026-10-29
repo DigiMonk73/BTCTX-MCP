@@ -1,7 +1,8 @@
 # StartOS packaging research: BitcoinTX vs current Start9 packages
 
-> Historical (2026-09-23, start-sdk 2.0.9): the package now uses start-sdk
-> 3.0.6; what this survey calls current describes Start9's packages then.
+> Historical (2026-09-23, start-sdk 2.0.9): the package has moved to newer
+> SDKs since (`docs/STARTOS_COMPATIBILITY.md` names the one it uses); what
+> this survey calls current describes Start9's packages then.
 
 Date: 2026-09-23. Read-only research. Clones live in `/tmp/claude-0/pkgs/` (plus `/tmp/claude-0/hello`, `/tmp/claude-0/reg`).
 Our wrapper: `/home/user/btctx-startos` (start-sdk 2.0.9, HEAD `325492e`).

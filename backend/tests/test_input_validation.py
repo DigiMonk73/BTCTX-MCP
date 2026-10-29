@@ -1,6 +1,6 @@
 """
 Input the ledger would record wrongly is rejected with a clear message
-(hardening findings F12, F16, F27-F29, F33-F35, F39; docs/HARDENING_FINDINGS.md).
+(hardening findings F12, F16, F27-F29, F33-F35, F39; docs/archive/HARDENING_FINDINGS.md).
 Each case here was accepted before, or failed with a 500.
 """
 

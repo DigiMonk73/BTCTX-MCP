@@ -45,8 +45,8 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
      (d)–(h), below the last row (by their position on the page).
    - checks that the checkbox letters printed on each Part, in order, match
      `boxes_part1` / `boxes_part2`.
-   - prints how many 8949 field names were added or removed compared with the
-     previous bundled year.
+   - prints how many field names of each form were added or removed
+     compared with the previous bundled year.
    - if every check passes, installs the PDFs to
      `backend/assets/irs_templates/YYYY/` and runs
      `backend/tests/test_irs_templates.py -k YYYY`.
@@ -253,17 +253,21 @@ lost) is the one that matters.
 
 ## When the 1099-DA box rules need updating
 
-Box selection lives in `_broker_reporting()` and `_determine_box()` in
-`form_8949.py`, and `backend/tests/test_1099da_boxes.py` tests it. Current
-rules:
+Box selection lives in `disposal_box()` in `form_8949.py`:
+`_broker_reporting()` (with `_on_a_1099da()`, the exchange's switch, and
+`covered_lot()`) and `_determine_box()`. `backend/tests/test_1099da_boxes.py`
+and `test_1099da_boxes_349.py` (per exchange) test it. Current rules:
 
 - Through 2024: C / F.
-- 2025+: exchange Sells (proceeds reported on Form 1099-DA, no basis) → H / K.
-- 2026+: Sells of lots bought on the exchange on or after 2026-01-01 and never
-  transferred out ("covered", `COVERED_DIGITAL_ASSET_START`) → G / J. Lots
-  transferred in from elsewhere stay H / K.
-- Self-custody spends and network-fee disposals (no 1099) → I / L. A
-  spend's `broker_reporting` places its fee disposals too (#549).
+- 2025+: Sells on an exchange whose "This exchange sends me a Form 1099-DA"
+  is on (proceeds reported on Form 1099-DA, no basis) → H / K.
+- 2026+: Sells of lots bought on that same exchange (a Buy into the account
+  sold from) on or after 2026-01-01 and never transferred out ("covered",
+  `COVERED_DIGITAL_ASSET_START`) → G / J. Lots transferred in from
+  elsewhere, another exchange included, stay H / K.
+- Spends, network-fee disposals and Sells on an exchange whose switch is
+  off (no 1099) → I / L. A spend's `broker_reporting` places its fee
+  disposals too (#549).
 
 These rules only change when the form or the rules change, not every year.
 Revisit them if any of these happens:
@@ -274,6 +278,11 @@ Revisit them if any of these happens:
 - the 1099-DA you receive doesn't match what the app produced. For one or a
   few sales, set the transaction's "Broker form" (`broker_reporting`); for a
   systematic difference, change `_broker_reporting()`.
+
+A rule change also changes `scripts/independent_figures.py`, which works
+out the boxes on its own from the rules (its `test_independent_figures*.py`
+fail on any difference), and it moves figures on purpose: the owner
+approves a plain before-and-after first (AGENTS.md, "Reviews").
 
 ---
 
