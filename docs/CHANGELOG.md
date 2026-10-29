@@ -9,7 +9,10 @@ All notable changes to BitcoinTX are documented in this file.
   today, and two of its reasons for leaving a row out are now true of the
   row** (#813, checked against public sources on 2026-10-29; no figure
   changes: the same rows are read and left out). Each ready-made
-  mapping's hint follows its exchange's menus as they are now: Kraken's
+  mapping's hint follows its exchange's menus as they are now: River's
+  Bitcoin activity file (Documents → Statements → Custom; not Account
+  activity, whose buys and sales BitcoinTX skips), Coinbase's statement
+  of all transactions (Accounts → Statements → Transactions), Kraken's
   ledger export from your first day, with all assets, types and fields (a
   ledger filtered to bitcoin loses its trades' dollars), each past year's
   Strike statement and this year's months (never a year and its own
