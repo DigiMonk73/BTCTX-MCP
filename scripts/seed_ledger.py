@@ -409,6 +409,8 @@ def check_test_database(path: Path) -> bool:
                 raise SeedError(f"{path} isn't a BitcoinTX database.")
             stored = Counter((kind, datetime.fromisoformat(moment[:19])) for kind, moment
                              in con.execute("SELECT type, timestamp FROM transactions"))
+    except sqlite3.OperationalError:
+        raise  # "database is locked": the command says so, in SQLite's words
     except sqlite3.DatabaseError:
         raise SeedError(f"{path} isn't a BitcoinTX database.") from None
     if not stored:
