@@ -1,7 +1,7 @@
 # Hardening, then a visual polish: plan
 
 > Archived: all phases shipped in v0.9.2 and v1.0.0 (see `docs/CHANGELOG.md`).
-> Findings and their fixes: `docs/HARDENING_FINDINGS.md`.
+> Findings and their fixes: `docs/archive/HARDENING_FINDINGS.md`.
 
 Written 2026-09-25 at the end of the v0.9.1 session, for the sessions that carry
 it out. Read `CLAUDE.md` first; this file assumes it.
@@ -101,7 +101,7 @@ so the later polish can prove it changed nothing.
 ## Phase 2: the bug hunt
 
 Sweep by pattern, then by invariant. Record every finding in
-`docs/HARDENING_FINDINGS.md` (what, where, evidence, verdict, fix/test commit,
+`docs/archive/HARDENING_FINDINGS.md` (what, where, evidence, verdict, fix/test commit,
 or "deferred, owner OK").
 
 1. **Dates and timezones.** Rule: stored in UTC; tax dates, year bounds and

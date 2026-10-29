@@ -96,8 +96,10 @@ it changes only by pull request:
   backend takes a capped range too (`setuptools>=77,<85`); the release
   builds with the locked setuptools, which must stay inside it.
 
-The CI runtimes (`python-version: "3.13"`, `node-version: 24`) and GitHub's
-runner images follow their release line. Dependabot proposes the updates
+The CI runtimes and GitHub's runner images follow their release line: the
+Python tests run on 3.11 (the oldest supported, from source and the AI
+connector) and 3.13 (Docker, StartOS and the Mac app), both in "CI
+passed", and the other jobs on 3.13 and `node-version: 24`. Dependabot proposes the updates
 (below). The Mac build uses the `pip` its venv comes with and installs no
 `wheel`; proxy-tools (under pywebview), published only as source, is built
 with the locked setuptools (`--no-build-isolation`), since pip doesn't check
@@ -154,7 +156,10 @@ a new build (Python 3.13 and Node 24 themselves change only on purpose).
 CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
 merge into `staging` (`develop` takes them with the daily merge,
-AGENTS.md, "Branches"). Nothing reaches `main` before a release.
+AGENTS.md, "Branches"). While 2.0 is built on `2.0`, they reach it only
+with `develop` (`make catch-up-2.0`, or the lead's `develop` merge), never
+by a pull request of their own into `2.0`. Nothing reaches `main` before a
+release.
 
 - GitHub reads the file from the default branch (`main`): an edit takes
   effect once `main` is fast-forwarded to `develop`.
@@ -259,41 +264,43 @@ which is what the Docker image installs.
 
 ## Current versions and risk
 
-From `backend/requirements.in`:
+What each package is pinned to is in `backend/requirements.in` (the test
+tools: `requirements-dev.txt`), which Dependabot moves; this table says
+what to watch when it does.
 
-| Package | Pinned | Risk | Notes |
-|---------|--------|------|-------|
-| `fastapi` | 0.143.5 | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
-| `starlette` | 1.8.0 | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event`. From 1.8 it needs Python ≥ 3.11 (#546). After an update, read its middleware, session, `StaticFiles`, `FileResponse` and request-body changes against AGENTS.md's "Security rules" |
-| `pydantic` | 2.14.1 | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
-| `uvicorn` | 0.54.0 | Caution | Check starlette compatibility |
-| `sqlalchemy` | 2.0.54 | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
-| `httpx` | 0.28.1 | Caution | All outside requests, only through `services/outbound.py`, which reads each answer as a stream under a deadline and a size limit (`BoundedClient`: run `test_request_limits.py` after an update); also used by the MCP server |
-| `socksio` | 1.0.0 | Low | SOCKS proxy for httpx (Settings → Privacy & Network, e.g. Tor) |
-| `alembic` | 1.20.0 | Caution | Runs at every start (`backend/migrate.py`); after an update run `test_migrations.py` |
-| `requests` | 2.34.2 | Low | |
-| `python-multipart` | 0.0.32 | Caution | "Patch" releases add hardening limits (header count, boundary size) |
-| `bcrypt` | 5.0.0 | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
-| `cryptography` | 50.0.2 | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
-| `itsdangerous` | 2.2.0 | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
-| `python-dotenv` | 1.2.4 | Low | Only `load_dotenv` is used |
-| `python-dateutil` | 2.9.0.post0 | Low | |
-| `tzdata` | 2026.5 | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
-| `pypdf` | 6.21.2 | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
-| `reportlab` | 5.0.1 | High | Complete Tax Report and transaction history PDFs. 5.0.1 was taken after the before-and-after comparison showed both reports the same, object for object, but for the time they were made (#585; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
-| `pytest` | 9.1.1 | Low | Test only (`requirements-dev.txt`) |
-| `hypothesis` | 6.168.5 | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
+| Package | Risk | Notes |
+|---------|------|-------|
+| `fastapi` | Caution | Update together with starlette and pydantic; stay inside fastapi's declared ranges. fastapi ≥ 0.130 requires Python ≥ 3.10 |
+| `starlette` | Caution | Pinned explicitly. The app uses `lifespan`, not `on_event`. From 1.8 it needs Python ≥ 3.11 (#546). After an update, read its middleware, session, `StaticFiles`, `FileResponse` and request-body changes against AGENTS.md's "Security rules" |
+| `pydantic` | Caution | V2-style code throughout (`ConfigDict`, `field_validator`) |
+| `uvicorn` | Caution | Check starlette compatibility |
+| `sqlalchemy` | Caution | 2.0-style code; watch for deprecation removals. After updating, the FIFO/lot tests are the ones that matter |
+| `httpx` | Caution | All outside requests, only through `services/outbound.py`, which reads each answer as a stream under a deadline and a size limit (`BoundedClient`: run `test_request_limits.py` after an update); also used by the MCP server |
+| `socksio` | Low | SOCKS proxy for httpx (Settings → Privacy & Network, e.g. Tor) |
+| `alembic` | Caution | Runs at every start (`backend/migrate.py`); after an update run `test_migrations.py` |
+| `requests` | Low | |
+| `python-multipart` | Caution | "Patch" releases add hardening limits (header count, boundary size) |
+| `bcrypt` | Caution | 5.x raises on passwords > 72 bytes; `User.set_password()` rejects them first (`test_password_migration.py`) |
+| `cryptography` | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
+| `itsdangerous` | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
+| `python-dotenv` | Low | Only `load_dotenv` is used |
+| `python-dateutil` | Low | |
+| `tzdata` | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
+| `pypdf` | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
+| `reportlab` | High | Complete Tax Report and transaction history PDFs. Each version is taken after the before-and-after comparison shows both reports the same, object for object, but for the time they were made (5.0.1's: #585; 5.1.0's: #760; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
+| `pytest` | Low | Test only (`requirements-dev.txt`) |
+| `hypothesis` | Low | Test only: property tests. Newer versions need Python 3.11, the minimum since #546: Dependabot proposes them |
 
 Frontend (from `frontend/package.json`): React 19, Vite 8 (its build target
 pinned to Safari 15 in `frontend/vite.config.ts`, for the Mac app's WebKit:
 Vite 8's own default is Safari 16.4), TypeScript 5.9,
 ESLint 10 (with eslint-plugin-react-hooks 7, one of whose React Compiler checks
-`frontend/eslint.config.js` turns off, saying why), axios 1.20, lucide-react;
+`frontend/eslint.config.js` turns off, saying why), axios 1, lucide-react;
 dev only, Testing Library and jsdom, for the tests that mount the
 transaction form (`src/test/renderForm.tsx`, #351).
 Docker frontend build and CI use Node 24.
-`@playwright/test` is pinned exactly (1.64.1 since 2026-10-21, for Ubuntu
-26.04, which Playwright supports from 1.61) and bumped only on purpose,
+`@playwright/test` is pinned exactly in `frontend/package.json` (1.61 or
+later, for Ubuntu 26.04) and bumped only on purpose,
 never by Dependabot: a bump runs `npx tsc -b`, `npx tsc -p e2e` (the specs,
 which `tsc -b` leaves out), `npm run lint`, `npm test`
 and both click-through suites (`npx playwright test --project=chicago
@@ -352,7 +359,8 @@ more for restores.
 
 **Rules**
 
-- Never edit a migration that has been released; add a new one.
+- Never edit a migration that has been released, or published in a 2.0
+  pre-release; add a new one.
 - Migrations must not import from `backend/models` (models keep changing; a
   migration is a frozen snapshot). Use `sa.` types and plain SQL.
 - Upgrades must preserve data. `downgrade()` is best effort and not run by
@@ -378,13 +386,14 @@ more for restores.
   way back to 1.x (the README's "Going back to 1.x"; a failed upgrade,
   which changes nothing, removes its own). `test_migrations.py` pins the marker and the chain.
 - They always come after 1.x's. Until the first pre-release,
-  `v2.0.0-beta.1`, is published, a `develop` merge into `2.0` that brings a
-  1.x migration re-points `0100`'s `down_revision` to 1.x's new head (no
-  file renamed, the marker unmoved). After it (anyone may have installed
-  2.0 then), the 1.x migration stays as it is and an Alembic merge revision
-  (`alembic merge`) joins it to 2.0's head; a 2.0 database then upgrades
-  through the 1.x migration too, which must run on 2.0's schema. #251 says
-  which applies now.
+  `v2.0.0-alpha.1`, was published (2026-10-24), a `develop` merge into
+  `2.0` that brought a 1.x migration re-pointed `0100`'s `down_revision` to
+  1.x's new head (no file renamed, the marker unmoved). Since then (anyone
+  may have a 2.0 database), a 1.x migration a `develop` merge brings stays
+  as it is and an Alembic merge revision (`alembic merge`) joins it to
+  2.0's head; a 2.0 database then upgrades through the 1.x migration too,
+  which must run on 2.0's schema. `make catch-up-2.0` stops for the build's
+  lead at any 1.x migration (`scripts/catch-up-2.0.sh`).
 
 ## Deprecations
 

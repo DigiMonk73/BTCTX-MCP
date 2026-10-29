@@ -38,18 +38,20 @@ from the release page. A 2.0 pre-release's file is
 BitcoinTX.app
    └─ desktop/entrypoint.py
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
-        │    (or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
+        │    (BitcoinTX Preview: its own BitcoinTX Preview folder, never BitcoinTX's;
+        │    or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
-        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward
+        ├─ if a BitcoinTX already answers /api/health on 8765 (BitcoinTX Preview:
+        │    8767): brings it forward
         │    (a test run only says so), exits
-        ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
+        ├─ binds 127.0.0.1:8765 or 8767 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
         ├─ starts Uvicorn (backend.main:app) on that socket in a daemon thread
         ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
         └─ opens a pywebview (WebKit) window on that URL
 ```
 
-- **Port:** fixed at `127.0.0.1:8765` so external clients (e.g. the MCP
-  server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
+- **Port:** fixed at `127.0.0.1:8765` (BitcoinTX Preview's: 8767) so
+  external clients (e.g. the MCP server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
   variable. The listening socket itself is bound (with `SO_REUSEADDR`, like
   Uvicorn) and passed to Uvicorn, so connections left in TIME_WAIT by the
   previous run don't block it (the v0.9.1 bug: a probe without
@@ -173,8 +175,8 @@ build on a Mac where BitcoinTX is installed, run it only through
 
 ## Building
 
-Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (Vite 8 needs it;
-CI builds with Node 24).
+Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (the frontend's
+build tools need it; CI builds with Node 24).
 
 ```bash
 ./desktop/build-mac.sh
@@ -211,7 +213,7 @@ the installed app out). Run it with the script instead, for every launch:
 ```bash
 desktop/run-test-build.sh                    # the one app in desktop/dist
 desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
-desktop/run-test-build.sh --fresh            # start again from an empty folder
+desktop/run-test-build.sh --fresh            # start again with an empty ledger (the price history stays)
 desktop/run-test-build.sh --background       # detached (for an agent's shell)
 ```
 
@@ -236,15 +238,16 @@ too.
   prints the folder) is in **the MCP server's own environment**: the MCP
   Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
   not reach the server: the Inspector passes it only through `-e`.
-- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run:
+- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run
+  ("BitcoinTX Preview Test" for a 2.0 pre-release):
   the window title and its messages (a second launch, a busy port) say
   so. The menu bar, the Dock and the page inside the window still say
   BitcoinTX (the first two come from the bundle), and an older build run
   with `--app` says BitcoinTX everywhere. Whatever a message says during a
   test run, act only on the test copy, and leave the installed app alone.
 - **A second launch** on the same port says "BitcoinTX Test is already
-  open" but doesn't bring a window forward: AppleScript would find the
-  installed app by name.
+  open" but doesn't bring a window forward: AppleScript finds the app by
+  its bundle id, which a test build shares with the installed app.
 
 ### Manual build
 
@@ -253,6 +256,7 @@ cd desktop
 python3 -m venv .venv && source .venv/bin/activate
 # then run step 2 of build-mac.sh (the setuptools extraction and the two installs)
 (cd ../frontend && npm ci && npm run build)
+rm -rf dist   # as build-mac.sh does: run-test-build.sh wants one app there
 pyinstaller --clean --noconfirm BitcoinTX.spec
 ```
 
@@ -283,10 +287,12 @@ nothing.
   **When you add a backend module or a dependency, add it here** or the bundled
   app may fail at import time even though dev runs work.
 - **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
-- **Bundle:** `org.bitcointx.desktop`, its version typed into
-  `BitcoinTX.spec` (`CFBundleVersion` / `CFBundleShortVersionString`; bump
-  both on release; `backend/tests/test_versions_agree.py` checks they match
-  `VERSION`), minimum macOS 11.0,
+- **Bundle:** `org.bitcointx.desktop` (BitcoinTX Preview's:
+  `org.bitcointx.desktop.preview`; the name, id and icon come from
+  `desktop/desktop_paths.py`), its version typed into `BitcoinTX.spec`
+  (`CFBundleVersion` / `CFBundleShortVersionString`: `VERSION`'s X.Y.Z, so
+  a 2.0.0-beta.N's is 2.0.0, since Apple takes only numbers; bump both on
+  release; `backend/tests/test_versions_agree.py` checks them), minimum macOS 11.0,
   dark mode supported.
 
 ## Using the MCP server with the Mac app
@@ -308,7 +314,8 @@ running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md
 
 ## CI
 
-On every pull request, every push to `develop` or `main`, or manually from the Actions tab, `.github/workflows/ci.yml`
+On every pull request, every push to `develop`, `main`, `staging` or `2.0`,
+or manually from the Actions tab, `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
 sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the
 newest in the test matrix, which tests it; Docker and StartOS run 3.13 too. It
