@@ -49,6 +49,9 @@ REPEATED = Reason("repeat an earlier line (txid)", "repeats an earlier line (txi
 WITHIN_KRAKEN = Reason("move coins between Kraken's own balances (spot, staking, earn)",
                        "moves coins between Kraken's own balances (spot, staking, earn)")
 DOLLARS_ONLY = Reason("move dollars, not bitcoin", "moves dollars, not bitcoin")
+# An event of fee-credit lines alone: a fee of its own (a margin rollover's), paid with no money
+CREDITS_ONLY = Reason("are fees paid with Kraken fee credits (KFEE), not bitcoin",
+                      "is a fee paid with Kraken fee credits (KFEE), not bitcoin")
 
 
 def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
@@ -79,9 +82,14 @@ def read_ledger(rows: Records, name: str = "Kraken") -> FileRead:
 
 def _fee_credits(line: Cells) -> bool:
     """Whether the line is a fee Kraken's fee credits paid: KFEE, moving
-    nothing (its fee is the credits used)."""
-    return (line.get(("asset",)).upper() == FEE_CREDITS
-            and not read_number(line.get(("amount",)), column="amount"))
+    nothing (its fee is the credits used). A KFEE line whose amount can't be
+    read isn't one: it's left out with any other asset, its numbers unread."""
+    if line.get(("asset",)).upper() != FEE_CREDITS:
+        return False
+    try:
+        return not read_number(line.get(("amount",)), column="amount")
+    except RowError:
+        return False
 
 
 def _paid_in_credits(numbers: list[int]) -> CSVParseError:
@@ -137,7 +145,7 @@ class _Lines:
         self.others: list[str] = []
         for line in lines:
             if _fee_credits(line):
-                continue  # no asset the trade moved: its dollar line says what it cost
+                continue  # no asset the trade moved: its dollar line says what it cost or brought
             asset = line.get(("asset",)).upper().split(".")[0]
             if asset not in BITCOIN | DOLLARS:
                 self.others.append(line.get(("asset",)) or "no asset")  # left out, its numbers never read
@@ -171,7 +179,7 @@ def _event(lines: list[Cells], left_out: LeftOut, warnings: list[CSVParseError])
         return _left(left_out, numbers, Reason(f"are {others}, not bitcoin (BitcoinTX tracks bitcoin only)",
                                                f"is {others}, not bitcoin (BitcoinTX tracks bitcoin only)"))
     if not summed.has_btc:
-        return _left(left_out, numbers, DOLLARS_ONLY)
+        return _left(left_out, numbers, DOLLARS_ONLY if summed.has_usd else CREDITS_ONLY)
     moment = read_moment(first.get(("time",)), "UTC", column="time")
     if kinds <= TRADES:
         return _trade(first, numbers, moment, summed, kinds, left_out, warnings)

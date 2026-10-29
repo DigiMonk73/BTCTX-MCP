@@ -186,8 +186,9 @@ def test_kraken_trades_paid_with_fee_credits(client):
     assert rows(answer) == [
         # 200 dollars for 0.002 BTC, the whole fee paid in credits: the cost is what was paid, no fee
         row(5, "Buy", BANK, EX_BTC, "0.002", at(2025, 5, 2, 10), cost="200.00"),
-        # 0.001 BTC sold for 105 dollars, the credits running out: only the dollars' 0.10 is a fee
-        row(6, "Sell", EX_BTC, EX_USD, "0.001", at(2025, 5, 3, 11), proceeds="105.00", fee="0.10"),
+        # 0.001 BTC sold for 105 dollars, the last 30 credits paying part of its fee: only the 0.12 the
+        # dollars paid is a fee
+        row(6, "Sell", EX_BTC, EX_USD, "0.001", at(2025, 5, 3, 11), proceeds="105.00", fee="0.12"),
     ]
     assert answer["total_rows"] == 7 and answer["errors"] == []
     said = warned(answer)
@@ -195,6 +196,26 @@ def test_kraken_trades_paid_with_fee_credits(client):
     assert ("Rows 5 and 6 paid a fee with Kraken fee credits (KFEE): they aren't dollars, so only a fee paid in "
             "dollars is counted.") in said
     assert "trade bitcoin for KFEE" not in said
+
+
+def test_kraken_fee_credits_paying_a_fee_of_their_own_or_unreadable(client):
+    """Fee credits alone pay a fee of their own (a margin rollover's): never
+    "dollars"; a KFEE line whose amount can't be read is left out with its
+    event as another asset, as before (#829's review)."""
+    header = '"txid","refid","time","type","subtype","aclass","asset","wallet","amount","fee","balance"\n'
+    content = header + (
+        '"LC1","RC1","2025-06-01 00:00:00","rollover","","currency","KFEE","spot / main",0.00,5.00,25.00\n'
+        '"LC2","TC1","2025-06-02 00:00:00","transfer","","currency","KFEE","spot / main",abc,0.00,25.00\n'
+        '"LC3","TC1","2025-06-02 00:00:00","transfer","","currency","BTC","spot / main",0.0010000000,0,0.001\n')
+    r = client.post("/api/import/exchange/preview", data={"mapping_id": "kraken"},
+                    files={"file": ("ledgers.csv", io.BytesIO(content.encode()), "text/csv")})
+    assert r.status_code == 200, r.text
+    answer = r.json()
+    assert answer["proposals"] == [] and answer["errors"] == []
+    said = warned(answer)
+    assert "Row 2 is a fee paid with Kraken fee credits (KFEE), not bitcoin: left out." in said
+    assert "moves dollars" not in said
+    assert "Rows 3 and 4 move coins between Kraken's own balances" in said
 
 
 def test_strike_statement(client):
