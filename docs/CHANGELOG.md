@@ -105,6 +105,20 @@ AI connector is `btctx-mcp==2.0.0b2`.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
+- **The release tests ready for beta.2 and 2.0.0** (`docs/AGENT-TESTS.md`,
+  #806). A 1.x ledger updated to 2.0 now reaches schema 0101 (coin
+  choice's migration runs after 0012 -> 0100), in every check that names
+  it. Track C has a hard rule for a build with an installed app's
+  identity (2.0.0's BitcoinTX, a tester's BitcoinTX Preview): only
+  through `run-test-build.sh`, the apps on 8765 and 8767 checked before
+  each launch, and whether the test build shares the installed app's web
+  view storage. New cases: **MAC-UPG** (1.2.10's Mac app updated in place
+  by 2.0.0's: one migration, a pre-2.0 copy, a new AI key, the AI setup
+  pinned under `bitcointx`), **BETA-6** (a Preview's own backup restored
+  into the candidate), **AI-16** (the 2.0 connector on 1.2.10, which found
+  #834) and **CB-1**, **CB-2** (the updates from Start9's Community
+  Beta: from the Community Registry's 1.2.10, and from a sideloaded
+  beta).
 - **The reference test ledger fills the report's values from a price**
   (#715). A stored-price fixture (`testdata/reference_prices.json`) and
   eight rows in a fifth wallet, the Trezor, which no other row uses: a
