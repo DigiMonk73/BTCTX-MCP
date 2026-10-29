@@ -216,7 +216,7 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (205 transactions, 2023 to 2026, and a
+`testdata/reference_ledger.json` (213 transactions, 2023 to 2026, and a
 deposit dated 2022 so 2023 starts holding coins). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
@@ -225,11 +225,15 @@ ledger has one), it uses every account route the app offers,
 every report has entries in each part (every Form 8949 box of 2024, 2025
 and 2026, in any tax timezone), My BTC and Gift deposits carry a date
 originally acquired, and inherited coins are sold within a year of the death. Every USD value a price lookup would fill is given, so
-it loads with the price source Nobody. Each row's `why` says what it is for.
+it loads with the price source Nobody, but in the rows marked `"priced"`
+(#715): they leave their value to a price from the stored-price fixture
+(`testdata/reference_prices.json`), so every year's report lists values from
+a price and Ledger Review shows its price checks. Each row's `why` says what it is for.
 From 2.0 it holds multiple wallets, exchanges or accounts: its `accounts`
 list adds two of each kind (wallets Coldcard and Jade, exchanges Kraken and
 Overseas, whose 1099-DA switch is off, banks Credit union and Savings) and
-a fourth wallet, the Sparrow, which the seed makes through the account API
+a fourth wallet, the Sparrow, and a fifth, the Trezor (only #715's rows use
+it), which the seed makes through the account API
 before the rows and, after them, names and hides as listed (Overseas is
 made as "Offshore" and renamed; the Jade is hidden while it still holds
 coins). The rows marked `"since": "2.0"` use them: B7a's in 2026, #702's
@@ -272,6 +276,20 @@ Neither it nor any test data ships in a build (Docker copies only
 ```bash
 python scripts/seed_ledger.py --url https://host:port --user NAME --password-stdin [--ca root-ca.crt] < password-file
 ```
+
+Without `--with-prices` it leaves out the rows marked `"priced"` and says how
+many, since a server has no stored price for them (a 422 otherwise); its
+figures are then not `reference_figures.json`'s. To load every row, store
+the fixture's prices in the test database's file before its server starts,
+then seed with `--with-prices`:
+
+```bash
+python scripts/seed_ledger.py --store-prices path/to/test/btctx.db
+```
+
+It writes only those prices, asks nothing of the network, and refuses an
+installed app's data folder however the path is written, a file that isn't
+a BitcoinTX database and one holding transactions the seed didn't make.
 
 It refuses a ledger that has transactions, and the Mac app's address
 (`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine. It

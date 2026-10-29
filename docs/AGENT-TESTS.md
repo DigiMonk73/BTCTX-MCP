@@ -1968,17 +1968,20 @@ page's pictures".
 - **REF-2** This release's reference database. Make an empty database with
   the smoke test's login (`scripts/smoke_test.py`, SMOKE_USER and
   SMOKE_PASSWORD): `DATABASE_FILE=LAB/ledgers/reference-vX.Y.Z.db python -m
-  backend.cli set-password --username SMOKE_USER --password-stdin`. Serve it
+  backend.cli set-password --username SMOKE_USER --password-stdin`. Store
+  the reference ledger's prices in it (from 2.0, #715: the rows valued from a
+  stored price take them): `python scripts/seed_ledger.py --store-prices
+  LAB/ledgers/reference-vX.Y.Z.db`. Expect "✓ 8 prices stored in …". Serve it
   with no price source saved in it (`BTCTX_SMOKE_PRICE_SOURCE=unset python
   scripts/smoke_test.py --serve 8791 LAB/ledgers/reference-vX.Y.Z.db`, in
   the background) and load the reference ledger with
   `scripts/seed_ledger.py --url http://127.0.0.1:8791 --user SMOKE_USER
-  --password-stdin`. Expect "✓ 205 transactions loaded into
+  --password-stdin --with-prices`. Expect "✓ 213 transactions loaded into
   http://127.0.0.1:8791 (2023-2026)" (the count in
-  `testdata/reference_ledger.json`). From 2.0 the seed first adds the
+  `testdata/reference_ledger.json`), with no rows left out. From 2.0 the seed first adds the
   ledger's own accounts through the account API (Coldcard, Jade, Kraken,
   Overseas with its 1099-DA switch off, made as "Offshore", Credit union,
-  Savings, Sparrow) and stops if one gets another id than the file lists: the
+  Savings, Sparrow, Trezor) and stops if one gets another id than the file lists: the
   database must be new, as `set-password` made it. After the rows it
   renames Offshore to Overseas and hides the Jade, as the file lists.
   Stop the server. On a copy:
