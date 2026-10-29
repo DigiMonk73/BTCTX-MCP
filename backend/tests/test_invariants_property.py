@@ -456,7 +456,13 @@ def ledger(auth_client, test_engine):
 
 
 FAST = settings(max_examples=8, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
-SLOW = settings(max_examples=120, deadline=None, suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
+# The slow set's 120 ledgers of each kind, drawn in parts that run side by
+# side (#814). Each part is a run of Hypothesis's own, which starts from its
+# simplest ledger, so each draws one more: never fewer different ledgers than
+# one run of 120.
+MANY, PARTS = 120, 6
+SLOW = settings(max_examples=MANY // PARTS + 1, deadline=None,
+                suppress_health_check=[HealthCheck.too_slow, HealthCheck.data_too_large])
 
 
 @FAST
@@ -466,9 +472,10 @@ def test_random_ledgers_keep_the_invariants(ledger, data):
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("part", range(PARTS))
 @SLOW
 @given(data=st.data())
-def test_random_ledgers_keep_the_invariants_many(ledger, data):
+def test_random_ledgers_keep_the_invariants_many(ledger, data, part):
     run_property(ledger, data, max_ops=25, shuffle=True)
 
 
@@ -536,9 +543,10 @@ def test_random_ledgers_over_multiple_accounts_keep_the_invariants(multi_ledger,
 
 
 @pytest.mark.slow
+@pytest.mark.parametrize("part", range(PARTS))
 @settings(SLOW, suppress_health_check=ONE_SWAP_A_TEST)
 @given(data=st.data())
-def test_random_ledgers_over_multiple_accounts_keep_the_invariants_many(multi_ledger, data):
+def test_random_ledgers_over_multiple_accounts_keep_the_invariants_many(multi_ledger, data, part):
     run_property(multi_ledger, data, max_ops=25, shuffle=True, draw=draw_multi_ledger)
 
 

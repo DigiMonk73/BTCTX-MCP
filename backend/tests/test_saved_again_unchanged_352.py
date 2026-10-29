@@ -5,6 +5,10 @@ its commit, the dry run on a scratch copy, and the save. With every row in
 an earlier tax year (this tax year is 2027 here), each goes through the dry
 run, and nothing may move, so none asks: every disposal's proceeds, basis,
 gain, box, term and date acquired, every lot made, every stored figure.
+
+Each of the two runs saves every row in turn, in parts that run side by
+side (#814): a part takes its share of the rows, in their order, on a
+ledger of its own, and the parts together take every row once.
 """
 
 import importlib.util
@@ -58,21 +62,43 @@ def save_again(client, tx_id: int, body: dict) -> None:
     assert r.status_code == 200, (tx_id, r.text)
 
 
+# About 27 rows a part, so a part takes under a minute on CI
+PARTS = 8
+
+
+def part_of(txs: list, part: int) -> list:
+    """Part `part`'s rows: its share of the list, in their order."""
+    size = -(-len(txs) // PARTS)
+    return txs[part * size:(part + 1) * size]
+
+
+def test_the_parts_take_every_row_once_in_order():
+    for count in (1, PARTS - 1, PARTS, 213, 214):
+        txs = list(range(count))
+        assert [tx for part in range(PARTS) for tx in part_of(txs, part)] == txs
+
+
 @pytest.mark.slow
-def test_every_reference_row_saved_again_unchanged_keeps_its_figures(seeded, tax_year):
+@pytest.mark.parametrize("part", range(PARTS))
+def test_every_reference_row_saved_again_unchanged_keeps_its_figures(seeded, tax_year, part):
     client, Session = seeded
     before = figures(Session)
     tax_year(2027)
-    for tx in client.get("/api/transactions").json():
+    rows = part_of(client.get("/api/transactions").json(), part)
+    assert rows
+    for tx in rows:
         save_again(client, tx["id"], {})
     assert figures(Session) == before
 
 
 @pytest.mark.slow
-def test_and_with_its_own_date_and_amount_sent_back(seeded, tax_year):
+@pytest.mark.parametrize("part", range(PARTS))
+def test_and_with_its_own_date_and_amount_sent_back(seeded, tax_year, part):
     client, Session = seeded
     before = figures(Session)
     tax_year(2027)
-    for tx in client.get("/api/transactions").json():
+    rows = part_of(client.get("/api/transactions").json(), part)
+    assert rows
+    for tx in rows:
         save_again(client, tx["id"], {"timestamp": tx["timestamp"], "amount": tx["amount"]})
     assert figures(Session) == before
