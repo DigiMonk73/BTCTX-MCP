@@ -32,7 +32,7 @@ backend/
 ├── services/
 │   ├── account.py                        # the account book: each account's kind, name, exchange and 1099-DA switch
 │   ├── tax_time.py                       # tax timezone, tax-year bounds, date formatting
-│   ├── transaction.py                    # lots per account, FIFO or the coins chosen, holding_period()
+│   ├── transaction.py                    # lots per account, per-wallet FIFO or the coins chosen in a wallet, holding_period()
 │   ├── review.py                         # Ledger Review, its reminder sale_may_differ_from_1099da
 │   └── reports/
 │       ├── form_8949.py                  # rows, 1099-DA box rules per exchange, Schedule D totals, per-year field config
@@ -135,8 +135,8 @@ _merge_all_pdfs(): each sheet's used Parts in order, then all of Schedule D's pa
 ```
 
 Each LotDisposal is the part of a disposal that came from one lot, so a
-disposal that used three lots (first in, first out within its account, or
-the coins chosen for a wallet's withdrawal, #711) gives three 8949 rows. Sells, spends and
+disposal that used three lots (per-wallet FIFO, or the coins chosen in a
+wallet, #711) gives three 8949 rows. Sells, spends and
 network-fee disposals are included.
 
 ## Tax timezone

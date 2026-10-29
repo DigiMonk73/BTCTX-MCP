@@ -3,7 +3,8 @@
 > A record: the audit of 1.2.1, whose fixes shipped in 1.2.2. The privacy
 > checklist kept current is `docs/PRIVACY_AUDIT.md`; where they differ, it
 > holds (Coinbase and CoinGecko are gone, hourly prices are new). Paths
-> and lines below are as they were then.
+> and lines below are as they were then. Split from that file on
+> 2026-10-29 (#807): its history before then is `docs/PRIVACY_AUDIT.md`'s.
 
 Every way data or metadata leaves the machine or sits on disk, with a
 verdict. Code read on `develop` (1.2.1 plus the VM-test fixes, 8858dd5);

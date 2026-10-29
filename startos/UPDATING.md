@@ -93,8 +93,12 @@ from `2.0`'s tip, its version bumped in `2.0` (`current.ts` at
 `<VERSION>:0`, never a revision: a fix is the next pre-release). It is a
 GitHub pre-release only (BitcoinTX Preview on the Mac, the image's own tag,
 `btctx-mcp==2.0.0aN` or `2.0.0bN`): no mirror, no Start9. A failed run's
-jobs are re-run on the same commit; the branch is never pushed again from
-another commit (BTCTX-MCP's `AGENTS.md`, "Branches" and "Releasing").
+jobs are re-run on the same commit, or the next try is the next
+pre-release; the branch is never pushed again from another commit.
+2.0's own release follows B10b (`docs/temp/2.0-accounts.md`, 7.4): its
+version bump goes into `2.0`, not `develop` (step 1), and `develop` takes
+nothing from the last `develop` merge until `2.0` is in it (BTCTX-MCP's
+`AGENTS.md`, "Branches" and "Releasing").
 
 ## After Start9 forks the mirror
 

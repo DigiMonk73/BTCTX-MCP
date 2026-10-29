@@ -64,8 +64,9 @@ servers, so a pull request from outside the project is handled with care:
 - **We take only tests or documentation from outside,** after reading
   every line, and merge them exactly as reviewed.
 - **For anything else** (the app's code, CI, dependencies, the build, the
-  StartOS package or the tax logic), we write the change ourselves, from
-  your pull request's idea. A bug report or an idea is just as welcome.
+  StartOS package or the tax logic), if we take the change, we write it
+  ourselves, from your pull request's idea. A bug report or an idea is
+  just as welcome.
 - **CI runs on a pull request from outside only after the maintainer
   approves it,** each time: GitHub holds its checks until then.
 - **A contribution from Start9 is looked at first, the same day, but never
@@ -74,7 +75,7 @@ servers, so a pull request from outside the project is handled with care:
   member of the Start9Labs or Start9-Community organization, or a bot
   account that one of them owns. Every line is read and every claim
   checked before its CI is approved, and it then gets the same review as
-  any change.
+  any change: the rules above still apply, only the order changes.
 
 ## How BitcoinTX is developed
 

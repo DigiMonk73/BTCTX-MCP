@@ -43,6 +43,13 @@ def test_no_document_counts_the_tests():
     assert not found, found
 
 
+def test_a_file_waiting_for_its_turn_still_counts_them():
+    """Once its count is gone, it comes off the list, so the check above
+    covers it from then on."""
+    for path in COUNT_NOT_YET:
+        assert TEST_COUNT.search((ROOT / path).read_text()), f"{path}: take it off COUNT_NOT_YET"
+
+
 @needs_a_checkout
 def test_the_records_are_in_the_archive():
     files = tracked()
@@ -76,7 +83,7 @@ def test_contributing_says_which_pull_requests_from_outside_are_taken():
     """The owner, 2026-10-29: tests or docs only, read line by line, CI
     only after the owner approves it; anything else is redone by us."""
     rules = section((ROOT / "CONTRIBUTING.md").read_text(), "Pull requests from outside")
-    for words in ("only tests or documentation", "every line", "approves", "we write the change ourselves"):
+    for words in ("only tests or documentation", "every line", "approves", "we write it ourselves"):
         assert words in rules, words
 
 

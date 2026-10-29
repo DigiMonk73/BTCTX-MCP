@@ -269,8 +269,9 @@ Change these only together with the package (`startos/`):
   week the oldest and each day's first before a change (at most 11), and
   the newest 5 `pre-change` copies (before a past-year change the owner
   confirmed), plus for a week each day's first, are kept in
-  `/data/backups/`. The `pre-2.0` copy of a 1.x database is never removed:
-  it is the way back to 1.x.
+  `/data/backups/`. The `pre-2.0` copy of a 1.x database is never pruned:
+  it is the way back to 1.x (a failed upgrade, which changes nothing,
+  removes its own).
 - `backend.database.create_tables()` stays as an alias of `init_db()` for
   packages from before the CLI (0.8.0:1 and older).
 
