@@ -351,7 +351,7 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: startos/package-lock.json
-      # Start9's guide asks for Docker 28.1 or later (environment-setup.md);
+      # Start9's guide asks for Docker Engine API 1.48 or later (environment-setup.md);
       # the runner's is older (Start9's own builds do the same). start-cli
       # takes the image with `docker image save --platform`, and from 2.4
       # makes the SquashFS image itself: no squashfs-tools

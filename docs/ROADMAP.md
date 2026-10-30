@@ -4,18 +4,13 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Now: 1.2.10, the first maintenance update of the stable version
+## Now: 2.0.0
 
-1.2.9 is the stable version of 1.x (#143, #369): released on 2026-10-18,
-it's on Start9's Community Registry (it serves 1.2.9:0, checked 2026-10-22),
-promoted from Community Beta. 1.2.10 fixes four bugs that could make a tax
-figure wrong (#535, #549, #581, and a failed save saved later with the next
-one, found in #580's review), and every known issue 1.2.9 listed.
-
-Until 2.0 replaces it, 1.x gets maintenance updates (bug and security
-fixes, each year's IRS forms, the price history's updates) and the few
-small improvements under "Soon" (the owner, 2026-10-17 and 2026-10-18);
-new features go into 2.0, below. No dates are promised.
+BitcoinTX 2.0.0 is the current version: each wallet, exchange and bank is an
+account of its own, each wallet and exchange with its own cost-basis lots. It
+reaches StartOS through Start9's Community Beta, then, when the owner asks
+Start9 to promote it, its Community Registry. BitcoinTX 1.x gets no more
+fixes: its last release, 1.2.10, stays downloadable. No dates are promised.
 
 ## Soon
 
@@ -60,31 +55,6 @@ new features go into 2.0, below. No dates are promised.
       your own wallets.
 - [ ] Multi-year reports
 - [ ] Ledger integrity audit tool (balances vs lots vs disposals)
-
-## BitcoinTX 2.0 (planned)
-
-Planned in #251; the build starts on 2026-10-22, on a `2.0` branch of its
-own (#251, decision 16). Because it changes how the ledger is
-stored, we plan to test 2.0 as a beta on GitHub pre-releases for as long as
-it needs; Start9's copy carries only 1.x until 2.0 is ready for Community
-Beta, where it stays until the owner asks Start9 to promote it (#251,
-decisions 1 and 22).
-
-- [ ] **Multiple wallets and exchange accounts**, each tracked as its own
-      account with its own cost-basis lots, as the IRS's wallet-by-wallet
-      basis rules require from 2025 (Treas. Reg. §1.1012-1(j); Rev. Proc.
-      2024-28), and multiple bank accounts, with transfers between them and
-      reports by account. BitcoinTX 1.x is deliberately limited to one
-      self-custody wallet and one exchange account (#86). No dates
-      promised; meanwhile 1.x stays in maintenance.
-- [x] **Choosing which coins leave a wallet** (specific identification,
-      Treas. Reg. §1.1012-1(j)(2); #711): on a Transfer out of one of your
-      wallets, or a Spent, Gift, Donation or Lost withdrawal from one, with
-      the day each choice was saved, in the CSV, the tax report ("Coins you
-      chose"), Ledger Review and the AI connector.
-- [ ] **An importer for any exchange's CSV**, with ready-made mappings
-      for common exchanges and mappings you save, into a ledger that
-      already has transactions (#338; the 2.0 plan's B5b, #567).
 
 ## After 2.0 (being considered)
 

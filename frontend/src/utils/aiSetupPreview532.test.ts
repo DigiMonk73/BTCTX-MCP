@@ -95,3 +95,16 @@ describe("a version's form", () => {
     expect(serverName(v)).toBe("bitcointx");
   });
 });
+
+describe("2.0.0, the release (2.0 plan 6.3)", () => {
+  const release = { url: "http://127.0.0.1:8765", version: "2.0.0", keyMode: true };
+
+  it("is BitcoinTX again: the name bitcointx, its own connector and tag", () => {
+    expect(macApp("2.0.0")).toBe("BitcoinTX");
+    const entry = JSON.parse(claudeDesktopConfig(release)).mcpServers;
+    expect(Object.keys(entry)).toEqual([SERVER_NAME]);
+    expect(entry[SERVER_NAME].args).toEqual(["btctx-mcp==2.0.0"]);
+    expect(buildAiPrompt(release)).toContain("/blob/v2.0.0/mcp_server/AI_SETUP.md");
+    expect(buildAiPrompt(release)).not.toContain(PREVIEW_SERVER_NAME);
+  });
+});
