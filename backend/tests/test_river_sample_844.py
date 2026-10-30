@@ -44,6 +44,11 @@ PRICE = 100000.0
 BANK, EX_USD, EX_BTC, WALLET, EXTERNAL = "Bank", "Exchange USD", "Exchange BTC", "Wallet", "External"
 
 
+# The docstring's balances, with the fee accounts': 2.00 + 1.50 + 0.50 and the two network fees
+BY_HAND = {BANK: Decimal("-300"), EX_USD: Decimal("54.5"), EX_BTC: Decimal("0.001253"), WALLET: Decimal("0.0013"),
+           "USD Fees": Decimal("4"), "BTC Fees": Decimal("0.000007")}
+
+
 @pytest.fixture(autouse=True)
 def _prices(monkeypatch):
     stub_daily_prices(monkeypatch, lambda day: PRICE)
@@ -83,6 +88,11 @@ def rows(answer: dict) -> list:
             for p in answer["proposals"]]
 
 
+def held(client) -> dict[str, Decimal]:
+    balances = client.get("/api/calculations/accounts/balances").json()
+    return {b["name"]: Decimal(str(b["balance"])) for b in balances if Decimal(str(b["balance"]))}
+
+
 def import_the_file(client) -> None:
     r = client.post("/api/import/exchange/execute", json={"rows": rows_to_send(preview(client))})
     assert r.status_code == 200, r.text
@@ -119,12 +129,7 @@ def test_rivers_own_route_reads_it_the_same(client):
 
 def test_the_balances_are_the_ones_worked_out_by_hand(client):
     import_the_file(client)
-    balances = {b["name"]: Decimal(str(b["balance"])) for b in client.get("/api/calculations/accounts/balances").json()}
-    held = {name: balance for name, balance in balances.items() if balance}
-    assert held == {BANK: Decimal("-300"), EX_USD: Decimal("54.5"), EX_BTC: Decimal("0.001253"),
-                    WALLET: Decimal("0.0013"),
-                    "USD Fees": Decimal("4"),  # 2.00 + 1.50 + 0.50
-                    "BTC Fees": Decimal("0.000007")}
+    assert held(client) == BY_HAND
 
 
 def test_in_a_later_tax_year_the_import_asks_first_then_saves_the_same(client, tax_year):
@@ -139,6 +144,7 @@ def test_in_a_later_tax_year_the_import_asks_first_then_saves_the_same(client, t
     r = client.post("/api/import/exchange/execute", json=sent, params={"confirm": asked.json()["confirm"]})
     assert r.status_code == 200, r.text
     assert r.json()["imported_count"] == 13
+    assert held(client) == BY_HAND
 
 
 def test_the_forms_and_the_report_are_the_ones_worked_out_by_hand(client, test_engine):

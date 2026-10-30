@@ -31,6 +31,7 @@ pytestmark = pytest.mark.xdist_group("reference_csv")
 GUIDE = tables.GUIDE
 PRICE = 100000.0  # the bitcoin price stands in for a real one: a real source gives other values, no other rows
 
+
 def import_file(c, file: tables.ExchangeFile) -> dict:
     content = (tables.FILES_FOLDER / file.name).read_bytes()
     r = c.post("/api/import/exchange/preview", data={"mapping_id": file.mapping_id},
