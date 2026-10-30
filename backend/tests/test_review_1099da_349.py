@@ -5,7 +5,7 @@ counts them from their arrival and sells first the coins it counts as
 oldest (Instructions for Form 1099-DA, 2026, lot selection). BitcoinTX
 sells first the coins acquired first. So a Sell from 2026 on an exchange
 that sends a 1099-DA can differ from that form: listed, as a reminder
-(nothing in the ledger is wrong, and nothing would clear it), when the
+(nothing would clear it), when the
 exchange's order takes other coins bought there (whose basis its form
 reports) than BitcoinTX's. Both orders are replayed over the account's lots
 from the stored figures; replayed in the engine's order, every Sell takes

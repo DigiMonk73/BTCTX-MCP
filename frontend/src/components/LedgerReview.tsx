@@ -25,7 +25,7 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
  * A reminder (#128): its rows aren't errors, so one explanation for
  * the group and the list folded until asked for. Nothing is saved: the
  * deposits' group shrinks as the owner edits them; the sales' (#349)
- * stays, since nothing in the ledger is wrong.
+ * stays, since nothing would clear it.
  */
 const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
   const [open, setOpen] = useState(false);

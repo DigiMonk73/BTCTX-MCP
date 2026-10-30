@@ -602,13 +602,12 @@ def _keys(transactions: list[dict], accounts: dict[int, Account]) -> set[str]:
 
 def _check_choice(number: int, tx: dict, accounts: dict[int, Account], keys: set[str]) -> None:
     source = accounts[tx["from_account_id"]]
-    # (j)(1): the units in a single wallet. At an exchange the coins are
-    # identified to the broker, so they leave oldest first, as its 1099-DA
-    # reports them (#711's call (g)).
+    # (j)(1): the units in a single wallet. At an exchange they leave oldest
+    # first, and no choice is recorded there (#711's call (g)).
     if tx["type"] not in CHOOSING or source.kind != "wallet":
         raise ValueError(f"Transaction {number}, a {tx['type']} from {source.name}, chooses coins: only coins "
                          "leaving one of your wallets, by a Transfer or a Withdrawal, can be chosen; an exchange's "
-                         "leave oldest first, as its Form 1099-DA reports them.")
+                         "leave oldest first: BitcoinTX doesn't record a choice made at an exchange.")
     if tx["to_account_id"] == source.id:
         raise ValueError(f"Transaction {number} moves coins within {source.name}: that records only its network "
                          "fee, from the oldest coins, so it can't choose coins.")

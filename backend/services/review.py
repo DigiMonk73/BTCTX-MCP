@@ -65,8 +65,7 @@ Checks:
   moved in counts them from their arrival and sells the coins it counts as
   oldest first; BitcoinTX sells first the coins acquired first. So the
   exchange's form may report another basis for the sale (a 2025 form
-  reports none). Nothing in the ledger is wrong, and nothing clears it: a
-  reminder.
+  reports none). Nothing clears it: a reminder.
 - inherited_without_date (#154): an Inherited deposit into a BTC account
   with no date of death. New ones must have it; a deposit saved before
   1.1.0, when the source was free text, may say "inherited" without one. Its
