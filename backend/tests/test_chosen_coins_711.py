@@ -314,13 +314,13 @@ def test_a_restores_read_check_reads_every_choice_in_one_query(chose_a2):
 
 @pytest.mark.parametrize("make_body, detail", [
     (lambda ids: spend(LEAVES, "0.1", "10000", frm=EXCHANGE_BTC, chosen=coins((ids["A4"], "0.1"))),
-     "Coins can be chosen only when they leave one of your wallets. An exchange's coins leave oldest first, as "
-     "its Form 1099-DA reports them."),
+     "Coins can be chosen only when they leave one of your wallets. An exchange's coins leave oldest first: "
+     "BitcoinTX doesn't record a choice made at an exchange."),
     (lambda ids: {"type": "Sell", "timestamp": LEAVES, "from_account_id": EXCHANGE_BTC,
                   "to_account_id": EXCHANGE_USD, "amount": "0.1", "fee_amount": "0", "fee_currency": "USD",
                   "proceeds_usd": "10000", "chosen_coins": coins((ids["A4"], "0.1"))},
-     "Coins can be chosen only when they leave one of your wallets. An exchange's coins leave oldest first, as "
-     "its Form 1099-DA reports them."),
+     "Coins can be chosen only when they leave one of your wallets. An exchange's coins leave oldest first: "
+     "BitcoinTX doesn't record a choice made at an exchange."),
     (lambda ids: {"type": "Deposit", "timestamp": LEAVES, "from_account_id": EXTERNAL, "to_account_id": WALLET,
                   "amount": "0.1", "fee_amount": "0", "source": "MyBTC", "cost_basis_usd": "100",
                   "chosen_coins": coins((ids["A1"], "0.1"))},

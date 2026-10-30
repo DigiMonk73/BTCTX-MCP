@@ -572,8 +572,8 @@ async def review_ledger() -> ToolResult:
     and checking the cost basis, if they are really income, interest, rewards or rebates); coins
     chosen after they left (a choice saved on a later day than its coins left: pass it on, that
     the user's records from then should show it; nothing to fix); and exchange Sells the
-    exchange's Form 1099-DA may show differently (suggest comparing each with that form; nothing
-    to edit).
+    exchange's Form 1099-DA may show differently (suggest comparing each with that form, and
+    their tax preparer where they differ).
     Changes nothing; show it to the user and let them decide what to edit."""
     return await _call("GET", "/api/review")
 

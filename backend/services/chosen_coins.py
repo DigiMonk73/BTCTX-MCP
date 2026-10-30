@@ -35,7 +35,7 @@ MOST_LINES = 1000
 # The largest id SQLite stores: a larger one names no transaction (and can't be asked for)
 LARGEST_ID = 2**63 - 1
 NOT_FROM_A_WALLET = "Coins can be chosen only when they leave one of your wallets."
-EXCHANGE_OLDEST_FIRST = " An exchange's coins leave oldest first, as its Form 1099-DA reports them."
+EXCHANGE_OLDEST_FIRST = " An exchange's coins leave oldest first: BitcoinTX doesn't record a choice made at an exchange."
 WITHIN_ONE_WALLET = ("A move within the same wallet records only its network fee, from the oldest coins: no "
                      "coins are chosen.")
 TOO_MANY = f"At most {MOST_LINES:,} Buys or Deposits can be named in one choice of coins."

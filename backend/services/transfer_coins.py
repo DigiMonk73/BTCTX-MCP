@@ -163,7 +163,7 @@ def _held(tx: Transaction, lines: list[chosen_coins.Held], db: Session) -> list[
     each acquisition, how and where it was acquired, its coins' date, BTC
     and cost, the term they'd have on tx's date, and what oldest first
     would take of them. None when tx doesn't leave one of your wallets (an
-    exchange's coins leave oldest first, as its Form 1099-DA reports them),
+    exchange's coins leave oldest first, and no choice is recorded there),
     or moves within one (a consolidation records only its fee, oldest
     first)."""
     book = account_book(db)

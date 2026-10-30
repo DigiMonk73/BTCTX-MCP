@@ -278,9 +278,10 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "BitcoinTX sells first the coins acquired first in each account. For these sales the two orders take "
         "different coins bought there (the coins whose cost basis its form reports). Once one sale has taken other "
         "coins, a later one can differ too.",
-        "Nothing in your ledger is wrong, and nothing needs editing: these are listed so you can check them "
-        "against the form. A sale whose Broker form you set to no form, or to proceeds without basis, isn't "
-        "listed.",
+        "These are listed so you can check them against the form. BitcoinTX's figures stay as they are unless "
+        "you change something. Whether your exchange's order of coins or BitcoinTX's applies to you can depend on "
+        "how that exchange lets you choose coins: your tax preparer can say. A sale whose Broker form you set to "
+        "no form, or to proceeds without basis, isn't listed.",
     ),
 }
 
