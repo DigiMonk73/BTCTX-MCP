@@ -1132,6 +1132,13 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   (#680): its corners, outside the rounded square, were painted white, in
   BitcoinTX's icon and BitcoinTX Preview's. They're transparent now, at
   every size; the browser's and StartOS's icons already were.
+- **The Dashboard's "Choose a source" and "Confirm now" links go to the
+  price card even when pressed before it shows** (#612). The link shows
+  once the live price has answered, the card once its settings have
+  loaded, which can be later on a slow server. A press in between found no
+  card, so nothing scrolled and the keyboard stayed on the link. It now
+  goes there as soon as the card is shown (within 5 s), unless you've gone
+  on to another page or control meanwhile.
 
 ### Security
 - **The Docker image's system CA bundle is refreshed** (#638, from Start9,
