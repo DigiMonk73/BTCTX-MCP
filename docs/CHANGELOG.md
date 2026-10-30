@@ -4,6 +4,15 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+- The hourly price history's download, when the system refuses it a thread
+  (a container's limit, no memory), counts as a download that failed. It
+  stayed "downloading" until a restart, with no download running, and each
+  lookup for a year not here yet waited 30 seconds for it; the first one
+  answered its save, or the price settings' save, with an error. Now the
+  status says it failed, it's tried again as a failed download is, and a
+  lookup takes the day's price at once, marked as such, as it does without
+  the hourly history (#843). No figure changes.
+
 ## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits, a fee's price, coins chosen on 1.x
 
 **About this beta.** BitcoinTX 2.0's second beta, for anyone who chooses

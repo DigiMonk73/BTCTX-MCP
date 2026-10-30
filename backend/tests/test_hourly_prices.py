@@ -13,9 +13,10 @@ Every outside service is faked.
 
 import logging
 import random
+import threading
 import time
 from collections import OrderedDict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import httpx
@@ -602,3 +603,64 @@ def test_a_year_not_downloaded_yet_is_looked_up_again(monkeypatch):
     years: dict = {}
     hp.read_year_files(_three_year_files(monkeypatch, OrderedDict(), missing={2020}), years)
     assert 2020 not in years and 2021 in years
+
+
+def refuse_a_thread_once(monkeypatch):
+    """The system refuses the next thread (a container's limit, no memory), then allows them again."""
+    real_start = threading.Thread.start
+    refused = []
+
+    def start(thread):
+        if not refused:
+            refused.append(thread.name)
+            monkeypatch.setattr(threading.Thread, "start", real_start)
+            raise RuntimeError("can't start new thread")
+        real_start(thread)
+
+    monkeypatch.setattr(threading.Thread, "start", start)
+    return refused
+
+
+def test_a_download_whose_thread_cant_start_is_a_failed_download(sites, db, monkeypatch):
+    """#843: "running" stayed on with no thread until a restart: start_download
+    answered True and started nothing, the status said downloading, and each
+    lookup waited WAIT_SECONDS for it. It's a download that failed: nobody's
+    save or start-up stops on it, and it's tried again as one is."""
+    use(price_source="public", proxy_url=None)
+    monkeypatch.setattr(hp, "WAIT_SECONDS", 3)
+    refused = refuse_a_thread_once(monkeypatch)
+
+    assert hp.start_download() is False  # never raised: it's asked within a save, and at start-up
+    assert refused == ["btc-price-download"]
+    assert hp._state["running"] is False
+    assert hp.download_status()["state"] == "failed"
+    assert hp.start_download() is False  # it waits RETRY_SECONDS, as a failed download does
+
+    started = time.monotonic()
+    priced = hp.price_at(db, utc("2025-06-01 13:15"))
+    assert time.monotonic() - started < 1  # no download runs: nothing to wait for
+    assert priced.moment == "day"
+    assert priced.usd == price_history.stored_price(db, date(2025, 6, 1))
+
+    monkeypatch.setattr(hp, "RETRY_SECONDS", 0)
+    assert hp.start_download() is True  # threads are back: it runs, and ends
+    finish_download()
+    assert hp.download_status()["state"] == "complete"
+    assert hp.price_at(db, utc("2025-06-01 13:15")).moment == "hour"
+
+
+def test_a_lookup_waiting_is_woken_when_the_next_downloads_thread_cant_start(sites, monkeypatch):
+    """A download that ends with the owner's Yes pending starts the next at
+    once (_end_run, #241). Refused a thread there, it raised past its notify:
+    nothing ran, and a lookup waiting for it sat out its whole wait."""
+    use(price_source="public", proxy_url=None)
+    hp._state.update(running=True, again=True)
+    line = pf.read_manifest(pf.MANIFEST)[0]
+    waiting = threading.Thread(target=hp._wait_for_year, args=(line,), daemon=True)
+    waiting.start()
+    refused = refuse_a_thread_once(monkeypatch)
+    hp._end_run()
+    waiting.join(timeout=5)  # WAIT_SECONDS is 10 here
+    assert refused == ["btc-price-download"] and not waiting.is_alive()
+    assert hp._state["running"] is False
+    assert hp.download_status()["state"] == "failed"
