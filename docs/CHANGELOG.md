@@ -1139,6 +1139,16 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   card, so nothing scrolled and the keyboard stayed on the link. It now
   goes there as soon as the card is shown (within 5 s), unless you've gone
   on to another page or control meanwhile.
+- The hourly price history's download, when the system refuses it a thread
+  (a container's limit, no memory), counts as a download that failed. It
+  stayed "downloading" until a restart, with no download running, and each
+  lookup for a year not here yet waited 30 seconds for it; the first one
+  answered its save, or a change to the price settings, with an error. Now the
+  status says it failed, it's tried again as a failed download is, and a
+  lookup takes the day's price at once, marked as such, as it does without
+  the hourly history (#843). A save the refusal stopped now saves at that
+  price, and the hour's price comes back with the machine, with no restart
+  (the owner's OK on the before-and-after, on its pull request).
 
 ### Security
 - **The Docker image's system CA bundle is refreshed** (#638, from Start9,

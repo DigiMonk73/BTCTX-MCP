@@ -319,12 +319,19 @@ def start_download() -> bool:
 
 def _begin() -> bool:
     """Start downloading the years that aren't here (with _changed held);
-    False when none is missing."""
+    False when none is missing, or the system refuses its thread: that's a
+    download that failed (#843)."""
     missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
     if not missing:
         return False
     _state["running"] = True
-    threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
+    try:
+        threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
+    except (RuntimeError, MemoryError) as exc:
+        _state["running"] = False
+        _note_failure(exc)
+        logger.warning("Hourly BTC prices: the download couldn't start: %r", exc)
+        return False
     return True
 
 
@@ -549,11 +556,16 @@ def _download(lines: list[pf.YearLine]) -> None:
     except Exception as exc:
         logger.warning("Hourly BTC prices: the download from Bitstamp failed: %s", exc)
         price_status.record_refusal(exc)
-        _state["refused"] = price_status.refused_by_bitstamp(exc)
-        _state["failed_at"] = time.monotonic()
-        _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        _note_failure(exc)
     finally:
         _end_run()
+
+
+def _note_failure(exc: Exception) -> None:
+    """A download failed: it's tried again after RETRY_SECONDS, and the status says so."""
+    _state["refused"] = price_status.refused_by_bitstamp(exc)
+    _state["failed_at"] = time.monotonic()
+    _state["failed_wall"] = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _end_run() -> None:
