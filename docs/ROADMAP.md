@@ -20,7 +20,7 @@ fixes: its last release, 1.2.10, stays downloadable. No dates are promised.
       correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
       report and the guide say when. Generic, not tied to one exchange.
 - [ ] Styled dialogs instead of the browser's confirm boxes (deleting a
-      transaction, the CSV and River imports, Ledger Review's apply, Reset
+      transaction, the CSV and exchange-file imports, Ledger Review's apply, Reset
       Username & Password, logging out, the AI key), like the one for
       Delete All and Create account (#256, in 1.2.9).
 - [ ] **2026 IRS forms** once the IRS publishes the final revision (the

@@ -233,7 +233,7 @@ entries come out right.
   wallet](#choosing-which-coins-leave-a-wallet)): each one's date acquired,
   amount and cost.
   - For a bitcoin account, **To Account** also offers the account itself:
-    "*wallet*: consolidate / move within the same wallet" or "*exchange*:
+    "*wallet*: consolidate within the same wallet" or "*exchange*:
     consolidate within the same exchange". A consolidation records only its
     network fee, a disposal (of that account's coins, by Per-wallet FIFO)
     at the fee's value; your coins, their dates and cost basis stay as they
@@ -243,7 +243,7 @@ entries come out right.
     exchange keeps its own lots.
 - **Buy**: bitcoin into an exchange's BTC account. Choose the **Exchange**
   (with one exchange, it isn't asked), then **Paid from**: that exchange's
-  dollars, or a bank (marked "(auto-buy)"). An exchange's dollars buy only
+  dollars, or a bank. An exchange's dollars buy only
   on that exchange. Enter the dollars spent without the fee as **Amount
   USD**, the bitcoin as **Amount BTC** and the fee as **Fee (USD)**: the
   lot's cost basis is Amount USD and the fee together.

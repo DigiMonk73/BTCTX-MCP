@@ -1742,9 +1742,8 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   over. To return to <1.x>, uninstall the service — which deletes its data
   — and restore a backup made while it was running <1.x>." (`start-cli`
   shows it cut short), and 2.0 still running with its 15 rows.
-- **WAY-3** (Not yet run, #532's 3b: beta.2's gate runs it, #806, with
-  the VM's StartOS password typed by the person who set up the VM; the
-  release repeats it.) Back by the StartOS backup. Uninstall
+- **WAY-3** (First run in beta.2's gate, #806, with the VM's StartOS
+  password typed by the person who set up the VM; the release repeats it.) Back by the StartOS backup. Uninstall
   BitcoinTX (its data goes), then restore WAY-1's StartOS backup (BAK-5's
   steps). Expect
   BitcoinTX at 1.2.10, `$API/health` with `"schema": "0012"`, WAY-1's

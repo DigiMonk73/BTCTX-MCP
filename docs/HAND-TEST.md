@@ -13,10 +13,11 @@ them in order: Part 3 adds accounts that would change what Part 2 shows.
 
 Use one of these, and nothing else:
 
-- **BitcoinTX Preview on your Mac**, only if it holds nothing you want to keep.
+- **BitcoinTX Preview on your Mac**, the separate app of 2.0's alphas and betas,
+  only if you have it and it holds nothing you want to keep.
 - **A throwaway Docker install**, which you remove at the end. In a Terminal
   window, with `VERSION` being the version you're testing (for example
-  `v2.0.0-beta.2`):
+  `v2.0.0`):
 
   ```bash
   docker run -d --name btctx-handtest -p 127.0.0.1:8090:80 -v btctx-handtest:/data ghcr.io/digimonk73/btctx-mcp:VERSION
@@ -224,7 +225,7 @@ so they aren't listed here. Everything else should match exactly.
 ## Part 3: the reference ledger
 
 This is the [reference ledger](../testdata/reference_ledger.csv), the same test
-ledger BitcoinTX's own automatic checks use: 16 accounts and every kind of
+ledger BitcoinTX's own automatic checks use: 14 accounts and every kind of
 transaction, from 2022 to 2026, with every Form 8949 box of 2024 to 2026. An
 automatic test already imports this file and compares every figure. Here you
 see that the screens get there too.

@@ -2,7 +2,7 @@
 #
 # make hooks        install the pre-push hook (runs `make check-fast` before every push)
 # make test         full hermetic Python suite (temp DB, no server, no internet)
-# make test-fast    the same without the slow stress tests (~8 min)
+# make test-fast    the same without the slow stress tests (~3 min)
 # make smoke        the real server on a temp DB, driven end to end
 # make e2e          Playwright click-through tests of every UI flow (Chromium)
 # make preview      this checkout in a browser at 127.0.0.1:8777 (throwaway data)

@@ -308,7 +308,7 @@ run of the app; an AI app left open across a restart carries on by itself,
 since the MCP server rereads the file when its key is refused. A restore
 keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
-tools use (`AI_KEY_ROUTES`; login, backup/restore, file imports (CSV, River), delete-all, the
+tools use (`AI_KEY_ROUTES`; login, backup/restore, file imports (CSV, River, any exchange's), delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
 running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 

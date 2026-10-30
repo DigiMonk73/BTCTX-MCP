@@ -449,7 +449,7 @@ you. What you enter in 2.0 can't go back to 1.x ([Going back to
   USD and Exchange BTC become your first exchange, named "Exchange"; an
   account made through 1.x's account API becomes a wallet (bitcoin) or a
   bank (dollars), with "(account N)" added to a name another account
-  already has or one of the names files reserve. Your figures don't
+  already has or one of the names files reserve. Your tax figures don't
   change, except in a ledger started before 0.9.2: a transaction saved then
   into an account made through BitcoinTX's old account API now counts by
   that account's currency, so its income, rebates and gifts received can

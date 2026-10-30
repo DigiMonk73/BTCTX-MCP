@@ -306,9 +306,9 @@ which `tsc -b` leaves out), `npm run lint`, `npm test`
 and both click-through suites (`npx playwright test --project=chicago
 --project=tokyo`, then `E2E_WEBKIT=1 npx playwright test --project=webkit`)
 after `npx playwright install chromium webkit`, reads Playwright's release
-notes for every version in between, and lets CI's two `e2e` jobs decide on
-Linux. The browsers each version needs come with that install, so nothing
-else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
+notes for every version in between, and lets CI's `e2e` jobs (Chromium and
+WebKit) decide on Linux. The browsers each version needs come with that
+install, so nothing else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
 `ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
 WebKit's suite runs on a Mac only from macOS 15
 (Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
@@ -322,7 +322,7 @@ take the upgrade.
 | Package | Deferred to | Why | Unblock when |
 |---------|-------------|-----|--------------|
 | `typescript` | 6.0 | Breaking "bridge" release toward TS 7 | typescript-eslint supports it and the ecosystem settles |
-| `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it (for 1.x or with 2.0). Then run the FIFO/lot and migration tests |
+| `sqlalchemy` | 2.1.x | A minor version with breaking changes, not taken in 1.2.9 (#425). Python is no longer in the way: 3.11 is the minimum since #546 | The owner decides to take it. Then run the FIFO/lot and migration tests |
 
 ---
 
@@ -343,11 +343,10 @@ more for restores.
 2. Generate the migration against a scratch database at the current head:
    ```bash
    DATABASE_FILE=/tmp/scratch.db python -c "from backend.database import init_db; init_db()"
-   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0013 -m "add foo to transactions"
+   DATABASE_FILE=/tmp/scratch.db alembic revision --autogenerate --rev-id 0102 -m "add foo to transactions"
    ```
-   Use the next number as `--rev-id` (sequential ids keep the history readable):
-   on `develop`, 1.x's next (0013, 0014, …); on `2.0`, 2.0's next from 0100
-   (below).
+   Use the next number after the head as `--rev-id` (sequential ids keep the
+   history readable): 0102 follows 2.0.0's 0101.
 3. Read the generated file. Autogenerate misses renames (it emits drop + add,
    which loses data) and server defaults; SQLite column changes run as
    `batch_alter_table` (copy, swap), which `env.py` enables. A new NOT NULL
