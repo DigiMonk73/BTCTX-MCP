@@ -72,16 +72,17 @@ has the steps for each platform.
 **A tax-figures fix since 1.2.10.** A network fee the AI connector or an API
 client sends without its currency takes the day's price its spend or gift was
 priced at, not the hour's (#649). It affects any tax year, from 1.2.8 (a gift's
-from 1.2.9) through 1.2.10, and it's cents on a real fee. BitcoinTX's own form
-was never affected. If the AI connector added or changed a network fee on a
-spend, gift, donation or lost coins priced at the day, open the transaction,
-clear **Proceeds (USD)** (for the others, **FMV (USD)**) and save. The dashboard's Unrealized Gains/Losses now
-adds up your accounts' own gains, which can be a few cents from 1.x's figure;
-it's on no tax form (#770).
+from 1.2.9) through 1.2.10 and 2.0's pre-releases up to beta.1, and it's cents
+on a real fee. BitcoinTX's own form was never affected. If the AI connector
+added or changed a network fee on a spend, gift, donation or lost coins priced
+at the day, open the transaction, clear **Proceeds (USD)** (for the others,
+**FMV (USD)**) and save. The dashboard's Unrealized Gains/Losses now adds up
+your accounts' own gains, which can be a few cents from 1.x's figure; it's on no
+tax form (#770).
 
 **On a machine that refuses BitcoinTX a thread** (a container's limit, no
-memory; it affects any tax year, in 1.2.10 and 2.0's pre-releases), the hourly
-price download kept saying it was downloading until a restart. The first save
+memory; it affects any tax year, from 1.2.8 through 1.2.10 and in 2.0's
+pre-releases), the hourly price download kept saying it was downloading until a restart. The first save
 answered with an error and saved nothing, and later saves took the day's price
 until a restart. Now the first save goes through at the day's price, marked as
 such, and once threads come back, saves take the hour's price with no restart.
@@ -97,22 +98,25 @@ Connect an AI Assistant gives now.
   2.0.0 never reads it. To keep a Preview ledger instead of the one BitcoinTX
   holds, download a backup in the Preview and restore it in 2.0.0: a restore
   replaces the ledger there, after a copy into `backups/`. Then delete the
-  Preview.
+  Preview, and remove its `bitcointx-preview` entry from your AI app.
+- **On StartOS,** 2.0.0 updates a pre-release in place. The StartOS backup you
+  made under 1.x still takes you back to 1.x.
 - **On Docker,** start `:v2.0.0` on the same volume.
 - **Three fixes concern only what a pre-release did,** each entry in the
-  CHANGELOG saying what to do: Coinbase files in their current shape (#789), Kraken trades whose
-  fee Kraken's fee credits paid (#829), and a choice of coins sent to a
-  BitcoinTX 1.x (#834). If you tested alpha.1 or alpha.2, #719 and #721 say what
-  to check.
+  CHANGELOG saying what to do: Coinbase files in their current shape (#789),
+  Kraken trades whose fee Kraken's fee credits paid (#829), and a choice of
+  coins sent to a BitcoinTX 1.x (#834). If you tested alpha.1 or alpha.2, #719
+  and #721 say what to check.
 
-**Known issues, for 2.0.1.** Only on a ledger holding a row whose value was
-blanked by hand in the database (a new row can't be saved blank): the
-past-year question, or the form's list of the coins a transaction moves, looks
-up that row's price and loses the answer. A save can need a second try, and
-such a row can take the day's price, marked, instead of the hour's (#824,
-#849). Ledger Review lists such a value. A known limitation: a Form 1099-DA
-that lists a transfer's or a gift's network fee, or a fee without its
-withdrawal, can't be matched on Form 8949 yet (#551).
+**Known issues, for 2.0.1.** Only on a ledger holding a row whose value is
+blank in the database, which in practice means blanked by hand (a new row can't
+be saved blank): the past-year question, or the form's list of the coins a
+transaction moves, looks up that row's price and loses the answer. A save can
+need a second try. If the row is dated after the price history's last hour, it
+or another value priced in the next 10 minutes can take the day's price, marked,
+instead of the hour's (#824, #849). Ledger Review lists a saved value like that.
+A known limitation: a Form 1099-DA that lists a transfer's or a gift's network
+fee, or a fee without its withdrawal, can't be matched on Form 8949 yet (#551).
 
 The CHANGELOG's entries keep the words of the pre-release they came with, so
 a fix may name the alpha it fixes. Each pre-release's own notes stay on
