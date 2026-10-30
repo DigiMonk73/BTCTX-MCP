@@ -58,8 +58,15 @@ def pdf_text(client, year):
     r = client.get(f"/api/reports/complete_tax_report?year={year}&format=pdf")
     assert r.status_code == 200, r.text
     assert r.headers["content-type"] == "application/pdf"
-    logging.getLogger("pypdf").setLevel(logging.ERROR)
-    text = " ".join(page.extract_text() for page in PdfReader(io.BytesIO(r.content)).pages)
+    # pypdf's warnings quiet while it reads, then as they were: a later test
+    # on this worker counts them (test_pypdf_log.py, #814)
+    pypdf_log = logging.getLogger("pypdf")
+    level = pypdf_log.level
+    pypdf_log.setLevel(logging.ERROR)
+    try:
+        text = " ".join(page.extract_text() for page in PdfReader(io.BytesIO(r.content)).pages)
+    finally:
+        pypdf_log.setLevel(level)
     return " ".join(text.split())  # table cells wrap: compare words, not lines
 
 

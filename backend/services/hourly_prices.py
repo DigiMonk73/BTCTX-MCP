@@ -279,23 +279,6 @@ def with_prices_found(db: Session, save: Callable[[], T], *inputs: dict) -> T:
             db.info.pop(key, None)
 
 
-def look_first(db: Session, when: datetime, at_the_day: bool) -> None:
-    """The price a replay will ask for a stored row's missing value (#824),
-    looked for before it, with the lock free, as the save would look once
-    that replay asked: never waiting for a download. Kept in the live
-    database, where a dry run's scratch copy and the save after it both
-    find it. What it finds none of it doesn't note for the save: that looks
-    again for itself, as it would have."""
-    noted = {key: db.info.pop(key) for key in _LOOKUP_NOTES if key in db.info}
-    _look_with_the_lock_free(db, price_history.PriceNeeded(when, "day" if at_the_day else "hour"))
-    for key in _LOOKUP_NOTES:
-        db.info.pop(key, None)
-    db.info.update(noted)
-
-
-_LOOKUP_NOTES = (UNPRICED_HOURS, price_history.UNPRICED_DAYS, price_history.LOOKUPS_FAILED)
-
-
 def _look_with_the_lock_free(db: Session, need: price_history.PriceNeeded) -> None:
     """Look for the price a save needed as its lookup would have under the
     lock (never waiting for a download, #421), with the lock free: what's

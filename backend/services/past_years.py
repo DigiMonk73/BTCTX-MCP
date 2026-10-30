@@ -338,7 +338,7 @@ def _dry_run(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int)
     """The 409's body, or None when nothing earlier moves: worked out on a
     scratch copy, with the lock free, within DRY_RUN_SECONDS."""
     # Kept in the live database: the confirm needs them
-    tx_service.find_prices_first(db, write.priced_rows(db), stored_moments(write, db, _needs_without(write, db)))
+    tx_service.find_prices_first(db, write.priced_rows(db), _stored_hours(write, db))
     appended = write.appends(db)
     try:
         with scratch_copy(db) as scratch:
@@ -349,14 +349,13 @@ def _dry_run(write: PastYearWrite, db: Session, by_ai: bool, tz, this_year: int)
         return _by_date(write, db, by_ai, tz, this_year)
 
 
-def stored_moments(write: PastYearWrite, db: Session, as_stored: bool) -> set:
-    """When a scratch copy's replays price a stored row's missing value
-    (#824), for transaction.find_prices_first. `as_stored`: one of them runs
-    without the write, so it reads the row the write edits or deletes as
-    it's stored too."""
-    if not as_stored and not write.recalculates(db):
+def _stored_hours(write: PastYearWrite, db: Session) -> set:
+    """The hours the dry run's replays ask for a stored row's missing value
+    (#824), for transaction.find_prices_first: the row the write edits or
+    deletes only if a recalculation without the write reads it as stored."""
+    if not write.recalculates(db):
         return set()
-    return tx_service.moments_a_replay_prices(db, None if as_stored else write.own_row())
+    return tx_service.hours_a_replay_prices(db, None if _needs_without(write, db) else write.own_row())
 
 
 def _needs_without(write: PastYearWrite, db: Session) -> bool:

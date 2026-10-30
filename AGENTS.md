@@ -165,7 +165,8 @@ squash-merged (or with a merge commit, for the daily pull requests
 between `staging` and `develop`), once `ci.yml`'s one required check,
 "CI passed", has passed ("Protect develop"; it needs every job except
 the macOS build and the macOS dependency audit, which run but aren't
-required; Python tests run on 3.11 and 3.13, both in it, since #546), on
+required; Python tests run on 3.11 and 3.13, both in it, since #546, each
+as three shards and a guard that every test ran once, since #814), on
 a branch that's up to date with `develop` ("Require branches to be up to
 date before merging", on since 2026-10-17, the owner's choice), so a pull
 request's checks have run on everything already merged. "Protect
@@ -268,8 +269,8 @@ dated in an earlier tax year, #711) and saves nothing. Sent again with
 fresh AI copy with the key), the fingerprint checked again before the
 commit, in `hourly_prices.with_prices_found`. The check runs on
 `database.scratch_copy` with the lock free, its prices found first (the
-write's, and those its replays need for a stored row's missing value,
-`moments_a_replay_prices`, #824); a write
+write's, and the hours its replays ask for a stored row's missing value,
+`hours_a_replay_prices`, #824); a write
 dated in this tax year (`tax_time.current_tax_year`, pinned to 2009 in the
 tests) or one moving only dollars saves at once, and past
 `past_years.DRY_RUN_SECONDS` (10 s, from the StartOS VM's measurement) the

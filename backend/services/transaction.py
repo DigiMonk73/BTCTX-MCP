@@ -1068,7 +1068,7 @@ DAY_PRICES = "btctx_price_at_the_day"
 STORED_VALUES_SECONDS = 10
 
 
-def find_prices_first(db: Session, rows: list[dict], stored_moments: Iterable[tuple[datetime, bool]] = ()) -> None:
+def find_prices_first(db: Session, rows: list[dict], stored_hours: Iterable[datetime] = ()) -> None:
     """
     Before a save of several rows first writes (an import, the AI's preview
     or add), find the prices its rows' values are filled from, so they're
@@ -1080,8 +1080,12 @@ def find_prices_first(db: Session, rows: list[dict], stored_moments: Iterable[tu
     price for (hourly_prices.WARMING): such a row takes the day's price. A
     price it misses is found with the lock free all the same, at the cost
     of starting the import again (hourly_prices.with_prices_found).
-    Then `stored_moments`, those a replay of the stored ledger will price
-    (moments_a_replay_prices, #824), as long as STORED_VALUES_SECONDS allows.
+    Then `stored_hours`, those a replay of the stored ledger will ask for
+    (hours_a_replay_prices, #824), as long as STORED_VALUES_SECONDS allows,
+    never waiting for a download. Only the hour's price: the latest days'
+    are asked for once a day, so looking for a day's first would save a row
+    the replay's own look refuses. What this doesn't find, the replay looks
+    for as it would have.
     """
     if price_history.writing(db):
         return
@@ -1098,20 +1102,23 @@ def find_prices_first(db: Session, rows: list[dict], stored_moments: Iterable[tu
     finally:
         db.info[hourly_prices.WARMING] = False
     deadline = time.monotonic() + STORED_VALUES_SECONDS
-    for when, at_the_day in sorted(stored_moments):
-        if time.monotonic() >= deadline:
-            return
-        hourly_prices.look_first(db, when, at_the_day)
+    try:
+        for when in sorted(stored_hours):
+            if time.monotonic() >= deadline:
+                return
+            hourly_prices.hourly_price(db, when, wait=False)
+    except Exception:  # a busy database: the save meets it and answers as it does
+        return
 
 
-def moments_a_replay_prices(db: Session, leaving_out: int | None = None) -> set[tuple[datetime, bool]]:
+def hours_a_replay_prices(db: Session, leaving_out: int | None = None) -> set[datetime]:
     """
-    When a replay prices a stored row's missing value (_price_for), as (the
-    moment, whether at the day): a bitcoin fee with no USD value
-    (_stored_fee_usd) and a Spent's blank proceeds
-    (_withdrawal_gross_proceeds). Only a row migration 0004 couldn't fill, or
-    one blanked by hand, holds one. `leaving_out`: a row whose values the
-    write decides, which no replay reads as it's stored.
+    When a replay prices a stored row's missing value at its hour (_price_for):
+    a bitcoin fee with no USD value (_stored_fee_usd) and a Spent's blank
+    proceeds (_withdrawal_gross_proceeds), unless the row's other values have
+    the day's price. Only a row migration 0004 couldn't fill, or one blanked
+    by hand, holds one. `leaving_out`: a row whose values the write decides,
+    which no replay reads as it's stored.
     """
     book = account_book(db)
     blank = db.query(Transaction).filter(
@@ -1119,8 +1126,9 @@ def moments_a_replay_prices(db: Session, leaving_out: int | None = None) -> set[
         or_(Transaction.fee_usd.is_(None),
             and_(Transaction.proceeds_usd.is_(None), Transaction.gross_proceeds_usd.is_(None))),
     )
-    return {(as_utc(tx.timestamp), tx.price_moment == "day") for tx in blank
-            if tx.id != leaving_out and (_replay_prices_fee(tx, book, db) or _replay_prices_proceeds(tx, book))}
+    return {as_utc(tx.timestamp) for tx in blank
+            if tx.id != leaving_out and tx.price_moment != "day"
+            and (_replay_prices_fee(tx, book, db) or _replay_prices_proceeds(tx, book))}
 
 
 def _replay_prices_fee(tx: Transaction, book: AccountBook, db: Session) -> bool:

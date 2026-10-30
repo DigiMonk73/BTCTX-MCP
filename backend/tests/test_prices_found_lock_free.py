@@ -27,7 +27,6 @@ from sqlalchemy.orm import sessionmaker
 from backend.services import csv_import, entry_import, outbound, price_history
 from backend.services import hourly_prices as hp
 from backend.services import price_files as pf
-from backend.services import transaction as tx_service
 from backend.tests.conftest import empty_price_history
 
 # The real lookups, captured before the session fixture stubs them
@@ -484,31 +483,55 @@ def test_an_imports_rows_find_a_price_its_warm_up_missed_with_the_lock_free(auth
     assert all(t["values_from_price"] == ["fee_usd"] for t in transfers)
 
 
-def test_a_confirmed_past_year_save_needs_no_second_try_for_a_price_found_first(auth_client, test_engine, sites,
-                                                                                unvalued_fee, tax_year):
-    """#824: the past-year question finds the old row's price with the lock
-    free and keeps it, so the confirmed save asks nothing."""
-    from backend.migrate import PRE_CHANGE_KIND, backup_copies
+def _blank_fee_after_the_files(client, test_engine, monkeypatch, tmp_path, sites, moment=None, hours_answer=True):
+    """A Buy, and a Transfer dated after the last year file with a bitcoin fee
+    left blank, nothing stored and the real lookups' limits fresh: Bitstamp
+    gives the hour at $41,000 (the day stays at $40,000), or no hours. In a
+    closed year, so the hours after the files are always past."""
+    lines = pf.read_manifest(pf.MANIFEST)[:-1]
+    files_end = lines[-1].last_hour
+    manifest = tmp_path / "MANIFEST.csv"
+    manifest.write_text(pf.manifest_text(lines), encoding="utf-8")
+    monkeypatch.setattr(pf, "MANIFEST", manifest)
+    monkeypatch.setattr(hp, "_current_hour", lambda: files_end + 100 * 3600)
+    day_prices = sites.handler
 
-    tax_year(2026)  # every row of 2019 is in an earlier tax year
+    def hours_differ(request):
+        answer = day_prices(request)
+        if int(request.url.params.get("step", 0)) != 3600:
+            return answer
+        text_ = answer.text.replace(f'"{DAY_PRICE}"', '"41000"') if hours_answer else '{"data": {"ohlc": []}}'
+        return httpx.Response(200, text=text_, headers={"content-type": "application/json"})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(hours_differ))
+    when = datetime.fromtimestamp(files_end + 2 * 3600 + 60, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    buy = post(client, **BUY)
+    transfer = post(client, type="Transfer", timestamp=when, from_account_id=EXCHANGE_BTC, to_account_id=WALLET,
+                    amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET fee_usd = NULL, fee_usd_manual = 0, price_moment = :moment "
+                         "WHERE id = :id"), {"id": transfer["id"], "moment": moment})
+    _no_price_stored(test_engine)
+    sites.requests.clear()
+    return buy["id"], transfer["id"]
+
+
+def _history_complete(test_engine) -> None:
+    """The latest days are all that's asked for, once a UTC day (price_history._latest_public_prices)."""
+    with test_engine.begin() as con:
+        con.execute(text("INSERT INTO app_settings (key, value) VALUES (:key, '1')"), {"key": price_history.HISTORY_FLAG})
+
+
+def _question_then_confirm(client, buy: int, tax_year) -> tuple[int, int]:
+    """A past-year edit of the Buy, and its confirm: the two answers."""
+    tax_year(2100)
 
     def edit(params=None):
-        return auth_client.put(f"/api/transactions/{unvalued_fee['buy']}", json={"cost_basis_usd": "1100"},
-                               params=params)
+        return client.put(f"/api/transactions/{buy}", json={"cost_basis_usd": "1100"}, params=params)
 
     asked = edit()
     assert asked.status_code == 409, asked.text
-    sites.all_with_the_lock_free()
-    assert get(auth_client, unvalued_fee["transfer"])["fee_usd"] is None  # a price kept, no value saved
-    sites.requests.clear()
-    copies = backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)
-    r = edit({"confirm": asked.json()["confirm"]})
-    assert r.status_code == 200, r.text
-    assert sites.requests == []
-    _fee_valued(auth_client, unvalued_fee)
-    made = set(backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)) - set(copies)
-    assert len(made) == 1
-    made.pop().unlink()
+    return asked.status_code, edit({"confirm": asked.json()["confirm"]}).status_code
 
 
 def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth_client, test_engine, sites, tax_year,
@@ -517,57 +540,45 @@ def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth
     Bitstamp's hours after the files are asked for once in 10 minutes: the
     question's replay used that ask on a scratch copy and lost the answer,
     so the save took the day's price ($4.00), and the changed fingerprint
-    asked again. Found first, it's the hour's ($4.10), and one question."""
-    lines = pf.read_manifest(pf.MANIFEST)[:-1]  # a closed year last, so the hours after it are always past
-    files_end = lines[-1].last_hour
-    manifest = tmp_path / "MANIFEST.csv"
-    manifest.write_text(pf.manifest_text(lines), encoding="utf-8")
-    monkeypatch.setattr(pf, "MANIFEST", manifest)
-    monkeypatch.setattr(hp, "_current_hour", lambda: files_end + 100 * 3600)
-    day_prices = sites.handler
-
-    def the_hour_differs(request):
-        answer = day_prices(request)
-        if int(request.url.params.get("step", 0)) != 3600:
-            return answer
-        return httpx.Response(200, text=answer.text.replace(f'"{DAY_PRICE}"', '"41000"'),
-                              headers={"content-type": "application/json"})
-
-    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(the_hour_differs))
-    when = datetime.fromtimestamp(files_end + 2 * 3600 + 60, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    buy = post(auth_client, **BUY)
-    transfer = post(auth_client, type="Transfer", timestamp=when, from_account_id=EXCHANGE_BTC, to_account_id=WALLET,
-                    amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
-    with test_engine.begin() as con:
-        con.execute(text("UPDATE transactions SET fee_usd = NULL, fee_usd_manual = 0, price_moment = NULL "
-                         "WHERE id = :id"), {"id": transfer["id"]})
-    _no_price_stored(test_engine)
-    sites.requests.clear()
-    tax_year(2100)
-
-    def edit(params=None):
-        return auth_client.put(f"/api/transactions/{buy['id']}", json={"cost_basis_usd": "1100"}, params=params)
-
-    asked = edit()
-    assert asked.status_code == 409, asked.text
-    r = edit({"confirm": asked.json()["confirm"]})
-    assert r.status_code == 200, r.text
+    asked again. Found first, it's the hour's ($4.10), one question, and the
+    confirm asks nothing. The owner's decision, 2026-10-30."""
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 200)
+    assert len(sites.requests) == 1
     sites.all_with_the_lock_free()
-    saved = get(auth_client, transfer["id"])
+    saved = get(auth_client, transfer)
     assert (Decimal(saved["fee_usd"]), saved["price_moment"]) == (Decimal("4.10"), "hour")
 
 
+def test_a_blank_fee_kept_at_the_day_is_still_refused_when_todays_ask_is_gone(auth_client, test_engine, sites, tax_year,
+                                                                               monkeypatch, tmp_path):
+    """The question's replay uses the day's one ask for the latest days on a
+    scratch copy, so the save has no price: a 422, as before #824. Looking
+    for the day's first would save it, a change nobody has agreed."""
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites, moment="day")
+    _history_complete(test_engine)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 422)
+    assert get(auth_client, transfer)["fee_usd"] is None
+
+
+def test_a_blank_fee_with_no_hour_is_still_refused_when_todays_ask_is_gone(auth_client, test_engine, sites, tax_year,
+                                                                            monkeypatch, tmp_path):
+    """The same with the hour looked for first and none to be had: the day's isn't."""
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites,
+                                               hours_answer=False)
+    _history_complete(test_engine)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 422)
+    assert get(auth_client, transfer)["fee_usd"] is None
+
+
 def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
-                                                                 tax_year, monkeypatch):
-    """2.0's past-year warning (spec 5.8, card B6b #352): a price the
-    question didn't find first (out of time here, #824; or an hour no source
-    has): its dry run prices the old row on a scratch copy, which keeps
-    nothing; the confirmed save, under the lock, rolls back for that price,
-    finds it with the lock free and runs again, its first run's copy removed
-    with it."""
+                                                                 tax_year):
+    """2.0's past-year warning (spec 5.8, card B6b #352): its dry run prices
+    the old row on a scratch copy, which keeps nothing; the confirmed save,
+    under the lock, rolls back for that price, finds it with the lock free
+    and runs again, its first run's copy removed with it."""
     from backend.migrate import PRE_CHANGE_KIND, backup_copies
 
-    monkeypatch.setattr(tx_service, "STORED_VALUES_SECONDS", 0)
     tax_year(2026)  # every row of 2019 is in an earlier tax year
 
     def edit(params=None):

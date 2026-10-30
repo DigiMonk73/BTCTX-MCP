@@ -28,7 +28,7 @@ from sqlalchemy import text
 from backend.main import app
 from backend.models.app_setting import save_setting
 from backend.models.btc_price import BtcPriceHourly
-from backend.models.transaction import BitcoinLot, Transaction
+from backend.models.transaction import Transaction
 from backend.services import hourly_prices, price_history, recalculated_by
 from backend.services import transaction as tx_service
 from backend.tests.conftest import STUB_HISTORICAL_USD, default_login
@@ -123,7 +123,7 @@ def ledger(fresh_app, monkeypatch, tax_year):
         return hourly_prices.Priced(Decimal("50000.00"), lg.moment, at)
 
     def hourly_price(db, when, wait=True):
-        """A stored row's price, found first (hourly_prices.look_first)."""
+        """A stored row's hour, found first (hours_a_replay_prices)."""
         lg.asked.append((lg.finding, "hour", hourly_prices.hour_of(when)))
         lg.waits.append(wait)
         return Decimal("50000.00"), "test"
@@ -347,8 +347,9 @@ def test_a_past_year_spend_added_with_only_its_gross_finds_no_price(ledger):
 
 # #824: a replay prices a stored row's missing value at its stored moment
 # (_price_for), and the past-year question's replays run on a scratch copy, so
-# what they found was lost and the confirmed save tried twice. Found first,
-# just as that second try would look for it.
+# what they found was lost and the confirmed save tried twice. Its hour is
+# found first. The sources' own limits, which these stubs skip:
+# test_prices_found_lock_free.py
 BLANK_FEE = {"fee_usd": None, "fee_usd_manual": False}
 TYPED = spend("2024-08-01", gross_proceeds_usd="5000")  # the row a question is asked about
 
@@ -378,11 +379,12 @@ def test_a_stored_rows_missing_value_is_found_first(ledger, name, blanked):
     assert found == asked == {hour(ROWS[name]["timestamp"])}
 
 
-def test_a_stored_rows_missing_value_is_found_at_the_day_it_keeps(ledger):
-    """A row whose other priced values have the day's price: its missing one takes it too (_price_for)."""
+def test_a_stored_rows_missing_value_kept_at_the_day_is_left_to_the_replay(ledger):
+    """The latest days are asked for once a day: found first, a row the
+    replay's own look refuses would be saved. It stays as it was."""
     _store(ledger, ledger.add(ROWS["priced spend"], moment="day"), **BLANK_FEE, price_moment="day")
     found, asked = _edit_another_row(ledger)
-    assert found == asked == {("day", price_history.utc_day(datetime(2024, 4, 1, 12, tzinfo=timezone.utc)))}
+    assert found == set() and asked == {("day", price_history.utc_day(datetime(2024, 4, 1, 12, tzinfo=timezone.utc)))}
 
 
 @pytest.mark.parametrize("name, blanked", [
@@ -439,56 +441,16 @@ def test_with_a_change_pending_its_own_stored_moment_is_found_too(ledger):
     assert found == asked == {hour("2024-07-02T15:00:00Z"), hour(ROWS["transfer"]["timestamp"])}
 
 
-# The form's list of the coins a transaction moves replays on a scratch copy too
-def _coins_moved(ledger, when: str) -> tuple[set, set]:
-    """A transfer whose own fee's value is typed: what's found is the stored rows'."""
-    return ledger._sent_in_2026("post", "/api/transactions/coins-moved",
-                                {**ROWS["transfer"], "timestamp": when, "fee_usd": "5"})
-
-
-def _lots_lack_their_acquisition(ledger) -> None:
-    """Made before migration 0101: a list replays the ledger first, as it's stored."""
-    with ledger.session() as db:
-        db.query(BitcoinLot).update({"acquired_txn_id": None})
-        db.commit()
-
-
-def test_the_coins_moved_list_finds_a_stored_rows_missing_value_first(ledger):
-    """Backdated, it replays. A list saves nothing, so what its replay found
-    was asked for again by the next list, and by the save."""
+def test_the_coins_moved_list_finds_no_stored_rows_price_first(ledger):
+    """Keeping it would change what a later save of the row takes: left as it was (#824's review)."""
     _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
-    found, asked = _coins_moved(ledger, "2024-02-01T12:00:00Z")
-    assert found == asked == {hour(ROWS["gift with a fee"]["timestamp"])}
-
-
-def test_a_coins_moved_list_dated_last_finds_no_stored_rows_price(ledger):
-    _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
-    assert _coins_moved(ledger, "2024-12-01T12:00:00Z") == (set(), set())
-
-
-def test_a_coins_moved_list_dated_last_finds_it_when_lots_lack_their_acquisition(ledger):
-    _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
-    _lots_lack_their_acquisition(ledger)
-    found, asked = _coins_moved(ledger, "2024-12-01T12:00:00Z")
-    assert found == asked == {hour(ROWS["gift with a fee"]["timestamp"])}
-
-
-def test_an_edits_coins_moved_list_reads_its_own_blank_row_only_as_its_replay_does(ledger):
-    """Its own row is the edit's to price, unless lots lacking their
-    acquisition replay it first as it's stored."""
-    tx_id = ledger.add(ROWS["transfer"])
-    _store(ledger, tx_id, **BLANK_FEE)
-    url, body = f"/api/transactions/{tx_id}/coins-moved", {**ROWS["transfer"], "timestamp": "2024-07-02T15:00:00Z"}
-    found, asked = ledger._sent_in_2026("post", url, body)
-    assert found == asked == {hour("2024-07-02T15:00:00Z")}
-    _lots_lack_their_acquisition(ledger)
-    found, asked = ledger._sent_in_2026("post", url, body)
-    assert found == asked == {hour("2024-07-02T15:00:00Z"), hour(ROWS["transfer"]["timestamp"])}
+    found, asked = ledger._sent_in_2026("post", "/api/transactions/coins-moved",
+                                        {**ROWS["transfer"], "timestamp": "2024-02-01T12:00:00Z", "fee_usd": "5"})
+    assert found == set() and asked == {hour(ROWS["gift with a fee"]["timestamp"])}
 
 
 def test_a_stored_rows_price_never_waits_for_a_download(ledger):
-    """As the save's second try looks (_look_with_the_lock_free): waiting
-    could give it the hour's price where the save gives the day's."""
+    """Waiting could give it the hour's price where the save gives the day's."""
     _store(ledger, ledger.add(ROWS["transfer"]), **BLANK_FEE)
     _edit_another_row(ledger)
     assert ledger.waits == [False]
@@ -621,14 +583,16 @@ def test_time_running_out_part_way_leaves_the_rest_to_the_second_try(fresh_app, 
         db.query(Transaction).filter_by(id=earlier).update(BLANK_FEE)
         db.commit()
     now = {"seconds": 0}
-    look_first = hourly_prices.look_first
+    hourly_price = hourly_prices.hourly_price
 
-    def a_slow_source(db, when, at_the_day):
-        look_first(db, when, at_the_day)
-        now["seconds"] += tx_service.STORED_VALUES_SECONDS
+    def a_slow_source(db, when, wait=True):
+        found = hourly_price(db, when, wait)
+        if not wait:  # only looking first: a replay's lookups wait where they may
+            now["seconds"] += tx_service.STORED_VALUES_SECONDS
+        return found
 
     monkeypatch.setattr(tx_service, "time", SimpleNamespace(monotonic=lambda: now["seconds"]))
-    monkeypatch.setattr(hourly_prices, "look_first", a_slow_source)
+    monkeypatch.setattr(hourly_prices, "hourly_price", a_slow_source)
     blank, other, question = _blank_fee_and_a_question(client, tax_year, fresh_app, state)
     _confirm(client, tax_year, other, question)
     assert state["held"] == 1
@@ -654,9 +618,9 @@ def test_blank_rows_stored_with_and_without_a_timezone_are_found_first(fresh_app
 
 
 def test_a_source_that_fails_once_leaves_the_save_to_look_again(fresh_app, real_lookups):
-    """The review's: what the look first found none of isn't noted for the
-    save, in a write that saves without asking, so the save's own look gets
-    the hour's price, as it did."""
+    """The review's: what the look first found none of is noted nowhere, so
+    in a write that saves without asking the save's own look gets the hour's
+    price, as it did."""
     client, tax_year, state = real_lookups
     blank = client.post("/api/transactions", json=ROWS["transfer"]).json()["id"]
     other = client.post("/api/transactions", json=TYPED).json()["id"]
