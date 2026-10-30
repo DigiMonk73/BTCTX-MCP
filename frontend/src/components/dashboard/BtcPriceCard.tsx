@@ -4,7 +4,6 @@ import { Link } from "react-router-dom";
 import { noPriceWords, priceSourceWords, type LivePrice } from "../../utils/dashboard";
 import { clock } from "../../utils/priceStatus";
 import { formatUsd } from "../../utils/format";
-import { whenShown } from "../../utils/whenShown";
 
 interface BtcPriceCardProps {
   price: LivePrice;
@@ -14,16 +13,13 @@ interface BtcPriceCardProps {
 /**
  * Goes to the price card and puts the keyboard there, as the link's "#"
  * would, but adds no history entry of the browser's own: react-router can't
- * stop a Back onto one, so unsaved changes were lost unasked (#536). The card
- * shows once its settings load, which can be after the link: a press before
- * then goes there once it's shown (#612).
+ * stop a Back onto one, so unsaved changes were lost unasked (#536).
  */
 function goToPriceCard(e: React.MouseEvent<HTMLAnchorElement>) {
   e.preventDefault();
-  whenShown("price-card-title", e.currentTarget, (title) => {
-    title.scrollIntoView();
-    title.focus({ preventScroll: true });
-  });
+  const title = document.getElementById("price-card-title");
+  title?.scrollIntoView();
+  title?.focus({ preventScroll: true });
 }
 
 /** Under the price: where it came from and when, or why there's none and what to do (#145). */
