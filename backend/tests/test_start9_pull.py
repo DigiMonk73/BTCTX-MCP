@@ -191,7 +191,7 @@ def test_apply_runs_on_a_branch_cut_from_staging(repos):
     r = run(proj, "--apply", **FORKED)
     assert r.returncode == 0, r.stderr
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it\n"
-    assert "pull request" in r.stdout
+    assert "pull request into staging" in r.stdout
 
 
 def test_apply_is_refused_on_main(repos):

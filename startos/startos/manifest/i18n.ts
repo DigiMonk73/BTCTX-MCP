@@ -60,7 +60,7 @@ export const backupsFirst = {
   es_ES:
     '**Haz una copia de seguridad de BitcoinTX en StartOS** antes de actualizar, y descarga también la copia propia de BitcoinTX (Settings, Backup & Restore): necesitas una de las dos para volver a la 1.x.',
   de_DE:
-    '**Erstelle ein StartOS-Backup von BitcoinTX**, bevor du aktualisierst, und lade auch das eigene Backup von BitcoinTX herunter (Settings, Backup & Restore): Du brauchst eines davon, um zu 1.x zurückzukehren.',
+    '**Erstelle eine StartOS-Sicherung von BitcoinTX**, bevor du aktualisierst, und lade auch die eigene Sicherung von BitcoinTX herunter (Settings, Backup & Restore): Du brauchst eines davon, um zu 1.x zurückzukehren.',
   pl_PL:
     '**Zrób kopię zapasową BitcoinTX w StartOS** przed aktualizacją i pobierz też własną kopię zapasową BitcoinTX (Settings, Backup & Restore): jedna z nich jest potrzebna, aby wrócić do 1.x.',
   fr_FR:

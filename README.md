@@ -200,9 +200,10 @@ on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
 marked **Pre-release**, and 2.0.0 replaces them:
 
 - **Mac:** BitcoinTX Preview stays a separate app, with its own ledger, folder
-  and port, and 2.0.0 never reads it. To keep a Preview ledger, download a
-  backup in BitcoinTX Preview, restore it in BitcoinTX 2.0.0 (Settings, Backup
-  & Restore), then delete BitcoinTX Preview.
+  and port, and 2.0.0 never reads it. To keep a Preview ledger instead of the
+  one BitcoinTX holds, download a backup in BitcoinTX Preview and restore it in
+  BitcoinTX 2.0.0 (Settings, Backup & Restore): a restore replaces the ledger
+  there, after a copy into `backups/`. Then delete BitcoinTX Preview.
 - **StartOS:** 2.0.0 updates a pre-release in place. The StartOS backup you
   made under 1.x still takes you back to 1.x.
 - **Docker:** start `:v2.0.0` on the same volume.

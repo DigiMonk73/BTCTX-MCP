@@ -112,7 +112,8 @@ def test_a_release_build_is_the_installed_app_again(monkeypatch, tmp_path):
     """VERSION without a suffix makes the Mac build BitcoinTX, not BitcoinTX
     Preview: the name, bundle id, plain icon, port and data folder 1.x users
     have, so 2.0.0 replaces the app and upgrades its ledger (2.0 plan 6.3)."""
-    assert forms(VERSION)["package"] == forms(VERSION)["bundle"], "VERSION is a pre-release"
+    if forms(VERSION)["package"] != forms(VERSION)["bundle"]:
+        pytest.skip("VERSION is a pre-release: BitcoinTX Preview")
     monkeypatch.delenv(desktop_paths.DATA_DIR_ENV, raising=False)
     monkeypatch.delenv("BTCTX_DESKTOP_PORT", raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))

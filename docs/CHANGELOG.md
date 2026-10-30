@@ -34,8 +34,8 @@ backup. Before the update BitcoinTX keeps a copy of your 1.x database,
 copy, made once); it never deletes that copy.
 
 - **StartOS:** Start9 publishes 2.0 to its Community Beta registry first, then
-  to its Community Registry. StartOS asks for the backups before it downloads
-  the update.
+  to its Community Registry. From a registry, StartOS asks for the backups
+  before it downloads the update. A sideload doesn't ask: make them first.
 - **Docker:** `:latest` and `:main` are 2.0 from this release. An auto-updater
   takes it with no backup step: pin `:v1.2.10` to stay on 1.x.
 - **Mac:** 2.0.0 is BitcoinTX, the same app, port and data folder as 1.x, so
@@ -74,8 +74,8 @@ client sends without its currency takes the day's price its spend or gift was
 priced at, not the hour's (#649). It affects any tax year, from 1.2.8 (a gift's
 from 1.2.9) through 1.2.10, and it's cents on a real fee. BitcoinTX's own form
 was never affected. If the AI connector added or changed a network fee on a
-spend or gift priced at the day, open the transaction, clear **Proceeds (USD)**
-(a gift's **FMV (USD)**) and save. The dashboard's Unrealized Gains/Losses now
+spend, gift, donation or lost coins priced at the day, open the transaction,
+clear **Proceeds (USD)** (for the others, **FMV (USD)**) and save. The dashboard's Unrealized Gains/Losses now
 adds up your accounts' own gains, which can be a few cents from 1.x's figure;
 it's on no tax form (#770).
 
@@ -85,11 +85,13 @@ figure. Set your AI app to `btctx-mcp==2.0.0`, and replace a
 Connect an AI Assistant gives now.
 
 - **On a Mac,** BitcoinTX Preview stays a separate app with its own folder, and
-  2.0.0 never reads it. To keep a Preview ledger, download a backup in the
-  Preview, restore it in 2.0.0, then delete the Preview.
+  2.0.0 never reads it. To keep a Preview ledger instead of the one BitcoinTX
+  holds, download a backup in the Preview and restore it in 2.0.0: a restore
+  replaces the ledger there, after a copy into `backups/`. Then delete the
+  Preview.
 - **On Docker,** start `:v2.0.0` on the same volume.
-- **Three fixes concern only what a pre-release did,** each entry below saying
-  what to do: Coinbase files in their current shape (#789), Kraken trades whose
+- **Three fixes concern only what a pre-release did,** each entry in the
+  CHANGELOG saying what to do: Coinbase files in their current shape (#789), Kraken trades whose
   fee Kraken's fee credits paid (#829), and a choice of coins sent to a
   BitcoinTX 1.x (#834). If you tested alpha.1 or alpha.2, #719 and #721 say what
   to check.
@@ -98,10 +100,12 @@ Connect an AI Assistant gives now.
 refuses Python a thread, the hourly price download shows "downloading" until
 a restart, and lookups fall back to the day's price, marked (#843); and the
 past-year question can look up a price a second time on a ledger holding a BTC
-fee with no stored value (#824).
+fee with no stored value (#824). A known limitation: a Form 1099-DA that lists
+a transfer's or a gift's network fee, or a fee without its withdrawal, can't be
+matched on Form 8949 yet (#551).
 
-The entries below keep the words of the pre-release they came with, so a fix
-may name the alpha it fixes. Each pre-release's own notes stay on
+The CHANGELOG's entries keep the words of the pre-release they came with, so
+a fix may name the alpha it fixes. Each pre-release's own notes stay on
 [its GitHub page](https://github.com/DigiMonk73/BTCTX-MCP/releases).
 
 ### Added
@@ -1093,7 +1097,7 @@ may name the alpha it fixes. Each pre-release's own notes stay on
   donation or lost coins, the year's gain moves by it.
 
   **Affected:** a spend from 1.2.8, a gift, donation or lost coins from
-  1.2.9, through 1.2.10 and 2.0's pre-releases; any tax year; only such an
+  1.2.9, through 1.2.10 and 2.0's pre-releases up to beta.1; any tax year; only such an
   edit sent through the AI connector or the API. **What to do:** nothing,
   unless the AI connector or an API client added or changed a network fee
   on a spend or gift priced at the day without its currency: its fee then
