@@ -79,6 +79,15 @@ clear **Proceeds (USD)** (for the others, **FMV (USD)**) and save. The dashboard
 adds up your accounts' own gains, which can be a few cents from 1.x's figure;
 it's on no tax form (#770).
 
+**On a machine that refuses BitcoinTX a thread** (a container's limit, no
+memory; it affects any tax year, in 1.2.10 and 2.0's pre-releases), the hourly
+price download kept saying it was downloading until a restart. The first save
+answered with an error and saved nothing, and later saves took the day's price
+until a restart. Now the first save goes through at the day's price, marked as
+such, and once threads come back, saves take the hour's price with no restart.
+Nothing already saved changes, and there's nothing to do; Ledger Review's check
+of values priced at the day can apply the hour's price (#843).
+
 **If you tried a 2.0 pre-release.** Updating from 2.0.0-beta.2 changes no stored
 figure. Set your AI app to `btctx-mcp==2.0.0`, and replace a
 `bitcointx-preview` entry for a server you've updated with what Settings →
@@ -96,13 +105,14 @@ Connect an AI Assistant gives now.
   BitcoinTX 1.x (#834). If you tested alpha.1 or alpha.2, #719 and #721 say what
   to check.
 
-**Known issues,** none of which can make a figure wrong: on a machine that
-refuses Python a thread, the hourly price download shows "downloading" until
-a restart, and lookups fall back to the day's price, marked (#843); and the
-past-year question can look up a price a second time on a ledger holding a BTC
-fee with no stored value (#824). A known limitation: a Form 1099-DA that lists
-a transfer's or a gift's network fee, or a fee without its withdrawal, can't be
-matched on Form 8949 yet (#551).
+**Known issues, for 2.0.1.** Only on a ledger holding a row whose value was
+blanked by hand in the database (a new row can't be saved blank): the
+past-year question, or the form's list of the coins a transaction moves, looks
+up that row's price and loses the answer. A save can need a second try, and
+such a row can take the day's price, marked, instead of the hour's (#824,
+#849). Ledger Review lists such a value. A known limitation: a Form 1099-DA
+that lists a transfer's or a gift's network fee, or a fee without its
+withdrawal, can't be matched on Form 8949 yet (#551).
 
 The CHANGELOG's entries keep the words of the pre-release they came with, so
 a fix may name the alpha it fixes. Each pre-release's own notes stay on
