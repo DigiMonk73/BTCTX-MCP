@@ -13,7 +13,10 @@ Every outside service is faked.
 
 import logging
 import random
+import sys
+import threading
 import time
+import traceback
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -128,9 +131,50 @@ def use(**settings):
     outbound._current = outbound.NetworkSettings(**settings)
 
 
+# The download takes well under a second, but on a shared CI runner one
+# once hadn't ended after 10 s (#841): wait as long as it takes, up to a
+# limit only a stuck download reaches, then say where it is. Once one wait
+# has run out, the next give up at once: a download that never ends would
+# otherwise cost the whole limit in every test.
+FINISH_SECONDS = 120
+_ran_out: list[str] = []
+
+
 def finish_download():
+    limit = 1 if _ran_out else FINISH_SECONDS
     with hp._changed:
-        assert hp._changed.wait_for(lambda: not hp._state["running"], timeout=10)
+        done = hp._changed.wait_for(lambda: not hp._state["running"], timeout=limit)
+    if not done:
+        _ran_out.append("ran out")
+    assert done, f"the download still runs after {limit} s:\n{download_stacks()}"
+
+
+def download_stacks() -> str:
+    """Where each download thread is now; with none alive, every thread."""
+    frames = sys._current_frames()
+    threads = [thread for thread in threading.enumerate() if thread.ident in frames]
+    downloads = [thread for thread in threads if thread.name == "btc-price-download"]
+    heading = "" if downloads else "no download thread is alive; every thread:\n"
+    return heading + "\n".join(f"{thread.name}:\n" + "".join(traceback.format_stack(frames[thread.ident]))
+                                for thread in downloads or threads)
+
+
+def test_a_wait_that_runs_out_says_where_the_download_is():
+    stop = threading.Event()
+
+    def stuck_on_a_request():
+        stop.wait(10)
+
+    thread = threading.Thread(target=stuck_on_a_request, name="btc-price-download", daemon=True)
+    thread.start()
+    try:
+        assert "stuck_on_a_request" in download_stacks()
+    finally:
+        stop.set()
+        thread.join()
+    without = download_stacks()
+    assert without.startswith("no download thread is alive; every thread:\n")
+    assert f"{threading.current_thread().name}:\n" in without
 
 
 def year_blocks(year: int, last: int) -> list[int]:
