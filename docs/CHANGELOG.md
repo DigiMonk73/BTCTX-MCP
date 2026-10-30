@@ -5,6 +5,16 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Fixed
+- The hourly price history's download, when the system refuses it a thread
+  (a container's limit, no memory), counts as a download that failed. It
+  stayed "downloading" until a restart, with no download running, and each
+  lookup for a year not here yet waited 30 seconds for it; the first one
+  answered its save, or a change to the price settings, with an error. Now the
+  status says it failed, it's tried again as a failed download is, and a
+  lookup takes the day's price at once, marked as such, as it does without
+  the hourly history (#843). A save the refusal stopped now saves at that
+  price, and the hour's price comes back with the machine, with no restart
+  (the owner's OK on the before-and-after, on its pull request).
 - **The Dashboard's "Choose a source" and "Confirm now" links go to the
   price card even when pressed before it shows** (#612). The link shows
   once the live price has answered, the card once its settings have
