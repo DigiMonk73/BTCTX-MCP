@@ -1487,6 +1487,19 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   at exactly those two tests on 1.56.1, and passes them on 1.64.1, the
   version since #563. The open files of WebKit's processes stayed steady on
   both.
+- **The test pack: the reference ledger as a CSV, River's sample file, and a
+  guide for testing by hand** (#844). The whole reference test ledger now goes
+  through the app's own CSV export and import in a test: every figure of
+  `reference_figures.json`, every IRS form field of 2024 to 2026, Ledger
+  Review's counts and a second export come out the same, and tests with a
+  column left out show it checks. That CSV is committed
+  (`testdata/reference_ledger.csv`), with made-up
+  `testdata/exchange_files/river_bitcoin_activity.csv` (its figures worked out
+  by hand in a test), `testdata/README.md`, and `docs/HAND-TEST.md`: for each
+  file, where to click and what to expect, in plain words, on a throwaway
+  install only. `make test-pack` makes the CSV and the guide's tables again
+  from the app's own answers, and a test fails when they're stale. Tests and
+  test files only: the app doesn't change.
 
 ## [v1.2.10] - 2026-10-23 - A maintenance update: four tax-figure fixes and 1.2.9's known issues
 
