@@ -35,13 +35,14 @@ feeling.
 7. Budget: about 4 hours for Track A, 1 hour 15 minutes for Track B, 45
    minutes for Track C, and 20 minutes for REF. From 2.0 on, a release
    that comes from 1.x (2.0 and its pre-releases) adds about 1½ hours
-   for WAY, and a pre-release about 1½ hours for BETA.
+   for WAY, and a pre-release about 1½ hours for BETA. 2.0.0 adds about
+   an hour for CB, once Start9 has merged it.
 
 ## What CI already proves (don't redo)
 
 | Layer | Where | Covers |
 |---|---|---|
-| ~3,200 unit and integration tests | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
+| Unit and integration tests (every test but the slow ones, backend and MCP server) | `make test-fast` | FIFO, fees, proceeds, holding period, tax timezone, 1099-DA boxes, imports, the printed forms read back, auth, AI key, MCP tools |
 | Golden years and property tests | `backend/tests/test_golden_years.py`, `test_invariants_property.py` | the hand-worked ledger used below, and random ledgers keeping every invariant |
 | Click-through | `frontend/e2e/` (Chromium and WebKit, Chicago and Tokyo) | every transaction type, edit and delete, list, dashboard, River's, other exchanges' and CSV imports, every report download, Settings, widgets |
 | Smoke | `scripts/smoke_test.py`, also against the Docker image | the real server end to end |
@@ -62,7 +63,7 @@ isn't ready for this walk.
 | Previous release's `btctx.s9pk` | the latest release on https://github.com/DigiMonk73/BTCTX-MCP/releases (Track B) |
 | Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Preview-macOS`, holding `BitcoinTX Preview.app` |
 | MCP connector | not on PyPI until the release, so run it from the commit: `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP@$SHA#subdirectory=mcp_server" btctx-mcp` |
-| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
+| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, AI-16, MAC-UPG, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
 | A pre-release (BETA) | the GitHub pre-release `v2.0.0-alpha.N` or `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Preview-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` (or `-alpha.N`) and the connector `uvx btctx-mcp==2.0.0bN` (an alpha's `2.0.0aN`); for BETA-2 also the pre-release before it |
 
 After the release is published, repeat INS-1 to INS-7 and AI-7 to AI-8
@@ -1133,6 +1134,46 @@ Set `KEY` to the key from AI-3, and use
   Settings: `recalculate_ledger` is still refused (hidden accounts count).
   Show both again. The candidate's connector (`mcp`) makes the same
   `recalculate_ledger` call: success, as in AI-11.
+- **AI-16** (from 2.0) The other way round: the candidate's connector on
+  the last 1.x. From 2.0.0's release an AI app running `uvx btctx-mcp`
+  without a version gets 2.0.0, while a StartOS server may still run
+  1.2.10 from Start9's Community Registry. A pass of its own, on the VM
+  from `clean` (or on WAY-6's Docker 1.2.10, on a volume of its own):
+  sideload 1.2.10's `btctx.s9pk`, do its tasks (Price Source & Privacy:
+  **Decide in BitcoinTX instead**), start it, run `golden_loader.py`,
+  create an AI key and turn AI access on (1.x's Settings shows every
+  section). Run the candidate's connector as `mcp` (Inputs; a
+  pre-release's `uvx btctx-mcp==2.0.0bN`) against it: `API`, `KEY` and
+  `ca.crt` set to this 1.2.10's (on WAY-6's Docker, with WAY-6's own
+  container stopped first: `API` `http://127.0.0.1:8792/api`, and `mcp`
+  without its `-e BTCTX_CA_BUNDLE=…`). Expect:
+  - every tool's answer, or its error, to start with "Your BitcoinTX
+    connector is v<connector> but BitcoinTX is v1.2.10. Update BitcoinTX,
+    or set the connector back to v1.2.10 in your AI app's settings."
+    (`<connector>` as PyPI writes it: `2.0.0b2` for beta.2, `2.0.0` at the
+    release);
+  - `tools/list` to give the candidate's 12 tools; `get_portfolio` 1.x's
+    four accounts (Bank, Wallet, Exchange USD, Exchange BTC) and the
+    Dashboard's balances; `list_transactions` 14 rows; `review_ledger` an
+    answer; `preview_transactions` with AI-10's first row `ready`;
+  - an account 1.x doesn't have refused in plain words:
+    `preview_transactions` with that row's `to_account` `Coldcard` fails
+    with "Unknown account 'Coldcard'. This BitcoinTX is older than 2.0 and
+    has only these accounts: Bank, Wallet, Exchange USD, Exchange BTC, and
+    External.";
+  - a choice of coins refused before anything is written, in plain words
+    naming BitcoinTX's version (#834): `add_transactions` with
+    `[{"date":"<today>","type":"Withdrawal","amount":"0.001","from_account":"Wallet","to_account":"External","purpose":"Spent","proceeds_usd":"100","fee_amount":"0","fee_currency":"BTC","chosen_coins":[{"acquired_txn_id":9,"btc":"0.001"}]}]`
+    fails, and the ledger still has 14 rows; `update_transaction` with
+    `{"transaction_id":14,"chosen_coins":[{"acquired_txn_id":9,"btc":"0.0101"}]}`
+    fails the same way; `get_coins_moved` with `{"transaction_id":14}`
+    says so too, never "405: Method Not Allowed";
+  - `add_transactions` with AI-10's first row saved (`imported_count` 1):
+    a row 1.x knows is still 1.x's to save. Delete it with
+    `delete_transaction`.
+
+  A crash, a trace, or a write whose answer says something other than
+  what was saved is a blocker FAIL.
 
 ### BAK and IMP: backups and imports
 
@@ -1580,8 +1621,10 @@ Start from the `clean` snapshot.
   - The service log of the update reads "Migrating 1.2.10:0 -> " and the
     candidate's version, "Backed up the database to
     /data/backups/btctx-pre-2.0-from-0012-<time>.db before upgrading its
-    schema" and "Running upgrade 0012 -> 0100"; `$API/health` shows
-    `"schema": "0100"`; `ls /data/backups` (as in IMP-3) lists that copy.
+    schema", "Running upgrade 0012 -> 0100" and, after it, "Running
+    upgrade 0100 -> 0101" (from alpha.3: coin choice's migration);
+    `$API/health` shows `"schema": "0101"`; `ls /data/backups` (as in
+    IMP-3) lists that copy.
   - The 1.x tab left open: Add Transaction, a Deposit of `1` into its
     `Bank Account`, dated today. Expect the toast "Failed to create
     transaction: BitcoinTX was updated: reload the page." and nothing
@@ -1687,7 +1730,8 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   kept as `way-1x.btx`. Make a StartOS backup of BitcoinTX to the second
   disk (BAK-5's steps). Sideload `btctx_x86_64.s9pk`. Expect: it updates
   in place, at the same address and with the same login, with UPG-2b's log
-  lines and `"schema": "0100"`; every recorded figure the same, and the
+  lines ("0012 -> 0100", then "0100 -> 0101") and `"schema": "0101"`;
+  every recorded figure the same, and the
   reports the same plus "Sales by exchange". Add a Deposit of `1` into
   `Bank` dated today (a row only 2.0 has). Settings, open **Backup &
   Restore**: Download Encrypted Backup with `backup-pass-123`, kept as
@@ -1698,8 +1742,9 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   over. To return to <1.x>, uninstall the service — which deletes its data
   — and restore a backup made while it was running <1.x>." (`start-cli`
   shows it cut short), and 2.0 still running with its 15 rows.
-- **WAY-3** (Waits for the owner's step, #357: until it's recorded there,
-  B10a runs it before beta.1, #532.) Back by the StartOS backup. Uninstall
+- **WAY-3** (Not yet run, #532's 3b: beta.2's gate runs it, #806, with
+  the VM's StartOS password typed by the person who set up the VM; the
+  release repeats it.) Back by the StartOS backup. Uninstall
   BitcoinTX (its data goes), then restore WAY-1's StartOS backup (BAK-5's
   steps). Expect
   BitcoinTX at 1.2.10, `$API/health` with `"schema": "0012"`, WAY-1's
@@ -1737,7 +1782,7 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N`; a release candidate:
   `docker build -t btctx-candidate REPO`). Expect `docker logs` to say
   "Backed up the database to /data/backups/btctx-pre-2.0-from-0012-<time>.db
-  before upgrading its schema", the health `"schema": "0100"`, the same
+  before upgrading its schema", the health `"schema": "0101"`, the same
   login and the same figures. The way back, the copy run by the 1.x image
   itself (as its own user, `btctx`):
 
@@ -1766,7 +1811,7 @@ machine, WAY-7 a Mac. Below, `<2.0>` is the candidate's version and
   `BTCTX_URL=http://127.0.0.1:8766` and that login, record the Dashboard
   figures, and quit. Start the candidate's app (Track C's UNPACKED; for a
   pre-release, `BitcoinTX Preview.app`) with the script, without `--fresh`.
-  Expect `curl http://127.0.0.1:8766/api/health` with `"schema": "0100"`,
+  Expect `curl http://127.0.0.1:8766/api/health` with `"schema": "0101"`,
   the same figures, and `ls DATA/backups` listing
   `btctx-pre-2.0-from-0012-….db`. Quit it. The way back: `cp
   DATA/backups/btctx-pre-2.0-from-0012-*.db DATA/btctx.db && rm -f
@@ -1802,6 +1847,35 @@ after `--` (the Inspector passes the server nothing from the shell). In MAC-5, a
 launch shows "BitcoinTX Test is already open" without bringing a window forward,
 and starts no second copy on 8766. If the installed app appears at any
 point, leave it alone, touch nothing in it, and record that.
+
+**A build with an installed app's identity is a hard rule of its own.**
+From 2.0.0, the release's build is BitcoinTX itself (bundle id
+`org.bitcointx.desktop`), and a pre-release's BitcoinTX Preview is the
+tester's installed Preview. Opened by itself, such a build uses that app's
+data folder (`~/Library/Application Support/BitcoinTX`, port 8765; the
+Preview's own folder and port) and migrates its ledger: a 1.x app can't
+read a 2.0 database back. So, on any Mac where that app is installed:
+
+- Every launch goes through the script. Never a double-click, `open` or
+  Finder, never a copy in /Applications: the build stays in its temp
+  folder (UNPACKED), deleted when the track ends.
+- Before each launch, record what answers on 8765 and 8767 (the installed
+  BitcoinTX and BitcoinTX Preview): `curl -s --noproxy '*' -m 2
+  http://127.0.0.1:8765/api/health`, and the same on 8767. Neither may
+  change during the track: a version or schema that moved is a blocker
+  FAIL; STOP.
+- Before the first launch, check whether the test build shares the
+  installed app's web view storage. WebKit keeps a window's cookies by
+  bundle id, and a cookie ignores the port, so a test build's login on
+  127.0.0.1 could replace the installed app's session or device cookie.
+  Note the modification times of
+  `~/Library/WebKit/<bundle id>` and `~/Library/HTTPStorages/<bundle id>*`
+  (where they exist), launch, log in, quit, and compare; then `ls
+  DATA/home/Library` for the test build's own. If the installed app's
+  moved, it shares them: the owner quits the installed app before each
+  launch and logs in to it again after the track, or the track runs on
+  another macOS account. Record which.
+- A step that can't keep these rules is BLOCKED, never run another way.
 
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
   open it: Control-click > Open, or on macOS 15+ System Settings > Privacy
@@ -1851,6 +1925,31 @@ point, leave it alone, touch nothing in it, and record that.
   this build has asked no public site). Then clear the address, choose
   **Nobody** (which hides the address field, and keeps an address left in
   it), and save.
+- **MAC-UPG** (from 1.x to 2.0) The update a Mac user makes in place:
+  2.0.0's `BitcoinTX.app` over 1.2.10's, the same name, bundle id
+  `org.bitcointx.desktop` and data folder. The script sets the folder, the
+  port and HOME itself, so this proves the migration and the AI setup; the
+  folder each version picks by itself is `test_desktop_paths.py`'s. Quit
+  every test run. Unpack 1.2.10's `BitcoinTX-macOS.zip` into a temp folder
+  (UNPACKED1X) and start it with `REPO/desktop/run-test-build.sh --app
+  UNPACKED1X/BitcoinTX.app --fresh --background`. Choose its login as
+  MAC-3 does, run `golden_loader.py` with
+  `BTCTX_URL=http://127.0.0.1:8766` and that login, and record the
+  Dashboard figures, Schedule D 2024 and 2025 and `shasum DATA/mcp.json`
+  (never the key itself). Quit it. Start the candidate's app (UNPACKED)
+  with the script, without `--fresh`. Expect
+  `curl http://127.0.0.1:8766/api/health` with `X.Y.Z` and `"schema":
+  "0101"`; `ls DATA/backups` listing one `btctx-pre-2.0-from-0012-….db`;
+  the same login; every recorded figure the same; `mcp.json` still
+  `-rw-------`, its `shasum` different (a new key at start). Settings,
+  open **Connect an AI Assistant**: every command shown runs
+  `btctx-mcp==X.Y.Z` under the server name `bitcointx`. Quit it, start it
+  again with the script: still one `btctx-pre-2.0-….db` (it migrated
+  once). Quit it. For a pre-release the candidate is `BitcoinTX
+  Preview.app`, never the same app as 1.2.10's, so the case runs for real
+  only at the release: before a beta, run these steps with the Preview to
+  check them (the AI setup then `btctx-mcp==2.0.0bN` under
+  `bitcointx-preview`).
 
 ## BETA: what a tester of an alpha or a beta meets (2.0's pre-releases only)
 
@@ -1946,6 +2045,63 @@ not a step to skip.
   the new login works; every golden figure, and **Wallets, exchanges and
   banks** "1 wallet · 1 exchange · 1 bank". Then `docker rm -f
   btctx-beta` and `docker volume rm btctx-beta`.
+- **BETA-6** (a Mac; from beta.2 on, and at the release) A tester keeps
+  the ledger they made in the Preview: BitcoinTX's own backup of it,
+  restored into the candidate. Only through the script (Track C's rules),
+  each app in its own test folder (`BTCTX_TEST_DATA_DIR=<a temp folder>`
+  before the script, a different one for each). Unpack the pre-release
+  before this one's `BitcoinTX-Preview-macOS.zip` (UNPACKEDPREV) and
+  start it with `--fresh`. Choose its login as MAC-3 does, run
+  `golden_loader.py` against it, add Coldcard and Kraken (ACC-3, ACC-4),
+  and choose coins once as CHO-1 does (the spend saved). Record the
+  Dashboard figures, Schedule D 2024 and 2025, and the spend's "Chosen on
+  …". Settings, open **Backup & Restore**: Download Encrypted Backup with
+  `backup-pass-123`, kept as `preview.btx`. Quit it. Start the candidate's
+  app (UNPACKED: a beta's Preview; at the release, `BitcoinTX.app`) in the
+  other folder with `--fresh`, and choose its login as MAC-3 does.
+  Settings, open **Backup & Restore**: Restore from Backup with
+  `preview.btx` and `backup-pass-123`. Expect "✅ Database successfully
+  restored. Log in again with your current username and password.", then
+  the login page; the candidate's own login works (a restore never brings
+  back the backup's); every recorded figure; **Wallets, exchanges and
+  banks** with Coldcard and Kraken, Kraken's 1099-DA box as ACC-4 left it;
+  the spend still "Chosen on" the same day; and no `btctx-pre-2.0-….db` in
+  this folder's `backups` (the backup was 2.0's already). Quit it.
+
+## CB: Community Beta (2.0.0, after Start9 merges)
+
+Once Start9 has merged the release's pull request to their fork, its
+build is on the Community Beta registry
+(`https://community-beta-registry.start9.com`) beside 1.2.10 on the
+Community Registry (`https://community-registry.start9.com`). These are
+the updates users make from there, on the VM from `clean`, with the second
+disk and the VM's StartOS password. Installing from a registry goes
+through StartOS's own Marketplace page if `start-cli` can't read the
+registries (with `start-cli`: `-r` the address).
+
+- **CB-1** 1.2.10 from the Community Registry (Start9's own build),
+  updated from Community Beta. Install BitcoinTX from the Community
+  Registry, do its tasks, start it and run `golden_loader.py`; record its
+  version (`1.2.10:0`), the Dashboard figures and Schedule D 2024 and
+  2025. Make a StartOS backup of BitcoinTX (BAK-5's steps). In the
+  Marketplace, switch to Community Beta: BitcoinTX's page offers 2.0.0's
+  update. Expect, before it downloads, the pre-download alert (its words,
+  in English at least; record them). Accept it. Expect Start9's build to
+  update in place: UPG-2's and UPG-2b's checks (its log's "Migrating
+  1.2.10:0 -> 2.0.0:0", the `btctx-pre-2.0-….db` copy, `"schema":
+  "0101"`), every recorded figure the same, and no StartOS task. Then
+  back, as WAY-3: uninstall, restore the backup. Expect `1.2.10:0`, its
+  login, the recorded figures and 14 rows. Revert the VM to `clean`.
+- **CB-2** A tester's beta, sideloaded (our signature), updated from
+  Community Beta (Start9's). Sideload the last pre-release's `btctx.s9pk`
+  (beta.2's, or a later one), do its tasks, start it and run
+  `golden_loader.py`; record its version and the Dashboard figures. In the
+  Marketplace's Community Beta, BitcoinTX's page: expect 2.0.0 offered.
+  Accept it. Expect it to update in place, every recorded figure the same,
+  the login working and no new `btctx-pre-2.0-….db`. If StartOS refuses
+  it (another signer), record its words: the testers' note on #532 then
+  says to sideload 2.0.0's `btctx.s9pk` from GitHub instead. Revert the
+  VM to `clean`.
 
 ## REF: the reference ledger and the landing page's pictures (every run)
 
@@ -1994,7 +2150,7 @@ page's pictures".
 - **REF-3** The previous release's database, upgraded. Copy
   `LAB/ledgers/reference-vP.Q.R.db`, then `DATABASE_FILE=<copy> python -m
   backend.cli migrate` (from 1.x to 2.0 it prints "Database schema: 0012
-  -> 0100" and "Copy of the previous database:
+  -> 0101" and "Copy of the previous database:
   <copy's folder>/backups/btctx-pre-2.0-from-0012-<time>.db") and `python
   scripts/reference_figures.py --db <copy> --compare
   LAB/ledgers/reference-vP.Q.R.json`. Expect no number moved
@@ -2011,7 +2167,7 @@ page's pictures".
   through 1.x's account API (id 7), and a deposit naming account 999,
   which doesn't exist. Copy it to a temp folder as `btctx.db`, then
   `DATABASE_FILE=<copy> python -m backend.cli migrate`. Expect "Database
-  schema: 0012 -> 0100" and "Copy of the previous database:
+  schema: 0012 -> 0101" and "Copy of the previous database:
   …/backups/btctx-pre-2.0-from-0012-<time>.db". Then
   `DATABASE_FILE=<copy> python -m backend.cli review`. Expect "Ledger
   review (read-only; dates in UTC)", then, in its order:
@@ -2031,7 +2187,7 @@ page's pictures".
     check 0 but "Reminder: My BTC and Gift deposits counted from their
     deposit date: 2" (#1 into Wallet and #4 into cold2).
 
-  `migrate` again: "Database schema is up to date (0100)."
+  `migrate` again: "Database schema is up to date (0101)."
 
 ## MAP: the ready-made mappings against real exports (a tester, at 2.0)
 

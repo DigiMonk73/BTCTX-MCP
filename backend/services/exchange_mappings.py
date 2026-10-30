@@ -141,17 +141,18 @@ class Mapping:
 
 RIVER = Mapping(
     id="river", name="River", reader=RIVER_FILE,
-    help="river.com → Taxes & Documents → Bitcoin activity (CSV).",
+    help="river.com (the website, not the app) → profile icon → Documents → Statements → Custom → Bitcoin "
+         "activity (not Account activity), all of your history → Generate CSV.",
 )
 
-# Coinbase's "Transaction history" (2021 to 2023, from 2024 with an ID column
-# first, now 13 columns), several lines above its header. Total is what a
-# buy paid or a sale brought in, fee included; Subtotal what the coins cost
-# or brought before it, so the fee is the gap (#789): "Fees and/or Spread"
-# (an older file's "Fees") made Total with Subtotal in older files, but in
-# the current one a buy's or sale's is a spread, not its fee. A send's
-# network fee isn't in the file in bitcoin. Built from Coinbase's
-# published columns: check against a real export.
+# Coinbase's statement of transactions, once "Transaction history" (2021 to
+# 2023, from 2024 with an ID column first, now 13 columns), several lines
+# above its header. Total is what a buy paid or a sale brought in, fee
+# included; Subtotal what the coins cost or brought before it, so the fee is
+# the gap (#789): "Fees and/or Spread" (an older file's "Fees") made Total
+# with Subtotal in older files, but in the current one a buy's or sale's is
+# a spread, not its fee. A send's network fee isn't in the file in bitcoin.
+# Built from Coinbase's published columns: check against a real export.
 COINBASE = Mapping(
     id="coinbase", name="Coinbase",
     columns=Columns(
@@ -173,7 +174,8 @@ COINBASE = Mapping(
     after_fee=frozenset({BUY, SELL}), optional=frozenset({"row_id"}), notes=("Notes",), checked=False,
     leave_out=(LeaveOut("Spot Price Currency", "", NOT_DOLLARS, other_than="usd"),
                LeaveOut("Price Currency", "", NOT_DOLLARS, other_than="usd")),
-    help="coinbase.com → Profile → Reports → Generate report → Transaction history (CSV).",
+    help="coinbase.com (not Advanced) → grid icon → Accounts → Statements → Transactions → all assets, all "
+         "transactions, from your first day, CSV (a year at a time, if it asks).",
 )
 
 KRAKEN = Mapping(

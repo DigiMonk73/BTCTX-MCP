@@ -4,12 +4,134 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
+- **The Dashboard's "Choose a source" link always goes to the price card**
+  (#612). The link shows once the live price has answered, the card once
+  its settings have loaded, which can be later on a slow server. A press
+  in between found no card, so nothing scrolled and the keyboard stayed on
+  the link. It now goes there as soon as the card is shown (within 5 s),
+  unless you've gone on to another page or control meanwhile.
+
+### Development
+- **The Python suite runs across machines, and CI checks that every test
+  ran** (#814). Each version's suite is three shards, on machines of their
+  own, about a third of the time it took: each shard runs whole test files,
+  shared out by how long each took on CI (`backend/tests/shards.py`,
+  `test_durations.json`, `--shard 2/3`), in the order the whole suite runs
+  them. A guard job (`scripts/check_test_shards.py`) fails "CI passed"
+  unless every test a full collection finds ran in exactly one shard, and
+  hands out the run's timings. No test is cut: the four longest are split
+  into parts that run side by side, checking all they did. Every reference
+  row is still saved again, twice, in ten parts by id, each on a ledger of
+  its own that must end with every figure and every stored transaction as it
+  was, so no part could change what another's rows are saved on. The
+  property tests draw six runs of 22 ledgers of each kind: on CI, 129 and
+  125 different ones, where one run of 120 drew 124 and 122. The printed
+  forms' minute-long setup runs once a version (`--dist loadgroup`), not
+  once a worker. Two tests left something behind that upset a later module's
+  tests on the same worker, once a shard ran its files in another order: the
+  connector tests' `backend_db` put back no database override, and
+  `test_report_without_prices.py` left pypdf's warnings off. Both now put
+  back what was there. Tests and CI only: the app doesn't change.
+- **Three known flaky tests, placed** (#598, #584, #841). #598's module
+  already seeds its own ledger (#610), and its test still fails on the old
+  seeding code. #841: the hourly prices' tests waited 10 s for their
+  download, which takes well under a second; once on CI it hadn't ended
+  after 10 s, though both its years were saved. The cause wasn't found, and
+  it didn't come back in 20 runs beside a full shard. They now wait up to
+  120 s (a wait that runs out makes the next give up at once), and say which
+  threads were where. #584 (WebKit's blank `/login` at the 64th and 128th
+  test of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole
+  WebKit suite, 279 tests on the Mac mini, still times out loading `/login`
+  at exactly those two tests on 1.56.1, and passes them on 1.64.1, the
+  version since #563. The open files of WebKit's processes stayed steady on
+  both.
+
+## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits, a fee's price, coins chosen on 1.x
+
+**About this beta.** BitcoinTX 2.0's second beta, for anyone who chooses
+to try 2.0 before it's released: never for real records. It's a GitHub
+pre-release, and Start9's store stays on 1.x. New since
+[v2.0.0-beta.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-beta.1),
+three tax-figures fixes. Kraken trades whose fee Kraken's fee credits
+(KFEE) paid are read: in 2.0's pre-releases a Kraken file's preview left
+such a trade out and advised adding the bitcoin as a spend (#829). If you
+imported such a file, preview it again into the same exchange; if you
+followed that advice, first delete each Withdrawal (purpose Spent) you
+added for one. A network fee the AI connector or an API client sends
+without its currency takes the day's price its spend or gift was priced
+at, not the hour's (#649; from 1.2.8, any tax year, cents on a real fee):
+if the AI connector added or changed such a fee, open the transaction,
+clear **Proceeds (USD)** (a gift's **FMV (USD)**) and save. And the AI
+connector refuses to choose coins on a BitcoinTX 1.x, which saved such a
+row oldest first while alpha.3's and beta.1's connector answered as if the
+choice were saved (#834): coins chosen that way are to be chosen again
+once BitcoinTX is 2.0. Also: the AI connector's words no longer set three
+small traps (#797); deleting an account asks in BitcoinTX's own dialog
+(#651); the exchange import's download hints follow each exchange's
+menus today (#813); the Mac app's icon has no white corners (#680); the
+server's and the PDFs' libraries are current, with no figure or printed
+form changed; the StartOS package uses start-sdk 3.1.1 and start-cli
+2.5.2; and the Docker image's system CA bundle drops the roots distrusted
+after the eMudhra compromise (#638). Updating from beta.1 changes no
+stored figure. The way back to 1.x and what's in 2.0 are in alpha.1's
+notes. The AI connector is `btctx-mcp==2.0.0b2`.
+
+**Help check the exchange imports.** BitcoinTX's ready-made mappings for
+Coinbase, Kraken, Strike, Swan and Cash App were built from each
+exchange's published file format and public examples; none has been
+checked against a real export yet (River's was). If you have an export
+from one of them, or from River, please try it:
+
+1. **Use a test copy only:** a new ledger in BitcoinTX Preview, or a
+   throwaway Docker volume. Never the copy that holds your records.
+2. **Settings → Import from an exchange**, choose the exchange's file,
+   **Preview**, then import it into the test copy.
+3. **Check** that every row of the file is either in the preview or named
+   in a warning, with a reason that makes sense, and that the totals match
+   the exchange's own: the bitcoin and dollar balances BitcoinTX shows for
+   that exchange against the exchange's (for a file covering all your
+   history), and the dollars your buys cost and your sales brought in.
+4. **Report anything that doesn't look right** as a
+   [Bug report](https://github.com/DigiMonk73/BTCTX-MCP/issues/new?template=bug_report.yml) whose title starts with "2.0.0-beta.2:" (the
+   pre-release form isn't offered yet, #668). **Never attach the file or
+   post real figures:** describe the row's shape with made-up numbers
+   instead (the word in its type column, which columns it fills, its
+   signs).
+
+Where each exchange keeps its export: [the download guides](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505909980)
+(River and Coinbase in [the next comment](https://github.com/DigiMonk73/BTCTX-MCP/issues/813#issuecomment-6505945738)).
+
+### Security
+- **The Docker image's system CA bundle is refreshed** (#638, from Start9,
+  after the eMudhra compromise). The image's final stage upgrades Debian's
+  `ca-certificates` to trixie's `20250419+deb13u1`, which drops the
+  distrusted emSign ECC Root CA - G3 and Comodo AAA Services root (Debian
+  #1151413), and the build fails if the system's store or certifi's still
+  holds G3, or either is missing. The app's own connections never used the
+  system's store (the price sites are checked against certifi's, a home
+  Mempool against certifi's or only the one root its owner trusts), so no
+  user was exposed: it's hygiene, in the image StartOS and Docker run. Only
+  `cli install-draft-forms`, for a test install, read that store, to fetch
+  the IRS's draft forms from irs.gov (whose certificate doesn't rest on
+  either root). The Mac app doesn't use the image.
+
 ### Changed
+- **BitcoinTX's server and PDF libraries are current** (Dependabot's #760,
+  with #828's setuptools, by #833): FastAPI 0.161.1, Starlette 1.9.0,
+  ReportLab 5.1.0, SQLAlchemy 2.0.55 and Alembic 1.20.1. On the reference
+  test ledger, in the libraries before and after, no figure moved, the IRS
+  forms for 2024 to 2026 came out byte for byte the same, 35 report pages
+  pixel for pixel, and the before-and-after check found no difference.
+  Nothing changes on screen or in any figure.
 - **Import from an exchange says how to download each exchange's file
   today, and two of its reasons for leaving a row out are now true of the
   row** (#813, checked against public sources on 2026-10-29; no figure
   changes: the same rows are read and left out). Each ready-made
-  mapping's hint follows its exchange's menus as they are now: Kraken's
+  mapping's hint follows its exchange's menus as they are now: River's
+  Bitcoin activity file (Documents → Statements → Custom; not Account
+  activity, whose buys and sales BitcoinTX skips), Coinbase's statement
+  of all transactions (Accounts → Statements → Transactions), Kraken's
   ledger export from your first day, with all assets, types and fields (a
   ledger filtered to bitcoin loses its trades' dollars), each past year's
   Strike statement and this year's months (never a year and its own
@@ -29,12 +151,6 @@ All notable changes to BitcoinTX are documented in this file.
   deleted. Cancel and Escape delete nothing. No figure changes.
 
 ### Fixed
-- **The Dashboard's "Choose a source" link always goes to the price card**
-  (#612). The link shows once the live price has answered, the card once
-  its settings have loaded, which can be later on a slow server. A press
-  in between found no card, so nothing scrolled and the keyboard stayed on
-  the link. It now goes there as soon as the card is shown (within 5 s),
-  unless you've gone on to another page or control meanwhile.
 - **Import from an exchange reads a Kraken trade whose fee Kraken's fee
   credits paid** (#829, tax figures). Kraken writes such a trade with a
   third line in its fee credits (KFEE), moving nothing. The importer took
@@ -129,39 +245,20 @@ All notable changes to BitcoinTX are documented in this file.
   every size; the browser's and StartOS's icons already were.
 
 ### Development
-- **The Python suite runs across machines, and CI checks that every test
-  ran** (#814). Each version's suite is three shards, on machines of their
-  own, about a third of the time it took: each shard runs whole test files,
-  shared out by how long each took on CI (`backend/tests/shards.py`,
-  `test_durations.json`, `--shard 2/3`), in the order the whole suite runs
-  them. A guard job (`scripts/check_test_shards.py`) fails "CI passed"
-  unless every test a full collection finds ran in exactly one shard, and
-  hands out the run's timings. No test is cut: the four longest are split
-  into parts that run side by side, checking all they did. Every reference
-  row is still saved again, twice, in ten parts by id, each on a ledger of
-  its own that must end with every figure and every stored transaction as it
-  was, so no part could change what another's rows are saved on. The
-  property tests draw six runs of 22 ledgers of each kind: on CI, 129 and
-  125 different ones, where one run of 120 drew 124 and 122. The printed
-  forms' minute-long setup runs once a version (`--dist loadgroup`), not
-  once a worker. Two tests left something behind that upset a later module's
-  tests on the same worker, once a shard ran its files in another order: the
-  connector tests' `backend_db` put back no database override, and
-  `test_report_without_prices.py` left pypdf's warnings off. Both now put
-  back what was there. Tests and CI only: the app doesn't change.
-- **Three known flaky tests, placed** (#598, #584, #841). #598's module
-  already seeds its own ledger (#610), and its test still fails on the old
-  seeding code. #841: the hourly prices' tests waited 10 s for their
-  download, which takes well under a second; once on CI it hadn't ended
-  after 10 s, though both its years were saved. The cause wasn't found, and
-  it didn't come back in 20 runs beside a full shard. They now wait up to
-  120 s (a wait that runs out makes the next give up at once), and say which
-  threads were where. #584 (WebKit's blank `/login` at the 64th and 128th
-  test of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole
-  WebKit suite, 279 tests on the Mac mini, still times out loading `/login`
-  at exactly those two tests on 1.56.1, and passes them on 1.64.1, the
-  version since #563. The open files of WebKit's processes stayed steady on
-  both.
+- **The release tests ready for beta.2 and 2.0.0** (`docs/AGENT-TESTS.md`,
+  #806). A 1.x ledger updated to 2.0 now reaches schema 0101 (coin
+  choice's migration runs after 0012 -> 0100), in every check that names
+  it. Track C has a hard rule for a build with an installed app's
+  identity (2.0.0's BitcoinTX, a tester's BitcoinTX Preview): only
+  through `run-test-build.sh`, the apps on 8765 and 8767 checked before
+  each launch, and whether the test build shares the installed app's web
+  view storage. New cases: **MAC-UPG** (1.2.10's Mac app updated in place
+  by 2.0.0's: one migration, a pre-2.0 copy, a new AI key, the AI setup
+  pinned under `bitcointx`), **BETA-6** (a Preview's own backup restored
+  into the candidate), **AI-16** (the 2.0 connector on 1.2.10, which found
+  #834) and **CB-1**, **CB-2** (the updates from Start9's Community
+  Beta: from the Community Registry's 1.2.10, and from a sideloaded
+  beta).
 - **The developer guides and AGENTS.md are read again against 2.0**
   (#807, docs steps D6 and D7a). TESTING, MAINTENANCE,
   STARTOS_COMPATIBILITY, the Mac app's developer sections and

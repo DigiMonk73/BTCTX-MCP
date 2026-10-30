@@ -78,7 +78,11 @@ it changes only by pull request:
   connector under test install without hashes.
 - JavaScript: `frontend/package-lock.json` and `startos/package-lock.json`
   (`npm ci` installs exactly what they hold).
-- Docker base images: tag and digest (`python:3.13-slim@sha256:…`).
+- Docker base images: tag and digest (`python:3.13-slim@sha256:…`). One
+  package moves on its own: the final stage upgrades the base's
+  `ca-certificates` from Debian's security archive (#638), and the build
+  checks the one thing that matters, that neither the system's store nor
+  certifi's holds the distrusted emSign ECC Root CA - G3.
 - GitHub Actions: a full commit SHA with the release as a comment
   (`actions/checkout@<sha> # v7.0.1`): a tag can be moved, a commit can't.
 - start-cli, which packs the StartOS package in CI and the release: a

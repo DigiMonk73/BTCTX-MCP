@@ -16,9 +16,7 @@ from backend.tests.test_texts_2_0_357 import ROOT, flat, tracked
 TEST_COUNT = re.compile(r"~?\d(?:[\d,]*\d)?\s+(?:hermetic |unit and integration |unit |integration )?tests\b", re.I)
 # History says how many tests a change had then, and that stays true
 HISTORY = ("docs/CHANGELOG.md", "docs/temp/", "docs/archive/")
-# Session 54's version pull request rewrites the rest of this file; its
-# line 44 follows once that has merged (#807's guardrail)
-COUNT_NOT_YET = {"docs/AGENT-TESTS.md"}
+COUNT_NOT_YET: set[str] = set()
 
 # Records, not guides: their old place -> where they are now
 ARCHIVED = {
