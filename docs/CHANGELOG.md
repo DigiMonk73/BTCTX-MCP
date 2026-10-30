@@ -5,6 +5,19 @@ All notable changes to BitcoinTX are documented in this file.
 ## [Unreleased 2.0]
 
 ### Development
+- **The test pack: the reference ledger as a CSV, River's sample file, and a
+  guide for testing by hand** (#844). The whole reference test ledger now goes
+  through the app's own CSV export and import in a test: every figure of
+  `reference_figures.json`, every IRS form field of 2024 to 2026, Ledger
+  Review's counts and a second export come out the same, and tests with a
+  column left out show it checks. That CSV is committed
+  (`testdata/reference_ledger.csv`), with made-up
+  `testdata/exchange_files/river_bitcoin_activity.csv` (its figures worked out
+  by hand in a test), `testdata/README.md`, and `docs/HAND-TEST.md`: for each
+  file, where to click and what to expect, in plain words, on a throwaway
+  install only. `make test-pack` makes the CSV and the guide's tables again
+  from the app's own answers, and a test fails when they're stale. Tests and
+  test files only: the app doesn't change.
 - **The Python suite runs across machines, and CI checks that every test
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,
