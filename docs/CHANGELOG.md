@@ -12,9 +12,31 @@ All notable changes to BitcoinTX are documented in this file.
   answered its save, or a change to the price settings, with an error. Now the
   status says it failed, it's tried again as a failed download is, and a
   lookup takes the day's price at once, marked as such, as it does without
-  the hourly history (#843). No figure changes.
+  the hourly history (#843). A save the refusal stopped now saves at that
+  price, and the hour's price comes back with the machine, with no restart
+  (the owner's OK on the before-and-after, on its pull request).
+- **The Dashboard's "Choose a source" and "Confirm now" links go to the
+  price card even when pressed before it shows** (#612). The link shows
+  once the live price has answered, the card once its settings have
+  loaded, which can be later on a slow server. A press in between found no
+  card, so nothing scrolled and the keyboard stayed on the link. It now
+  goes there as soon as the card is shown (within 5 s), unless you've gone
+  on to another page or control meanwhile.
 
 ### Development
+- **The test pack: the reference ledger as a CSV, River's sample file, and a
+  guide for testing by hand** (#844). The whole reference test ledger now goes
+  through the app's own CSV export and import in a test: every figure of
+  `reference_figures.json`, every IRS form field of 2024 to 2026, Ledger
+  Review's counts and a second export come out the same, and tests with a
+  column left out show it checks. That CSV is committed
+  (`testdata/reference_ledger.csv`), with made-up
+  `testdata/exchange_files/river_bitcoin_activity.csv` (its figures worked out
+  by hand in a test), `testdata/README.md`, and `docs/HAND-TEST.md`: for each
+  file, where to click and what to expect, in plain words, on a throwaway
+  install only. `make test-pack` makes the CSV and the guide's tables again
+  from the app's own answers, and a test fails when they're stale. Tests and
+  test files only: the app doesn't change.
 - **The Python suite runs across machines, and CI checks that every test
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,

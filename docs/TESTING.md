@@ -407,6 +407,34 @@ version adds, which the older file lacks, isn't counted). Then
 `python -m backend.cli recalculate` on the copy, and compare again: what
 moves must be what the CHANGELOG says a recalculation changes.
 
+## Testing by hand: the test pack
+
+[HAND-TEST.md](HAND-TEST.md) is for a person, in plain words, on a throwaway
+install: which file, where to click, and what to expect. It takes the CSV
+template, a made-up file for each exchange importer
+(`testdata/exchange_files/`) and the whole reference ledger as a CSV
+(`testdata/reference_ledger.csv`). [testdata/README.md](../testdata/README.md)
+says what each file is.
+
+An automatic test does the same import. `backend/tests/test_reference_csv_844.py`
+exports the seeded reference ledger through the app and imports that CSV into
+an empty install with the same accounts, then compares every figure of
+`reference_figures.json`, every IRS form field of each forms year, Ledger
+Review's counts and a second export, which must be the same to the byte.
+Tests with a column left out show it checks.
+
+The CSV and the guide's tables are never typed. `backend/tests/hand_test_tables.py`
+works them out from the reference figures and the app's own previews, and a
+test fails when one is stale. After a change to the reference ledger, to what
+an import says or to a sample file:
+
+```bash
+make test-pack               # testdata/reference_ledger.csv and HAND-TEST.md's tables
+```
+
+The pull request shows the difference. A new sample file also needs its line in
+`hand_test_tables.py`'s `EXCHANGE_FILES`.
+
 ## The landing page's pictures
 
 ```bash
