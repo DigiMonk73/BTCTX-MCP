@@ -96,15 +96,6 @@ also needs its pull request to their fork (or rides in one of ours still
 open), or Start9 never gets it. Anything else in `startos/` waits for a
 release, except a change Start9's review asks for (below).
 
-A 2.0 pre-release, an alpha or a beta, is published the same way, from a
-branch `prerelease/v2.0.0-alpha.N` or `prerelease/v2.0.0-beta.N` pushed
-from `2.0`'s tip, as a GitHub pre-release, never "Latest" (BitcoinTX
-Preview on the Mac, the image's own tag, `btctx-mcp==2.0.0aN` or
-`2.0.0bN`), and never to the mirror or Start9. 2.0's own release takes its
-version bump into `2.0`, not `develop`. BTCTX-MCP's `AGENTS.md`
-("Branches", "Releasing") has the rest: the version a pre-release
-carries, and what to do when its run fails.
-
 ## After Start9 forks the mirror
 
 Start9 forks DigiMonk73/BTCTX-StartOS into Start9-Community; from then on

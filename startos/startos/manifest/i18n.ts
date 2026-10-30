@@ -51,3 +51,18 @@ export const torDescription = {
   fr_FR:
     'Facultatif : achemine les requêtes vers les sites publics de prix quand vous activez Tor dans Source des prix et confidentialité, pour qu’ils ne voient pas votre adresse IP, sauf si vous laissez BitcoinTX télécharger l’historique des prix de Bitstamp sans Tor',
 }
+
+// Asked before a 1.x install downloads 2.0 (index.ts's preDownloadAlert). The
+// app's screen names stay in English, as the release notes keep them.
+export const backupsFirst = {
+  en_US:
+    "**Make a StartOS backup of BitcoinTX** before updating, and download BitcoinTX's own backup (Settings, Backup & Restore): you need one of them to go back to 1.x.",
+  es_ES:
+    '**Haz una copia de seguridad de BitcoinTX en StartOS** antes de actualizar, y descarga también la copia propia de BitcoinTX (Settings, Backup & Restore): necesitas una de las dos para volver a la 1.x.',
+  de_DE:
+    '**Erstelle ein StartOS-Backup von BitcoinTX**, bevor du aktualisierst, und lade auch das eigene Backup von BitcoinTX herunter (Settings, Backup & Restore): Du brauchst eines davon, um zu 1.x zurückzukehren.',
+  pl_PL:
+    '**Zrób kopię zapasową BitcoinTX w StartOS** przed aktualizacją i pobierz też własną kopię zapasową BitcoinTX (Settings, Backup & Restore): jedna z nich jest potrzebna, aby wrócić do 1.x.',
+  fr_FR:
+    '**Faites une sauvegarde StartOS de BitcoinTX** avant la mise à jour, et téléchargez aussi la sauvegarde propre à BitcoinTX (Settings, Backup & Restore) : il vous en faut une pour revenir à la 1.x.',
+}

@@ -2,7 +2,7 @@
 # Bring Start9's changes to their fork of the StartOS package (template
 # updates, SDK bumps, review fixes) into startos/ here, so the next mirror
 # sync (sync-startos-mirror.sh) never undoes them. Once Start9 has forked the
-# mirror, run this before every sync, on a branch cut from develop (develop
+# mirror, run this before every sync, on a branch cut from staging (staging
 # takes changes only by pull request); the release workflow runs --check and
 # stops if you haven't.
 #
@@ -15,7 +15,7 @@
 # while a pull request of ours is still open there, the mirror comparison
 # also holds the reverse of ours, and the script says so.
 # --apply: applies that difference to startos/ in the working tree,
-# three-way, for you to review, test, commit and send to develop by pull
+# three-way, for you to review, test, commit and send to staging by pull
 # request, and records their commit in scripts/start9-taken (commit it too:
 # later runs then count only what they changed since). Refused on main.
 # --check: exit 1 if their changes are not in startos/ (committed: at HEAD,
@@ -64,7 +64,7 @@ MIRROR_URL="${MIRROR_URL:-https://github.com/$MIRROR.git}"
 
 if [ "$MODE" = --apply ]; then
   BRANCH="$(git -C "$ROOT" rev-parse --abbrev-ref HEAD)"
-  [ "$BRANCH" != main ] || { echo "on main: cut a branch from develop first (git switch -c start9-changes origin/develop)" >&2; exit 1; }
+  [ "$BRANCH" != main ] || { echo "on main: cut a branch from staging first (git switch -c start9-changes origin/staging)" >&2; exit 1; }
   if [ -n "$(git -C "$ROOT" status --porcelain -- startos)" ]; then
     echo "startos/ has uncommitted changes; commit them first" >&2
     exit 1
@@ -141,10 +141,10 @@ if [ "$MODE" = --check ]; then
   done
   git -C "$TMP/mirror" diff --stat "$BASE" start9 >&2
   if [ -n "$OPEN" ]; then
-    echo "Start9 changed $FORK while our pull request there is still open ($OPEN), so their changes can't be told from ours. Ask them to merge (or close) it, then take their changes: scripts/start9-pull.sh --apply on a branch cut from develop." >&2
+    echo "Start9 changed $FORK while our pull request there is still open ($OPEN), so their changes can't be told from ours. Ask them to merge (or close) it, then take their changes: scripts/start9-pull.sh --apply on a branch cut from staging." >&2
     exit 1
   fi
-  echo "Start9 changed $FORK, and startos/ doesn't have it yet. On a branch cut from develop: scripts/start9-pull.sh --apply, review, run the checks, commit and open a pull request into develop; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
+  echo "Start9 changed $FORK, and startos/ doesn't have it yet. On a branch cut from staging: scripts/start9-pull.sh --apply, review, run the checks, commit and open a pull request into staging; then release again (startos/UPDATING.md, \"After Start9 forks the mirror\")." >&2
   exit 1
 fi
 
@@ -164,7 +164,7 @@ fi
 if git -C "$ROOT" apply --3way --directory=startos "$TMP/start9.patch"; then
   git -C "$ROOT" reset -q -- startos  # unstaged, so plain git diff shows it
   git -C "$TMP/mirror" rev-parse start9 > "$TAKEN_FILE"
-  echo "Applied to startos/, and scripts/start9-taken records what was taken. Review (git diff), run the StartOS checks, then commit both and open a pull request into develop."
+  echo "Applied to startos/, and scripts/start9-taken records what was taken. Review (git diff), run the StartOS checks, then commit both and open a pull request into staging."
 else
   echo "Some hunks didn't apply cleanly: resolve the conflict markers in startos/ (git status), then commit." >&2
   exit 1

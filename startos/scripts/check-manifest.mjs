@@ -47,6 +47,26 @@ for (const v of ['0.3.0:0', '0.7.0:0', '0.8.0:0', '0.8.0:1']) {
 }
 check(m.canMigrateTo === `=${m.version}`, `downgrades must be impossible, canMigrateTo is ${m.canMigrateTo}`)
 
+// The question before a 1.x install downloads 2.0 (Start9's manifest.md, "Pre-download
+// alerts"). StartOS shows it only from a registry, never on a sideload, so nothing shows
+// it before users meet it: its range is checked here. A pre-release sorts below its
+// release, and a tester's StartOS backup brings back that pre-release, not 1.x, so the
+// range stops below every alpha and beta (2.0 plan 5.16).
+const alert = m.preDownloadAlert
+check(alert, 'the backups asked for before a 1.x install downloads 2.0: preDownloadAlert is missing')
+if (alert) {
+  const source = VersionRange.parse(alert.when.sourceVersion)
+  for (const v of ['0.8.0:1', '1.2.9:0', '1.2.10:0', '1.2.10:1']) {
+    check(ExtendedVersion.parse(v).satisfies(source), `${v} sees no backup alert (sourceVersion ${alert.when.sourceVersion})`)
+  }
+  for (const v of ['2.0.0-alpha.1:0', '2.0.0-beta.2:0', '2.0.0:0', '2.0.1:0']) {
+    check(!ExtendedVersion.parse(v).satisfies(source), `${v} sees the backup alert for 1.x (sourceVersion ${alert.when.sourceVersion})`)
+  }
+  for (const locale of ['en_US', 'es_ES', 'de_DE', 'pl_PL', 'fr_FR']) {
+    check(alert.message[locale]?.includes('Settings, Backup & Restore'), `the backup alert's ${locale} text doesn't name Settings, Backup & Restore`)
+  }
+}
+
 if (errors.length) {
   console.error(`manifest check failed:\n - ${errors.join('\n - ')}`)
   process.exit(1)

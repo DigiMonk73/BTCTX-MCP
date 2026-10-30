@@ -182,63 +182,33 @@ of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
-1.2.9 is the stable version of BitcoinTX 1.x, and 1.2.10 its first
-maintenance update. Until 2.0 replaces it, 1.x gets maintenance updates: bug
-and security fixes, each year's IRS forms and the price history's updates,
-and the few small improvements already planned for it
-([roadmap](docs/ROADMAP.md)).
+BitcoinTX 2.0.0 is the current version. It adds multiple wallets, exchanges
+and bank accounts, each wallet and exchange with its own cost-basis lots
+([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). It reaches
+StartOS through Start9's Community Beta first, then its Community Registry,
+which offers 1.2.10 until then. What's next is on the
+[roadmap](docs/ROADMAP.md).
 
-New features go into BitcoinTX 2.0, now in the works, which adds multiple
-wallets, exchanges and bank accounts, each wallet and exchange with its own
-cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
-Because 2.0 changes how the ledger is stored, it's tested first on GitHub
-pre-releases, alphas and then betas, for as long as it needs. Then 2.0 is
-released here, replacing 1.x, and reaches StartOS through Start9's Community
-Beta. We don't promise dates; until then, the latest 1.x is the version to
-use for your records.
+BitcoinTX 1.x gets no more fixes. Its last release,
+[1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10), stays
+downloadable. To move to 2.0, see [From 1.x to 2.0](#from-1x-to-20).
 
-### Trying 2.0 before it's released
+### If you tried a 2.0 pre-release
 
-Anyone who chooses may try 2.0's pre-releases: the first is
-[v2.0.0-alpha.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1),
-and the later ones are on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
-marked **Pre-release**. They're for testing and may have bugs. An alpha, the
-earliest stage, is only for trying 2.0, never for your real records: try it
-with a test ledger or a copy of your records, and keep 1.x for your records.
-Nobody gets one as an update: the Mac app's download, Docker's `:latest` and
-Start9's store stay on 1.x. From alpha.2, a banner above every page says
-which pre-release you're using.
+2.0 was tested first on GitHub pre-releases, alphas and then betas. They stay
+on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
+marked **Pre-release**, and 2.0.0 replaces them:
 
-- **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta),
-  installed beside BitcoinTX with its own ledger, folder and port: your
-  BitcoinTX and its ledger are never opened. From 2.0.0-alpha.2 its icon
-  has a red **PREVIEW** band, and the banner says **BitcoinTX Preview** and
-  its version (alpha.1 still has BitcoinTX's icon: tell them apart by the
-  name) ([#670](https://github.com/DigiMonk73/BTCTX-MCP/issues/670)). It starts
-  with an empty ledger; to try your records in it, download a backup in
-  BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX
-  Preview.
-- **StartOS:** sideloaded, it updates your BitcoinTX in place. **Make a
-  StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x,
-  uninstall BitcoinTX (which deletes its data) and restore that backup.
-  While your BitcoinTX runs a pre-release, StartOS offers it no 1.x update
-  until 2.0 is out: fixes, security fixes included, come in the next
-  pre-release.
-- **Docker:** each pre-release has its own image tag (`:v2.0.0-alpha.1`,
-  never `:latest`). Start it on a new volume and restore a backup into it.
-  Started on your 1.x volume, it upgrades that ledger, and going back takes
-  the steps in its [Going back to 1.x](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.1/docs/MAINTENANCE.md#going-back-to-1x).
-- **An AI:** each pre-release's Settings (Connect an AI Assistant) gives the
-  setup for its own connector (`btctx-mcp==2.0.0a1` for alpha.1), named
-  `bitcointx-preview`. On StartOS your `bitcointx` entry is updated instead:
-  set it back to your 1.x version if you go back.
-
-What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0
-database or backup. Report what you find in [a new issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose):
-the "2.0 alpha or beta report", or, until GitHub lists it, a Bug report
-whose title starts with the pre-release's name (for example
-"2.0.0-alpha.1:"). Show the problem on a test ledger, never your real data;
-report a security problem privately, as [SECURITY.md](SECURITY.md) explains.
+- **Mac:** BitcoinTX Preview stays a separate app, with its own ledger, folder
+  and port, and 2.0.0 never reads it. To keep a Preview ledger, download a
+  backup in BitcoinTX Preview, restore it in BitcoinTX 2.0.0 (Settings, Backup
+  & Restore), then delete BitcoinTX Preview.
+- **StartOS:** 2.0.0 updates a pre-release in place. The StartOS backup you
+  made under 1.x still takes you back to 1.x.
+- **Docker:** start `:v2.0.0` on the same volume.
+- **An AI:** set your AI app to `btctx-mcp==2.0.0`, and replace a
+  `bitcointx-preview` entry for a server you've updated with what Settings →
+  Connect an AI Assistant gives now.
 
 ## Install
 
@@ -519,9 +489,9 @@ restore a backup made with this version."). 2.0's first start keeps a copy
 of the 1.x database in the data folder,
 `backups/btctx-pre-2.0-from-<revision>-<time>.db`, and never removes it.
 The ways back below for Docker and the Mac app, and StartOS's by
-BitcoinTX's own backup, were tried with 1.2.10 on 2026-10-24; StartOS's by
-its own backup is recorded on
-[#357](https://github.com/DigiMonk73/BTCTX-MCP/issues/357) once tried.
+BitcoinTX's own backup, were tried with 1.2.10 on 2026-10-24, and StartOS's
+by its own backup in beta.2's release tests
+([#806](https://github.com/DigiMonk73/BTCTX-MCP/issues/806)).
 
 - **StartOS:** uninstall BitcoinTX (which deletes its data, that copy
   included), then restore the StartOS backup made before the update: it
@@ -543,7 +513,7 @@ its own backup is recorded on
      Use the 1.x version the copy came from, or a later 1.x: an older one
      refuses the copy's schema.
   3. Start that 1.x image on the volume, by its version tag (never
-     `:latest` or `:main` once they are 2.0).
+     `:latest` or `:main`, which are 2.0).
 
   A copy made another way as root still works with a normal start, which
   gives `/data` back to `btctx`. Started with `--user`, the image leaves

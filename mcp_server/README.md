@@ -1,5 +1,7 @@
 # BitcoinTX MCP server
 
+*On BitcoinTX 1.x? Read [this page as it was for 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/blob/v1.2.10/mcp_server/README.md).*
+
 Connect an AI assistant (Claude Desktop, Claude Code, Grok Build or any MCP
 client) to your BitcoinTX ledger. It's optional, and off until you turn it
 on: nothing connects an AI to BitcoinTX by itself. Paste anything, like an exchange confirmation email, a

@@ -1,5 +1,7 @@
 # Using BitcoinTX
 
+*On BitcoinTX 1.x? Read [this page as it was for 1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/blob/v1.2.10/docs/USING.md).*
+
 What BitcoinTX does and how you use it, the same wherever it runs. How to
 install it, log in the first time and update it depends on where it runs,
 so none of that is on this page: on StartOS, the service's Instructions tab
