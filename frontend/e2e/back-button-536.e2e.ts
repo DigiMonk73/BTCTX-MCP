@@ -242,4 +242,26 @@ test.describe("no price source chosen yet: the price card's link", () => {
     await expect(title).toBeInViewport();
     await expect(page).toHaveURL(/\/dashboard$/);
   });
+
+  test("pressed before the card is there, still goes to it once it's shown (#612)", async ({
+    authedPage: page,
+  }) => {
+    // The card's settings held until the link is pressed, so the link shows
+    // first (a slow server, or 1 run in 40)
+    let answer = () => {};
+    const pressedFirst = new Promise<void>((go) => (answer = go));
+    await page.route("**/api/settings/network", async (route) => {
+      await pressedFirst;
+      await route.continue();
+    });
+    await page.goto("/dashboard");
+    const title = page.getByRole("heading", { name: "Bitcoin prices" });
+    await link(page).focus();
+    await page.keyboard.press("Enter");
+    await expect(title).toHaveCount(0);
+    answer();
+    await expect(title).toBeFocused();
+    await expect(title).toBeInViewport();
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
 });

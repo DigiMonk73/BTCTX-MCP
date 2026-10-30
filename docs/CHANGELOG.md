@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
+- **The Dashboard's "Choose a source" link always goes to the price card**
+  (#612). The link shows once the live price has answered, the card once
+  its settings have loaded, which can be later on a slow server. A press
+  in between found no card, so nothing scrolled and the keyboard stayed on
+  the link. It now goes there as soon as the card is shown (within 5 s),
+  unless you've gone on to another page or control meanwhile.
+
 ## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits, a fee's price, coins chosen on 1.x
 
 **About this beta.** BitcoinTX 2.0's second beta, for anyone who chooses
