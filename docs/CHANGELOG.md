@@ -88,7 +88,8 @@ a restart. The first save answered with an error and saved nothing, and later
 saves took the day's price, if it was stored, until a restart. Now a save with a
 value left blank takes the day's price, marked as such, if that's already
 stored; otherwise it says no price is available and saves nothing, so type the
-value or try again. Once threads come back, saves take the hour's price with no
+value or try again (a gift's, donation's or lost coins' value just stays blank).
+Once threads come back, saves take the hour's price with no
 restart.
 Nothing already saved changes, and there's nothing to do; Ledger Review's check
 of values priced at the day can apply the hour's price (#843).
@@ -1166,7 +1167,8 @@ only the pre-releases. Each pre-release's own notes stay on
   the hourly history (#843). A save the refusal stopped now saves at that
   price if it's already stored; a day's lookup needs a thread too, so with
   threads refused and no stored price it answers that no price is available
-  and saves nothing. The hour's price comes back with the machine, with no
+  and saves nothing (a gift's, donation's or lost coins' value stays blank).
+  The hour's price comes back with the machine, with no
   restart (the owner's OK on the before-and-after, on its pull request).
 
 ### Security
