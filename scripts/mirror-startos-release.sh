@@ -41,7 +41,7 @@ cat >> "$NOTES" <<EOF
 
 ## Install
 
-In StartOS, open **Sideload** and upload \`btctx.s9pk\`; installs of earlier versions update in place.
+Make a StartOS backup of BitcoinTX first (a sideload doesn't ask, and StartOS can't undo an update), then open **Sideload** and upload \`btctx.s9pk\`; installs of earlier versions update in place.
 
 This repository mirrors \`startos/\` of [DigiMonk73/BTCTX-MCP](https://github.com/DigiMonk73/BTCTX-MCP), where the package is built: [BTCTX-MCP $SOURCE_TAG](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/$SOURCE_TAG). Image: \`ghcr.io/digimonk73/btctx-mcp:${SOURCE_TAG%-*}\`.
 EOF
