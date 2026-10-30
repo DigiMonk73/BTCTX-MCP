@@ -4,6 +4,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+- The past-year question finds first the price its recalculation needs for
+  another row's missing value (a bitcoin fee with no USD value, a Spent's
+  blank proceeds), and keeps it. It was found on the question's throwaway
+  copy and lost, so the save asked again and ran twice. Only a ledger holding
+  such a row meets it. The same price is found either way, with no wait for
+  a download, so no figure changes (#824).
+
 ## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits, a fee's price, coins chosen on 1.x
 
 **About this beta.** BitcoinTX 2.0's second beta, for anyone who chooses

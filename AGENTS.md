@@ -267,7 +267,9 @@ dated in an earlier tax year, #711) and saves nothing. Sent again with
 "pre-change" one, the newest 5 and the first of each day for a week; a
 fresh AI copy with the key), the fingerprint checked again before the
 commit, in `hourly_prices.with_prices_found`. The check runs on
-`database.scratch_copy` with the lock free, its prices found first; a write
+`database.scratch_copy` with the lock free, its prices found first (the
+write's, and those its replays need for a stored row's missing value,
+`moments_a_replay_prices`, #824); a write
 dated in this tax year (`tax_time.current_tax_year`, pinned to 2009 in the
 tests) or one moving only dollars saves at once, and past
 `past_years.DRY_RUN_SECONDS` (10 s, from the StartOS VM's measurement) the

@@ -16,8 +16,10 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from collections import defaultdict
+from collections.abc import Iterable
 
 from fastapi import HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from backend.models.transaction import (Transaction, LedgerEntry, BitcoinLot, LotDisposal)
@@ -1060,9 +1062,13 @@ def _priced_at_the_day(db: Session, at_the_day: bool):
 
 # Session.info key: price at the day, not the hour (_priced_at_the_day)
 DAY_PRICES = "btctx_price_at_the_day"
+# How long find_prices_first looks for stored rows' prices: a source that
+# doesn't answer costs each its timeout, and the replay that needs them looks
+# again, under its own limit (past_years.DRY_RUN_SECONDS)
+STORED_VALUES_SECONDS = 10
 
 
-def find_prices_first(db: Session, rows: list[dict]) -> None:
+def find_prices_first(db: Session, rows: list[dict], stored_moments: Iterable[tuple[datetime, bool]] = ()) -> None:
     """
     Before a save of several rows first writes (an import, the AI's preview
     or add), find the prices its rows' values are filled from, so they're
@@ -1074,6 +1080,8 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
     price for (hourly_prices.WARMING): such a row takes the day's price. A
     price it misses is found with the lock free all the same, at the cost
     of starting the import again (hourly_prices.with_prices_found).
+    Then `stored_moments`, those a replay of the stored ledger will price
+    (moments_a_replay_prices, #824), as long as STORED_VALUES_SECONDS allows.
     """
     if price_history.writing(db):
         return
@@ -1089,6 +1097,47 @@ def find_prices_first(db: Session, rows: list[dict]) -> None:
                 return
     finally:
         db.info[hourly_prices.WARMING] = False
+    deadline = time.monotonic() + STORED_VALUES_SECONDS
+    for when, at_the_day in sorted(stored_moments):
+        if time.monotonic() >= deadline:
+            return
+        hourly_prices.look_first(db, when, at_the_day)
+
+
+def moments_a_replay_prices(db: Session, leaving_out: int | None = None) -> set[tuple[datetime, bool]]:
+    """
+    When a replay prices a stored row's missing value (_price_for), as (the
+    moment, whether at the day): a bitcoin fee with no USD value
+    (_stored_fee_usd) and a Spent's blank proceeds
+    (_withdrawal_gross_proceeds). Only a row migration 0004 couldn't fill, or
+    one blanked by hand, holds one. `leaving_out`: a row whose values the
+    write decides, which no replay reads as it's stored.
+    """
+    book = account_book(db)
+    blank = db.query(Transaction).filter(
+        Transaction.type.in_(FEE_VALUED_TYPES),
+        or_(Transaction.fee_usd.is_(None),
+            and_(Transaction.proceeds_usd.is_(None), Transaction.gross_proceeds_usd.is_(None))),
+    )
+    return {(tx.timestamp, tx.price_moment == "day") for tx in blank
+            if tx.id != leaving_out and (_replay_prices_fee(tx, book, db) or _replay_prices_proceeds(tx, book))}
+
+
+def _replay_prices_fee(tx: Transaction, book: AccountBook, db: Session) -> bool:
+    """A bitcoin fee with no value, its currency as the replay fills it
+    (_fill_stored_fee_currency), on a row whose coins the replay moves."""
+    if tx.fee_usd is not None or not book.is_btc(tx.from_account_id):
+        return False
+    if tx.type == "Transfer" and not book.is_btc(tx.to_account_id):
+        return False
+    stored = _stored_inputs(tx)
+    _fill_fee_currency(stored, db)
+    return _has_btc_fee(stored)
+
+
+def _replay_prices_proceeds(tx: Transaction, book: AccountBook) -> bool:
+    return (tx.type == "Withdrawal" and book.is_btc(tx.from_account_id) and _spent_as_matched(tx)
+            and tx.proceeds_usd is None and tx.gross_proceeds_usd is None)
 
 
 def edited_inputs(tx: Transaction, tx_data: dict, db: Session) -> dict:
