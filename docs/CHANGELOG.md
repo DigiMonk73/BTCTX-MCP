@@ -4,6 +4,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased 2.0]
 
+### Fixed
 - The hourly price history's download, when the system refuses it a thread
   (a container's limit, no memory), counts as a download that failed. It
   stayed "downloading" until a restart, with no download running, and each
@@ -12,6 +13,41 @@ All notable changes to BitcoinTX are documented in this file.
   status says it failed, it's tried again as a failed download is, and a
   lookup takes the day's price at once, marked as such, as it does without
   the hourly history (#843). No figure changes.
+
+### Development
+- **The Python suite runs across machines, and CI checks that every test
+  ran** (#814). Each version's suite is three shards, on machines of their
+  own, about a third of the time it took: each shard runs whole test files,
+  shared out by how long each took on CI (`backend/tests/shards.py`,
+  `test_durations.json`, `--shard 2/3`), in the order the whole suite runs
+  them. A guard job (`scripts/check_test_shards.py`) fails "CI passed"
+  unless every test a full collection finds ran in exactly one shard, and
+  hands out the run's timings. No test is cut: the four longest are split
+  into parts that run side by side, checking all they did. Every reference
+  row is still saved again, twice, in ten parts by id, each on a ledger of
+  its own that must end with every figure and every stored transaction as it
+  was, so no part could change what another's rows are saved on. The
+  property tests draw six runs of 22 ledgers of each kind: on CI, 129 and
+  125 different ones, where one run of 120 drew 124 and 122. The printed
+  forms' minute-long setup runs once a version (`--dist loadgroup`), not
+  once a worker. Two tests left something behind that upset a later module's
+  tests on the same worker, once a shard ran its files in another order: the
+  connector tests' `backend_db` put back no database override, and
+  `test_report_without_prices.py` left pypdf's warnings off. Both now put
+  back what was there. Tests and CI only: the app doesn't change.
+- **Three known flaky tests, placed** (#598, #584, #841). #598's module
+  already seeds its own ledger (#610), and its test still fails on the old
+  seeding code. #841: the hourly prices' tests waited 10 s for their
+  download, which takes well under a second; once on CI it hadn't ended
+  after 10 s, though both its years were saved. The cause wasn't found, and
+  it didn't come back in 20 runs beside a full shard. They now wait up to
+  120 s (a wait that runs out makes the next give up at once), and say which
+  threads were where. #584 (WebKit's blank `/login` at the 64th and 128th
+  test of a full run on a Mac) was Playwright 1.56.1's WebKit: the whole
+  WebKit suite, 279 tests on the Mac mini, still times out loading `/login`
+  at exactly those two tests on 1.56.1, and passes them on 1.64.1, the
+  version since #563. The open files of WebKit's processes stayed steady on
+  both.
 
 ## [v2.0.0-beta.2] - 2026-10-29 - 2.0's second beta: Kraken's fee credits, a fee's price, coins chosen on 1.x
 

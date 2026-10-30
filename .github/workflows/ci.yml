@@ -1,7 +1,8 @@
 name: CI
 
 # Every pull request, and every push to develop, main, staging or 2.0:
-# lint, full Python suite, MCP tests, frontend, end-to-end smoke test,
+# lint, full Python suite (split across machines, a guard checking every
+# test ran), MCP tests, frontend, end-to-end smoke test,
 # Playwright click-through tests (Chromium, WebKit), Docker image + container
 # smoke, StartOS package checks and an x86_64 s9pk packed from this commit's
 # image, dependency audit, and the macOS app build. A pull request's run
@@ -42,7 +43,10 @@ env:
 
 jobs:
   python:
-    name: Python tests (py${{ matrix.python }})
+    # The whole suite on each version, split across machines (#814): each
+    # shard runs whole test files, shared out by how long each took
+    # (backend/tests/shards.py), and python-guard checks that every test ran
+    name: Python tests (py${{ matrix.python }}, ${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -51,6 +55,7 @@ jobs:
         # 3.13 = Docker, StartOS and the Mac app (#284, #425). Both are in
         # "CI passed" (below), the one check develop's ruleset requires.
         python: ["3.11", "3.13"]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -71,13 +76,50 @@ jobs:
         run: ruff check .
       - name: Static compatibility checks
         run: python backend/tests/pre_commit_tests.py --no-api
-      # pytest-xdist: one worker per core. Each test has its own temp
-      # database and data folder, so they run side by side (3,184 tests in
-      # 83 s on 12 cores, against 16 min one at a time)
-      - name: Full test suite (incl. slow stress tests)
+      # The guard's list: the whole suite collected by a run of its own,
+      # without --shard, so a fault in the split can't hide a test from it
+      - name: Every test, collected
         run: |
           mkdir -p frontend/dist
-          pytest -q -n auto --durations=10
+          pytest --collect-only -q > collected.txt
+      # pytest-xdist: one worker per core. Each test has its own temp
+      # database and data folder, so they run side by side (3,184 tests in
+      # 83 s on 12 cores, against 16 min one at a time); loadgroup keeps a
+      # module marked xdist_group on one worker (test_printed_forms.py)
+      - name: This shard's tests (incl. slow stress tests)
+        run: pytest -q -n auto --dist loadgroup --durations=10 --shard ${{ matrix.shard }}/3 --ran-list ran.json
+      # Also after a failed test: what ran, and how long it took. A re-run
+      # of a failed shard replaces its record
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: python-tests-py${{ matrix.python }}-${{ matrix.shard }}
+          path: |
+            collected.txt
+            ran.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  python-guard:
+    # Fails "CI passed" unless, on each version, every test the shards
+    # collected ran in exactly one shard; and hands out the run's per-file
+    # timings, the next backend/tests/test_durations.json (docs/TESTING.md)
+    name: Python tests, every one run once
+    needs: python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: python-tests-*
+          path: shards
+      - run: python3 scripts/check_test_shards.py shards --shards 3 --durations test_durations.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-durations
+          path: test_durations.json
+          retention-days: 30
 
   frontend:
     name: Frontend lint + tests + build
@@ -420,7 +462,7 @@ jobs:
   # The medium set (the owner's choice, 2026-10-22): a pull request into
   # staging or 2.0, and only there (an allow-list: a pull request into any
   # other branch gets the full set), runs the Python suite on both versions
-  # (every tax and figures test among them), lint, the frontend, the smoke
+  # (every tax and figures test among them) and its guard, lint, the frontend, the smoke
   # test, the StartOS checks and the audit, so a night's batch of pull
   # requests clears side by side within GitHub's runner limits; the macOS
   # build and its audit run there too, as on every pull request. Only
@@ -432,7 +474,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [python, frontend, smoke, e2e, docker, startos, startos-pack, audit]
+    needs: [python, python-guard, frontend, smoke, e2e, docker, startos, startos-pack, audit]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed
