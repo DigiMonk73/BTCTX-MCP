@@ -6,19 +6,51 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 - **The past-year question looks first for the hour's price of another row's
-  missing value, and keeps it** (#824; 2.0's pre-releases). A row can hold a
-  bitcoin fee with no USD value, or a Spent with blank proceeds, only if it
-  was blanked by hand or never recalculated since 0.8. The question's
-  recalculation priced it on a throwaway copy and lost the answer, so it was
-  asked for again and the save ran twice. Dated after the last hourly price
-  file, it could also change the value: Bitstamp's later hours are asked for
-  at most every 10 minutes, so the save took the day's price, with the
-  question asked a second time (a 0.0001 BTC fee: $4.00 at the day's price,
-  now $4.10 at the hour's, with one question; the owner's decision,
-  2026-10-30). A value already saved doesn't change, and nothing else does:
-  no write that saves without the question, and no row priced at the day.
+  missing value, and keeps it** (#824; 2.0's pre-releases; the owner's
+  decisions, 2026-10-30). A row can hold a bitcoin fee with no USD value, or
+  a Spent with blank proceeds, only if it was blanked by hand or never
+  recalculated since 0.8. The question's recalculation priced it on a
+  throwaway copy and lost the answer, so it was asked for again and the save
+  ran twice. Dated after the last hourly price file, it could also change
+  the value: Bitstamp's later hours are asked for at most every 10 minutes,
+  so the save took the day's price, with the question asked a second time.
+  Now those hours stay stored from the first question on. For the next 10
+  minutes, values dated there take the hour's price where they took the
+  day's, whichever row or report they're in (a 0.0001 BTC fee: $4.00, now
+  $4.10; a 0.05 BTC Spent's proceeds: $2,000, now $2,050). A save that was
+  refused for having no price is saved at the hour's, and a question that
+  arose only because two recalculations priced a row differently isn't
+  asked. Two rarer turns: with your Mempool down at the question and its
+  fallback on, Bitstamp's hour is the one kept; and a refused write during a
+  source's outage uses up that 10 minutes' ask, so a save just after takes
+  the day's. All of it needs such a row dated after the last file and a
+  source that allows public sites. A value already saved doesn't change,
+  and nothing changes for a row priced at the day, a write dated this tax
+  year, an add dated last, the coins list or the AI's preview. Open such a
+  row (Ledger Review lists a value priced at the day) if you want to check
+  it.
+- **The Dashboard's "Choose a source" and "Confirm now" links go to the
+  price card even when pressed before it shows** (#612). The link shows
+  once the live price has answered, the card once its settings have
+  loaded, which can be later on a slow server. A press in between found no
+  card, so nothing scrolled and the keyboard stayed on the link. It now
+  goes there as soon as the card is shown (within 5 s), unless you've gone
+  on to another page or control meanwhile.
 
 ### Development
+- **The test pack: the reference ledger as a CSV, River's sample file, and a
+  guide for testing by hand** (#844). The whole reference test ledger now goes
+  through the app's own CSV export and import in a test: every figure of
+  `reference_figures.json`, every IRS form field of 2024 to 2026, Ledger
+  Review's counts and a second export come out the same, and tests with a
+  column left out show it checks. That CSV is committed
+  (`testdata/reference_ledger.csv`), with made-up
+  `testdata/exchange_files/river_bitcoin_activity.csv` (its figures worked out
+  by hand in a test), `testdata/README.md`, and `docs/HAND-TEST.md`: for each
+  file, where to click and what to expect, in plain words, on a throwaway
+  install only. `make test-pack` makes the CSV and the guide's tables again
+  from the app's own answers, and a test fails when they're stale. Tests and
+  test files only: the app doesn't change.
 - **The Python suite runs across machines, and CI checks that every test
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,

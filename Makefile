@@ -8,6 +8,7 @@
 # make preview      this checkout in a browser at 127.0.0.1:8777 (throwaway data)
 # make site-shots   the README's and landing page's four pictures, into docs/images/
 # make reference-figures  accept new figures for the reference test ledger (testdata/)
+# make test-pack    the reference ledger's CSV and docs/HAND-TEST.md's tables, made again
 # make prices       the hourly price history's new hours (each release's bump; online)
 # make docker-smoke build the Docker image here and run CI's container checks
 # make lint         Python + frontend lint (with size limits), type check, unit tests
@@ -20,7 +21,7 @@
 
 PY ?= python3
 
-.PHONY: sync-check catch-up-2.0 hooks test test-fast smoke e2e preview site-shots reference-figures prices docker-smoke lint audit-deps lock check check-fast frontend-dist
+.PHONY: sync-check catch-up-2.0 hooks test test-fast smoke e2e preview site-shots reference-figures test-pack prices docker-smoke lint audit-deps lock check check-fast frontend-dist
 
 hooks:
 	git config core.hooksPath .githooks
@@ -61,6 +62,12 @@ site-shots:
 # from the reference test ledger; the pull request shows the difference.
 reference-figures: frontend-dist
 	BTCTX_UPDATE_REFERENCE_FIGURES=1 $(PY) -m pytest -q backend/tests/test_seed_ledger.py -k reference_figures
+
+# After a change to the reference test ledger, what the imports say or a sample
+# file: testdata/reference_ledger.csv and docs/HAND-TEST.md's tables, from the
+# app's own export and previews; the pull request shows the difference.
+test-pack: frontend-dist
+	BTCTX_UPDATE_TEST_PACK=1 $(PY) -m pytest -q backend/tests/test_reference_csv_844.py backend/tests/test_hand_test_guide_844.py -k "committed_csv_is_todays_export or guides_tables_are_up_to_date"
 
 # Each release's bump pull request: add the hours since the last refresh to
 # the hourly price history's manifest (backend/assets/btc_prices/), checked

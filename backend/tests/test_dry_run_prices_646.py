@@ -562,8 +562,9 @@ def test_a_year_whose_file_is_missing_takes_the_days_price_as_it_did(fresh_app, 
 
 def test_out_of_time_it_falls_back_to_the_second_try_with_the_same_value(fresh_app, real_lookups, monkeypatch):
     """Nothing is looked for first: the confirmed save's replay asks, is held
-    back, and runs again. The value and its moment are those of a price
-    found first (test_the_confirmed_save_doesnt_try_twice_...)."""
+    back, and runs again. With this stub, which has no limit on asking, the
+    value is that of a price found first; with the sources' own limits it's
+    what it was before #824 (test_past_year_hours_824.py)."""
     client, tax_year, state = real_lookups
     monkeypatch.setattr(tx_service, "STORED_VALUES_SECONDS", 0)
     blank, other, question = _blank_fee_and_a_question(client, tax_year, fresh_app, state)
@@ -619,8 +620,9 @@ def test_blank_rows_stored_with_and_without_a_timezone_are_found_first(fresh_app
 
 def test_a_source_that_fails_once_leaves_the_save_to_look_again(fresh_app, real_lookups):
     """The review's: what the look first found none of is noted nowhere, so
-    in a write that saves without asking the save's own look gets the hour's
-    price, as it did."""
+    in a write that saves without asking the save's own look can still get
+    the hour's price. This stub has no limit on asking: a real source's
+    outage is in test_past_year_hours_824.py."""
     client, tax_year, state = real_lookups
     blank = client.post("/api/transactions", json=ROWS["transfer"]).json()["id"]
     other = client.post("/api/transactions", json=TYPED).json()["id"]

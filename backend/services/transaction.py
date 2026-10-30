@@ -1085,7 +1085,9 @@ def find_prices_first(db: Session, rows: list[dict], stored_hours: Iterable[date
     never waiting for a download. Only the hour's price: the latest days'
     are asked for once a day, so looking for a day's first would save a row
     the replay's own look refuses. What this doesn't find, the replay looks
-    for as it would have.
+    for itself. Bitstamp's hours after the files are all kept with the one
+    asked for, so for the 10 minutes it asks no more, other values dated
+    there take the hour's price too: the owner's decision, 2026-10-30.
     """
     if price_history.writing(db):
         return
