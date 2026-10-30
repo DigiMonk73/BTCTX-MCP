@@ -1212,6 +1212,10 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   (startos/UPDATING.md, "Bumping the SDK", step 4).
 
 ### Development
+- **The release walk's corrections** (`docs/AGENT-TESTS.md`, from 2.0.0's walk, #810): deleting an unused account is
+  BitcoinTX's own dialog since #651 (ACC-5); a Kraken file's preview has 8 warnings since #711's row-leaving-a-wallet
+  line (IMP-5); the words of the Yes to the history without Tor (PRC-3b); and a Complete Tax Report's market values
+  are compared only once the hourly history is in (UPG-2).
 - **`scripts/start9-pull.sh` sends Start9's changes through `staging`** (#836):
   its messages still said `develop`, which takes changes only from `staging`.
   The workflows' comments now say what Start9's guide does: Docker Engine API
