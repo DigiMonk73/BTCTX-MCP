@@ -551,13 +551,13 @@ def test_a_row_deleted_before_the_dry_run_is_404(ledger, monkeypatch):
     client, rows = ledger
     find = tx_service.find_prices_first
 
-    def deleted_meanwhile(db, priced):
+    def deleted_meanwhile(db, *priced):
         with client.Session() as other:  # the sale and what it left, as another save's delete leaves them
             for table, key in (("lot_disposals", "transaction_id"), ("ledger_entries", "transaction_id"),
                                ("transactions", "id")):
                 other.execute(text(f"DELETE FROM {table} WHERE {key} = :id"), {"id": rows["sale 2024"]})
             other.commit()
-        return find(db, priced)
+        return find(db, *priced)
 
     monkeypatch.setattr(tx_service, "find_prices_first", deleted_meanwhile)
     r = client.delete(f"/api/transactions/{rows['sale 2024']}")

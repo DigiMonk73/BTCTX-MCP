@@ -27,6 +27,7 @@ from sqlalchemy.orm import sessionmaker
 from backend.services import csv_import, entry_import, outbound, price_history
 from backend.services import hourly_prices as hp
 from backend.services import price_files as pf
+from backend.services import transaction as tx_service
 from backend.tests.conftest import empty_price_history
 
 # The real lookups, captured before the session fixture stubs them
@@ -483,14 +484,44 @@ def test_an_imports_rows_find_a_price_its_warm_up_missed_with_the_lock_free(auth
     assert all(t["values_from_price"] == ["fee_usd"] for t in transfers)
 
 
-def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
-                                                                 tax_year):
-    """2.0's past-year warning (spec 5.8, card B6b #352): its dry run prices
-    the old row on a scratch copy, which keeps nothing; the confirmed save,
-    under the lock, rolls back for that price, finds it with the lock free
-    and runs again, its first run's copy removed with it."""
+def test_a_confirmed_past_year_save_needs_no_second_try_for_a_price_found_first(auth_client, test_engine, sites,
+                                                                                unvalued_fee, tax_year):
+    """#824: the past-year question finds the old row's price with the lock
+    free and keeps it, so the confirmed save asks nothing."""
     from backend.migrate import PRE_CHANGE_KIND, backup_copies
 
+    tax_year(2026)  # every row of 2019 is in an earlier tax year
+
+    def edit(params=None):
+        return auth_client.put(f"/api/transactions/{unvalued_fee['buy']}", json={"cost_basis_usd": "1100"},
+                               params=params)
+
+    asked = edit()
+    assert asked.status_code == 409, asked.text
+    sites.all_with_the_lock_free()
+    assert get(auth_client, unvalued_fee["transfer"])["fee_usd"] is None  # a price kept, no value saved
+    sites.requests.clear()
+    copies = backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)
+    r = edit({"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+    assert sites.requests == []
+    _fee_valued(auth_client, unvalued_fee)
+    made = set(backup_copies(Path(test_engine.url.database), PRE_CHANGE_KIND)) - set(copies)
+    assert len(made) == 1
+    made.pop().unlink()
+
+
+def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
+                                                                 tax_year, monkeypatch):
+    """2.0's past-year warning (spec 5.8, card B6b #352): a price the
+    question didn't find first (out of time here, #824; or an hour no source
+    has): its dry run prices the old row on a scratch copy, which keeps
+    nothing; the confirmed save, under the lock, rolls back for that price,
+    finds it with the lock free and runs again, its first run's copy removed
+    with it."""
+    from backend.migrate import PRE_CHANGE_KIND, backup_copies
+
+    monkeypatch.setattr(tx_service, "STORED_VALUES_SECONDS", 0)
     tax_year(2026)  # every row of 2019 is in an earlier tax year
 
     def edit(params=None):
