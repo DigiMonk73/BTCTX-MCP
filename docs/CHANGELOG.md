@@ -83,10 +83,13 @@ tax form (#770).
 
 **On a machine that refuses BitcoinTX a thread** (a container's limit, no
 memory; it affects any tax year, from 1.2.8 through 1.2.10 and in 2.0's
-pre-releases), the hourly price download kept saying it was downloading until a restart. The first save
-answered with an error and saved nothing, and later saves took the day's price
-until a restart. Now the first save goes through at the day's price, marked as
-such, and once threads come back, saves take the hour's price with no restart.
+pre-releases), the hourly price download kept saying it was downloading until
+a restart. The first save answered with an error and saved nothing, and later
+saves took the day's price, if it was stored, until a restart. Now a save with a
+value left blank takes the day's price, marked as such, if that's already
+stored; otherwise it says no price is available and saves nothing, so type the
+value or try again. Once threads come back, saves take the hour's price with no
+restart.
 Nothing already saved changes, and there's nothing to do; Ledger Review's check
 of values priced at the day can apply the hour's price (#843).
 
@@ -1161,8 +1164,10 @@ only the pre-releases. Each pre-release's own notes stay on
   status says it failed, it's tried again as a failed download is, and a
   lookup takes the day's price at once, marked as such, as it does without
   the hourly history (#843). A save the refusal stopped now saves at that
-  price, and the hour's price comes back with the machine, with no restart
-  (the owner's OK on the before-and-after, on its pull request).
+  price if it's already stored; a day's lookup needs a thread too, so with
+  threads refused and no stored price it answers that no price is available
+  and saves nothing. The hour's price comes back with the machine, with no
+  restart (the owner's OK on the before-and-after, on its pull request).
 
 ### Security
 - **The Docker image's system CA bundle is refreshed** (#638, from Start9,
