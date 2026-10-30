@@ -328,9 +328,9 @@ def _begin() -> bool:
     try:
         threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
     except (RuntimeError, MemoryError) as exc:
-        logger.warning("Hourly BTC prices: the download couldn't start: %s", exc)
         _state["running"] = False
         _note_failure(exc)
+        logger.warning("Hourly BTC prices: the download couldn't start: %r", exc)
         return False
     return True
 
