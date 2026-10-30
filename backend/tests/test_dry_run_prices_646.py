@@ -19,6 +19,7 @@ asks for, hour or day. "This tax year" is 2026 while an edit is sent
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +27,7 @@ from fastapi.testclient import TestClient
 from backend.main import app
 from backend.models.app_setting import save_setting
 from backend.models.btc_price import BtcPriceHourly
-from backend.models.transaction import Transaction
+from backend.models.transaction import BitcoinLot, Transaction
 from backend.services import hourly_prices, price_history, recalculated_by
 from backend.services import transaction as tx_service
 from backend.tests.conftest import STUB_HISTORICAL_USD, default_login
@@ -437,6 +438,53 @@ def test_with_a_change_pending_its_own_stored_moment_is_found_too(ledger):
     assert found == asked == {hour("2024-07-02T15:00:00Z"), hour(ROWS["transfer"]["timestamp"])}
 
 
+# The form's list of the coins a transaction moves replays on a scratch copy too
+def _coins_moved(ledger, when: str) -> tuple[set, set]:
+    """A transfer whose own fee's value is typed: what's found is the stored rows'."""
+    return ledger._sent_in_2026("post", "/api/transactions/coins-moved",
+                                {**ROWS["transfer"], "timestamp": when, "fee_usd": "5"})
+
+
+def _lots_lack_their_acquisition(ledger) -> None:
+    """Made before migration 0101: a list replays the ledger first, as it's stored."""
+    with ledger.session() as db:
+        db.query(BitcoinLot).update({"acquired_txn_id": None})
+        db.commit()
+
+
+def test_the_coins_moved_list_finds_a_stored_rows_missing_value_first(ledger):
+    """Backdated, it replays. A list saves nothing, so what its replay found
+    was asked for again by the next list, and by the save."""
+    _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
+    found, asked = _coins_moved(ledger, "2024-02-01T12:00:00Z")
+    assert found == asked == {hour(ROWS["gift with a fee"]["timestamp"])}
+
+
+def test_a_coins_moved_list_dated_last_finds_no_stored_rows_price(ledger):
+    _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
+    assert _coins_moved(ledger, "2024-12-01T12:00:00Z") == (set(), set())
+
+
+def test_a_coins_moved_list_dated_last_finds_it_when_lots_lack_their_acquisition(ledger):
+    _store(ledger, ledger.add(ROWS["gift with a fee"]), **BLANK_FEE)
+    _lots_lack_their_acquisition(ledger)
+    found, asked = _coins_moved(ledger, "2024-12-01T12:00:00Z")
+    assert found == asked == {hour(ROWS["gift with a fee"]["timestamp"])}
+
+
+def test_an_edits_coins_moved_list_reads_its_own_blank_row_only_as_its_replay_does(ledger):
+    """Its own row is the edit's to price, unless lots lacking their
+    acquisition replay it first as it's stored."""
+    tx_id = ledger.add(ROWS["transfer"])
+    _store(ledger, tx_id, **BLANK_FEE)
+    url, body = f"/api/transactions/{tx_id}/coins-moved", {**ROWS["transfer"], "timestamp": "2024-07-02T15:00:00Z"}
+    found, asked = ledger._sent_in_2026("post", url, body)
+    assert found == asked == {hour("2024-07-02T15:00:00Z")}
+    _lots_lack_their_acquisition(ledger)
+    found, asked = ledger._sent_in_2026("post", url, body)
+    assert found == asked == {hour("2024-07-02T15:00:00Z"), hour(ROWS["transfer"]["timestamp"])}
+
+
 def test_a_stored_rows_price_never_waits_for_a_download(ledger):
     """As the save's second try looks (_look_with_the_lock_free): waiting
     could give it the hour's price where the save gives the day's."""
@@ -458,7 +506,7 @@ def test_the_time_for_stored_rows_prices_is_limited(ledger, monkeypatch):
 def real_lookups(fresh_app, monkeypatch, tax_year):
     """The real lookups, with a source that answers for the hour asked and
     notes each time a save's lock held its request back: its second try."""
-    state = {"held": 0, "asked": [], "price": Decimal("50000.00")}
+    state = {"held": 0, "asked": [], "price": Decimal("50000.00"), "downloading": False, "waited": []}
 
     async def find_hours(hour, files_end, stored):
         try:
@@ -470,7 +518,8 @@ def real_lookups(fresh_app, monkeypatch, tax_year):
         return {} if state["price"] is None else {hour: (state["price"], "test")}
 
     monkeypatch.setattr(hourly_prices, "find_hours", find_hours)
-    monkeypatch.setattr(hourly_prices, "start_download", lambda: False)
+    monkeypatch.setattr(hourly_prices, "start_download", lambda: state["downloading"])
+    monkeypatch.setattr(hourly_prices, "_wait_for_year", lambda line: state["waited"].append(line.year))
     client = TestClient(app)
     assert client.post("/api/login", json=default_login()).status_code == 200
     assert client.post("/api/transactions", json={
@@ -480,7 +529,7 @@ def real_lookups(fresh_app, monkeypatch, tax_year):
     return client, tax_year, state
 
 
-def _blank_fee_and_a_question(client, tax_year, session, state) -> tuple[int, int, dict]:
+def _blank_fee_and_a_question(client, tax_year, session, state, downloading: bool = False) -> tuple[int, int, dict]:
     """A transfer with no fee value, and a past-year edit of another row, sent in 2026 and answered 409."""
     blank = client.post("/api/transactions", json=ROWS["transfer"]).json()["id"]
     other = client.post("/api/transactions", json=TYPED).json()["id"]
@@ -489,6 +538,7 @@ def _blank_fee_and_a_question(client, tax_year, session, state) -> tuple[int, in
         db.query(BtcPriceHourly).delete()  # its save found its hour: as if it never had
         db.commit()
     state["asked"].clear()
+    state["downloading"] = downloading
     tax_year(2026)
     r = client.put(f"/api/transactions/{other}", json={"amount": "0.08"})
     assert r.status_code == 409, r.text
@@ -521,3 +571,62 @@ def test_an_hour_no_source_has_takes_the_days_price_as_it_did(fresh_app, real_lo
     stored = client.get(f"/api/transactions/{blank}").json()
     assert Decimal(stored["fee_usd"]) == (Decimal(str(STUB_HISTORICAL_USD)) * Decimal("0.0001")).quantize(Decimal("0.01"))
     assert stored["price_moment"] == "day"
+
+
+def _confirm(client, tax_year, other: int, question: dict) -> None:
+    r = client.put(f"/api/transactions/{other}?confirm={question['confirm']}", json={"amount": "0.08"})
+    tax_year(2009)
+    assert r.status_code == 200, r.text
+
+
+def test_a_year_whose_file_is_missing_takes_the_days_price_as_it_did(fresh_app, real_lookups):
+    """The year's file isn't here, no source has the hour, and a download is
+    under way. The question and the save wait for it no more than they did,
+    in a replay or in its second try: waiting could have brought the hour's
+    price where the save gives the day's."""
+    client, tax_year, state = real_lookups
+    state["price"] = None
+    blank, other, question = _blank_fee_and_a_question(client, tax_year, fresh_app, state, downloading=True)
+    _confirm(client, tax_year, other, question)
+    assert state["waited"] == []
+    stored = client.get(f"/api/transactions/{blank}").json()
+    assert Decimal(stored["fee_usd"]) == (Decimal(str(STUB_HISTORICAL_USD)) * Decimal("0.0001")).quantize(Decimal("0.01"))
+    assert stored["price_moment"] == "day"
+
+
+def test_out_of_time_it_falls_back_to_the_second_try_with_the_same_value(fresh_app, real_lookups, monkeypatch):
+    """Nothing is looked for first: the confirmed save's replay asks, is held
+    back, and runs again. The value and its moment are those of a price
+    found first (test_the_confirmed_save_doesnt_try_twice_...)."""
+    client, tax_year, state = real_lookups
+    monkeypatch.setattr(tx_service, "STORED_VALUES_SECONDS", 0)
+    blank, other, question = _blank_fee_and_a_question(client, tax_year, fresh_app, state)
+    _confirm(client, tax_year, other, question)
+    assert state["held"] == 1
+    stored = client.get(f"/api/transactions/{blank}").json()
+    assert Decimal(stored["fee_usd"]) == Decimal("5.00") and stored["price_moment"] == "hour"
+
+
+def test_time_running_out_part_way_leaves_the_rest_to_the_second_try(fresh_app, real_lookups, monkeypatch):
+    """The earlier of two blank rows is found first, taking all the time
+    there is: the later one's price comes by the second try, and both values
+    are right."""
+    client, tax_year, state = real_lookups
+    earlier = client.post("/api/transactions", json=ROWS["gift with a fee"]).json()["id"]
+    with fresh_app() as db:
+        db.query(Transaction).filter_by(id=earlier).update(BLANK_FEE)
+        db.commit()
+    now = {"seconds": 0}
+    look_first = hourly_prices.look_first
+
+    def a_slow_source(db, when, at_the_day):
+        look_first(db, when, at_the_day)
+        now["seconds"] += tx_service.STORED_VALUES_SECONDS
+
+    monkeypatch.setattr(tx_service, "time", SimpleNamespace(monotonic=lambda: now["seconds"]))
+    monkeypatch.setattr(hourly_prices, "look_first", a_slow_source)
+    blank, other, question = _blank_fee_and_a_question(client, tax_year, fresh_app, state)
+    _confirm(client, tax_year, other, question)
+    assert state["held"] == 1
+    assert Decimal(client.get(f"/api/transactions/{earlier}").json()["fee_usd"]) == Decimal("5.00")
+    assert Decimal(client.get(f"/api/transactions/{blank}").json()["fee_usd"]) == Decimal("5.00")

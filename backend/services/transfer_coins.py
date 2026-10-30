@@ -65,7 +65,8 @@ def coins_moved(write: past_years.Write, db: Session) -> dict:
     _check_listed(write, db)
     superseded = _newest_from_now()
     today = _dated_today(write, db)
-    tx_service.find_prices_first(db, write.priced_rows(db))
+    tx_service.find_prices_first(db, write.priced_rows(db),
+                                 past_years.stored_moments(write, db, chosen_coins.lots_lack_acquisition(db)))
     try:
         with scratch_copy(db) as scratch:
             scratch.info[tx_service.DEADLINE] = time.monotonic() + past_years.DRY_RUN_SECONDS
