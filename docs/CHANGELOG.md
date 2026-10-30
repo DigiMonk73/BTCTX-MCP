@@ -8,7 +8,7 @@ All notable changes to BitcoinTX are documented in this file.
   (a container's limit, no memory), counts as a download that failed. It
   stayed "downloading" until a restart, with no download running, and each
   lookup for a year not here yet waited 30 seconds for it; the first one
-  answered its save, or the price settings' save, with an error. Now the
+  answered its save, or a change to the price settings, with an error. Now the
   status says it failed, it's tried again as a failed download is, and a
   lookup takes the day's price at once, marked as such, as it does without
   the hourly history (#843). No figure changes.

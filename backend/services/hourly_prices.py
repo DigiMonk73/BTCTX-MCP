@@ -320,18 +320,17 @@ def start_download() -> bool:
 def _begin() -> bool:
     """Start downloading the years that aren't here (with _changed held);
     False when none is missing, or the system refuses its thread: that's a
-    download that failed, and whoever waits is told none runs (#843)."""
+    download that failed (#843)."""
     missing = [line for line in pf.read_manifest(pf.MANIFEST) if _wanted(line)]
     if not missing:
         return False
     _state["running"] = True
     try:
         threading.Thread(target=_download, args=(missing,), name="btc-price-download", daemon=True).start()
-    except RuntimeError as exc:
+    except (RuntimeError, MemoryError) as exc:
         logger.warning("Hourly BTC prices: the download couldn't start: %s", exc)
         _state["running"] = False
         _note_failure(exc)
-        _changed.notify_all()
         return False
     return True
 

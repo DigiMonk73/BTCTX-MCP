@@ -605,7 +605,7 @@ def test_a_year_not_downloaded_yet_is_looked_up_again(monkeypatch):
     assert 2020 not in years and 2021 in years
 
 
-def refuse_a_thread_once(monkeypatch):
+def refuse_a_thread_once(monkeypatch, error=RuntimeError("can't start new thread")):
     """The system refuses the next thread (a container's limit, no memory), then allows them again."""
     real_start = threading.Thread.start
     refused = []
@@ -614,21 +614,22 @@ def refuse_a_thread_once(monkeypatch):
         if not refused:
             refused.append(thread.name)
             monkeypatch.setattr(threading.Thread, "start", real_start)
-            raise RuntimeError("can't start new thread")
+            raise error
         real_start(thread)
 
     monkeypatch.setattr(threading.Thread, "start", start)
     return refused
 
 
-def test_a_download_whose_thread_cant_start_is_a_failed_download(sites, db, monkeypatch):
+@pytest.mark.parametrize("error", [RuntimeError("can't start new thread"), MemoryError()])
+def test_a_download_whose_thread_cant_start_is_a_failed_download(sites, db, monkeypatch, error):
     """#843: "running" stayed on with no thread until a restart: start_download
     answered True and started nothing, the status said downloading, and each
     lookup waited WAIT_SECONDS for it. It's a download that failed: nobody's
     save or start-up stops on it, and it's tried again as one is."""
     use(price_source="public", proxy_url=None)
     monkeypatch.setattr(hp, "WAIT_SECONDS", 3)
-    refused = refuse_a_thread_once(monkeypatch)
+    refused = refuse_a_thread_once(monkeypatch, error)
 
     assert hp.start_download() is False  # never raised: it's asked within a save, and at start-up
     assert refused == ["btc-price-download"]
