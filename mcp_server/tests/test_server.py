@@ -52,6 +52,9 @@ def backend_db(monkeypatch, tmp_path):
         finally:
             db.close()
 
+    # Put back what was there: a backend test may run next on this worker,
+    # on the session database its own override names (#814)
+    previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = override_get_db
 
     async def fake_current():
@@ -61,6 +64,7 @@ def backend_db(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
     yield engine
     app.dependency_overrides.clear()
+    app.dependency_overrides.update(previous)
     engine.dispose()
 
 
