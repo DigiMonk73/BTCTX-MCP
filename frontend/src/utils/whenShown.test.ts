@@ -51,10 +51,11 @@ describe("whenShown", () => {
 
   it("finds it inside what's added, as a card brings its title", async () => {
     const then = vi.fn();
+    const page = add("the-page", "main");
     whenShown("price-card-title", pressed(), then);
     const card = document.createElement("section");
     card.innerHTML = '<h2 id="price-card-title">Bitcoin prices</h2>';
-    document.body.appendChild(card);
+    page.appendChild(card);
     await settled();
     expect(then).toHaveBeenCalledExactlyOnceWith(card.firstElementChild);
   });
@@ -72,7 +73,7 @@ describe("whenShown", () => {
   it("gives up after the wait", async () => {
     vi.useFakeTimers();
     const then = vi.fn();
-    whenShown("price-card-title", pressed(), then, 5_000);
+    whenShown("price-card-title", pressed(), then);
     vi.advanceTimersByTime(5_000);
     vi.useRealTimers();
     add("price-card-title");

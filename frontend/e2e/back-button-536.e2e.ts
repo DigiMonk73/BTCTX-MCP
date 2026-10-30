@@ -4,7 +4,7 @@
 // when nothing changed or once the transaction is saved, and an answer of
 // Discard changes always lets the user go.
 import { test, expect, createTx, listTx, openAddForm, saveForm } from "./fixtures";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 const question = (page: Page) => page.getByRole("dialog").getByRole("heading", { name: "Discard changes?" });
 const addPanel = (page: Page) => page.getByRole("heading", { name: "Add Transaction" });
@@ -27,6 +27,28 @@ function logoutsSent(page: Page): () => number {
 /** Whether the browser's session is still logged in. */
 async function loggedIn(page: Page): Promise<boolean> {
   return (await page.request.get("/api/transactions")).status() === 200;
+}
+
+/**
+ * The link pressed with the card's settings held back until then, so the
+ * link shows first (a slow server, or 1 run in 40); the card then gets the
+ * keyboard (#612).
+ */
+async function pressedBeforeTheCard(page: Page, link: Locator, title: Locator) {
+  let answer = () => {};
+  const pressedFirst = new Promise<void>((go) => (answer = go));
+  await page.route("**/api/settings/network", async (route) => {
+    await pressedFirst;
+    await route.continue();
+  });
+  await page.goto("/dashboard");
+  await link.focus();
+  await page.keyboard.press("Enter");
+  await expect(title).toHaveCount(0);
+  answer();
+  await expect(title).toBeFocused();
+  await expect(title).toBeInViewport();
+  await expect(page).toHaveURL(/\/dashboard$/);
 }
 
 /** Back from Transactions to the dashboard, with nothing asked. */
@@ -246,22 +268,20 @@ test.describe("no price source chosen yet: the price card's link", () => {
   test("pressed before the card is there, still goes to it once it's shown (#612)", async ({
     authedPage: page,
   }) => {
-    // The card's settings held until the link is pressed, so the link shows
-    // first (a slow server, or 1 run in 40)
-    let answer = () => {};
-    const pressedFirst = new Promise<void>((go) => (answer = go));
-    await page.route("**/api/settings/network", async (route) => {
-      await pressedFirst;
-      await route.continue();
-    });
-    await page.goto("/dashboard");
-    const title = page.getByRole("heading", { name: "Bitcoin prices" });
-    await link(page).focus();
-    await page.keyboard.press("Enter");
-    await expect(title).toHaveCount(0);
-    answer();
-    await expect(title).toBeFocused();
-    await expect(title).toBeInViewport();
-    await expect(page).toHaveURL(/\/dashboard$/);
+    await pressedBeforeTheCard(page, link(page), page.getByRole("heading", { name: "Bitcoin prices" }));
+  });
+});
+
+test.describe("a choice to confirm after an update: the price card's link", () => {
+  test.use({ priceSource: "unconfirmed" });
+
+  test("pressed before the card is there, still goes to it once it's shown (#612)", async ({
+    authedPage: page,
+  }) => {
+    await pressedBeforeTheCard(
+      page,
+      page.getByRole("link", { name: "Confirm now" }),
+      page.getByRole("heading", { name: "Please confirm where BitcoinTX gets prices" }),
+    );
   });
 });
