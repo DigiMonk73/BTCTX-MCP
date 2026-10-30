@@ -23,6 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import text
 
 from backend.main import app
 from backend.models.app_setting import save_setting
@@ -506,9 +507,12 @@ def test_the_time_for_stored_rows_prices_is_limited(ledger, monkeypatch):
 def real_lookups(fresh_app, monkeypatch, tax_year):
     """The real lookups, with a source that answers for the hour asked and
     notes each time a save's lock held its request back: its second try."""
-    state = {"held": 0, "asked": [], "price": Decimal("50000.00"), "downloading": False, "waited": []}
+    state = {"held": 0, "asked": [], "price": Decimal("50000.00"), "downloading": False, "waited": [], "fail": 0}
 
     async def find_hours(hour, files_end, stored):
+        if state["fail"]:
+            state["fail"] -= 1
+            raise OSError("the source didn't answer")
         try:
             price_history.refuse_if_held()
         except price_history.RequestHeld:
@@ -630,3 +634,40 @@ def test_time_running_out_part_way_leaves_the_rest_to_the_second_try(fresh_app, 
     assert state["held"] == 1
     assert Decimal(client.get(f"/api/transactions/{earlier}").json()["fee_usd"]) == Decimal("5.00")
     assert Decimal(client.get(f"/api/transactions/{blank}").json()["fee_usd"]) == Decimal("5.00")
+
+
+def test_blank_rows_stored_with_and_without_a_timezone_are_found_first(fresh_app, real_lookups):
+    """The review's: SQLite can hand back a time with no offset (tax_time.as_utc),
+    and sorting one beside one that has an offset answered 500."""
+    client, tax_year, state = real_lookups
+    earlier = client.post("/api/transactions", json=ROWS["gift with a fee"]).json()["id"]
+    blank = client.post("/api/transactions", json=ROWS["transfer"]).json()["id"]
+    other = client.post("/api/transactions", json=TYPED).json()["id"]
+    with fresh_app() as db:
+        db.query(Transaction).filter(Transaction.id.in_((earlier, blank))).update(BLANK_FEE)
+        db.execute(text("UPDATE transactions SET timestamp = '2024-07-02 12:00:00' WHERE id = :id"), {"id": blank})
+        db.commit()
+    tax_year(2026)
+    r = client.put(f"/api/transactions/{other}", json={"amount": "0.08"})
+    tax_year(2009)
+    assert r.status_code == 409, r.text
+
+
+def test_a_source_that_fails_once_leaves_the_save_to_look_again(fresh_app, real_lookups):
+    """The review's: what the look first found none of isn't noted for the
+    save, in a write that saves without asking, so the save's own look gets
+    the hour's price, as it did."""
+    client, tax_year, state = real_lookups
+    blank = client.post("/api/transactions", json=ROWS["transfer"]).json()["id"]
+    other = client.post("/api/transactions", json=TYPED).json()["id"]
+    with fresh_app() as db:
+        db.query(Transaction).filter_by(id=blank).update(BLANK_FEE)
+        db.query(BtcPriceHourly).delete()
+        db.commit()
+    state["fail"] = 1
+    tax_year(2026)
+    r = client.put(f"/api/transactions/{other}", json={"amount": TYPED["amount"]})  # nothing of its own to ask about
+    tax_year(2009)
+    assert r.status_code == 200, r.text
+    stored = client.get(f"/api/transactions/{blank}").json()
+    assert Decimal(stored["fee_usd"]) == Decimal("5.00") and stored["price_moment"] == "hour"

@@ -62,7 +62,8 @@ logger = logging.getLogger(__name__)
 # gives the exact list up to about 1,800 rows on it (about half that the
 # first time after an upgrade, two passes; about 6,000 on the M6 Mac mini),
 # and the form waits about that long at most before asking (the copy and
-# the comparisons run outside the replays it times).
+# the comparisons run outside the replays it times, and so does looking
+# first for a stored row's price: transaction.STORED_VALUES_SECONDS).
 DRY_RUN_SECONDS = 10
 ADD, EDIT, DELETE = "add", "edit", "delete"
 COPY_LABEL = "past-year"

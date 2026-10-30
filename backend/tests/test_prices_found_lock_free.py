@@ -511,6 +511,52 @@ def test_a_confirmed_past_year_save_needs_no_second_try_for_a_price_found_first(
     made.pop().unlink()
 
 
+def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth_client, test_engine, sites, tax_year,
+                                                                            monkeypatch, tmp_path):
+    """#824, with the sources' own limits, which a stubbed source skips.
+    Bitstamp's hours after the files are asked for once in 10 minutes: the
+    question's replay used that ask on a scratch copy and lost the answer,
+    so the save took the day's price ($4.00), and the changed fingerprint
+    asked again. Found first, it's the hour's ($4.10), and one question."""
+    lines = pf.read_manifest(pf.MANIFEST)[:-1]  # a closed year last, so the hours after it are always past
+    files_end = lines[-1].last_hour
+    manifest = tmp_path / "MANIFEST.csv"
+    manifest.write_text(pf.manifest_text(lines), encoding="utf-8")
+    monkeypatch.setattr(pf, "MANIFEST", manifest)
+    monkeypatch.setattr(hp, "_current_hour", lambda: files_end + 100 * 3600)
+    day_prices = sites.handler
+
+    def the_hour_differs(request):
+        answer = day_prices(request)
+        if int(request.url.params.get("step", 0)) != 3600:
+            return answer
+        return httpx.Response(200, text=answer.text.replace(f'"{DAY_PRICE}"', '"41000"'),
+                              headers={"content-type": "application/json"})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(the_hour_differs))
+    when = datetime.fromtimestamp(files_end + 2 * 3600 + 60, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    buy = post(auth_client, **BUY)
+    transfer = post(auth_client, type="Transfer", timestamp=when, from_account_id=EXCHANGE_BTC, to_account_id=WALLET,
+                    amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET fee_usd = NULL, fee_usd_manual = 0, price_moment = NULL "
+                         "WHERE id = :id"), {"id": transfer["id"]})
+    _no_price_stored(test_engine)
+    sites.requests.clear()
+    tax_year(2100)
+
+    def edit(params=None):
+        return auth_client.put(f"/api/transactions/{buy['id']}", json={"cost_basis_usd": "1100"}, params=params)
+
+    asked = edit()
+    assert asked.status_code == 409, asked.text
+    r = edit({"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+    sites.all_with_the_lock_free()
+    saved = get(auth_client, transfer["id"])
+    assert (Decimal(saved["fee_usd"]), saved["price_moment"]) == (Decimal("4.10"), "hour")
+
+
 def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
                                                                  tax_year, monkeypatch):
     """2.0's past-year warning (spec 5.8, card B6b #352): a price the

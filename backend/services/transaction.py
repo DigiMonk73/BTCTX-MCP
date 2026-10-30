@@ -1119,7 +1119,7 @@ def moments_a_replay_prices(db: Session, leaving_out: int | None = None) -> set[
         or_(Transaction.fee_usd.is_(None),
             and_(Transaction.proceeds_usd.is_(None), Transaction.gross_proceeds_usd.is_(None))),
     )
-    return {(tx.timestamp, tx.price_moment == "day") for tx in blank
+    return {(as_utc(tx.timestamp), tx.price_moment == "day") for tx in blank
             if tx.id != leaving_out and (_replay_prices_fee(tx, book, db) or _replay_prices_proceeds(tx, book))}
 
 
