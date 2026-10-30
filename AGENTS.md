@@ -673,6 +673,7 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
 | `testdata/reference_ledger.json`, `reference_figures.json`, `reference_prices.json` | the one reference test ledger (2023–2026 and a 2022 deposit, every 8949 box, rebates, dates originally acquired; from 2.0 its `accounts` list, a hidden and a renamed account, and `"since": "2.0"` rows filling 2.0's dimensions in every year, #702; its `"priced"` rows take their values from the stored-price fixture, `reference_prices.json`, #715) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
+| `testdata/reference_ledger.csv`, `testdata/exchange_files/`, `docs/HAND-TEST.md`, `backend/tests/hand_test_tables.py` | the test pack (#844): that ledger as the app's CSV (`test_reference_csv_844.py`: it survives an export and an import, every figure the same), a made-up file for each exchange importer, the guide for testing them by hand on a throwaway install, and its tables worked out from the app's own answers (`make test-pack`) |
 | `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app; the `"priced"` rows only with `--with-prices`, after `--store-prices` put the fixture in the test database's file); a database's figures, or `--compare` them |
 | `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, Sales by exchange, income, rebates, gifts, lots at each year's start and end) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
 | `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
@@ -898,6 +899,7 @@ make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~20 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
+make test-pack   # testdata/reference_ledger.csv and docs/HAND-TEST.md's tables, made again from the app's own answers
 make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
