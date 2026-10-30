@@ -40,7 +40,9 @@ make hooks          # installs the pre-push gate
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
-  (Docker's, StartOS's and the Mac app's) full suite, frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
+  (Docker's, StartOS's and the Mac app's) full suite, each split across
+  three machines with a guard that every test ran once ("The Python suite
+  across machines", below), frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
   - A pull request into `staging` or `2.0` (and only there) runs the
@@ -70,6 +72,31 @@ make hooks          # installs the pre-push gate
   zipped `.app` and an unsigned `.dmg` to the run; `audit-macos` audits the
   Mac app's dependency locks.
 
+## The Python suite across machines
+
+CI runs each Python version's suite as three shards, each on a machine of
+its own (#814):
+
+- `pytest -n auto --dist loadgroup --shard 2/3` runs shard 2 of 3 here, as
+  CI does. A shard runs whole test files, shared out by how long each took
+  on CI (`backend/tests/test_durations.json`) so the shards end together; a
+  file not timed yet counts as the average one (`backend/tests/shards.py`).
+  It runs them in the order the whole suite does, so a test that leaves
+  something behind still runs after the tests it would upset.
+- Each shard also collects the whole suite in a run of its own, and records
+  what it ran (`--ran-list`). The guard job (`scripts/check_test_shards.py`)
+  fails "CI passed" unless every test collected ran in exactly one shard, so
+  no test drops out unseen.
+- Each run's guard hands out its timings as the artifact `test-durations`.
+  When one shard takes much longer than the others, bring a full run's in by
+  pull request: `gh run download <run id> -n test-durations -D backend/tests`.
+- Keep each test under about a minute on CI, so no shard waits on one: split
+  a long one into parts that run side by side, each checking its share
+  (`test_saved_again_unchanged_352.py`'s rows, `test_invariants_property.py`'s
+  examples). A module with a long setup can keep its tests on one worker,
+  so the setup runs once (`pytestmark = pytest.mark.xdist_group(...)`, which
+  `--dist loadgroup` honours: `test_printed_forms.py`).
+
 ## Writing a new test
 
 Tests for a bug fix should fail on the old code and pass on the new one. Use
@@ -96,7 +123,9 @@ form (`e2e/fixtures.ts`).
   ledgers must keep the tax invariants (balances = lots, gain = proceeds −
   basis, basis conservation, holding periods, Form 8949 = Schedule D = the
   complete report, recalculation and entry order change nothing). 8 examples
-  in the fast set, 120 in the slow set; a second generator does the same over
+  in the fast set, 120 in the slow set (six runs of 22 that go side by
+  side: each starts from the simplest ledgers, which repeat); a second
+  generator does the same over
   multiple wallets, exchanges and banks
   (`test_random_ledgers_over_multiple_accounts_keep_the_invariants`). A
   failure prints the smallest ledger that breaks it.
