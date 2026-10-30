@@ -4,10 +4,10 @@ made-up rows in River's published format, one of each kind of row River's
 reader reads, with its figures worked out here by hand, as
 test_exchange_import_567_mappings.py does for the other exchanges' files:
 
-- four $25 buys with no fee are an auto-buy, paid from the bank; the $198 buy
-  with a $2 fee is paid from the bank too, since no earlier sale left dollars
-  at the exchange; the $49.50 buy with a $0.50 fee is paid from the $104.50
-  the sale left there;
+- the $198 buy with a $2 fee is paid from the bank, since no earlier sale left
+  dollars at the exchange; four $25 buys with no fee are an auto-buy, paid from
+  the bank though the sale left enough there; the $49.50 buy with a $0.50 fee
+  is paid from the $104.50 the sale left;
 - the Sell's Received Amount is net of River's fee: 104.50 + 1.50 = 106.00 gross;
 - a send, tagged Withdrawal or not, is a Transfer to the wallet: the Sent
   Amount arrived, so the Transfer's amount is it plus the network fee;
@@ -15,9 +15,9 @@ test_exchange_import_567_mappings.py does for the other exchanges' files:
 - each payout is a Deposit, valued at the hour's price (here $100,000 a bitcoin);
 - the row of dollars alone is no pattern River's reader knows: named, and left out.
 
-Every coin costs $100,000 a bitcoin, so the only gain is the sale's: its four
-$25 lots cost $100.00, and it brought in $104.50 after its fee, a gain of
-$4.50. Each network fee is a disposal at no gain: $0.50 and $0.20.
+Every coin costs $100,000 a bitcoin, so the only gain is the sale's: its half
+of the first buy cost $100.00, and it brought in $104.50 after its fee, a gain
+of $4.50. Each network fee is a disposal at no gain: $0.50 and $0.20.
 
 Bitcoin, by account:
   the exchange: 0.001 + 0.002 - 0.001 + 0.0005 + 0.00006 - 0.001005 - 0.000502 + 0.0002 = 0.001253
@@ -37,12 +37,11 @@ from sqlalchemy.orm import sessionmaker
 from backend.services.reports.form_8949 import build_form_8949_and_schedule_d
 from backend.services.reports.reporting_core import generate_report_data
 from backend.tests.conftest import stub_daily_prices
+from backend.tests.hand_test_tables import rows_to_send
 
 FILE = Path(__file__).resolve().parents[2] / "testdata" / "exchange_files" / "river_bitcoin_activity.csv"
 PRICE = 100000.0
 BANK, EX_USD, EX_BTC, WALLET, EXTERNAL = "Bank", "Exchange USD", "Exchange BTC", "Wallet", "External"
-IMPORT_KEYS = ("row_number", "date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
-               "fee_amount", "fee_currency", "source", "purpose", "price_moment")
 
 
 @pytest.fixture(autouse=True)
@@ -85,11 +84,7 @@ def rows(answer: dict) -> list:
 
 
 def import_the_file(client) -> None:
-    sent = [{key: p.get(key) for key in IMPORT_KEYS} | {"cost_basis_typed": "no" if p["basis_autofilled"] else None}
-            for p in preview(client)["proposals"]]
-    r = client.post("/api/import/exchange/execute", json={"rows": sent})
-    if r.status_code == 409:  # the past-year warning, as the screen confirms it
-        r = client.post("/api/import/exchange/execute", json={"rows": sent}, params={"confirm": r.json()["confirm"]})
+    r = client.post("/api/import/exchange/execute", json={"rows": rows_to_send(preview(client))})
     assert r.status_code == 200, r.text
     assert r.json()["imported_count"] == 13
 
@@ -97,12 +92,12 @@ def import_the_file(client) -> None:
 def test_the_preview_reads_each_kind_of_row(client):
     answer = preview(client)
     assert rows(answer) == [
-        row(2, "Buy", BANK, EX_BTC, "0.00025", at(2025, 1, 6, 12), cost="25.00"),
-        row(3, "Buy", BANK, EX_BTC, "0.00025", at(2025, 1, 13, 12), cost="25.00"),
-        row(4, "Buy", BANK, EX_BTC, "0.00025", at(2025, 1, 20, 12), cost="25.00"),
-        row(5, "Buy", BANK, EX_BTC, "0.00025", at(2025, 1, 27, 12), cost="25.00"),
-        row(6, "Buy", BANK, EX_BTC, "0.002", at(2025, 2, 3, 15, 30), cost="198.00", fee="2.00"),
-        row(7, "Sell", EX_BTC, EX_USD, "0.001", at(2025, 3, 3, 16), proceeds="106.00", fee="1.50"),
+        row(2, "Buy", BANK, EX_BTC, "0.002", at(2025, 1, 6, 15, 30), cost="198.00", fee="2.00"),
+        row(3, "Sell", EX_BTC, EX_USD, "0.001", at(2025, 2, 3, 16), proceeds="106.00", fee="1.50"),
+        row(4, "Buy", BANK, EX_BTC, "0.00025", at(2025, 2, 10, 12), cost="25.00"),
+        row(5, "Buy", BANK, EX_BTC, "0.00025", at(2025, 2, 17, 12), cost="25.00"),
+        row(6, "Buy", BANK, EX_BTC, "0.00025", at(2025, 2, 24, 12), cost="25.00"),
+        row(7, "Buy", BANK, EX_BTC, "0.00025", at(2025, 3, 3, 12), cost="25.00"),
         row(8, "Buy", EX_USD, EX_BTC, "0.0005", at(2025, 3, 10, 12), cost="49.50", fee="0.50"),
         row(9, "Deposit", EXTERNAL, EX_BTC, "0.00001", at(2025, 3, 31, 9), cost="1.00", source="Interest"),
         row(10, "Deposit", EXTERNAL, EX_BTC, "0.00002", at(2025, 4, 1, 9), cost="2.00", source="Income"),
@@ -132,22 +127,34 @@ def test_the_balances_are_the_ones_worked_out_by_hand(client):
                     "BTC Fees": Decimal("0.000007")}
 
 
+def test_in_a_later_tax_year_the_import_asks_first_then_saves_the_same(client, tax_year):
+    """The guide's "Save anyway": the tests' pinned year never asks, a real clock does."""
+    tax_year(2026)
+    answer = preview(client)
+    assert answer["past_years_dated"] == [2025]
+    sent = {"rows": rows_to_send(answer)}
+    asked = client.post("/api/import/exchange/execute", json=sent)
+    assert asked.status_code == 409, asked.text
+    assert client.get("/api/transactions").json() == []
+    r = client.post("/api/import/exchange/execute", json=sent, params={"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["imported_count"] == 13
+
+
 def test_the_forms_and_the_report_are_the_ones_worked_out_by_hand(client, test_engine):
     import_the_file(client)
     with sessionmaker(bind=test_engine)() as db:
         forms = build_form_8949_and_schedule_d(2025, db)
         report = generate_report_data(db, 2025)
     assert forms["long_term"] == []
-    rows_by_box = {}
+    by_box = {}
     for form_row in forms["short_term"]:
-        rows_by_box.setdefault(form_row["box"], []).append(
+        by_box.setdefault(form_row["box"], []).append(
             (Decimal(str(form_row["proceeds"])), Decimal(str(form_row["cost"])), Decimal(str(form_row["gain_loss"]))))
-    # The sale's four $25 lots, each its share of the $104.50 (H: a 1099-DA without basis)
-    assert sum(r[0] for r in rows_by_box["H"]) == Decimal("104.50")
-    assert sum(r[1] for r in rows_by_box["H"]) == Decimal("100.00")
-    assert sum(r[2] for r in rows_by_box["H"]) == Decimal("4.50")
-    # The two network fees, at no gain (I: self-custody spends and fees)
-    assert sorted(rows_by_box["I"]) == [(Decimal("0.20"), Decimal("0.20"), Decimal("0.00")),
-                                        (Decimal("0.50"), Decimal("0.50"), Decimal("0.00"))]
+    assert {box: sorted(found) for box, found in by_box.items()} == {
+        "H": [(Decimal("104.50"), Decimal("100.00"), Decimal("4.50"))],  # the sale: a 1099-DA without basis
+        "I": [(Decimal("0.20"), Decimal("0.20"), Decimal("0.00")),  # the network fees: self-custody
+              (Decimal("0.50"), Decimal("0.50"), Decimal("0.00"))],
+    }
     assert {k: v for k, v in report["income_summary"].items() if v and k != "Total"} == {
         "Income": 2.0, "Interest": 1.0, "Reward": 3.0}

@@ -66,7 +66,7 @@ reference-figures: frontend-dist
 # After a change to the reference test ledger, what the imports say or a sample
 # file: testdata/reference_ledger.csv and docs/HAND-TEST.md's tables, from the
 # app's own export and previews; the pull request shows the difference.
-test-pack:
+test-pack: frontend-dist
 	BTCTX_UPDATE_TEST_PACK=1 $(PY) -m pytest -q backend/tests/test_reference_csv_844.py backend/tests/test_hand_test_guide_844.py -k "committed_csv_is_todays_export or guides_tables_are_up_to_date"
 
 # Each release's bump pull request: add the hours since the last refresh to

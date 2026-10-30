@@ -30,10 +30,6 @@ pytestmark = pytest.mark.xdist_group("reference_csv")
 
 GUIDE = tables.GUIDE
 PRICE = 100000.0  # the bitcoin price stands in for a real one: a real source gives other values, no other rows
-# What a row sends at the screen's Import (RiverPreview's rows)
-SENT = ("row_number", "date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
-        "fee_amount", "fee_currency", "source", "purpose", "price_moment")
-
 
 def import_file(c, file: tables.ExchangeFile) -> dict:
     content = (tables.FILES_FOLDER / file.name).read_bytes()
@@ -42,11 +38,8 @@ def import_file(c, file: tables.ExchangeFile) -> dict:
     assert r.status_code == 200, r.text
     preview = r.json()
     assert preview["errors"] == [], (file.name, preview["errors"])
-    rows = [{key: p.get(key) for key in SENT} | {"cost_basis_typed": "no" if p["basis_autofilled"] else None}
-            for p in preview["proposals"] if p["row_number"] not in file.untick]
-    r = c.post("/api/import/exchange/execute", json={"rows": rows})
-    if r.status_code == 409:  # "Save anyway"
-        r = c.post("/api/import/exchange/execute", json={"rows": rows}, params={"confirm": r.json()["confirm"]})
+    rows = tables.rows_to_send(preview, file.untick)
+    r = c.post("/api/import/exchange/execute", json={"rows": rows})  # never a past year's question: the tests' pin
     assert r.status_code == 200, (file.name, r.text)
     assert r.json()["imported_count"] == len(rows), file.name
     return preview

@@ -24,6 +24,17 @@ BTC_NAMES = ("Exchange BTC", "Wallet")
 KIND_WORDS = {"wallet": "Add a wallet", "exchange": "Add an exchange", "bank": "Add a bank"}
 
 
+# What a row sends at the screen's Import (RiverPreview's rows)
+SENT = ("row_number", "date", "type", "amount", "from_account", "to_account", "cost_basis_usd", "proceeds_usd",
+        "fee_amount", "fee_currency", "source", "purpose", "price_moment")
+
+
+def rows_to_send(preview: dict, untick: tuple[int, ...] = ()) -> list[dict]:
+    """A preview's rows as the screen's Import sends them, a value from the price marked so."""
+    return [{key: p.get(key) for key in SENT} | {"cost_basis_typed": "no" if p["basis_autofilled"] else None}
+            for p in preview["proposals"] if p["row_number"] not in untick]
+
+
 @dataclass(frozen=True)
 class ExchangeFile:
     """A sample file and the choice to make for it in "Exchange file": the
@@ -167,9 +178,11 @@ def file_section(file: ExchangeFile, preview: dict, balances: list[dict]) -> str
              f"Transaction(s)\", no errors, {len(preview['warnings'])} warnings" + (":" if preview["warnings"] else ".")]
     said += [f"  - {problem_text(w)}" for w in preview["warnings"]]
     for row in file.untick:
-        said.append(f"- **Untick row {row}** (its Import box). The button then says \"Import "
-                    f"{preview['new_count'] - len(file.untick)} Transaction(s)\". Its coins come from a wallet that "
-                    "holds none here: left ticked, the import stops at \"Not enough BTC\" and saves nothing, as it should.")
+        proposal = next(p for p in preview["proposals"] if p["row_number"] == row)
+        said.append(f"- **Untick the {proposal['type']} from {proposal['from_account']} of {proposal['amount']} BTC** "
+                    f"(its Import box). The button then says \"Import {preview['new_count'] - len(file.untick)} "
+                    "Transaction(s)\". Its coins come from a wallet that holds none here: left ticked, the import "
+                    "stops at \"Not enough BTC\" and saves nothing, as it should.")
     said.append(f"- **Afterwards:** {balances_line(balances)}.")
     return "\n".join(said)
 

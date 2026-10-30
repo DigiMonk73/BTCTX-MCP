@@ -228,7 +228,7 @@ def without_column(text: str, column: str) -> str:
 
 
 def test_the_seeded_ledger_gives_the_saved_figures(seeded):
-    assert list(reference_figures.differences(saved_figures(), seeded["figures"], allow_new=True)) == []
+    assert moved(saved_figures(), seeded["figures"]) == []
 
 
 def test_the_whole_ledger_survives_an_export_and_an_import(seeded):
@@ -236,7 +236,7 @@ def test_the_whole_ledger_survives_an_export_and_an_import(seeded):
     assert now["preview"]["warnings"] == []
     assert (now["preview"]["total_rows"], now["preview"]["valid_rows"]) == (ROWS, ROWS)
     assert moved(seeded["figures"], now["figures"]) == []
-    assert list(reference_figures.differences(saved_figures(), now["figures"], allow_new=True)) == []
+    assert moved(saved_figures(), now["figures"]) == []
     assert now["fields"] == seeded["fields"]
     assert now["review"] == seeded["review"]
     # Exported again, the same file to the byte: nothing a figure can't show was lost either
@@ -253,10 +253,12 @@ def test_the_committed_csv_is_todays_export(seeded):
 
 def test_the_committed_csv_gives_the_same_figures(seeded):
     """The file a person downloads, not only a fresh export."""
-    now = round_trip(COMMITTED.read_bytes().decode())
-    assert list(reference_figures.differences(saved_figures(), now["figures"], allow_new=True)) == []
+    text = COMMITTED.read_bytes().decode()
+    now = round_trip(text)
+    assert moved(saved_figures(), now["figures"]) == []
     assert now["fields"] == seeded["fields"]
     assert now["review"] == seeded["review"]
+    assert now["export"] == text
 
 
 @pytest.mark.parametrize("column", ["broker_reporting", "fmv_usd", "chosen_coins", "price_moment"])

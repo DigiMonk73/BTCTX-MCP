@@ -34,8 +34,10 @@ server's copy.
 
 ### Getting a file
 
-Open this guide on GitHub, on the branch you're testing. Click a file's name,
-then the **Download raw file** button (a down arrow, top right of the file).
+Open this guide on GitHub. While 2.0 is in beta, that's
+<https://github.com/DigiMonk73/BTCTX-MCP/blob/2.0/docs/HAND-TEST.md>; once 2.0 is
+out, the same file on `main`. Click a file's name, then the **Download raw
+file** button (a down arrow, top right of the file).
 
 ### Start empty, with the tax timezone on UTC
 
@@ -79,8 +81,10 @@ Then, for each file below:
 
 2. In **Settings**, open **Import from an exchange**. Choose the **Exchange
    file** it says, then the file, then press **Preview**.
-3. Check the rows and the warnings against the list below. A warning says why
-   a row is left out or needs a look: each one here is meant to be there.
+3. Check the warnings and the button against the list below. A warning says why
+   a row is left out or needs a look: each one here is meant to be there. Its
+   "Row" is that line of the file. For a file with earlier years' rows, a note
+   also says BitcoinTX will show what changes and ask before it imports them.
 4. Press the button that says **Import … Transaction(s)**, and **OK** when your
    browser asks you to confirm. If BitcoinTX then asks about earlier tax years,
    press **Save anyway (a copy is made first)**.
@@ -187,7 +191,7 @@ so they aren't listed here. Everything else should match exactly.
   - Row 8 is Swan moving coins between its custodians: they never left Swan: left out.
   - Row 10 moves dollars, not bitcoin (“monthly_fee”): left out.
   - Row 9: From your wallet, oldest coins first: you can choose the coins after the import.
-- **Untick row 9** (its Import box). The button then says "Import 2 Transaction(s)". Its coins come from a wallet that holds none here: left ticked, the import stops at "Not enough BTC" and saves nothing, as it should.
+- **Untick the Transfer from Wallet of 0.00200000 BTC** (its Import box). The button then says "Import 2 Transaction(s)". Its coins come from a wallet that holds none here: left ticked, the import stops at "Not enough BTC" and saves nothing, as it should.
 - **Afterwards:** Bank (USD) −$150.00, Exchange (BTC) 0.00165000 BTC.
 
 #### [swan_withdrawals.csv](../testdata/exchange_files/swan_withdrawals.csv) (withdrawals)
@@ -285,6 +289,9 @@ Overseas the same.
 10. For 2024, 2025 and 2026, also choose **IRS Reports (Form 8949, Schedule D,
     etc.)** and press **Export**. Each Schedule D line holds the same totals as
     its box below. BitcoinTX has no IRS forms for 2023: its report is the check.
+    2026's are the IRS's draft forms, a preview marked not for filing, offered
+    until January 1, 2027. After that, until a version with the final forms,
+    the year says "no IRS forms yet", so skip this step for 2026.
 
 The report's **Market value** isn't listed, since it depends on the price
 source you chose.
