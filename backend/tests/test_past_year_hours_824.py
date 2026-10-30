@@ -329,8 +329,9 @@ def test_the_coins_list_keeps_no_hour(world):
     assert world.kept_hours() == 0
 
 
-def test_the_ais_preview_keeps_no_hour(world):
-    world.blank_fee()
+def test_the_ais_preview_asks_and_keeps_what_it_did(world):
+    """Its own dry run keeps the hours it asks for, as it always has."""
+    blank = world.blank_fee()
     ai = ai_client(world)
     world.nothing_stored_yet()
     world.tax_year(2100)
@@ -339,4 +340,5 @@ def test_the_ais_preview_keeps_no_hour(world):
         "to_account": "Exchange BTC", "cost_basis_usd": "200.00", "fee_amount": "0", "fee_currency": "USD"}]})
     world.tax_year(2009)
     assert r.status_code == 200, r.text
-    assert world.kept_hours() == 0
+    assert world.kept_hours() == 100 and world.sites.requests == ["www.bitstamp.net"]
+    assert world.fee(blank) == (None, None)
