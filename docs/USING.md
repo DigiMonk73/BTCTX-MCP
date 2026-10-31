@@ -391,7 +391,8 @@ Which Form 8949 box a sale goes in:
 
 **When a Form 1099-DA differs.** From 2025, compare your sales in boxes G,
 H, J and K with your Form 1099-DA. Compare each day's total, not row by row:
-BitcoinTX gives a sale one row per lot, and a broker can split a sale too.
+BitcoinTX gives a sale one row per lot, a broker can split a sale too, and a
+sale near midnight can show another day there.
 For box H or K, compare the proceeds (box 1f); for G or J, also the cost (box
 1g) and short or long (box 6). A "gross proceeds" label on the form (box 3a)
 is about option premiums: it doesn't mean before fees.

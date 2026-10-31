@@ -871,21 +871,21 @@ class _TaxReport:
     def if_a_1099da_differs(self) -> list:
         """What to compare with a Form 1099-DA and what the IRS asks for when
         it differs (Instructions for Form 8949, columns (d) to (h); the
-        owner's choice, #158: a note, no broker's figures stored). On a page
-        of its own, so the page before stays one page; only in a year with a
-        sale on such a form."""
+        owner's choice, #158: a note, no broker's figures stored). It starts a
+        page, so the page before stays one page; only in a year with a sale
+        on such a form."""
         if not any(b["box"] in FORM_1099DA_BOXES for b in self.data.get("form_8949_boxes", [])):
             return []
         before = ["Set each sale in boxes G, H, J and K beside your Form 1099-DA (section 2 lists them). Compare each "
                   "day's total, not row by row: BitcoinTX gives a sale a row per lot, and a broker can split a sale "
-                  "too. Box H or K: the proceeds (box 1f). Box G or J: also the cost (box 1g) and short or long (box "
+                  "too, and a sale near midnight can show another day there. Box H or K: the proceeds (box 1f). Box G or J: also the cost (box 1g) and short or long (box "
                   "6). A \"gross proceeds\" label on the form (box 3a) is about option premiums: it doesn't mean "
                   "before fees.",
                   "A difference can be a mistake in the ledger: correct the transaction, and the forms follow. A "
                   "transaction's Broker form setting changes only its box. A real difference stays on Form 8949 like "
                   "this:"]
         after = [*self.printed_forms_note(),
-                 "Another difference: code O (the column (f) table of the Instructions for Form 8949). More than one "
+                 "Another difference that needs an adjustment: code O (the column (f) table of the Instructions for Form 8949). More than one "
                  "code goes in alphabetical order, with the net adjustment in (g). (h) is (d) less (e) plus (g), so "
                  "it stays your correct gain.",
                  "If your Form 1099-DA lists a network fee as a sale (a transfer's fee, a gift's, donation's or lost "
@@ -896,13 +896,22 @@ class _TaxReport:
         return [PageBreak(), *self.subheading(HEADING_1099DA_DIFFERS), *self.bullets(before), Spacer(1, 4),
                 self.corrections_table(), Spacer(1, 8), *self.bullets(after)]
 
+    def fee_without_the_page(self) -> list[str]:
+        """A year with fees but no sale on a Form 1099-DA has no such page,
+        and a broker may still list a fee (#551)."""
+        boxes = [b["box"] for b in self.data.get("form_8949_boxes", [])]
+        if any(b in FORM_1099DA_BOXES for b in boxes) or not any(b in ("I", "L") for b in boxes):
+            return []
+        return ["If a Form 1099-DA lists a network fee as a sale, BitcoinTX has it in box I or L: move its row by "
+                "hand to the page of the box your form gives, and Schedule D's lines with it. Its gain is the same."]
+
     def corrections_table(self) -> Table:
         as_above = "As in the rows above"
         rows = [self.header("What differs", "Column (d)", "Column (e)", "(f)", "Column (g)", numbers_from=5),
                 *[[self.text(cell) for cell in row] for row in (
                     ("Cost, box G or J: reported to the IRS", "The form's", "The form's, even if wrong", "B",
-                     "The form's cost less the correct cost, a negative in parentheses (the instructions' Worksheet "
-                     "for Basis Adjustments)"),
+                     "The form's cost less the correct cost: positive if the form's is higher; if lower, negative, "
+                     "in parentheses (the instructions' Worksheet for Basis Adjustments)"),
                     ("Cost, box H or K: shown, not reported", "The form's", "The correct cost", "B", "-0-"),
                     ("Proceeds: a cost of the sale, such as a fee, not taken off", "The form's", as_above, "E",
                      "That cost, negative, in parentheses"),
@@ -919,12 +928,15 @@ class _TaxReport:
                 "line to match."]
 
     def relief_note(self) -> list[str]:
-        """The relief ends with 2026 (Notice 2026-20): later years' rule isn't this note's to say."""
+        """The relief ends with 2026, and only Notice 2026-20 speaks of a
+        report that doesn't match: later years' rule isn't this note's to say."""
         if self.year not in (2025, 2026):
             return []
-        return [f"For {self.year}, the coins your own records identified by the time of a sale count as the ones "
-                "sold, whether or not the broker's report matches (Notice 2025-7, Notice 2026-20). Its figures can "
-                "differ for that reason alone, and Form 8949 still shows the difference as above."]
+        identified = "the coins your own records identified by the time of a sale count as the ones sold"
+        if self.year == 2025:
+            return [f"For 2025, {identified} (Notice 2025-7)."]
+        return [f"For 2026, {identified}, whether or not the broker's report matches (Notice 2026-20). Its figures "
+                "can differ for that reason alone, and Form 8949 still shows the difference as above."]
 
     def bullets(self, notes) -> list:
         return [Paragraph(pdf_text(note), self.styles.bullet, bulletText="•") for note in notes]
@@ -963,6 +975,7 @@ class _TaxReport:
             # #156, parked by the owner (2026-10-31)
             "BitcoinTX keeps no sale transaction ID, so column (a) prints none, only the bitcoin and its exact units. "
             "The Instructions for Form 8949 ask for one \"if available\": add it by hand if you want it.",
+            *self.fee_without_the_page(),
             "This report is prepared from your own records: check it with a tax professional before you file.",
         )
         return [*self.section(7, "Notes", "How the figures in this report are made."), *self.bullets(notes),

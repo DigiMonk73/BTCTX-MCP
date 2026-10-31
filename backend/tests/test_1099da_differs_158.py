@@ -14,7 +14,7 @@ from pypdf import PdfReader
 
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 from backend.tests.test_using_these_forms import box, section_pages
-from mcp_server.btctx_mcp.guide import LEDGER_GUIDE
+from btctx_mcp.guide import LEDGER_GUIDE
 
 ROOT = Path(__file__).parents[2]
 HEADING = "If your Form 1099-DA differs"
@@ -37,6 +37,18 @@ def test_a_year_with_a_sale_on_a_1099da_says_what_to_compare_and_do(letter, line
                   "(h) is (d) less (e) plus (g), so it stays your correct gain",
                   "in alphabetical order", "Instructions for Form 8949"):
         assert words in text, words
+
+
+def test_the_table_gives_each_difference_its_columns():
+    """The Instructions' column (f) table and Example 4: on G or J the form's
+    cost stays in (e), and (g) is positive when the form's is the higher."""
+    text = report(form_8949_boxes=[box("J", "8b", 10.0)])
+    for row in ("Cost, box G or J: reported to the IRS The form's The form's, even if wrong B The form's cost less "
+                "the correct cost: positive if the form's is higher; if lower, negative, in parentheses",
+                "Cost, box H or K: shown, not reported The form's The correct cost B -0-",
+                "not taken off The form's As in the rows above E That cost, negative, in parentheses",
+                "Short or long The form's As in the rows above T -0-, in the correct Part of the form"):
+        assert row in text, row
 
 
 @pytest.mark.parametrize("letters", [[("I", "3")], [("L", "10")], [("C", "3")], [("A", "1b")], []])
@@ -64,7 +76,10 @@ def test_it_tells_what_to_do_with_a_fee_a_1099da_lists():
 @pytest.mark.parametrize("year, says", [(2025, True), (2026, True), (2027, False)])
 def test_the_relief_is_named_only_for_the_years_it_covers(year, says):
     text = report(tax_year=year, form_8949_boxes=[box("H", "2", 10.0)])
-    assert ("Notice 2026-20" in text) is says
+    assert ("Notice 2026-20" in text) is (year == 2026)
+    assert ("Notice 2025-7" in text) is (year == 2025)
+    assert ("whether or not the broker's report matches" in text) is (year == 2026)
+    assert ("count as the ones sold" in text) is says
     assert HEADING in text
 
 
@@ -74,6 +89,13 @@ def test_every_report_says_there_is_no_transaction_id():
     for boxes in ([box("I", "3", 10.0)], [box("H", "2", 10.0)]):
         assert "BitcoinTX keeps no sale transaction ID, so column (a) prints none" in report(form_8949_boxes=boxes)
         assert '"if available"' in report(form_8949_boxes=boxes)
+
+
+@pytest.mark.parametrize("letters, says", [([("L", "10")], True), ([("H", "2")], False), ([], False)])
+def test_a_year_with_fees_but_no_such_page_tells_it_in_the_notes(letters, says):
+    """#551: such a year's only rows may be network fees, which a form may list."""
+    text = report(form_8949_boxes=[box(*b, 10.0) for b in letters])
+    assert ("If a Form 1099-DA lists a network fee as a sale" in text) is says
 
 
 def test_sales_by_exchange_doesnt_say_no_form_lists_a_fee():

@@ -307,13 +307,13 @@ self-custody and network fees are on no broker form. An exchange may
 report other coins for a sale than BitcoinTX's Per-wallet FIFO (it may
 count coins moved in as bought when they arrived): review_ledger lists such
 sales, to compare with the 1099-DA. When the user has
-the actual 1099-DA and it differs for a sale, set broker_reporting on that
+the actual 1099-DA and it reports a sale in another box, set broker_reporting on that
 transaction with update_transaction ("none", "proceeds", "basis", or
 "automatic" to undo). On a Spent withdrawal it places that spend's network
 fee too: set it when the 1099-DA lists the spend and its fee. It only changes
 which Form 8949 box the sale (or the spend and its fee) lands in, never a gain.
 When a Form 1099-DA differs from BitcoinTX, tell the user to compare each day's
-total, not row by row: proceeds for boxes H and K, also cost and short or long
+total, not row by row (a sale near midnight can show another day there): proceeds for boxes H and K, also cost and short or long
 for G and J. First rule out a mistake in the ledger. BitcoinTX stores none of
 the broker's figures and leaves column (f) and column (g) blank, so a real
 difference is done by hand on Form 8949, or in tax software: the Complete Tax
