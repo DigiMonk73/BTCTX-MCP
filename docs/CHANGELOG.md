@@ -587,6 +587,16 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   works the transfer out as its save would, on a copy of your ledger, so a
   transfer dated in the past and an edit show what their save will do, and
   one the save would refuse says why. No figure changes.
+### Security
+- **pypdf 6.21.4** (from 6.21.2), which fills the IRS forms, for seven
+  advisories published on 2026-10-30 (CVE-2026-119203 to -119209): a crafted
+  PDF could take long or use much memory. BitcoinTX opens only its own forms
+  and reports, and the IRS's drafts on a test install, so the risk here was
+  low. The forms come out byte for byte the same, and the Complete Tax Report
+  differs only in the time it was made.
+- **follow-redirects 1.16.2** (from 1.16.1), for a high advisory published the
+  same day (GHSA-mrwp-f3q8-3g9p). It comes with axios and only runs on a server:
+  the web app BitcoinTX ships is byte for byte the same.
 
 ### Changed
 - **"Minimalist" no longer describes BitcoinTX** (D1 of the docs overhaul,
