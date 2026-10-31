@@ -3,9 +3,9 @@
 # is installed: after an edit here, run `make lock` (docs/MAINTENANCE.md).
 
 # Core framework
-fastapi==0.161.1
+fastapi==0.162.0
 pydantic==2.14.1
-starlette==1.9.0
+starlette==1.10.0
 uvicorn==0.54.0
 
 # Database
@@ -25,7 +25,7 @@ python-multipart==0.0.32
 python-dotenv==1.2.4
 python-dateutil==2.9.0.post0
 itsdangerous==2.2.0
-tzdata==2026.5  # timezone rules for the tax timezone (bundled, OS-independent)
+tzdata==2026.6  # timezone rules for the tax timezone (bundled, OS-independent)
 
 # Encryption (for backups)
 cryptography==50.0.2
