@@ -14,7 +14,7 @@ left. Form 8949 and the Complete Tax Report go exchange by exchange, by each
 exchange's own Form 1099-DA setting. Any exchange's CSV file can be imported.
 And BitcoinTX asks before a change moves an earlier tax year's figures.
 Connecting an AI stays optional, and off until you turn it on. Updating keeps
-every transaction in its account and moves no figure, except in a ledger
+every transaction in its account and moves no tax figure, except in a ledger
 started before 0.9.2 (below). BitcoinTX 1.2.10 stays downloadable, and 1.x
 gets no more fixes.
 
@@ -40,7 +40,8 @@ copy, made once); it never deletes that copy.
   takes it with no backup step: pin `:v1.2.10` to stay on 1.x.
 - **Mac:** 2.0.0 is BitcoinTX, the same app, port and data folder as 1.x, so
   it replaces the app and upgrades the ledger when it first starts. It isn't
-  signed by Apple, so macOS asks you to allow it again (Downloads, below).
+  signed by Apple, so macOS asks you to allow it again (the release page's
+  Downloads).
 
 **After you update**
 
@@ -82,10 +83,14 @@ tax form (#770).
 
 **On a machine that refuses BitcoinTX a thread** (a container's limit, no
 memory; it affects any tax year, from 1.2.8 through 1.2.10 and in 2.0's
-pre-releases), the hourly price download kept saying it was downloading until a restart. The first save
-answered with an error and saved nothing, and later saves took the day's price
-until a restart. Now the first save goes through at the day's price, marked as
-such, and once threads come back, saves take the hour's price with no restart.
+pre-releases), the hourly price download kept saying it was downloading until
+a restart. The first save answered with an error and saved nothing, and later
+saves took the day's price, if it was stored, until a restart. Now a save with a
+value left blank takes the day's price, marked as such, if that's already
+stored; otherwise it says no price is available and saves nothing, so type the
+value or try again (a gift's, donation's or lost coins' value just stays blank).
+Once threads come back, saves take the hour's price with no
+restart.
 Nothing already saved changes, and there's nothing to do; Ledger Review's check
 of values priced at the day can apply the hour's price (#843).
 
@@ -109,8 +114,9 @@ Connect an AI Assistant gives now.
   and #721 say what to check.
 
 **Known issues, for 2.0.1.** Only on a ledger holding a row whose value is
-blank in the database, which in practice means blanked by hand (a new row can't
-be saved blank): the past-year question, or the form's list of the coins a
+blank in the database, which in practice means blanked by hand, or left by an
+old version in a ledger not recalculated since (a new row can't be saved blank):
+the past-year question, or the form's list of the coins a
 transaction moves, looks up that row's price and loses the answer. A save can
 need a second try. If the row is dated after the price history's last hour, it
 or another value priced in the next 10 minutes can take the day's price, marked,
@@ -118,8 +124,9 @@ instead of the hour's (#824, #849). Ledger Review lists a saved value like that.
 A known limitation: a Form 1099-DA that lists a transfer's or a gift's network
 fee, or a fee without its withdrawal, can't be matched on Form 8949 yet (#551).
 
-The CHANGELOG's entries keep the words of the pre-release they came with, so
-a fix may name the alpha it fixes. Each pre-release's own notes stay on
+The CHANGELOG's entries mostly keep the words of the pre-release they came with, so
+a fix may name the alpha it fixes, and a fix to something new in 2.0 concerns
+only the pre-releases. Each pre-release's own notes stay on
 [its GitHub page](https://github.com/DigiMonk73/BTCTX-MCP/releases).
 
 ### Added
@@ -155,7 +162,7 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   §1.1012-1(j))." The README's and `docs/USING.md`'s "One wallet, one
   exchange" became "Wallets, exchanges and banks" (adding, renaming,
   hiding and deleting accounts, each exchange's 1099-DA switch, what
-  BitcoinTX doesn't do: choose coins, or allocate basis under Rev. Proc.
+  BitcoinTX doesn't do: allocate basis under Rev. Proc.
   2024-28), and About BitcoinTX's notice, "Important: add each wallet and
   exchange.", is the README's box word for word. In the transaction form,
   the hint under a wallet points to Settings' Wallets, exchanges and
@@ -164,9 +171,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   BitcoinTX counts as one"), with a hint to choose the other exchange's
   account for a move between exchanges; and a Sell's exchange is labelled
   "Exchange", as a Buy's is. The Complete Tax Report's "Using these forms"
-  states the rule and that BitcoinTX uses first in, first out in each
-  wallet and exchange account. The AI connector's guide takes your
-  accounts' names from `get_portfolio`, asks which account when more than
+  states the rule and that BitcoinTX uses Per-wallet FIFO. The AI
+  connector's guide takes your accounts' names from `get_portfolio`, asks which account when more than
   one fits, has you add a wallet or exchange it doesn't know in Settings
   (never pooled into another, never External), and explains `saved:
   false` and the confirms; its tools' descriptions and README no longer
@@ -174,10 +180,10 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   five languages, `instructions.md` (setting up your accounts; the
   one-wallet limitation gone) and its README (2.0's copies in
   `backups`); Recalculate Ledger is under Settings › Account in the
-  action's text. `docs/MAINTENANCE.md` gains "Going back to 1.x" for
+  action's text. The README gains "Going back to 1.x" for
   Docker and the Mac app. The ways back by BitcoinTX's own backup on
   StartOS, on Docker and in the Mac app were tried with 1.2.10 (StartOS's
-  by its own backup is recorded on #357 once tried), and 1.2.10 refuses a
+  by its own backup in beta.2's release tests, #806), and 1.2.10 refuses a
   2.0 backup in plain words. The Complete Tax Report's notes say that
   coins you identified, or an exchange's own order of coins, can give
   other figures. The README, `instructions.md` and the CSV guide name
@@ -190,7 +196,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   look like a file for “Kraken”. Missing columns: …". The README's pictures show a second wallet
   (`testdata/showcase_ledger.json`). `docs/AGENT-TESTS.md` gains 2.0's
   release tests. No figure changes.
-- **The dashboard by kind, Transactions by name, and renames** (B8, #356).
+- **The dashboard by kind, Transactions by name, and renames** (B8, #356;
+  its cards gave way to Portfolio Overview's carets, below).
   The dashboard shows three cards, Bank, Exchange and Wallet, each with
   its total (an exchange's dollars, then its bitcoin); a card with more
   than one account gets "Show accounts (n)", which lists them (each
@@ -230,8 +237,7 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   receives go with, when there's more than one of either. Ledger Review
   is checked again once the tax timezone is saved, the ledger
   recalculated or an exchange's switch turned, so it no longer shows the
-  old timezone's times or figures until Check again (fixed in 2.0; #645
-  for 1.x).
+  old timezone's times or figures until Check again (fixed in 2.0).
 - **Saving into any of your accounts** (B7a, #354). A transaction can now
   be saved into any bank, wallet or exchange added in Settings or through
   the account API, as into the first ones:
@@ -264,8 +270,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   login's fill of the timezone still saves only on an empty ledger. The
   AI connector (`btctx-mcp`) answers such a write with `saved: false`, the
   years and the changes, and a confirm to send again once the user says
-  yes (`update_transaction`'s `confirm_move`, `confirm` on
-  `add_transactions`, `delete_transaction` and `recalculate_ledger`); its
+  yes (`confirm` on `update_transaction`, `add_transactions`,
+  `delete_transaction` and `recalculate_ledger`); its
   writes that can ask, and `review_ledger`, now wait up to 20 minutes,
   not 2, for a large ledger on a slow server (#637). The account list
   shows each exchange's 1099-DA switch (`sends_1099da`). No figure of any
@@ -324,9 +330,9 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   currency of the account it's paid from (a deposit's: the account it goes
   into), as a saved transaction always took it, so a dollar deposit's fee
   with a blank currency, refused before, imports in dollars. A River file
-  goes into the exchange and the wallet you choose (by default the first
-  of each that isn't hidden), its recurring buys paid from your first bank
-  that isn't hidden. The River and AI imports' duplicate checks never take
+  goes into the exchange and the wallet you choose (with more than one
+  exchange, the screen asks: #707, below), its recurring buys paid from your
+  first bank that isn't hidden. The River and AI imports' duplicate checks never take
   a transaction in another wallet, another exchange or another bank for a
   row's copy, with two exceptions for River, whose file names neither the
   wallet nor the bank: a transaction typed with another wallet is marked
@@ -336,9 +342,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   anything (and a renamed account's old name, saying its new one), lists
   your accounts in get_portfolio, and tells BitcoinTX it is a 2.0
   connector; the AI key may read the account list, never add, hide or
-  delete one, and its add passes a hidden account's warning on. Saving
-  into an added account still waits for a later step. No figure of a
-  ledger moves.
+  delete one, and its add passes a hidden account's warning on. No figure
+  of a ledger moves.
 - **An importer for any exchange's file** (B5b, #567; the owner's decision
   17, #338). Settings' "Import from an exchange" (River's import before)
   reads the CSV export of River, Coinbase, Kraken (its ledger), Strike,
@@ -418,8 +423,7 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   transaction may use is one set of rules for the save, the CSV import,
   River and the AI import, in plain sentences ("A Deposit comes from
   External.", "A Sell from Exchange BTC goes into Exchange USD."): the
-  CSV instructions PDF shows them. Saving into an added account still
-  waits for a later step. No ledger made since v0.9.2 changes.
+  CSV instructions PDF shows them. No ledger made since v0.9.2 changes.
 - **A ledger started before v0.9.2** (the owner's decision): transactions
   saved then into an account made through 1.x's account API now count by
   that account's currency, as Wallet's and Bank's always have. For a
@@ -448,9 +452,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   restore of an older backup. A name is one line of 1 to 40 characters (an
   exchange's 36), alike no other ignoring case, and none of the names that
   mean the first accounts in files ("Bank", "Wallet", "Exchange USD",
-  "Exchange BTC", the fee accounts' and "External"). No screen uses it
-  yet. The ledger now finds BTC Fees and USD Fees by their ids, so a fee
-  account renamed in an old database no longer gets a second one made.
+  "Exchange BTC", the fee accounts' and "External"). The ledger now finds
+  BTC Fees and USD Fees by their ids, so a fee account renamed in an old database no longer gets a second one made.
 - **2.0's database: exchanges, and each account's kind** (B2a, #346). A
   new table of exchanges, and each account is now a bank, a wallet, one of
   an exchange's two accounts (dollars and bitcoin), or an internal fee
@@ -485,8 +488,9 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   total cost behind Avg. Cost per BTC, which is now worked out from the same
   sums. The card's totals don't change (its Unrealized Gains/Losses is from
   the rounded average, so the accounts' gains can differ from it by a cent
-  or two), and with one account of each kind the card is still 1.2.10's.
-  An account holding no bitcoin shows no cost. The balances route
+  or two), and with one account of each kind the card is still 1.2.10's
+  (#770, below, then made its Unrealized Gains/Losses the accounts' gains
+  added up). An account holding no bitcoin shows no cost. The balances route
   (`/api/calculations/accounts/balances`) gives each bitcoin account its
   `cost_basis`. **No figure changes.**
 - **The form chooses which coins leave a wallet** (#711, step C3, #731).
@@ -624,7 +628,7 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   exchange's dollars and Exchange (BTC) each one's bitcoin. Lines start
   closed, and the ones opened stay open in that browser (an Exchange card
   alpha.1 left open opens both exchange lines). With one account of each
-  kind the card is 1.2.10's. No figure changes.
+  kind the card is 1.2.10's, apart from #770 (below). No figure changes.
 - **An exchange's file finds the trades you recorded in another exchange
   before 2.0** (#707, found by Grok (Cursor) reading alpha.2; the owner's
   decision, 2026-10-25). BitcoinTX 1.x kept one exchange, and its guide
@@ -1075,7 +1079,7 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   (the credits are a promotion of Kraken's, never the owner's dollars).
   A note names each such trade. Nothing already in a ledger changes: it
   moves only what a Kraken file's preview proposes. **Affected:** 2.0's
-  pre-releases, Kraken ledger files with trades paid with fee credits.
+  pre-releases up to beta.1, Kraken ledger files with trades paid with fee credits.
   **What to do:** if you imported such a file, preview it again into the
   same exchange: those trades are now read (they were missing), and what
   you imported before shows as already in the ledger. If you followed that
@@ -1171,8 +1175,11 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   status says it failed, it's tried again as a failed download is, and a
   lookup takes the day's price at once, marked as such, as it does without
   the hourly history (#843). A save the refusal stopped now saves at that
-  price, and the hour's price comes back with the machine, with no restart
-  (the owner's OK on the before-and-after, on its pull request).
+  price if it's already stored; a day's lookup needs a thread too, so with
+  threads refused and no stored price it answers that no price is available
+  and saves nothing (a gift's, donation's or lost coins' value stays blank).
+  The hour's price comes back with the machine, with no
+  restart (the owner's OK on the before-and-after, on its pull request).
 
 ### Security
 - **The Docker image's system CA bundle is refreshed** (#638, from Start9,
@@ -1190,15 +1197,16 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
 
 ### Documentation
 - **Trying 2.0 before it's released** (the README's "Versions"; 2.0 plan
-  7.4, B10a, #532; #251's decisions 12 and 28): 2.0's first pre-release,
-  v2.0.0-alpha.1, is out on GitHub for anyone who chooses to test it. The
-  section says where to find the pre-releases, that an alpha is only for
+  7.4, B10a, #532; #251's decisions 12 and 28): 2.0's pre-releases, from
+  v2.0.0-alpha.1, were on GitHub for anyone who chose to test them. The
+  section said where to find the pre-releases, that an alpha is only for
   trying 2.0, never for your real records, what each platform does with a
   tester's records (a separate Mac app, BitcoinTX Preview; an update in
   place on StartOS, after a StartOS backup, with no 1.x update offered
   until 2.0 is out; a new volume on Docker), that nothing entered in one
-  goes back to 1.x, how to go back, and how to report what you find. 1.x
-  stays the version to use for your records. The section also says that
+  goes back to 1.x, how to go back, and how to report what you find, and
+  that while 2.0 was in testing, 1.x stayed the version to use for your
+  records. The section also said that
   from v2.0.0-alpha.2 a banner above every page names the pre-release, and
   that BitcoinTX Preview's icon has a red PREVIEW band (#670).
 
@@ -1217,8 +1225,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   from those two fixes the package's code is the same: the bundle built
   before and after differs only in them and the SDK's version. Its
   minimum StartOS stays 0.4.0.2, and the bundled sibling packages
-  (Mempool's, Tor's) are unchanged. It ships with the next package
-  version, since the community registry serves 1.2.10
+  (Mempool's, Tor's) are unchanged. It ships in package 2.0.0:0, since
+  the community registry serves 1.2.10
   (startos/UPDATING.md, "Bumping the SDK", step 4).
 
 ### Development
@@ -1461,8 +1469,8 @@ a fix may name the alpha it fixes. Each pre-release's own notes stay on
   start-registry release, each day Start9's packaging guide or shared
   package workflows change, a failed build on the mirror or Start9's fork,
   and changes on their fork not taken back; `--dry-run` shows the same
-  without opening anything. The schedule runs from `main`, so it starts at
-  the next release; until then each session runs the script.
+  without opening anything. The schedule runs from `main`, so it starts with
+  this release.
 - **Ruff 0.17.2, typescript-eslint 8.71.2 and Vitest 5.0.5** (from 0.17.0,
   8.71.1 and 5.0.4; Dependabot's #538 and #544): the tools that check the
   Python and TypeScript code and run the web app's unit tests. Fixes

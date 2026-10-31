@@ -211,7 +211,8 @@ Testers report what they find with the "2.0 alpha or beta report" form
 (label `pre-release`). GitHub shows a form only once `main` has it: at
 the next fast-forward of `main` that is only docs, tests or tooling, else
 at the next 1.x release. The owner decides when the betas have run long
-enough; then 2.0's release follows section 2.
+enough; then 2.0's release follows section 2, except that its version change
+goes into `2.0` (AGENTS.md, "Releasing").
 
 ## 3. Sending a release to Start9
 

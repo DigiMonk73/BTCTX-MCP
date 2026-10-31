@@ -3,7 +3,7 @@ The whole reference test ledger through Settings' CSV (#844): exported by the
 app, imported by the app into an empty install holding the same accounts,
 it gives every figure of testdata/reference_figures.json and the same IRS
 form fields for every forms year. test_csv_roundtrip.py does this for the
-small golden ledger; this ledger has what it lacks: 16 accounts, one hidden
+small golden ledger; this ledger has what it lacks: 14 accounts, one hidden
 and one renamed, every 1099-DA switch, chosen coins and values from a price.
 
 testdata/reference_ledger.csv is that export, committed for testing by hand
