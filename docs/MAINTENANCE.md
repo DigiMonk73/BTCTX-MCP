@@ -58,6 +58,79 @@ pip install -r requirements-dev.txt ./mcp_server
 
 ---
 
+## Scheduled checks
+
+GitHub runs these (the owner, 2026-10-31: after 2.0.0 the routine checks cost
+no Claude tokens and no time on the owner's Mac). Each leaves its result in an
+issue or a pull request, which the week's work starts from.
+
+| What | When | Where it shows |
+|---|---|---|
+| Monday report (`monday-report.yml`) | Mondays, 13:07 UTC | one issue, "Monday report: what needs attention", edited in place |
+| Start9 watch (`start9-watch.yml`) | Mondays, 08:23 UTC | an issue labelled `start9` for each new thing |
+| IRS forms watch (`irs-forms-watch.yml`) | Mondays, 14:00 UTC | an issue labelled `claude` |
+| Price history watch (`price-history-watch.yml`) | the 3rd of each month | an issue labelled `claude`, if Bitstamp changed |
+| Dependabot (`dependabot.yml`) | monthly | grouped pull requests into `staging` |
+
+GitHub reads a schedule, and `dependabot.yml`, only from the default branch
+(`main`): a change to any of them takes effect once `main` is fast-forwarded
+to `develop`. `workflow_dispatch` runs a workflow by hand from the Actions tab,
+once the file is on `main` too.
+
+### The Monday report
+
+`.github/workflows/monday-report.yml` runs `scripts/monday-report.sh` from
+`develop` (so a fix to the script needs no release) with the job's own token,
+read access to the code and write access to issues, and nothing else: no secret
+of its own, no trigger a stranger can pull. Start9's fork and the mirror are
+public, so the same token reads them. It opens the issue "Monday report: what
+needs attention" if none is open, and otherwise edits that one in place (a body
+edit sends no notification; close the issue once it has been read, and the next
+Monday opens a new one). It lists:
+
+- **Open `tax-figures` issues:** number, title, age and who has it (the
+  `claude` or `owner` label), oldest first. A figure could be wrong, so these
+  come first.
+- **Outside reports with no answer:** open issues on this repository, on
+  Start9's fork (Start9-Community/BTCTX-StartOS) and on the mirror
+  (DigiMonk73/BTCTX-StartOS) that someone other than the owner or a bot opened
+  and the owner hasn't commented on. An answer is promised within a week
+  (AGENTS.md, "Bugs and security"); the ones past it are marked. The mirror's
+  Issues are off, and the report says if that changes.
+- **Open `start9` issues:** every open issue with the label, whoever opened
+  it: what `start9-watch.yml` found, and the package's own to-dos.
+
+A title is someone else's text, so the report shows it in a code span and cut
+to 100 characters: it can't link, mention or refer to anything, and its links
+go through `redirect.github.com`, as Dependabot's do, so they leave no
+"mentioned this" event on the issues they list. It opens and edits the issue by
+REST (`gh api`), since `gh issue edit` asks GraphQL for fields a job's token
+can't read.
+
+**What it leaves out, on purpose or by the brief:**
+
+- Security advisories, not even how many are waiting: a public count would hint
+  at a problem that isn't fixed yet (`SECURITY.md`), and nothing else reads
+  them either. Whoever starts the week's work looks at the repository's
+  Security tab itself (draft advisories, and Dependabot's alerts), since
+  `SECURITY.md` promises an acknowledgement within 7 days and GitHub's own
+  emails are the only other reminder.
+- CI, open pull requests and Dependabot's: the Actions and Pull requests tabs
+  show them.
+- The latest Grok pass (the Mac task it replaces had a line for it).
+
+If a repository can't be read (a renamed fork), the report says so and the run
+fails after it has published, so a lasting break doesn't go unnoticed. An
+issue whose comments can't be read is listed as unanswered. If the report's
+own repository can't be read, nothing is published (the report goes to the
+run's log) and the run fails.
+
+`scripts/monday-report.sh --dry-run` prints the report and what it would do,
+and changes nothing (it needs `gh` signed in and `jq`).
+`backend/tests/test_monday_report.py` runs it against a stand-in `gh`.
+
+---
+
 ## Updating a dependency
 
 **Pinning.** Everything we name to ship or build with is pinned exactly, so
@@ -130,10 +203,9 @@ test the update changed, such as ReportLab 5's refusal tests in
 `test_hardening_edges.py`), reinstall, and rerun `make check`.
 
 The indirect packages move only when a lock is recompiled and a pin needs
-it, so they are refreshed once a month: the first Monday's weekly check
-reports how many have newer versions, and Claude then runs
-`make lock LOCK_ARGS=--upgrade` in a pull request reviewed like any update
-(sooner for a security fix in one).
+it, so they are refreshed once a month, after the month's Dependabot pull
+requests: Claude runs `make lock LOCK_ARGS=--upgrade` in a pull request
+reviewed like any update (sooner for a security fix in one).
 `test_pinning.py` fails when a lock is older than its pins, lacks hashes or
 the `make lock` command, or when the Mac lock and the backend's disagree.
 
@@ -147,27 +219,31 @@ the `make lock` command, or when the Mac lock and the backend's disagree.
 
 ### Dependabot
 
-`.github/dependabot.yml` opens pull requests against `staging` every week:
-one grouped PR per directory for minor and patch updates (`backend/`,
-`mcp_server/`, `desktop/`, `.github/release-tools/`, the dev tools in
-`requirements-dev.txt`, `frontend/`, `startos/`), majors one per PR, one PR for the GitHub Actions
-in `.github/workflows/`, and one per Dockerfile base image when its tag gets
-a new build (Python 3.13 and Node 24 themselves change only on purpose).
-CI runs on each. Treat them like
+`.github/dependabot.yml` opens pull requests against `staging` once a month
+(the owner, 2026-10-31): one grouped PR per directory for minor and patch
+updates (`backend/`, `mcp_server/`, `desktop/`, `.github/release-tools/`, the
+dev tools in `requirements-dev.txt`, `frontend/`, `startos/`), majors one per
+PR, one PR for the GitHub Actions in `.github/workflows/`, and one for the
+Dockerfile's base images when their tags get a new build (Python 3.13 and
+Node 24 themselves change only on purpose). CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
 merge into `staging` (`develop` takes them with the daily merge,
 AGENTS.md, "Branches"). While 2.0 is built on `2.0`, they reach it only
 with `develop` (`make catch-up-2.0`, or the lead's `develop` merge), never
 by a pull request of their own into `2.0`. Nothing reaches `main` before a
-release.
+release. Dependabot never merges one by itself: auto-merge is turned on by
+hand, after the review (AGENTS.md, "Pull requests").
 
 - GitHub reads the file from the default branch (`main`): an edit takes
   effect once `main` is fast-forwarded to `develop`.
 - Every entry needs `target-branch: staging`, or its PRs target `main`.
   Keep **Dependabot security updates** off in the repository settings:
   `target-branch` doesn't apply to them, so their PRs would target `main`.
-  Alerts still show on the Security tab, and the weekly PRs pick up fixed
-  versions.
+  Alerts still show on the Security tab, and the monthly PRs pick up fixed
+  versions. So a fixed version of a vulnerable package waits up to a month for
+  its pull request: `make audit-deps` and the CI audit (each pull request and
+  push) show it, and a security fix is taken by hand the same day, as an
+  urgent fix (AGENTS.md, "Branches"), never left for the month's run.
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
@@ -235,18 +311,20 @@ A failing check stops the merge; find out why before anything else.
   below them still come), add a row to "Deferred upgrades" below with an
   "Unblock when" condition, and open an issue labelled `claude` that links
   both. In a grouped pull request, ignore only the package that broke: the
-  rest of the group comes back the next week.
+  rest of the group comes back the next month.
 - **It would change tax figures or forms:** the owner decides, with the
   before-and-after comparison in front of them.
 
 ### Taking a skipped update
 
-The weekly check (Mondays) looks at each "Deferred upgrades" row for a newer
-release or a fix to the problem and reports it. A skipped version that
+When the month's Dependabot pull requests are taken, look at each "Deferred
+upgrades" row for a newer release or a fix to the problem. (The Monday report
+doesn't: it lists issues, not releases.) A skipped version that
 becomes the only one with a security fix fails the audit on every pull
 request when the audit scans that package (`make audit-deps`: the app's
 Python packages, the dev tools, and high or critical frontend advisories);
-for the rest, the Monday check's security alerts catch it. Once the "Unblock when" condition is met,
+for the rest, the Security tab's alerts show it; no workflow reads them, so
+look there too. Once the "Unblock when" condition is met,
 take the update in a normal pull request with all the checks, remove its
 `ignore` rule and its row, and close the issue.
 

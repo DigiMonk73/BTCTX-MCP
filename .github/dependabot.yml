@@ -1,5 +1,8 @@
-# Dependabot version updates: weekly, one grouped PR per directory for
+# Dependabot version updates: monthly (the owner, 2026-10-31: after 2.0 the
+# project is maintained a little each week), one grouped PR per directory for
 # minor and patch updates, majors one per PR (read the changelog first).
+# Nothing here merges by itself: auto-merge is turned on by hand, after the
+# review (AGENTS.md, "Pull requests").
 #
 # Every entry targets staging, where changes gather before the daily merge
 # into develop; main holds released code only (AGENTS.md, "Branches"). GitHub
@@ -19,7 +22,7 @@ updates:
     directory: /backend
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     groups:
@@ -34,7 +37,7 @@ updates:
     directory: /mcp_server
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     groups:
@@ -48,7 +51,7 @@ updates:
     directory: /desktop
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     allow:
@@ -64,7 +67,7 @@ updates:
     directory: /.github/release-tools
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     groups:
@@ -78,7 +81,7 @@ updates:
     directory: /
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     allow:
@@ -96,7 +99,7 @@ updates:
     directory: /frontend
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     groups:
@@ -116,7 +119,7 @@ updates:
     directory: /startos
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
     groups:
@@ -136,9 +139,12 @@ updates:
     directory: /
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: deps
+    groups:
+      docker-base:
+        patterns: ["*"]
     ignore:
       - dependency-name: python
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
@@ -152,7 +158,7 @@ updates:
     directory: /
     target-branch: staging
     schedule:
-      interval: weekly
+      interval: monthly
     commit-message:
       prefix: ci
     groups:
