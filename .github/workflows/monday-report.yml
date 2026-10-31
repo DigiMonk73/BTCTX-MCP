@@ -33,8 +33,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: develop
+          persist-credentials: false   # nothing here pushes
       - name: Write the report
         env:
           GH_TOKEN: ${{ github.token }}
-          START9_FORK: ${{ vars.START9_FORK }}   # as release.yml finds the fork
+          START9_FORK: ${{ vars.START9_FORK }}   # the repository variable release.yml reads
         run: scripts/monday-report.sh

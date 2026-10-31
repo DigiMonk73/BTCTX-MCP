@@ -32,22 +32,32 @@ MIRROR = "DigiMonk73/BTCTX-StartOS"
 ISSUES = "repos/{}/issues?state=open&per_page=100"
 TITLE = "Monday report: what needs attention"
 
-# What the stand-in gh does: answers `gh api <path>` from the fixtures, saves
-# the body of `gh issue create|edit`, and logs every call. A path it has no
-# answer for fails, as an API call the script shouldn't make would.
+# What the stand-in gh does: answers `gh api <path>` from the fixtures (a
+# {"pages": [...]} one as --paginate prints it, a page after another; a
+# {"fail": true} one fails), saves the body of an issue opened or edited
+# (`gh api -F body=@file`), and logs every call. A path it has no answer for
+# fails, as an API call the script shouldn't make would.
 STAND_IN = """#!{python}
 import json, os, shutil, sys
 args = sys.argv[1:]
 with open(os.environ["GH_LOG"], "a") as log:
     log.write(" ".join(args) + "\\n")
+body = [a for a in args if a.startswith("body=@")]
+if args[0] == "api" and body:
+    shutil.copy(body[0][len("body=@"):], os.environ["GH_BODY"])
+    sys.exit(0)
 if args[0] == "api":
     fixtures = json.load(open(os.environ["GH_FIXTURES"]))
-    if args[1] in fixtures:
-        print(json.dumps(fixtures[args[1]]))
+    answer = fixtures.get(args[1])
+    if isinstance(answer, dict) and answer.get("fail"):
+        sys.exit(1)
+    if isinstance(answer, dict) and "pages" in answer:
+        for page in answer["pages"]:
+            print(json.dumps(page))
         sys.exit(0)
-elif args[0] == "issue" and "--body-file" in args:
-    shutil.copy(args[args.index("--body-file") + 1], os.environ["GH_BODY"])
-    sys.exit(0)
+    if args[1] in fixtures:
+        print(json.dumps(answer))
+        sys.exit(0)
 print("unexpected: " + " ".join(args), file=sys.stderr)
 sys.exit(1)
 """
@@ -133,7 +143,7 @@ def test_it_lists_the_three_things(tmp_path):
     figures = section(out, "Open `tax-figures` issues")
     assert figures.index("#104") < figures.index("#849"), "oldest first"
     assert "`An older figure bug`, 21 days, Claude has it" in figures
-    assert "`A newer figure bug`, 1 day, nobody has it" in figures
+    assert "`A newer figure bug`, 1 day, no `claude` or `owner` label" in figures
 
     outside = section(out, "Outside reports with no answer")
     # The owner's own, a bot's, the answered one and the pull request aren't there
@@ -144,7 +154,11 @@ def test_it_lists_the_three_things(tmp_path):
     assert f"### {FORK}\n\nNone." in outside
     assert f"### {MIRROR}\n\nIssues are off, as they should be." in outside
 
-    assert "`Start9's release`, 3 days" in section(out, "Open `start9` issues")
+    start9 = section(out, "Open `start9` issues")
+    assert "`Start9's release`, 3 days" in start9
+    # Links go through redirect.github.com, which leaves no "mentioned this" event
+    assert "(https://redirect.github.com/x/y/issues/811)" in start9
+    assert "(https://github.com/" not in out
 
 
 @needs_jq
@@ -158,7 +172,10 @@ def test_nothing_needs_attention_when_nothing_is_open(tmp_path):
 
 @needs_jq
 def test_an_issue_title_cant_link_mention_or_refer(tmp_path):
-    hostile = "`x` [click](https://evil.example) @someone #12 <img src=x> ‮ www.evil.example\nfake: **bold**"
+    # Text direction marks, zero-width and line separator characters, built here
+    # so that no invisible character sits in this file
+    invisible = "".join(chr(code) for code in (0x202E, 0x200B, 0x200F, 0x2028, 0x2029, 0xFEFF))
+    hostile = f"`x` [click](https://evil.example) @someone #12 <img src=x> {invisible} www.evil.example\nfake: **bold**"
     data = fixtures()
     data[ISSUES.format(FORK)] = [issue(7, hostile, 8)]
     data[f"repos/{FORK}/issues/7/comments"] = []
@@ -166,16 +183,16 @@ def test_an_issue_title_cant_link_mention_or_refer(tmp_path):
     assert result.returncode == 0, result.stderr
     line = next(line for line in result.stdout.splitlines() if line.startswith("- [#7]"))
     # Inside one code span nothing is a link, a mention or a reference
-    assert re.fullmatch(r"- \[#7\]\(https://github\.com/x/y/issues/7\) `[^`\n]*`, 8 days, \*\*older than a week\*\*", line)
-    assert "‮" not in line
+    assert re.fullmatch(r"- \[#7\]\(https://redirect\.github\.com/x/y/issues/7\) `[^`\n]*`, 8 days, \*\*older than a week\*\*", line)
+    assert not any(char in line for char in invisible)
 
 
 @needs_jq
-def test_it_edits_its_open_report_and_otherwise_opens_one(tmp_path):
+def test_it_edits_its_open_report_by_rest_and_otherwise_opens_one(tmp_path):
     result, calls, body = run(tmp_path, fixtures())
     assert result.returncode == 0, result.stderr
-    assert f"issue edit 950 -R {REPO} --body-file" in "\n".join(calls)
-    assert not any(call.startswith("issue create") for call in calls)
+    published = [call for call in calls if "-F body=@" in call]
+    assert len(published) == 1 and published[0].startswith(f"api -X PATCH repos/{REPO}/issues/950 -F body=@")
     assert body.startswith("Updated ") and body.rstrip().endswith("— Claude (scripts/monday-report.sh)")
 
     # Someone else's issue with the same title is never edited
@@ -186,8 +203,15 @@ def test_it_edits_its_open_report_and_otherwise_opens_one(tmp_path):
     second.mkdir()
     result, calls, _ = run(second, data)
     assert result.returncode == 0, result.stderr
-    assert not any(call.startswith("issue edit") for call in calls)
-    assert f"issue create -R {REPO} --title {TITLE} --body-file" in "\n".join(calls)
+    assert not any("PATCH" in call for call in calls)
+    assert f"api -X POST repos/{REPO}/issues -f title={TITLE} -F body=@" in "\n".join(calls)
+
+    # A report the owner published (the script run by hand) is edited too
+    data[ISSUES.format(REPO)][-1] = issue(950, TITLE, 7, "DigiMonk73")
+    third = tmp_path / "third"
+    third.mkdir()
+    result, calls, _ = run(third, data)
+    assert any(call.startswith(f"api -X PATCH repos/{REPO}/issues/950 ") for call in calls)
 
 
 @needs_jq
@@ -211,8 +235,51 @@ def test_a_repository_it_cant_read_fails_the_run_after_publishing(tmp_path):
     result, calls, body = run(tmp_path, data)
     assert result.returncode == 1
     assert f"Couldn't read {FORK} this week" in body
-    assert any(call.startswith("issue edit") for call in calls), "the rest is still reported"
+    assert any("PATCH" in call for call in calls), "the rest is still reported"
     assert "#903" in body
+
+
+@needs_jq
+def test_an_issue_whose_comments_cant_be_read_is_listed_as_unanswered(tmp_path):
+    data = fixtures()
+    data[f"repos/{REPO}/issues/902/comments"] = {"fail": True}   # the owner did answer it
+    result, _, body = run(tmp_path, data)
+    assert result.returncode == 1
+    assert f"Couldn't read {REPO}#902's comments" in body
+    assert "#902" in section(body, "Outside reports with no answer")
+
+
+@needs_jq
+def test_without_the_open_reports_it_cant_be_found_nothing_is_published(tmp_path):
+    data = fixtures()
+    data[ISSUES.format(REPO)] = {"fail": True}
+    result, calls, _ = run(tmp_path, data)
+    assert result.returncode == 1
+    assert not any("-F body=@" in call for call in calls), "a second report would follow"
+
+
+@needs_jq
+def test_it_reads_every_page(tmp_path):
+    data = fixtures()
+    page_one = [issue(number, f"Report {number}", 3, "reporter") for number in range(1, 101)]
+    page_two = [issue(number, f"Report {number}", 5, "reporter") for number in range(101, 151)]   # older: listed first
+    data[ISSUES.format(REPO)] = {"pages": [page_one, page_two]}
+    for number in range(1, 151):
+        data[f"repos/{REPO}/issues/{number}/comments"] = [{"user": {"login": "DigiMonk73" if number == 120 else "x"}}]
+    result, _, _ = run(tmp_path, data, "--dry-run")
+    assert result.returncode == 0, result.stderr
+    outside = section(result.stdout, "Outside reports with no answer")
+    assert "`Report 130`" in outside, "from the second page"
+    assert "`Report 120`" not in outside, "answered, on the second page"
+    assert "… and 99 more" in outside, "50 are listed, then how many are not"
+
+
+@needs_jq
+def test_a_report_too_long_for_an_issue_is_cut(tmp_path):
+    result, _, body = run(tmp_path, fixtures(), env={"REPORT_MAX_BYTES": "900"})
+    assert result.returncode == 0, result.stderr
+    assert len(body.encode()) < 1100
+    assert "The rest is cut" in body and body.rstrip().endswith("— Claude (scripts/monday-report.sh)")
 
 
 @needs_jq
@@ -224,6 +291,14 @@ def test_the_mirror_getting_issues_is_said(tmp_path):
     result, _, _ = run(tmp_path, data, "--dry-run")
     assert "**Issues are on now**" in result.stdout
     assert "`A report on the mirror`" in result.stdout
+
+    # Even with nothing else open, the banner doesn't say all is well
+    empty = {key: ([] if isinstance(value, list) else value) for key, value in data.items()}
+    empty[ISSUES.format(MIRROR)] = []
+    (tmp_path / "empty").mkdir()
+    result, _, _ = run(tmp_path / "empty", empty, "--dry-run")
+    assert "**Issues are on now**" in result.stdout
+    assert "Nothing needs attention" not in result.stdout
 
 
 @needs_jq
@@ -248,20 +323,29 @@ def test_the_script_parses_and_refuses_what_it_doesnt_know():
 def test_the_workflow_is_weekly_narrow_and_runs_the_script():
     assert "cron: '7 13 * * 1'" in WORKFLOW
     assert "run: scripts/monday-report.sh" in WORKFLOW
-    # Only what it needs: read the code, write the one issue
+    # Only what it needs: read the code, write the one issue, set once for the whole file
+    assert WORKFLOW.count("permissions:") == 1
     permissions = re.search(r"^permissions:\n((?:  .*\n)+)", WORKFLOW, re.M).group(1)
     assert permissions.split() == ["contents:", "read", "issues:", "write"]
+    assert "persist-credentials: false" in WORKFLOW
     # No secret of its own, and none of the triggers that hand a secret to outside code
     assert "secrets." not in WORKFLOW
     for trigger in ("pull_request_target", "workflow_run", "pull_request:"):
         assert trigger not in WORKFLOW
 
 
-def test_the_start9_watch_runs_before_the_report_on_the_same_monday():
-    watch = re.search(r"cron: '(\d+) (\d+) \* \* 1'", WATCH)
-    report = re.search(r"cron: '(\d+) (\d+) \* \* 1'", WORKFLOW)
-    assert watch and report, "both run on Mondays"
-    assert int(watch.group(2)) < int(report.group(2)), "the issues it opens are in the report"
+def test_the_start9_watch_runs_hours_before_the_report_on_the_same_monday():
+    minutes = []
+    for text in (WATCH, WORKFLOW):
+        cron = re.search(r"cron: '(\d+) (\d+) \* \* 1'", text)
+        assert cron, "both run on Mondays"
+        minutes.append(int(cron.group(2)) * 60 + int(cron.group(1)))
+    # Hours, for a late start: the issues it opens are in that week's report
+    assert minutes[1] - minutes[0] >= 120
+
+
+def test_the_watch_looks_back_a_week_and_a_day_when_it_has_no_earlier_issue():
+    assert "timedelta(days=8)" in (ROOT / "scripts" / "start9-watch.sh").read_text()
 
 
 def test_dependabot_is_monthly_grouped_and_targets_staging():

@@ -97,17 +97,33 @@ Monday opens a new one). It lists:
   and the owner hasn't commented on. An answer is promised within a week
   (AGENTS.md, "Bugs and security"); the ones past it are marked. The mirror's
   Issues are off, and the report says if that changes.
-- **Open `start9` issues:** what `start9-watch.yml` and the owner's own notes
-  have opened that nobody has taken yet.
+- **Open `start9` issues:** every open issue with the label, whoever opened
+  it: what `start9-watch.yml` found, and the package's own to-dos.
 
 A title is someone else's text, so the report shows it in a code span and cut
-to 100 characters: it can't link, mention or refer to anything. The report
-never names security advisories, not even how many are waiting: a public count
-would hint at a problem that isn't fixed yet (`SECURITY.md`). It says nothing
-about CI, open pull requests or Dependabot's: the Actions and Pull requests
-tabs show them. If a repository can't be read (a renamed fork), the report
-says so and the run fails after it has published, so a lasting break doesn't go
-unnoticed.
+to 100 characters: it can't link, mention or refer to anything, and its links
+go through `redirect.github.com`, as Dependabot's do, so they leave no
+"mentioned this" event on the issues they list. It opens and edits the issue by
+REST (`gh api`), since `gh issue edit` asks GraphQL for fields a job's token
+can't read.
+
+**What it leaves out, on purpose or by the brief:**
+
+- Security advisories, not even how many are waiting: a public count would hint
+  at a problem that isn't fixed yet (`SECURITY.md`), and nothing else reads
+  them either. Whoever starts the week's work looks at the repository's
+  Security tab itself (draft advisories, and Dependabot's alerts), since
+  `SECURITY.md` promises an acknowledgement within 7 days and GitHub's own
+  emails are the only other reminder.
+- CI, open pull requests and Dependabot's: the Actions and Pull requests tabs
+  show them.
+- The latest Grok pass (the Mac task it replaces had a line for it).
+
+If a repository can't be read (a renamed fork), the report says so and the run
+fails after it has published, so a lasting break doesn't go unnoticed. An
+issue whose comments can't be read is listed as unanswered. If the report's
+own repository can't be read, nothing is published (the report goes to the
+run's log) and the run fails.
 
 `scripts/monday-report.sh --dry-run` prints the report and what it would do,
 and changes nothing (it needs `gh` signed in and `jq`).

@@ -55,7 +55,8 @@ make hooks          # installs the pre-push gate
     other branch) runs the full set. AGENTS.md, "Branches".
 - **Weekly, on Mondays** (from the release that brings it to `main`, since
   GitHub runs a schedule only from there; until then each session runs the
-  script, AGENTS.md, "Starting a session"): `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+  script, AGENTS.md, "Starting a session"): `start9-watch.yml`
+  (`scripts/start9-watch.sh`) opens an issue for
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
   packaging guide or shared package workflows, a failed build on the mirror
