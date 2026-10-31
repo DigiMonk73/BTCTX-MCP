@@ -68,8 +68,10 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
 - **Imports**: an exchange's own CSV export into a ledger in use, ready-made
-  for River, Coinbase, Kraken, Strike, Swan and Cash App, or any other once
-  you match its columns, into the exchange and the wallet you choose (the
+  for River (built from a real export), Coinbase, Kraken, Strike, Swan and
+  Cash App (each from its published format, not yet checked against a real
+  export: check the preview against your file), or any other once you match
+  its columns, into the exchange and the wallet you choose (the
   preview leaves out what's already recorded, and lets you choose what paid
   for each buy); BitcoinTX's own CSV (into an empty ledger), which the CSV
   export writes with your accounts' names; and the optional AI route below
@@ -291,8 +293,11 @@ Start9: report BitcoinTX problems here ([Reporting problems](#reporting-problems
 
 Or sideload it: download `btctx.s9pk` from the
 [latest release](https://github.com/DigiMonk73/BTCTX-MCP/releases/latest) and
-upload it under **Sideload**. To update a sideloaded copy, sideload the next
-release's file the same way. Package details: [startos/README.md](startos/README.md).
+upload it under **Sideload**. StartOS 0.4.1 and later ask "Install untrusted
+software?", because the file is signed with BitcoinTX's own key, not one your
+server trusts: check the file as above, then choose **Install anyway**. To
+update a sideloaded copy, sideload the next release's file the same way.
+Package details: [startos/README.md](startos/README.md).
 
 ### From source
 

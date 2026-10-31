@@ -120,9 +120,10 @@ names the release walk's corrections.
 - `start-cli` (the release CI uses, `start-cli_aarch64-macos`) drives the
   VM once the owner has run `start-cli -H $URL auth login`. It needs
   `--root-ca ca.crt`; installs from a registry need
-  `-r https://registry.start9.com` (e.g. Tor); `package install -s` sideloads
-  (a dropped progress socket is harmless: `package list` shows it
-  installing); an action with input needs the `eventId` from
+  `-r https://registry.start9.com` (e.g. Tor); `package install -s` sideloads,
+  with `--trust` on StartOS 0.4.1 or later (start-cli 2.6.0 or later:
+  our packages aren't signed by a key the server trusts) (a dropped
+  progress socket is harmless: `package list` shows it installing); an action with input needs the `eventId` from
   `package action get-input` passed to `package action run --event-id`,
   with the input as JSON on stdin (`null` for none).
 
@@ -293,7 +294,8 @@ Start from the `clean` snapshot.
 
 ### INS: install
 
-- **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload). Expect: it
+- **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload; StartOS 0.4.1
+  and later ask "Install untrusted software?": **Install anyway**). Expect: it
   installs, and the service page shows version `X.Y.Z`.
 - **INS-2** Expect two critical tasks: **Set Login Credentials** and
   **Price Source & Privacy** ("Choose who BitcoinTX asks for newer Bitcoin

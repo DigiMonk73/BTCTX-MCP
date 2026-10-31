@@ -37,7 +37,7 @@ export const current = VersionInfo.of({
 - **An importer for any exchange's CSV file**, and a question before a change moves an earlier tax year's figures.
 - **The dashboard's Unrealized Gains/Losses adds up your accounts' own gains**, which can be a few cents from 1.x's figure; it's on no tax form.
 - **The Dashboard's "Choose a source" and "Confirm now" links go to the price card** even when pressed before it shows (#612).
-- **Underneath:** the package is built with start-sdk 3.1.1 and start-cli 2.5.2, and the image's system certificate store drops the roots distrusted after the eMudhra compromise, which the app's own connections never used. pypdf, which fills the IRS forms, is updated for published security advisories: the forms come out the same.
+- **Underneath:** the package is built with start-sdk 3.1.1 and start-cli 2.6.0, and the image's system certificate store drops the roots distrusted after the eMudhra compromise, which the app's own connections never used. pypdf, which fills the IRS forms, is updated for published security advisories: the forms come out the same.
 
 **Fixes since 1.2.10 that can change a figure**
 
@@ -86,7 +86,7 @@ Uninstall BitcoinTX (which deletes 2.0's data, the copy above included) and rest
 - **Un importador para el archivo CSV de cualquier exchange**, y una pregunta antes de que un cambio mueva las cifras de un año fiscal anterior.
 - **Unrealized Gains/Losses del Dashboard suma las ganancias propias de tus cuentas**, que pueden diferir unos céntimos de la cifra de la 1.x; no aparece en ningún formulario fiscal.
 - **Los enlaces "Choose a source" y "Confirm now" del Dashboard llevan a la tarjeta de precios** aunque se pulsen antes de que aparezca (#612).
-- **Por dentro:** el paquete se construye con start-sdk 3.1.1 y start-cli 2.5.2, y el almacén de certificados del sistema de la imagen deja fuera las raíces que perdieron la confianza tras el compromiso de eMudhra, que las conexiones propias de la aplicación nunca usaron. pypdf, que rellena los formularios del IRS, se actualiza por avisos de seguridad publicados: los formularios salen iguales.
+- **Por dentro:** el paquete se construye con start-sdk 3.1.1 y start-cli 2.6.0, y el almacén de certificados del sistema de la imagen deja fuera las raíces que perdieron la confianza tras el compromiso de eMudhra, que las conexiones propias de la aplicación nunca usaron. pypdf, que rellena los formularios del IRS, se actualiza por avisos de seguridad publicados: los formularios salen iguales.
 
 **Correcciones desde la 1.2.10 que pueden cambiar una cifra**
 
@@ -135,7 +135,7 @@ Desinstala BitcoinTX (lo que borra los datos de la 2.0, incluida la copia de arr
 - **Ein Import für die CSV-Datei jeder Börse**, und eine Frage, bevor eine Änderung die Zahlen eines früheren Steuerjahres verschiebt.
 - **Unrealized Gains/Losses im Dashboard zählt die eigenen Gewinne deiner Konten zusammen**, was ein paar Cent von der Zahl in 1.x abweichen kann; es steht auf keinem Steuerformular.
 - **Die Links "Choose a source" und "Confirm now" im Dashboard führen zur Preiskarte**, auch wenn sie gedrückt werden, bevor sie erscheint (#612).
-- **Unter der Haube:** Das Paket wird mit start-sdk 3.1.1 und start-cli 2.5.2 gebaut, und der Zertifikatspeicher des Images lässt die Wurzeln weg, denen nach dem eMudhra-Vorfall das Vertrauen entzogen wurde; die eigenen Verbindungen der App haben sie nie benutzt. pypdf, das die IRS-Formulare ausfüllt, ist wegen veröffentlichter Sicherheitshinweise aktualisiert: Die Formulare bleiben unverändert.
+- **Unter der Haube:** Das Paket wird mit start-sdk 3.1.1 und start-cli 2.6.0 gebaut, und der Zertifikatspeicher des Images lässt die Wurzeln weg, denen nach dem eMudhra-Vorfall das Vertrauen entzogen wurde; die eigenen Verbindungen der App haben sie nie benutzt. pypdf, das die IRS-Formulare ausfüllt, ist wegen veröffentlichter Sicherheitshinweise aktualisiert: Die Formulare bleiben unverändert.
 
 **Korrekturen seit 1.2.10, die eine Zahl ändern können**
 
@@ -184,7 +184,7 @@ Deinstalliere BitcoinTX (das löscht die Daten von 2.0, die Kopie oben eingeschl
 - **Import pliku CSV z dowolnej giełdy** oraz pytanie, zanim zmiana przesunie wyniki wcześniejszego roku podatkowego.
 - **Unrealized Gains/Losses na Dashboard sumuje własne zyski Twoich kont**, co może różnić się o kilka centów od wyniku w 1.x; nie ma tego na żadnym formularzu podatkowym.
 - **Linki "Choose a source" i "Confirm now" na Dashboard prowadzą do karty cen**, nawet gdy kliknie się je, zanim się pojawi (#612).
-- **Pod spodem:** pakiet jest budowany za pomocą start-sdk 3.1.1 i start-cli 2.5.2, a systemowy magazyn certyfikatów obrazu pomija główne certyfikaty, którym cofnięto zaufanie po włamaniu do eMudhra; własne połączenia aplikacji nigdy z nich nie korzystały. pypdf, który wypełnia formularze IRS, jest zaktualizowany w związku z opublikowanymi biuletynami bezpieczeństwa: formularze wychodzą takie same.
+- **Pod spodem:** pakiet jest budowany za pomocą start-sdk 3.1.1 i start-cli 2.6.0, a systemowy magazyn certyfikatów obrazu pomija główne certyfikaty, którym cofnięto zaufanie po włamaniu do eMudhra; własne połączenia aplikacji nigdy z nich nie korzystały. pypdf, który wypełnia formularze IRS, jest zaktualizowany w związku z opublikowanymi biuletynami bezpieczeństwa: formularze wychodzą takie same.
 
 **Poprawki od 1.2.10, które mogą zmienić wynik**
 
@@ -233,7 +233,7 @@ Odinstaluj BitcoinTX (co usuwa dane 2.0, łącznie z kopią opisaną wyżej) i p
 - **Un import pour le fichier CSV de n’importe quelle plateforme**, et une question avant qu’un changement ne déplace les chiffres d’une année fiscale antérieure.
 - **Unrealized Gains/Losses du Dashboard additionne les gains propres à vos comptes**, ce qui peut différer de quelques centimes du chiffre de la 1.x ; il ne figure sur aucun formulaire fiscal.
 - **Les liens "Choose a source" et "Confirm now" du Dashboard mènent à la carte des prix**, même pressés avant qu’elle n’apparaisse (#612).
-- **Sous le capot :** le paquet est construit avec start-sdk 3.1.1 et start-cli 2.5.2, et le magasin de certificats système de l’image écarte les racines qui ont perdu la confiance après la compromission d’eMudhra, que les connexions propres de l’application n’ont jamais utilisées. pypdf, qui remplit les formulaires de l’IRS, est mis à jour à la suite d’avis de sécurité publiés : les formulaires sortent identiques.
+- **Sous le capot :** le paquet est construit avec start-sdk 3.1.1 et start-cli 2.6.0, et le magasin de certificats système de l’image écarte les racines qui ont perdu la confiance après la compromission d’eMudhra, que les connexions propres de l’application n’ont jamais utilisées. pypdf, qui remplit les formulaires de l’IRS, est mis à jour à la suite d’avis de sécurité publiés : les formulaires sortent identiques.
 
 **Corrections depuis la 1.2.10 qui peuvent changer un chiffre**
 
