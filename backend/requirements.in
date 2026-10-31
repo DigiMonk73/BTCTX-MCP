@@ -23,7 +23,7 @@ python-multipart==0.0.32
 
 # Utilities
 python-dotenv==1.2.4
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
 itsdangerous==2.2.0
 tzdata==2026.5  # timezone rules for the tax timezone (bundled, OS-independent)
 
