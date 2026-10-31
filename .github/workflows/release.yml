@@ -189,8 +189,8 @@ jobs:
       package: ${{ steps.pack.outputs.package }}
     env:
       # the same start-cli as ci.yml's START_CLI_VERSION and START_CLI_SHA256
-      START_CLI_VERSION: v2.5.2
-      START_CLI_SHA256: 539ef6ccd2ecc6b616f0f109377c397f4a537037bb9d2e002be9366cca8d0bff
+      START_CLI_VERSION: v2.6.0
+      START_CLI_SHA256: b13c65a49055d96fc578e837ecb5c37516bf1a2b241282d41ee291cd56e772e5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -320,7 +320,7 @@ jobs:
 
           ## Downloads
 
-          - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first; then in StartOS, open **Sideload** and upload it: it updates your BitcoinTX in place.
+          - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first; then in StartOS, open **Sideload** and upload it (StartOS 0.4.1 and later ask "Install untrusted software?", since it's signed with BitcoinTX's own key: **Install anyway**): it updates your BitcoinTX in place.
           - **macOS:** \`$MAC_DMG\` (or the \`.zip\`), the separate app BitcoinTX Preview, whose icon has a red PREVIEW band. It is not signed by Apple: the first time, right-click (Control-click) BitcoinTX Preview in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64), on a new volume. Never \`:latest\`, which stays on 1.x.
           - **AI connector (optional):** \`uvx btctx-mcp==$CONNECTOR\` (a pre-release on PyPI); BitcoinTX Preview's Settings → Connect an AI Assistant has it ready to paste.
@@ -332,7 +332,7 @@ jobs:
 
           ## Downloads
 
-          - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first (a sideload doesn't ask, and StartOS can't undo an update), then open **Sideload** and upload it; installs of earlier versions update in place.
+          - **StartOS:** \`btctx.s9pk\`, package $PACKAGE. Make a StartOS backup of BitcoinTX first (a sideload doesn't remind you, and StartOS can't undo an update), then open **Sideload** and upload it (StartOS 0.4.1 and later ask "Install untrusted software?", since it's signed with BitcoinTX's own key: **Install anyway**); installs of earlier versions update in place.
           - **macOS:** \`$MAC_DMG\` (or the \`.zip\`). The app is not signed by Apple: the first time, right-click (Control-click) BitcoinTX in Applications and choose **Open**; on macOS 15 or later, open it once, then go to **System Settings > Privacy & Security** and click **Open Anyway**.
           - **Docker:** \`ghcr.io/digimonk73/btctx-mcp:$VERSION\` (amd64 and arm64).
           - **AI connector (optional):** \`uvx btctx-mcp==$CONNECTOR\` (PyPI); Settings → Connect an AI Assistant has it ready to paste.

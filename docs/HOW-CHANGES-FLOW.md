@@ -227,7 +227,9 @@ goes into `2.0` (AGENTS.md, "Releasing").
    (`https://community-beta-registry.start9.com`).
 4. The owner tests the beta on their own server, using a checklist
    Claude writes for that release on the issue that plans its promotion
-   (1.2.9's: #143, section 5).
+   (1.2.9's: #143, section 5). On StartOS 0.4.1 or later that needs **Start9
+   Alpha** turned on for service packages (System > Trusted keyrings): only
+   Start9's community build key signs Community Beta's packages.
 5. When satisfied, the owner asks Start9, in an issue on their copy, to
    **promote** it to the main store (`https://community-registry.start9.com`).
    Claude drafts that request. Promotion is the owner's call.
