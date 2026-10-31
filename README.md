@@ -280,6 +280,10 @@ once tested there, to its **Community Registry**:
    (`https://community-registry.start9.com`). To get each release as soon
    as it's out, add `https://community-beta-registry.start9.com` there
    instead ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
+   StartOS 0.4.1 and later block what only Community Beta's build key has
+   signed: to install from there, turn on **Start9 Alpha** for service
+   packages under **System > Trusted keyrings**
+   ([Start9's guide](https://docs.start9.com/start-os/trusted-keys.html)).
 2. Choose **BitcoinTX** and click **Install**. New versions then show in the
    **Updates** tab ([Updating](https://docs.start9.com/start-os/updating.html)).
 3. Follow BitcoinTX's **Instructions** in StartOS
