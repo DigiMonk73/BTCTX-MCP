@@ -633,9 +633,12 @@ exchanges and banks** reads its name, its kind and its balance.
   the panel. Back in Settings, **Show hidden (1)**: the row `Credit union`
   Bank Hidden $0.00, its details saying "Hidden: left out of the lists you
   pick an account from. It has no transactions."; **Show**: back in the
-  list, and no **Show hidden** left. Open it, **Delete**: the browser's
-  confirm "Delete Credit union? It has no transactions."; OK. Expect the
-  row gone and the summary "2 wallets · 2 exchanges · 1 bank".
+  list, and no **Show hidden** left. Open it, **Delete**: BitcoinTX's own
+  dialog (#651), "Delete Credit union? This deletes the bank Credit union.
+  Only an account with no transactions can be deleted, and it has none. An
+  account with transactions can be hidden instead: its history stays.";
+  **Delete Credit union**. Expect the row gone and the summary "2 wallets ·
+  2 exchanges · 1 bank".
 - **ACC-6** Dashboard. Expect Portfolio Overview's Wallet (BTC) 0.39970000
   BTC with a caret after its label, Settings' chevron: pressed (anywhere
   on the line), the caret turns over as a Settings section's does, and the
@@ -899,8 +902,8 @@ attach btctx -n btctx -- sh -c 'ls -t /data/backups | head -1'`.
     without Tor: no, since … (answered on the Dashboard)". Restart the
     service: still no question and no "checked" line.
   - **Yes:** in Settings' **Privacy & Network**, **Download it without Tor**.
-    Expect at once "Price history without Tor: yes (answered in Settings)",
-    then "Hourly BTC prices: Bitstamp's fixed blocks for the year files go
+    Expect at once "Bitstamp's price history without Tor: yes, since …
+    (answered in Settings)", then "Hourly BTC prices: Bitstamp's fixed blocks for the year files go
     without Tor (agreed on …)" and, newest year first, one line per year:
     "Hourly BTC prices for YYYY from Bitstamp: N hours, checked". Each year
     takes a few seconds.
@@ -1322,7 +1325,7 @@ Set `KEY` to the key from AI-3, and use
   rows in file"; the note "Rows dated in tax year 2025 can change the
   figures of that year and later ones you may already have filed:
   BitcoinTX shows what changes, and asks, before it imports them." (none,
-  and no dialog below, if the walk runs in 2025); and "Warnings (7):":
+  and no dialog below, if the walk runs in 2025); and "Warnings (8):":
   - "Row 9 is Kraken's pending copy of a deposit or withdrawal (no txid),
     whose completed row is read: left out."
   - "Rows 2 and 21 move dollars, not bitcoin: left out."
@@ -1335,6 +1338,8 @@ Set `KEY` to the key from AI-3, and use
     IRS Notice 2014-21): left out."
   - "Rows 19 and 20 are a withdrawal Kraken sent back (they add up to
     nothing): left out."
+  - "Row 11: From your wallet, oldest coins first: you can choose the coins
+    after the import."
   - "Row 14: 0.0000012345 BTC is rounded to 0.00000123 BTC: BitcoinTX
     counts whole satoshis."
 
@@ -1610,7 +1615,14 @@ Start from the `clean` snapshot.
   place, starts healthy, and `$API/health` shows `X.Y.Z` and its
   schema. The same login works, and a browser logged in before the
   update stays logged in (updating from 1.2.7 or earlier, it shows the
-  login page once first: every session from before 1.2.8 ends, #221). Every UPG-1 figure is identical. The AI key
+  login page once first: every session from before 1.2.8 ends, #221). Every UPG-1 figure is identical.
+  A Complete Tax Report's market values at a year's start and end are
+  prices, not stored figures: until the hourly history has downloaded (a
+  few minutes after a price source is chosen, or an update) they use the
+  day's price, which the report's year-end note says. So before comparing
+  them, at UPG-1 and here, wait until, logged in, `GET
+  $API/bitcoin/price/status` gives `history.state` `complete`, or the
+  service log has PRC-3b's line "aren't used" for a year. The AI key
   still works. Any tasks raised are only the ones this release's CHANGELOG
   entry announces. INS-5's check that BitcoinTX isn't root passes too
   (from 1.2.9: the update hands the old release's root-owned files to
