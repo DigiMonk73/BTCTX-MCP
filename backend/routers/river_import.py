@@ -11,10 +11,10 @@ from __future__ import annotations
 import logging
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from backend.constants import ACCOUNT_NAME_TO_ID, BTC_ACCOUNTS
 from backend.database import get_db
 from backend.routers.csv_import import MAX_ROWS, _read_validated_csv, _require_auth, import_failure
 from backend.schemas.river_import import (
@@ -25,19 +25,23 @@ from backend.schemas.river_import import (
     RiverProposalOut,
 )
 from backend.schemas.csv_import import CSVParseError
-from backend.services import hourly_prices
+from backend.services.account import AccountBook, account_book
+from backend.services import hourly_prices, past_years
+from backend.services.past_year_writes import Rows
 from backend.schemas.transaction import BTC_PLACES
-from backend.services.csv_import import _parse_decimal, _validate_row, execute_import, number_text
+from backend.services.csv_import import (
+    _parse_decimal, _validate_row, create_in_time_order, execute_import, number_text,
+)
+from backend.services.exchange_import import Proposed, propose_file
+from backend.services.exchange_mappings import RIVER
 from backend.services.river_import import (
     STATUS_DISCREPANCY,
     STATUS_MATCHED,
     STATUS_NEW,
     RiverProposal,
-    adapt_river_rows,
     annotate_duplicates,
     ledger_amount,
-    parse_river_csv,
-    rows_in_file,
+    river_accounts,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,8 +54,9 @@ def _autofill_fmv_basis(
 ) -> None:
     """
     Prefill cost_basis_usd (fair market value at receipt) on Deposit
-    proposals (River's Interest, Income and Mining payouts) at the BTC
-    price of their hour (else their day: services/hourly_prices.py).
+    proposals (an exchange's payouts: River's Interest, Income and Mining,
+    for one) the file gave no value for, at the BTC price of their hour
+    (else their day: services/hourly_prices.py).
     Degrades gracefully: on lookup failure
     the basis stays blank and a warning tells the user to fill it in.
     """
@@ -114,10 +119,14 @@ def _proposal_to_out(p: RiverProposal) -> RiverProposalOut:
 def preview_river_import(
     request: Request,
     file: UploadFile = File(...),
+    exchange_account_id: int | None = Form(None),
+    wallet_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
 ):
     """
-    Parse a River bitcoin-activity CSV, map rows to proposed transactions,
+    Parse a River bitcoin-activity CSV, map rows to proposed transactions
+    into the exchange and the wallet the owner chose (an exchange's BTC
+    account and a wallet; by default the first of each not hidden, 5.11),
     autofill FMV basis for River's payouts, and mark rows that already
     exist in the ledger. Nothing is written to the database.
 
@@ -127,11 +136,16 @@ def preview_river_import(
     _require_auth(request)
 
     content = _read_validated_csv(file)
+    accounts = river_accounts(account_book(db), exchange_account_id, wallet_account_id)
+    return previewed(propose_file(content, RIVER, accounts), db)
 
-    rows, errors = parse_river_csv(content)
-    proposals, adapt_errors, warnings = adapt_river_rows(rows)
-    errors.extend(adapt_errors)
 
+def previewed(proposed: Proposed, db: Session) -> RiverPreviewResponse:
+    """A file's preview, for River's and every exchange's (exchange_import):
+    its proposals with their payouts valued at their hour's price and those
+    already in the ledger marked (#253), counted; 400 for more rows than an
+    import takes."""
+    proposals, errors, warnings = proposed.proposals, proposed.errors, proposed.warnings
     if len(proposals) > MAX_ROWS:
         raise HTTPException(
             status_code=400,
@@ -147,13 +161,17 @@ def preview_river_import(
 
     return RiverPreviewResponse(
         success=len(errors) == 0,
-        total_rows=rows_in_file(rows, errors),
+        total_rows=proposed.total_rows,
         new_count=new_count,
         matched_count=matched_count,
         discrepancy_count=discrepancy_count,
         proposals=[_proposal_to_out(p) for p in proposals],
         errors=errors,
         warnings=warnings,
+        # By their dates: the owner edits the rows before the import, which
+        # names exactly what they change
+        past_years_dated=past_years.years_dated_before(
+            db, [p.timestamp for p in proposals if p.status != STATUS_MATCHED]),
     )
 
 
@@ -161,6 +179,7 @@ def preview_river_import(
 def execute_river_import(
     request: Request,
     payload: RiverExecuteRequest,
+    confirm: str | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -172,7 +191,10 @@ def execute_river_import(
     there, whose matches are kept for them (#253). The check and the writes
     hold one write lock, so the same rows imported twice at once (two tabs)
     are saved once (#454). All-or-nothing: any failure rolls back the
-    entire batch.
+    entire batch. Rows that would change the figures of an earlier tax year
+    answer 409 with the years, what changes and a fingerprint, and nothing
+    is saved until sent again with ?confirm=<fingerprint>: one confirm for
+    the file, after a copy of the database (2.0 spec 5.8).
     """
     _require_auth(request)
 
@@ -185,21 +207,24 @@ def execute_river_import(
             detail=f"Too many transactions. Maximum is {MAX_ROWS} rows per import.",
         )
 
-    to_check = _rows_to_check(payload.rows)
+    to_check = _rows_to_check(payload.rows, account_book(db))
     reserved = {row.matched_tx_id for row in payload.rows if row.matched_tx_id is not None}
     imported_count = 0
     if to_check:
         try:
-            imported_count = execute_import(
-                db, [tx_data for _number, tx_data, _row in to_check], lambda: _not_in_the_ledger(to_check, reserved, db))
+            imported_count = past_years.save(_past_year_write(to_check, reserved), db, confirm, by_ai=False)
         except HTTPException as exc:
             db.rollback()
+            if exc.status_code >= 500:  # the confirmed save's: busy, or no copy first
+                raise
             raise HTTPException(
                 status_code=400,
                 detail=f"Import failed: {exc.detail}. No transactions were saved.",
             )
         except Exception as exc:
             raise import_failure("River import", exc) from exc
+        if isinstance(imported_count, JSONResponse):
+            return imported_count  # the warning
     skipped = len(kept) - imported_count
 
     if not imported_count:
@@ -220,7 +245,25 @@ def execute_river_import(
     )
 
 
-def _rows_to_check(rows: list[RiverExecuteRow]) -> list[tuple[int, dict, RiverExecuteRow]]:
+def _past_year_write(to_check: list[tuple[int, dict, RiverExecuteRow]], reserved: set[int]) -> Rows:
+    """The file's rows as one write through the past-year warning (2.0 spec
+    5.8): each pass and the confirmed save check them for duplicates
+    (_not_in_the_ledger) and save those not in the ledger, from the rows'
+    values as given; the confirmed save does so under its write lock."""
+    rows = tuple(tx_data for _number, tx_data, _row in to_check)
+
+    def write_them(db: Session) -> int:
+        return create_in_time_order(db, [dict(tx_data) for tx_data in _not_in_the_ledger(to_check, reserved, db)])
+
+    def save_them(db: Session) -> int:
+        # The rows the check returns, so a run made again for a price starts from them as given (with_prices_found)
+        return execute_import(db, list(rows), lambda: _not_in_the_ledger(to_check, reserved, db))
+
+    return Rows(rows, lambda db: _not_in_the_ledger(to_check, reserved, db), write_them, save_them,
+                named=sorted(reserved))
+
+
+def _rows_to_check(rows: list[RiverExecuteRow], book: AccountBook) -> list[tuple[int, dict, RiverExecuteRow]]:
     """The checked rows the import may save (#253), each with its number
     among the rows kept and its row: those the preview didn't find in the
     ledger, and those it found that the owner ticked (another transaction,
@@ -229,7 +272,7 @@ def _rows_to_check(rows: list[RiverExecuteRow]) -> list[tuple[int, dict, RiverEx
     the owner's edits can't move a match."""
     kept = [row for row in rows if not row.left_out]
     return [
-        (i + 1, tx_data, row) for i, (tx_data, row) in enumerate(zip(_validated_rows(kept), kept))
+        (i + 1, tx_data, row) for i, (tx_data, row) in enumerate(zip(_validated_rows(kept, book), kept))
         if row.matched_tx_id is None or row.not_a_duplicate
     ]
 
@@ -245,7 +288,7 @@ def _not_in_the_ledger(to_check: list[tuple[int, dict, RiverExecuteRow]], reserv
     return [tx_data for (_number, tx_data, _row), stub in zip(to_check, stubs) if stub.status == STATUS_NEW]
 
 
-def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
+def _validated_rows(rows: list[RiverExecuteRow], book: AccountBook) -> list[dict]:
     """Each row checked by the CSV import's row check, its Transfer's amount
     with its BTC fee in (_csv_row); 400 listing the first five errors when
     any row has one, each under the row number the preview showed (#455)."""
@@ -253,7 +296,7 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     all_errors: list[str] = []
     for i, row in enumerate(rows, start=1):
         number = row.row_number if row.row_number is not None else i
-        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row), number)
+        tx_data, _preview, errors, _warnings = _validate_row(_csv_row(row, book), number, book=book)
         if errors:
             all_errors.extend(f"Row {e.row_number}: {e.message}" for e in errors)
         else:
@@ -266,14 +309,14 @@ def _validated_rows(rows: list[RiverExecuteRow]) -> list[dict]:
     return tx_datas
 
 
-def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
+def _csv_row(row: RiverExecuteRow, book: AccountBook) -> dict[str, str]:
     """A row as the CSV import reads it: text, River's own amounts but a
     Transfer's, which is BitcoinTX's (_ledger_amount)."""
     ts = row.date
     return {
         "date": ts.strftime("%Y-%m-%dT%H:%M:%S%z") if ts.tzinfo else ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": row.type,
-        "amount": number_text(_ledger_amount(row)),
+        "amount": number_text(_ledger_amount(row, book)),
         "from_account": row.from_account,
         "to_account": row.to_account,
         "cost_basis_usd": number_text(row.cost_basis_usd),
@@ -288,7 +331,7 @@ def _csv_row(row: RiverExecuteRow) -> dict[str, str]:
     }
 
 
-def _ledger_amount(row: RiverExecuteRow) -> Decimal:
+def _ledger_amount(row: RiverExecuteRow, book: AccountBook) -> Decimal:
     """
     River leaves a transfer's fee out of its amount; BitcoinTX's, the CSV's
     and the save's, has a BTC fee in (ledger_amount). The row check then
@@ -297,8 +340,8 @@ def _ledger_amount(row: RiverExecuteRow) -> Decimal:
     fee the row check takes, each read as it reads them ("transfer", " btc");
     any other row keeps River's amount, so its error names its own column.
     """
-    sender = ACCOUNT_NAME_TO_ID.get(row.from_account.strip().lower())
-    if row.type.strip().title() != "Transfer" or sender not in BTC_ACCOUNTS:
+    sender = book.id_for(row.from_account)
+    if row.type.strip().title() != "Transfer" or not book.is_btc(sender):
         return row.amount
     if not (_btc_number(row.amount) and row.amount > 0 and _btc_number(row.fee_amount) and row.fee_amount > 0):
         return row.amount
@@ -312,7 +355,8 @@ def _btc_number(value: Decimal | None) -> bool:
 
 def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal:
     """A checked row in the shape the duplicate check reads: River's amount
-    and fee, as the preview's proposal had them."""
+    and fee, as the preview's proposal had them, and a buy's funding bank,
+    which River's file never names."""
     return RiverProposal(
         row_number=row_number,
         timestamp=tx_data["timestamp"],
@@ -325,4 +369,5 @@ def _stub(row_number: int, tx_data: dict, row: RiverExecuteRow) -> RiverProposal
         proceeds_usd=tx_data.get("proceeds_usd"),
         fee_amount=row.fee_amount,
         fee_currency=row.fee_currency,
+        unnamed_bank="from" if tx_data["type"] == "Buy" else None,
     )

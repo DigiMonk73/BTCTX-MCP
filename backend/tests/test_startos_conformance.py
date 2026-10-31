@@ -161,11 +161,78 @@ def test_instructions_describe_the_service_as_it_is():
     assert update_words.findall(read("instructions.md")) == []
 
 
+def test_instructions_say_what_to_do_behind_a_tunnel():
+    # writing-instructions.md, "Connections the service starts itself": the
+    # public price sites would learn the server's address, so someone using a
+    # tunnel for privacy is told to send outbound traffic there too, and
+    # someone using it for another reason that nothing changes. It says what to
+    # do, not where: the setting's place moves between StartOS releases.
+    text = read("instructions.md")
+    assert "send its outbound traffic through that tunnel too" in text
+    assert "If you use a tunnel for another reason" in text
+    assert "Set Outbound Gateway" not in text
+
+
+def store_descriptions(name: str) -> dict[str, str]:
+    """One of manifest/i18n.ts's descriptions, by locale: each a single- or
+    double-quoted string (Prettier double-quotes a text holding an apostrophe)."""
+    block = re.search(rf"export const {name} = \{{(.*?)\n\}}", read("startos/manifest/i18n.ts"), re.S).group(1)
+    found = re.findall(r"""(\w\w_\w\w):\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")""", block)
+    return {locale: re.sub(r"\\(.)", r"\1", single or double) for locale, single, double in found}
+
+
+def start9_length(text: str) -> int:
+    """A description's length as start-cli counts it: UTF-8 bytes (Rust's
+    str::len in start-core's s9pk/v2/manifest.rs, Description::validate), so
+    "ł", "é" and "’" count two or three (#792)."""
+    return len(text.encode("utf-8"))
+
+
+def test_store_descriptions_keep_start9s_limits():
+    # manifest.md, "How long each one may be": short 120 and long 2,000 in
+    # every locale (an overrun fails the build), counted as start-cli counts
+    # them; the English short well inside the tile's two lines (about 80
+    # characters), and not opening with the service's name, which the tile
+    # shows just above it.
+    locales = {"en_US", "es_ES", "de_DE", "pl_PL", "fr_FR"}
+    short, long = store_descriptions("short"), store_descriptions("long")
+    assert set(short) == set(long) == locales
+    for locale in locales:
+        assert start9_length(short[locale]) <= 120, (locale, start9_length(short[locale]))
+        assert start9_length(long[locale]) <= 2000, (locale, start9_length(long[locale]))
+        assert not short[locale].startswith("BitcoinTX"), locale
+    assert len(short["en_US"]) <= 80, len(short["en_US"])
+
+
+def test_start9s_limits_count_bytes_not_characters():
+    # #792: 1,941 characters of Polish were 2,025 bytes, and start-cli
+    # refused to pack the package.
+    assert start9_length("a" * 2000) == 2000
+    assert start9_length("ł" * 1000) == 2000
+    assert start9_length("’") == 3
+
+
 def test_license_is_upstreams_license_alone():
     # project-structure.md: "It carries upstream's license text alone"; with a
     # pre-built image, "copy the license text directly from the upstream
     # repository" (this repository's own LICENSE).
     assert read("LICENSE") == (ROOT / "LICENSE").read_text()
+
+
+# A package version: X.Y.Z:N, or a 2.0 pre-release's X.Y.Z-alpha.N:0 or
+# X.Y.Z-beta.N:0 (Start9's ExVer for an upstream alpha or beta, versions.md;
+# on the 2.0 branch only, 2.0 plan 7.4, B10a: a pre-release never reaches the
+# mirror)
+PACKAGE_VERSION = re.compile(r"\d+\.\d+\.\d+:\d+|\d+\.\d+\.\d+-(alpha|beta)\.[1-9]\d*:0")
+
+
+@pytest.mark.parametrize("version, ok", [
+    ("1.2.10:0", True), ("1.2.4:1", True), ("2.0.0-beta.1:0", True), ("2.0.0-beta.12:0", True),
+    ("2.0.0-alpha.1:0", True), ("2.0.0-alpha.1:1", False), ("2.0.0-alpha.0:0", False),
+    ("2.0.0-beta.1:1", False), ("2.0.0-beta.0:0", False), ("2.0.0-rc.1:0", False), ("2.0.0", False),
+])
+def test_a_package_version_is_a_release_or_a_pre_release(version, ok):
+    assert bool(PACKAGE_VERSION.fullmatch(version)) is ok
 
 
 def test_start9s_release_workflow_reads_one_id_and_one_version():
@@ -175,7 +242,7 @@ def test_start9s_release_workflow_reads_one_id_and_one_version():
     current = read("startos/versions/current.ts")
     assert re.findall(r"id:\s*['\"]([^'\"]*)", manifest) == ["btctx"]
     versions = re.findall(r"version:\s*['\"]([^'\"]*)", current)
-    assert len(versions) == 1 and re.fullmatch(r"\d+(\.\d+)*:\d+", versions[0]), versions
+    assert len(versions) == 1 and PACKAGE_VERSION.fullmatch(versions[0]), versions
 
 
 def test_one_exact_sdk_and_siblings_at_next():

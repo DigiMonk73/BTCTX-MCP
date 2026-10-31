@@ -182,11 +182,14 @@ class _TaxReport:
         self.tz_name = data.get("tax_timezone") or "UTC"
         self.tz = ZoneInfo(self.tz_name)
         self.styles = ReportStyles()
+        # A name the owner typed wraps between its words, and inside a word only one too long for the line
+        self.name_style = ParagraphStyle(name="CellName", parent=self.styles.cell, wordWrap=None)
         self.running_title = f"{self.year} Bitcoin Tax Report"
         self.disposals = [d for d in data.get("capital_gains_transactions", []) if d.get("asset") == "BTC"]
         self.income = [t for t in data.get("income_transactions", []) if t.get("asset") == "BTC"]
         self.rebates = data.get("rebates", [])
         self.gifts = [g for g in data.get("gifts_donations_lost", []) if g.get("asset") == "BTC"]
+        self.chosen = data.get("coins_you_chose", [])
         balances = data.get("end_of_year_balances", [])
         self.lots = [b for b in balances if b.get("asset", "").startswith("BTC")]
         self.year_end_total = next((b for b in balances if b.get("asset") == "Total"), None)
@@ -198,6 +201,7 @@ class _TaxReport:
             PageBreak(),
             *self.summary(),
             *self.capital_gains_detail(),
+            *self.coins_chosen_detail(),
             *self.income_detail(),
             *self.gifts_detail(),
             *self.holdings_detail(),
@@ -209,6 +213,10 @@ class _TaxReport:
     def text(self, value, style=None) -> Paragraph:
         # Report data is text, never markup (safe_text.py)
         return Paragraph(pdf_text(value), style or self.styles.cell)
+
+    def name(self, value) -> Paragraph:
+        """An account's or an exchange's name (2.0 spec 5.1: typed by the owner, up to 40 characters)."""
+        return self.text(value, self.name_style)
 
     def number(self, value: str, bold: bool = False) -> Paragraph:
         return self.text(value, self.styles.number_bold if bold else self.styles.number)
@@ -324,7 +332,9 @@ class _TaxReport:
     def facts(self) -> Table:
         facts = (
             ("Tax year", f"{self.year} ({self.data.get('period', '')})"),
-            ("Cost basis method", "First in, first out (FIFO), for each account"),
+            # Decision 30's short wording; Q5's in a year whose coins were chosen in a wallet (#711)
+            ("Cost basis method", "Per-wallet FIFO, with the coins you chose in your wallets" if self.chosen
+             else "Per-wallet FIFO"),
             ("Tax timezone", f"{self.tz_name}: it decides each transaction's tax year, the dates shown "
                              "and the holding period"),
             ("Prices", "USD values as entered; one left blank: the BTC price when its hour began (UTC), "
@@ -466,8 +476,9 @@ class _TaxReport:
     # 2. Capital gains and losses
     def capital_gains_detail(self) -> list:
         story = self.section(2, "Capital gains and losses",
-                             "Every disposal of the year as on Form 8949: one line for each lot it used (first in, "
-                             "first out), with its box. A network fee paid in BTC is a disposal too.")
+                             "Every disposal of the year as on Form 8949: one line for each lot it used (per-wallet "
+                             "FIFO, or the coins you chose in a wallet), with its box. A network fee paid in BTC is a "
+                             "disposal too.")
         if not self.disposals:
             return story + [self.nothing("disposals")]
         rows = [self.header("Sold", "Acquired", "Kind", "Box", "Term", "BTC", "Proceeds", "Cost basis",
@@ -477,16 +488,80 @@ class _TaxReport:
         rows.append([self.total_label(), "", "", "", "", *self.numbers(
             fmt_btc(sum(d.get("amount", 0.0) for d in self.disposals)), fmt_usd(t["proceeds"]),
             fmt_usd(t["basis"]), fmt_gain(t["gain"]), bold=True)])
-        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee"
-        return story + [data_table(rows, [0.72, 0.75, 0.79, 0.38, 0.5, 0.86, 1.0, 1.0, 1.0], total=True)]
+        # Acquired fits INHERITED (43 pt at 8 pt, #154) on one line, Kind "Network fee" and "Exchange BTC"
+        # (54 pt), Term "Short"; a longer account name wraps
+        return story + [data_table(rows, [0.72, 0.75, 0.9, 0.35, 0.42, 0.86, 1.0, 1.0, 1.0], total=True),
+                        *self.sales_by_exchange()]
+
+    def coins_chosen_detail(self) -> list:
+        """The year's coins chosen in a wallet (#711): the record of each
+        specific identification for the preparer (Treas. Reg.
+        §1.1012-1(j)(2)), one line per purchase or deposit the coins came
+        from, with the day the choice was saved, marked when it's after the
+        coins left (Q1)."""
+        if not self.chosen:
+            return []
+        rows = [self.header("Date", "Wallet", "Kind", "Chosen on", "Date acquired", "BTC", "Cost", numbers_from=5)]
+        for c in self.chosen:
+            for i, coin in enumerate(c.get("coins", [])):
+                first = i == 0
+                rows.append([self.text(self.date(c["date"]) if first else ""), self.name(c["wallet"] if first else ""),
+                             self.text(f"{c['kind']}, {fmt_btc(c['btc'])} BTC" if first else ""),
+                             self.text(self.chosen_on(c) if first else ""),
+                             self.text(self.day(coin["acquired"])),
+                             *self.numbers(fmt_btc(coin["btc"]), fmt_usd(coin["cost"]))])
+        later = [self.text("* Chosen after the coins left. A choice counts only if you made it by then and your "
+                           "records show it.", self.styles.normal)] if any(c.get("chosen_later") for c in self.chosen) else []
+        intro = ("In these transactions the coins that left one of your wallets are the ones you chose, not the oldest "
+                 "(specific identification, Treas. Reg. §1.1012-1(j)(2)): each line is a purchase or deposit they "
+                 "came from. Chosen on is the day the choice was saved in BitcoinTX.")
+        return [*self.subheading("Coins you chose"), self.text(intro, self.styles.normal),
+                data_table(rows, [0.8, 1.1, 1.2, 0.85, 0.95, 1.1, 1.0]), *later]
+
+    def chosen_on(self, chosen: dict) -> str:
+        return self.day(chosen.get("chosen_on") or "") + (" *" if chosen.get("chosen_later") else "")
+
+    def day(self, text: str) -> str:
+        """A date (YYYY-MM-DD) as MM/DD/YYYY, like the IRS forms; INHERITED as it is."""
+        try:
+            return datetime.date.fromisoformat(text).strftime("%m/%d/%Y")
+        except ValueError:
+            return text
 
     def disposal_row(self, d: dict) -> list:
         return [
             self.text(self.date(d.get("date_sold", ""))), self.text(self.date(d.get("date_acquired", ""))),
-            self.text(d.get("kind") or d.get("type", "")), self.text(d.get("box", "")),
+            self.kind_cell(d), self.text(d.get("box", "")),
             self.text((d.get("holding_period") or "").capitalize()),
             *self.numbers(fmt_btc(d.get("amount", 0.0)), fmt_usd(d.get("proceeds", 0.0)),
                           fmt_usd(d.get("cost", 0.0)), fmt_gain(d.get("gain_loss", 0.0))),
+        ]
+
+    def kind_cell(self, d: dict) -> list:
+        """What gave rise to a disposal ("Sale"), and below it the account it
+        left ("Kraken BTC", 2.0 spec 5.7): a name wraps inside the column."""
+        return [self.text(d.get("kind") or d.get("type", "")), *([self.name(d["account"])] if d.get("account") else [])]
+
+    def sales_by_exchange(self) -> list:
+        """Each exchange's Sells of the year (2.0 spec 5.7), to set beside the
+        Form 1099-DA it sends; nothing in a year without one."""
+        sales = self.data.get("sales_by_exchange") or []
+        if not sales:
+            return []
+        rows = [self.header("Exchange", "Sends Form 1099-DA", "Boxes", "Rows", "Proceeds", "Cost basis", "Gain (loss)",
+                            numbers_from=3)]
+        # Forms 1099-DA start with 2025 (Instructions for Form 1099-DA)
+        before = isinstance(self.year, int) and self.year < 2025
+        rows += [[self.name(s["exchange"]), self.text("—" if before else "Yes" if s["sends_1099da"] else "No"),
+                  self.text(", ".join(s["boxes"])), *self.numbers(str(s["rows"]), fmt_usd(s["proceeds"]),
+                                                                  fmt_usd(s["cost"]), fmt_gain(s["gain_loss"]))]
+                 for s in sales]
+        return [
+            *self.subheading("Sales by exchange"),
+            data_table(rows, [1.9, 0.85, 0.6, 0.45, 1.05, 1.05, 1.1]),
+            self.text("Each exchange's Sells from the list above, network fees left out (a fee is on no Form 1099-DA "
+                      "by itself)" + ("" if before else ": to set beside the Form 1099-DA each exchange sends") +
+                      ". Every figure stays where it is on Form 8949.", self.styles.note),
         ]
 
     # 3. Income
@@ -632,7 +707,7 @@ class _TaxReport:
             acc["cost"] += lot.get("cost", 0.0)
             acc["value"] = None if lot.get("value") is None or acc["value"] is None else acc["value"] + lot["value"]
         rows = [self.header("Account", "Lots", "BTC", "Cost basis", "Market value", numbers_from=1)]
-        rows += [[self.text(name), *self.numbers(str(a["lots"]), fmt_btc(a["btc"]), fmt_usd(a["cost"]),
+        rows += [[self.name(name), *self.numbers(str(a["lots"]), fmt_btc(a["btc"]), fmt_usd(a["cost"]),
                                                  fmt_value(a["value"]))] for name, a in sorted(accounts.items())]
         total = self.year_end_total or {}
         rows.append([self.total_label(), *self.numbers(
@@ -642,7 +717,7 @@ class _TaxReport:
 
     def lots_table(self) -> Table:
         rows = [self.header("Acquired", "Account", "BTC", "Cost basis", "Market value", numbers_from=2)]
-        rows += [[self.text(self.date(lot.get("acquired", ""))), self.text(lot.get("account", "")),
+        rows += [[self.text(self.date(lot.get("acquired", ""))), self.name(lot.get("account", "")),
                   *self.numbers(fmt_btc(lot.get("quantity", 0.0)), fmt_usd(lot.get("cost", 0.0)),
                                 fmt_value(lot.get("value")))] for lot in self.lots]
         total = self.year_end_total or {}
@@ -775,10 +850,13 @@ class _TaxReport:
             "Write the name and social security number on every Form 8949 page and on Schedule D: BitcoinTX "
             "leaves them blank, and a Part II page can print without its Part I.",
             "Print single-sided: otherwise Schedule D can start on the back of the last Form 8949 page.",
-            "BitcoinTX tracks one self-custody wallet and one exchange account, each with its own lots, first in, "
-            "first out. Since 2025 IRS rules require cost basis to be figured wallet by wallet and account by "
-            "account (Treas. Reg. §1.1012-1(j); Rev. Proc. 2024-28): multiple wallets or exchange accounts are "
-            "pooled here and need separate records.",
+            # 5.14's one wording of the rule, decision 30's short one of the method with the coins chosen (#711's
+            # 7.3: its full sentence is the Notes', and this page keeps to one), and what BitcoinTX doesn't record (3.7)
+            "From 2025, cost basis is figured wallet by wallet and account by account; unless you identify the coins "
+            "you sell, first in, first out within each, by the date first acquired (Treas. Reg. §1.1012-1(j)). "
+            + ("BitcoinTX uses per-wallet FIFO, and the coins you chose in your wallets (listed under \"Coins you "
+             "chose\")." if self.chosen else "BitcoinTX uses per-wallet FIFO.")
+            + " BitcoinTX records no Rev. Proc. 2024-28 allocation.",
             "Gifts received use the giver's cost basis and, when entered, the giver's acquisition date. BitcoinTX "
             "doesn't apply the rule for a gift worth less on the day of the gift than the giver paid (IRC §1015): "
             "a sale of such coins at a loss has to be adjusted by hand (its basis and holding period).",
@@ -794,8 +872,12 @@ class _TaxReport:
     def notes(self) -> list:
         notes = (
             "All amounts are in US dollars unless marked BTC. Losses are shown in parentheses, as on the IRS forms.",
-            "Capital gains use the first in, first out (FIFO) method within each account: a disposal uses the "
-            "oldest bitcoin held in that account. Trading between BTC and USD is a taxable event.",
+            # The coins chosen in a wallet are listed (#711, 6.7); a broker's own order gives other figures (3.7)
+            "Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, "
+            "spend or transfer, unless you choose other coins in one of your own wallets."
+            + (" The coins you chose are listed under \"Coins you chose\", in section 2." if self.chosen else "")
+            + " An exchange's own order of coins can give other figures. Trading between BTC and USD is a taxable "
+            "event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
             "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
             "USD values are the ones entered with each transaction. When one was left blank, BitcoinTX filled "

@@ -2,7 +2,8 @@ import React from "react";
 import ValueOrigin from "./ValueOrigin";
 import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
-import { takesOriginalDate } from "../../utils/transactionForm";
+import { chosenId } from "../../utils/accounts";
+import { inBtcAccount, takesOriginalDate } from "../../utils/transactionForm";
 import { useBlankPriceSource, type BlankPriceWords } from "./useBlankPriceSource";
 
 // Valued when acquired: the server fills a blank basis from that hour's price
@@ -25,6 +26,13 @@ const SOURCE_HINTS: Record<string, string> = {
     "of it is long-term however soon you sell, and Form 8949 says INHERITED instead of a date acquired " +
     "(IRC §1014, §1223(9)).",
 };
+// Coins of your own, the form's first choice included: the likeliest slip
+// once there's a second wallet, which would make a new lot here and leave
+// the coins where they were too (#705)
+const OWN_COINS = ["N/A", "MyBTC"];
+const TRANSFER_NOT_DEPOSIT =
+  "Coins moved here from another wallet or exchange you track in BitcoinTX are a Transfer, not a Deposit: " +
+  "a deposit would count them in both accounts.";
 
 /** What the Cost Basis field asks for: a gift's basis is the giver's (#115); a blank
  * value's price says where it comes from (`priced`, #208). */
@@ -76,26 +84,24 @@ const OriginalDateField: React.FC<{ inherited: boolean }> = ({ inherited }) => {
       />
       {errors.acquiredDate && <span className="field-error">{errors.acquiredDate.message}</span>}
       <small className="field-hint">
-        The day the person died. The cost basis is the value that day, and these coins take their place in
-        first in, first out from that date.
+        The day the person died. The cost basis is the value that day, and per-wallet FIFO counts these coins
+        as acquired that day.
       </small>
     </div>
   );
 };
 
-/** A deposit; a BTC one also has its source and cost basis. */
-const DepositFields: React.FC = () => {
+/** A deposit; one into a bitcoin account also has its source and cost basis. */
+const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const { register, watch, setValue, formState: { errors } } = useFormContext<TransactionFormData>();
   const priced = useBlankPriceSource();
-  const account = watch("account");
-  const currency = watch("currency");
-  const intoBtc = currency === "BTC" && (account === "Wallet" || account === "Exchange");
-  const showSource = account === "Wallet" || (account === "Exchange" && currency === "BTC");
+  const into = { type: "Deposit", toAccountId: chosenId(watch("toAccountId")) } as const;
+  const intoBtc = inBtcAccount(into, book);
   // Income, rebates, inheritances: basis = value when acquired (the server fills a blank one)
   const source = watch("source");
   const isValued = VALUED_SOURCES.includes(source ?? "");
   // Coins already owned, a gift or an inheritance: dated from when they were first acquired (or the death)
-  const showOriginalDate = takesOriginalDate({ type: "Deposit", account, currency, source });
+  const showOriginalDate = takesOriginalDate({ ...into, source }, book);
   const inherited = source === "Inherited";
   // A date of death isn't a date originally acquired, nor a value at death a
   // giver's cost (#154): switching to or from Inherited asks for both again
@@ -109,9 +115,9 @@ const DepositFields: React.FC = () => {
 
   return (
     <>
-      <AccountAmountFields />
+      <AccountAmountFields book={book} field="toAccountId" />
 
-      {showSource && (
+      {intoBtc && (
         <div className="field">
           <label htmlFor="tx-source">Source</label>
           <select
@@ -128,6 +134,7 @@ const DepositFields: React.FC = () => {
             <option value="Reward">Reward</option>
             <option value="Rebate">Rebate</option>
           </select>
+          {OWN_COINS.includes(source || "N/A") && <small className="field-hint">{TRANSFER_NOT_DEPOSIT}</small>}
           {source && SOURCE_HINTS[source] && <small className="field-hint">{SOURCE_HINTS[source]}</small>}
         </div>
       )}

@@ -1,0 +1,4 @@
+Transaction ID,Time (UTC),Status,Transaction Type,Amount USD,Fee USD,Amount BTC,Fee BTC,Description,Exchange Rate,Transaction Hash
+10000000-0000-4000-8000-000000000001,Apr 01 2025 16:20:00,Completed,Purchase,-25.25,0.25,0.00025000,,Purchase,100000.00,
+10000000-0000-4000-8000-000000000002,Apr 02 2025 16:20:00,Pending,Purchase,-25.25,0.25,0.00025000,,Purchase,100000.00,
+10000000-0000-4000-8000-000000000003,Apr 03 2025 16:20:00,Reversed,Purchase,-25.25,0.25,0.00025000,,Purchase,100000.00,

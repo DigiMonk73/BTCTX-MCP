@@ -7,10 +7,11 @@ and short; history belongs in `docs/CHANGELOG.md`.
 ## What this is
 
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
-(double-entry ledger, per-account FIFO lots, IRS Form 8949 / Schedule D).
-This repo, **DigiMonk73/BTCTX-MCP**, is the project, including an MCP server
-for AI-assisted entry. Work goes into `staging` by pull request; `develop`
-takes it once a day (see Branches).
+(double-entry ledger, per-wallet FIFO lots or the coins chosen in a
+wallet, IRS Form 8949 / Schedule D). This repo, **DigiMonk73/BTCTX-MCP**,
+is the project, including an MCP server for optional AI-assisted entry
+(off until the owner turns it on). Work goes into `staging` by pull
+request; `develop` takes it once a day (see Branches).
 
 | Part | Where | Notes |
 |---|---|---|
@@ -164,7 +165,8 @@ squash-merged (or with a merge commit, for the daily pull requests
 between `staging` and `develop`), once `ci.yml`'s one required check,
 "CI passed", has passed ("Protect develop"; it needs every job except
 the macOS build and the macOS dependency audit, which run but aren't
-required; Python tests run on 3.11 and 3.13, both in it, since #546), on
+required; Python tests run on 3.11 and 3.13, both in it, since #546, each
+as three shards and a guard that every test ran once, since #814), on
 a branch that's up to date with `develop` ("Require branches to be up to
 date before merging", on since 2026-10-17, the owner's choice), so a pull
 request's checks have run on everything already merged. "Protect
@@ -194,12 +196,13 @@ to; the release workflow still creates new ones. If unsure, branch from
 - **Models / schema**: write an Alembic migration (`docs/MAINTENANCE.md`,
   "Database migrations"). Never call `create_all()` in app code; the
   `test_models_and_migrations_agree` test fails if models and migrations differ.
-  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's:
-  each `develop` merge re-points the first one's `down_revision` to
-  1.x's head until the first 2.0 pre-release is published, then 1.x's
-  join by Alembic merge revisions (#251, decision 3; #251 says which
-  applies now). On `develop`, 1.x numbers its migrations on from its
-  own head as always.
+  On `2.0`, 2.0's migrations take ids from 0100 and come after 1.x's.
+  Until the first 2.0 pre-release (v2.0.0-alpha.1, 2026-10-24), each
+  `develop` merge re-pointed the first one's `down_revision` to 1.x's
+  head; since then their ids and parents are fixed, and a later 1.x
+  migration comes into `2.0` by an Alembic merge revision, never by
+  re-pointing (#251, decision 3). On `develop`, 1.x numbers its
+  migrations on from its own head as always.
 - **Dependencies**: read `docs/MAINTENANCE.md`. Pins live in the
   `requirements.in` files; after an edit, `make lock` recompiles the locks.
 - **Desktop app**: read `docs/MACOS_DESKTOP_APP.md`. New backend modules need
@@ -217,26 +220,84 @@ to; the release workflow still creates new ones. If unsure, branch from
 
 ```
 Transaction (user input)
+  → ChosenCoin (user input too: the coins it chose to leave a wallet, #711)
   → LedgerEntry (double-entry lines)
-  → BitcoinLot (BTC acquisitions, per account)
-  → LotDisposal (FIFO consumption, with basis/proceeds/gain per lot)
+  → BitcoinLot (BTC acquisitions, per account, each knowing its acquisition)
+  → LotDisposal (FIFO consumption, or the coins chosen, with basis/proceeds/gain per lot)
 ```
 
-Fixed account IDs: Bank 1, Wallet 2, Exchange USD 3, Exchange BTC 4,
-BTC Fees 5, USD Fees 6, External 99.
+Accounts (2.0, #251; the account book, `services/account.py`, read once
+per request): your banks, wallets and exchanges, each exchange two
+accounts, "*name* USD" and "*name* BTC", of a row of `exchanges` with its
+1099-DA switch (asked when it's added, on unless answered No: #708); the
+fee accounts BTC Fees 5 and USD Fees 6 (internal: no
+transaction names them); External 99 (no row). A new install's first of
+each keep their ids forever: Bank 1, Wallet 2, Exchange USD 3, Exchange
+BTC 4 (exchange 1, "Exchange"). New accounts take ids from 100, never one
+given before (`accounts_last_id`). In a file, the reserved names (Bank,
+Wallet, Exchange USD, Exchange BTC, BTC Fees, USD Fees, External) always
+mean 1–6 and 99. Whether an account is bitcoin is its currency
+(`book.is_btc`), never its id.
 
 Schema: Alembic migrations in `backend/migrations/versions/` (0001 = the
 v0.7.0 schema). `backend/migrate.py` runs them at every start and on restored
 backups: fresh DBs are built from 0001, pre-migration DBs are repaired to the
 baseline and stamped, a copy goes to `<db dir>/backups/` before any change,
 and a schema newer than the code is refused. `database.create_tables` is an
-alias of `init_db` kept for the StartOS wrapper.
+alias of `init_db` kept for StartOS packages from before the CLI (0.8.0:1
+and older).
 
 Every update and delete, and a create dated before the latest transaction,
 runs `recalculate_all_transactions` ("scorched earth"): all ledger lines,
 lots and disposals are rebuilt in timestamp order (a create dated last only
 adds its own lines and lots, #172). So derived values must be recomputable
-from the Transaction row alone.
+from the Transaction row (and the coins it chose) alone.
+
+**The past-year warning** (2.0, #352; `services/past_years.py`): an add,
+edit or delete on `/api/transactions` that would change the figures of a
+tax year before this one (Ledger Review's snapshot, each disposal's Form
+8949 box and column (b) (a gift's, donation's or lost coins' own, on no
+Form 8949: their holding period and date acquired, #736), what the report
+counts as income or a rebate and as a gift, donation or lost coins, each
+row's date and tax year: `services/year_changes.py`)
+answers 409 (`detail`, `years`, `changes`, `pending`, `recalc_error`,
+`exact`, `timezone`: the one its rows' dates are in, `confirm`; and
+`coins_chosen` only beside a write that adds or changes a choice of coins
+dated in an earlier tax year, #711) and saves nothing. Sent again with
+`?confirm=<fingerprint>`, it's saved under the write lock after a copy (a
+"pre-change" one, the newest 5 and the first of each day for a week; a
+fresh AI copy with the key), the fingerprint checked again before the
+commit, in `hourly_prices.with_prices_found`. The check runs on
+`database.scratch_copy` with the lock free, its prices found first; a write
+dated in this tax year (`tax_time.current_tax_year`, pinned to 2009 in the
+tests) or one moving only dollars saves at once, and past
+`past_years.DRY_RUN_SECONDS` (10 s, from the StartOS VM's measurement) the
+years come from the write's date. With a login, changes a recalculation
+alone would make never ask (the owner's "Don't warn for fixes"); with the
+AI key, those in an earlier year do.
+`recalculated_by` (`app_settings`) names the BitcoinTX that last
+recalculated the whole live ledger (every full replay writes it, a scratch
+copy's or a partial one's never): while it matches, nothing is pending. The
+scripts and the click-through specs confirm the 409 (`send_confirmed`,
+`sendConfirmed`, `saveForm`).
+The other writes go through the same `past_years.save`, each a write of
+its own (#353; `services/past_year_writes.py`): the AI's import and River's
+(one confirm for the batch or file, its duplicate check run inside the
+write lock its rows are written under; only the rows that check keeps
+count, so a batch sent again asks nothing; the AI's preview gives the
+execute's 409 as `past_years`, River's lists the past years its new rows
+are dated in as `past_years_dated`), Settings' Save of the tax timezone
+(each pass reads dates in its own timezone, so a row whose tax year moves
+is listed under both; the timezone in use saved again never asks; the
+login's fill is 1.x's, an empty ledger only), an exchange's 1099-DA
+switch (`PUT /api/accounts/{id}` `{sends_1099da}`: boxes compared, no
+replay) and, with the AI key,
+Recalculate Ledger (what it changes is `pending`; with a login it never
+asks). The AI connector answers a 409 as the tool's answer (`saved: false`,
+the fields, how to confirm: `confirm`, which `update_transaction` also
+takes as `confirm_move`), and gives the writes that can answer one, and Ledger
+Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
+#637).
 
 ## Tax invariants (each has regression tests; don't break them)
 
@@ -257,10 +318,11 @@ from the Transaction row alone.
   proceeds/basis/gain are the amount's (fee disposals left out).
 - **Transfer**: `amount` is what left the source *including* the BTC fee; the
   destination lot gets `amount − fee`, keeping the source lot's acquisition
-  date and its share of basis ("Lot cost"). The fee is a disposal. A BTC account to itself
-  (Wallet → Wallet, Exchange BTC → Exchange BTC: a consolidation, or a move
-  between pooled wallets, #159) needs a fee and records only it: no lot moves.
-  A dollar transfer (Bank ↔ Exchange USD) is the other way round, like a
+  date and its share of basis ("Lot cost"). The fee is a disposal. A bitcoin account to itself
+  (a wallet, or an exchange's BTC account: a consolidation; in a 1.x ledger
+  also a move between wallets or exchanges it kept together, #159) needs a
+  fee and records only it: no lot moves. A dollar transfer (a bank ↔ an
+  exchange's USD account) is the other way round, like a
   withdrawal: `amount` is what arrived, its fee on top (`_plain_lines`,
   #477).
 - **Lot cost** (#100): a lot's cost is claimed as a running total. A piece
@@ -304,7 +366,7 @@ from the Transaction row alone.
   Spent's had one), which is kept as its gross. With none above $0 stored
   (blank, or 1.2.8's 0, #329) it stays as it was: a $0 sale, its fee at its
   value, no gross recorded and never priced by a recalculation
-  (`_received_known`). Ledger Review lists them until the owner chooses.
+  (`transaction.received_known`). Ledger Review lists them until the owner chooses.
 - **Gift, Donation and Lost values** (#255): a blank `fmv_usd` on such a BTC
   withdrawal is filled at save from the hour's price and marked
   (`fmv_from_price`). An edit fills one it leaves blank, or a sale's $0 it
@@ -316,15 +378,15 @@ from the Transaction row alone.
   BitcoinTX fills), and Ledger Review lists it (`gift_without_value`).
   Never part of a gain.
 - **Dollar withdrawals** (#449): only bitcoin leaving is spent, given,
-  donated or lost. A withdrawal from Bank or Exchange USD keeps no such
+  donated or lost. A withdrawal from a bank or an exchange's USD account keeps no such
   purpose and no proceeds or FMV: the save drops them
   (`_drop_btc_withdrawal_fields`; other text stays, a label such as
   "Rent"), the import previews leave them out with a warning, and every
   figure and check (the tax report and its values from the price, the
   dashboard, Ledger Review and its hour check, `priced_values`, the AI's
-  duplicate check) reads them only on one from `BTC_ACCOUNTS`, so one an
-  older save left there counts for nothing. The Transactions list and the
-  Transaction History report show what's stored. It has no cost basis,
+  duplicate check) reads them only on a bitcoin account (`book.is_btc`), so
+  one an older save left there counts for nothing. The Transactions list
+  and the Transaction History report show what's stored. It has no cost basis,
   gain or holding period either (no lots): every save and recalculation
   clears any it holds, such as a bitcoin withdrawal's an edit made it from
   (`compute_sell_summary_from_disposals`, #487).
@@ -337,7 +399,7 @@ from the Transaction row alone.
   at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
   (`_revalue_income_deposit`). Income (report, dashboard) counts only
-  deposits into Wallet or Exchange BTC (`constants.BTC_ACCOUNTS`): a USD
+  deposits into a bitcoin account (`AccountBook.is_btc`): a USD
   deposit is dollars, whatever value it carries.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued
   like income deposits (`constants.VALUED_AT_RECEIPT`: the same filling,
@@ -360,10 +422,13 @@ from the Transaction row alone.
 - **River sends**: River's Sent Amount is what the destination got, its
   network fee on top (River's record gives the total as Sent + Fee, #39),
   so a Transfer's `amount` is Sent + fee. A send tagged `Withdrawal` is an
-  auto-withdrawal, to the address the owner set: a Transfer to Wallet like
+  auto-withdrawal, to the address the owner set: a Transfer to the
+  wallet chosen for the file (a guess, its side marked by `guessed`) like
   any other send (#397). A `Mining` payout is a Reward deposit (#399).
 - **Import duplicates** (#253, the owner's rule): the AI connector's and the
-  River import's check (`river_import.annotate_duplicates`) leaves out only
+  River import's check (`river_import.annotate_duplicates`; every
+  exchange's file is read into River's rows and checked as River's, B5b)
+  leaves out only
   a duplicate: the same kind (going the same way), BTC amount and minute as
   a transaction in the ledger (a date given alone: that day in the tax
   timezone). A row is only ever compared with transactions of its own
@@ -376,7 +441,30 @@ from the Transaction row alone.
   since its source, purpose, fee and type are the preview's or the
   owner's edits;
   of the accounts, a River row needs only to go the same way
-  (`_compatible`: the same source account or the same destination). The
+  (`_compatible`: the same source account or the same destination).
+  No row, River's or the AI's, is ever matched to a transaction naming on
+  the same side another account of the same kind and currency (two
+  wallets, two exchanges' BTC or USD accounts, two banks: the owner's
+  rule, 2026-10-15, #350); but River's wallet is the file's guess
+  (`guessed`), so a transaction typed into or from another wallet beside
+  River's send or receive (its other side the row's own or External,
+  never a move between two wallets) is only similar, marked Review,
+  ticked (the owner's decision, 2026-10-16); and River never names a
+  buy's funding bank (`unnamed_bank`), so another bank there still
+  matches exactly, as in 1.x (the build lead's call, 2026-10-23, #251's
+  decision 25). A River row the other passes leave new, of the same kind,
+  bitcoin amount and minute as a transaction in another account of the
+  same kind (another exchange's, another wallet; going the same way, never
+  into the account the row's coins left nor out of the one they went into;
+  on the guessed side only beside the row's own account, one like it or
+  External), is only similar:
+  Review, ticked, its note naming that account and where the row may
+  already be (`_in_another_account`, the owner's decision, 2026-10-25,
+  #707: 1.x's guide had a second exchange's trades recorded in the first);
+  the AI's rows never are. With more than one exchange, the screen picks
+  none for a file but the one shown that the file is named for
+  (`riverChoices`), and asks again for each file; the API keeps 5.11's
+  first exchange for a request that names none. The
   amount tests go in turn (the ledger amount, then River's), and within
   each a transaction of the row's own type first. The timed rows take
   their copies before the date-alone rows (`_timed_first`, #472), so a
@@ -485,6 +573,35 @@ from the Transaction row alone.
   the deposit's date;
   FIFO (oldest acquisition first, per account) and 8949 column (b) follow it.
   Inherited coins are long-term whatever the dates (above).
+- **Chosen coins** (2.0, #711; specific identification, Treas. Reg.
+  §1.1012-1(j)(2)): a Transfer out of a wallet (not to itself) or a bitcoin
+  Withdrawal from one may name the coins that leave, `chosen_coins`: each
+  the Buy or Deposit that acquired them (`acquired_txn_id`) and the BTC
+  from it, together exactly what leaves (a Transfer's amount; a
+  Withdrawal's amount and BTC fee). The fee takes the oldest of the chosen
+  coins first, then the amount the rest, as first in, first out does with
+  all of a wallet's coins; each piece costs its running share (Lot cost).
+  Every lot keeps the acquisition its coins came from
+  (`bitcoin_lots.acquired_txn_id`), through transfers; a write with a
+  choice while a lot lacks it (made before migration 0101) replays the
+  ledger first. Nothing chosen: per-wallet FIFO. An exchange's coins and a
+  consolidation take no choice. A choice survives every recalculation; a
+  write that would leave a later choice short of its coins is refused,
+  naming it (`chosen_coins.NotHeld`); an edit that changes what leaves
+  must send the coins again, or `[]` (null works too: `SendAgain`, its
+  422 naming the transaction in `X-BitcoinTX-Choose-Again`, which the AI
+  connector answers as `saved: false`). `coins_chosen_at` is when the choice was saved, kept
+  while it's sent back unchanged. The CSV carries a choice by its rows'
+  ids, never their positions (`csv_choices.py`, #732); the tax report
+  prints "Coins you chose", with the day each was saved, and Ledger Review
+  lists those saved after their coins left (`coins_chosen_later`). The AI
+  key sends a choice too (the owner's Q4: only coins the user says they
+  chose at the time, its guide's rule, #733): its preview lists the coins a
+  row leaving a wallet takes and holds (`HELD_HOOK`; none for a row whose
+  wallet holds a lot that doesn't know its acquisition while nothing
+  replays), and a write that replays for a choice
+  (`chosen_coins.replays_first`) counts as replaying for its copy and the
+  past-year question.
 - **Tax timezone**: timestamps are stored in UTC. The tax timezone (Settings,
   `app_settings` table, fallback env `BTCTX_TIMEZONE`, default UTC) decides
   tax-year bounds, 8949 dates and the holding period. Helpers in
@@ -497,11 +614,14 @@ from the Transaction row alone.
   can't open counts as none chosen, logged once), and a restore keeps this
   install's own in place of a backup's that `tzdata` doesn't name.
   Times on screen are the device's clock (#260), except Ledger Review's
-  (the tax timezone, as `cli review` and the AI see them) and a price's
-  hour (UTC, labelled).
+  and the past-year question's (the tax timezone, as `cli review` and the
+  AI see them, labelled: #737) and a price's hour (UTC, labelled).
 - **Form 8949 boxes** (`form_8949.py`): ≤2024 C/F; 2025+ exchange Sells H/K
-  (1099-DA without basis); 2026+ Sells of lots bought on the exchange on/after
-  2026-01-01 and never moved G/J; self-custody spends and fees I/L. A
+  (1099-DA without basis); 2026+ Sells of lots bought on that exchange (a Buy
+  into the account sold from) on/after 2026-01-01 and never moved G/J;
+  self-custody spends and fees I/L, and so are the Sells of an exchange whose
+  "This exchange sends me a Form 1099-DA" is off (`exchanges.sends_1099da`,
+  2.0, #349). A
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
   rules for that transaction, a spend's fee disposals included (#549).
   One sheet per box, line 2 totals that sheet's rows, Schedule D line per
@@ -522,33 +642,40 @@ from the Transaction row alone.
 | `backend/services/mempool_trust.py` | a home server's root certificate the owner trusts for their own Mempool (#188): home-network https addresses only, that address only, never public sites; login only |
 | `backend/services/outbound.py` | the only HTTP client factory for outside services, each request with a deadline and each answer a size limit (`BoundedClient`) (one exception, not the app: `cli install-draft-forms` fetches the IRS drafts on a test install); Privacy & network settings (price source unset/off/public/mempool, fallback, proxy for public sites), or the server's `BTCTX_*` overrides |
 | `backend/services/review.py` | read-only Ledger review (`/api/review`, `cli review`, MCP `review_ledger`); `hourly_review.py`, its check of values priced at the day and the owner's apply (login only, a backup first) |
+| `backend/services/account.py`, `routers/account.py`, `frontend/src/utils/accounts.ts`, `useAccounts.ts`, `components/LedgerAccounts.tsx` | the account book (2.0, #251): kinds, ids from 100, names, add, rename, hide, delete while unused, each exchange's 1099-DA switch (through the past-year warning); the frontend's copy of the book, loaded once per page and afresh as Settings or its accounts section opens (#720); Settings' "Wallets, exchanges and banks" |
+| `backend/services/past_years.py`, `year_changes.py`, `recalculated_by.py`, `past_year_writes.py` | the past-year warning (2.0, #352): its dry run, 409 and confirmed save; what a write changes, year by year; which BitcoinTX last recalculated the ledger; the imports', the tax timezone's, the 1099-DA switch's and the AI's Recalculate Ledger's writes through it (#353) |
+| `backend/services/chosen_coins.py` | the coins a transaction chose to leave a wallet (#711): a request's choice checked, stored with when it was saved, the edit rule, the lots a choice may take, `NotHeld`; the engine's hook that hands a form, or the AI's preview, the coins held (`HELD_HOOK`) |
+| `backend/services/transfer_coins.py`, `frontend/src/components/transactionForm/LeavingCoins.tsx`, `MovedCoinsTable.tsx` | the coins a Transfer between two bitcoin accounts, or a Withdrawal from a wallet, will take, listed before it saves (#706): its save's own path run on a scratch copy (`past_years.Write.apply`), asked with the body the Save sends; the newest list asked for wins (`transaction.SUPERSEDED`); from a wallet, what it holds then (`held`, through `chosen_coins.HELD_HOOK`); a saved one's, the AI key too (#711, Q4) |
+| `frontend/src/components/transactionForm/ChosenCoins.tsx`, `ChosenCoinsTable.tsx`, `frontend/src/utils/chosenCoins.ts` | the form's coin picker (#711, C3): what a wallet holds, a BTC field per purchase, the quick fills (Q3: "Highest cost first" only on a transaction dated today, `dated_today`), the rule's words, the running total; Save waits until it adds up; the form's `chosenCoins`, sent as `chosen_coins` |
 | `backend/services/wipe.py`, `frontend/src/components/DeleteAllDialog.tsx` | deleting every transaction: what goes, the typed `DELETE`, the copy first (#256), only what the dialog showed (#377) |
 | `backend/services/first_run.py`, `login_throttle.py` | first-run setup code (default login); login throttling, and the device cookie of a browser that logged in |
 | `backend/services/reports/safe_text.py` | ReportLab text escaping; ReportLab opens no file and fetches nothing |
 | `backend/services/ai_key.py` | the AI key: Mac key file or created in Settings, hash only, on/off switch, `AI_KEY_ROUTES` allow-list |
 | `backend/services/entry_import.py` | JSON entry import used by the MCP server: validate, FMV autofill, dedup, dry run |
-| `backend/services/river_import.py`, `csv_import.py` | file imports |
+| `backend/services/river_import.py`, `csv_import.py`, `csv_choices.py` | file imports; the CSV's chosen-coins columns (#711) |
+| `backend/services/exchange_import.py`, `exchange_mappings.py`, `exchange_cells.py`, `exchange_kraken.py` | any exchange's CSV (B5b): the mappings (ready-made, the owner's own in `app_settings`), each read into River's rows; what isn't read is named by reason |
 | `backend/services/reports/form_8949.py` | 8949/Schedule D data, boxes, field maps per year |
 | `backend/services/reports/pdf_form_filler.py` | fill + flatten IRS PDFs with pypdf |
 | `backend/services/reports/draft_forms.py` | next year's IRS draft forms: the shipped preview (`assets/irs_templates/drafts/`, until January 1 after its year) and a test install's (`<data dir>/irs-draft-forms/`, `cli install-draft-forms`) |
 | `backend/services/reports/reporting_core.py` | complete tax report data |
-| `backend/services/reports/complete_tax_report.py`, `pdf_layout.py`, `frontend/src/utils/disclaimer.ts` | Complete Tax Report PDF (section 6 "Using these forms", the rebates table); the one disclaimer and one-wallet wording (`test_disclaimer.py` keeps them the same) |
+| `backend/services/reports/complete_tax_report.py`, `pdf_layout.py`, `frontend/src/utils/disclaimer.ts` | Complete Tax Report PDF (section 6 "Using these forms", the rebates table); the one disclaimer and the notice to add each wallet and exchange (`DISCLAIMER`, `ACCOUNTS_NOTICE`; `test_disclaimer.py` keeps them the same as the README's) |
 | `backend/routers/user.py` | setup-status / reset-account (claim the default `admin`/`password`) |
 | `mcp_server/btctx_mcp/server.py`, `guide.py` | MCP tools and the ledger guide the AI reads |
 | `mcp_server/AI_SETUP.md`, `frontend/src/utils/aiSetup.ts` | setup guide an AI follows to install the MCP server; the Settings prompt and configs that point to it |
 | `frontend/src/styles/theme.css`, `components.css` | design tokens, and the only button/input/card/badge styles (`.btn-primary`, `.input`, `.card`…); page stylesheets only lay these out. Safari 15 CSS only (Mac app WebKit) |
 | `backend/cli.py` | maintenance CLI (migrate, set-password, recalculate, review); the StartOS package relies on it |
 | `backend/unexpected_errors.py` | an error nobody expected: a fixed sentence in the answer, its type in the log, its trace at DEBUG (`log_unexpected`, `UnexpectedErrorMiddleware`) |
-| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing, no-store on the API; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1 or localhost |
+| `backend/security_headers.py` | CSP (browsers, not the Mac webview), no-referrer, nosniff, no framing, no-store on the API; Secure cookies over HTTPS; the cross-site guard; the Mac app answers only at 127.0.0.1, localhost or [::1] |
 | `backend/session_auth.py` | the open sessions (an id per login, the newest 20 kept in `app_settings`; logout ends one) and the stamp of the password hash (a password change ends all others) |
 | `frontend/e2e/`, `frontend/playwright.config.ts` | Playwright click-through specs; projects chicago, tokyo, webkit |
 | `scripts/sync-startos-mirror.sh`, `start9-pull.sh`, `mirror-startos-release.sh` | StartOS mirror sync; taking back Start9's changes to their fork; the mirror's release by hand |
 | `scripts/sync-check.sh` (`make sync-check`) | is everything on this computer also on GitHub; brings `main`/`develop`/`2.0` down; `--tidy` deletes branches already on GitHub |
 | `scripts/irs_new_year.py` | yearly IRS template download + verification |
 | `scripts/smoke_test.py` | end-to-end run against a real server |
-| `testdata/reference_ledger.json`, `reference_figures.json` | the one reference test ledger (2023–2026, every 8949 box, rebates, dates originally acquired) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
-| `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app); a database's figures, or `--compare` them |
-| `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, income, rebates, gifts, year-end lots) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
+| `testdata/reference_ledger.json`, `reference_figures.json`, `reference_prices.json` | the one reference test ledger (2023–2026 and a 2022 deposit, every 8949 box, rebates, dates originally acquired; from 2.0 its `accounts` list, a hidden and a renamed account, and `"since": "2.0"` rows filling 2.0's dimensions in every year, #702; its `"priced"` rows take their values from the stored-price fixture, `reference_prices.json`, #715) and every figure it gives; `test_seed_ledger.py` fails if one moves (`make reference-figures` accepts a meant change) |
+| `testdata/reference_ledger.csv`, `testdata/exchange_files/`, `docs/HAND-TEST.md`, `backend/tests/hand_test_tables.py` | the test pack (#844): that ledger as the app's CSV (`test_reference_csv_844.py`: it survives an export and an import, every figure the same), a made-up file for each exchange importer, the guide for testing them by hand on a throwaway install, and its tables worked out from the app's own answers (`make test-pack`) |
+| `scripts/seed_ledger.py`, `reference_figures.py` | load that ledger into an empty server over the API (refuses the Mac app; the `"priced"` rows only with `--with-prices`, after `--store-prices` put the fixture in the test database's file); a database's figures, or `--compare` them |
+| `scripts/independent_figures.py` | a second calculation of that ledger's tax figures (8949, Schedule D, gains, Sales by exchange, income, rebates, gifts, lots at each year's start and end) from the rules, never the app's code; `test_independent_figures.py` fails on a difference in them |
 | `frontend/e2e/shots/site.ts`, `testdata/showcase_ledger.json` | the README's (`docs/images/`) and landing page's four pictures (`make site-shots`), from a small typical portfolio |
 
 ## Security rules
@@ -613,14 +740,22 @@ from the Transaction row alone.
   default.
 - Non-GET requests a browser marks as from another site (`Sec-Fetch-Site`,
   else `Origin`) are refused (`security_headers.py`); no CORS unless
-  `CORS_ALLOW_ORIGINS` is set. The Mac app answers only requests addressed
+  `CORS_ALLOW_ORIGINS` is set. A logged-in change a browser sent without
+  the page's `X-BitcoinTX-Page` (every request of `frontend/src/api.ts`
+  names the build's VERSION), or from another major version, is a 409,
+  "BitcoinTX was updated: reload the page." (`PageVersionMiddleware`, 2.0
+  spec 5.13): a 1.x page left open over the upgrade would save a Buy or
+  Sell into the first exchange. Scripts, the connector and the tests'
+  clients send no browser header and pass. The Mac app answers only requests addressed
   to `127.0.0.1`, `localhost` or `[::1]` (421 otherwise;
   `security_headers.LocalAddressOnlyMiddleware`). No server of ours, the
   Mac app's, the Docker image's or StartOS's (which runs the image's
   command), takes a client's address from `X-Forwarded-For`
   (`desktop/entrypoint.py`; the Dockerfile's `--no-proxy-headers`).
 - Report PDFs: every ledger string passes `reports/safe_text.py` (escaped for
-  ReportLab, which may open no file and fetch nothing); CSV text cells can't start a
+  ReportLab, which may open no file and fetch nothing; a character its
+  built-in fonts can't draw prints "?", by ReportLab's own rule, and an
+  account's name keeps to Windows-1252, Western European letters, #722); CSV text cells can't start a
   formula, and the csv module writes every CSV, so a line break stays in its
   cell; a purpose or source kept as written is one line, and a fee currency
   is USD or BTC.
@@ -635,8 +770,12 @@ from the Transaction row alone.
   route handled in a request answers `UNEXPECTED` (500) through
   `UnexpectedErrorMiddleware`, which doesn't raise it again, so the server
   logs no trace (#430; the tests fail on one unless marked
-  `unexpected_error`); a save a restore's swap refused answers `REPLACED`
-  (503, `database.was_replaced`, Python 3.11+) and is logged as a
+  `unexpected_error`). An id a request sends that can reach a query is a
+  `database.RowId` (SQLite's 64-bit integers), or as tightly bound (Ledger
+  Review's `ids`, a chosen coin's `acquired_txn_id`: `chosen_coins.LARGEST_ID`):
+  one beyond is a 422 naming it, never bound into a query
+  (an `OverflowError`'s 500, #744). A save a restore's swap refused
+  answers `REPLACED` (503, `database.was_replaced`, Python 3.11+) and is logged as a
   warning, and so is one that waited past the 5 s for SQLite's write lock
   (`BUSY`, 503, `database.is_busy`, #478). A connection goes back to the
   pool with nothing left open (`database._end_what_a_failed_commit_left_open`):
@@ -665,7 +804,9 @@ from the Transaction row alone.
   Docker/StartOS: the owner creates, replaces or revokes it in Settings (shown
   once). Only its SHA-256 is stored; a restore keeps the current key and
   switch (and the login and price settings in use: an in-app restore never
-  brings back a backup's password or its price source). An in-app restore
+  brings back a backup's password or its price source), and the exchange
+  import's mappings in use beside the backup's (#656: a restore loses
+  none, and hands no mapping id out twice). An in-app restore
   takes a backup's data, never its database: a backup holding anything but
   ordinary tables and indexes (no generated column, no index on an
   expression or with a WHERE) is refused, and the database that goes
@@ -686,9 +827,15 @@ from the Transaction row alone.
   any other route is 403. Every router is mounted with `main.include()`,
   which notes its routes' templates (a router mounted otherwise is closed
   to the key). A new MCP tool that needs a route adds it there on purpose
-  (a test checks the tools and the list agree). Never allow the
+  (a test checks the tools and the list agree). The key may read the
+  account list (`GET /api/accounts/`, the connector's names, 2.0's #350),
+  never add, hide or delete an account. A write from a connector older
+  than 2.0 (no `X-BitcoinTX-Connector` header) to a ledger with more than
+  one wallet or more than one exchange, hidden ones counted, is refused,
+  409 (`ai_key.from_an_old_connector`, #354): its guide put a second
+  wallet's coins in Wallet. Its reads go on. Never allow the
   key on login, users, key or switch settings, backup download/restore, CSV
-  export, file imports (CSV, River), delete-all, Ledger Review fixes,
+  export, file imports (CSV, River, any exchange's), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
   debug.
 - Before the AI key's first change in an hour (an edit, a deletion,
@@ -700,7 +847,8 @@ from the Transaction row alone.
   counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and,
   for a week (today and the 6 UTC days before), the oldest and the first
   copy of each day made before the AI changed anything that day
-  (`migrate._ai_copies_held`): at most 11.
+  (`migrate._ai_copies_held`): at most 11. A confirmed past-year write
+  with the key makes a fresh one first, whatever the hour (2.0, #352).
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. An add's
   duplicate check and its writes hold it as one (`entry_import.write_rows`;
@@ -729,11 +877,12 @@ from the Transaction row alone.
   reads and parses a body before the login check, login and Create account
   included. Over 5 MB it's 413, at once from Content-Length or as soon as a
   chunked body passes it; once the answer has started (a file being sent
-  reads the body to see the client leave, Starlette 1.8), the rest is
+  reads the body to see the client leave, from Starlette 1.8), the rest is
   thrown away instead and the answer completes (`body_limit._Counted`).
   A route taking a file is listed in `main.py` with its own file limit
-  (plus room for the form) and keeps checking the file itself: the CSV
-  and River files 5 MB, read at most to the limit and one byte; the
+  (plus room for the form) and keeps checking the file itself: the CSV,
+  River and other exchanges' files 5 MB, read at most to the limit and
+  one byte; the
   restore 1 GiB, copied in 1 MiB pieces until past it. That larger
   allowance is for a logged-in owner's file: only a request whose
   session cookie is validly signed, unexpired, holds a `user_id` and names
@@ -743,13 +892,14 @@ from the Transaction row alone.
 
 ```bash
 make hooks       # once: pre-push gate
-make test-fast   # ~3,200 hermetic tests (backend + MCP), on every core, ~2 min
+make test-fast   # every hermetic test but the slow ones (backend + MCP), on every core, ~3 min
 make test        # + slow stress and property tests
 make smoke       # real server, temp DB
-make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~5 min
+make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~20 min
 make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
 make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
 make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
+make test-pack   # testdata/reference_ledger.csv and docs/HAND-TEST.md's tables, made again from the app's own answers
 make prices      # the hourly price history's new hours (each release's bump PR; online)
 make docker-smoke  # build the image here + CI's container checks
 make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
@@ -762,9 +912,10 @@ test ledger (`testdata/reference_ledger.json`, loaded by
 app gains a kind of transaction or a report part, add a row there (its
 `why` says what for) and run `make reference-figures`. The coverage tests
 in `test_seed_ledger.py` fail by themselves for a new transaction type,
-deposit source, withdrawal purpose or broker-reporting choice (they take
-the app's own lists); a new account route or report part goes into their
-`ROUTES` or report-part checks too.
+deposit source, withdrawal purpose, broker-reporting choice or Ledger
+Review item (they take the app's own lists; each new kind needs a row in
+more than one account of each kind that holds it, #702); a new account
+route or report part goes into their `ROUTES` or report-part checks too.
 
 A bug fix gets a test that fails on the old code. Lint is ruff with
 all Pyflakes rules, modern syntax and a size limit per function (app
@@ -918,6 +1069,30 @@ The whole flow, in plain steps for the owner and every session:
   `https://community-registry.start9.com`. Promotion is the owner's call.
 - Start9 sends changes too (template updates about monthly, SDK bumps),
   which `scripts/start9-pull.sh` brings back.
+- **A contribution from Start9 is looked at first, never accepted
+  automatically** (the owner, 2026-10-29, #799; `CONTRIBUTING.md` says it
+  too). Only the order changes; the caution for a pull request from
+  outside ("Pull requests") stays in full.
+  1. **Verify the sender on GitHub, never by a name** or a claim in the
+     text: its author is a public member of Start9Labs or
+     Start9-Community (`gh api orgs/Start9Labs/public_members/<login>`,
+     or `orgs/Start9-Community/public_members/<login>`, answers 204; 404
+     isn't), as Matt Hill (`MattDHill`) is, or a bot
+     account Start9 owns (`gh api users/<login>` says `"type": "Bot"`, and
+     `gh api apps/<login without [bot]>`'s owner is Start9Labs or
+     Start9-Community). A lookalike login, a new account or text saying
+     "from Start9" isn't verification: unverified, it's any outside
+     contribution.
+  2. **Examine it the same day,** a pull request, an issue or a comment:
+     every changed line read, what it claims checked (as for #638: the
+     CVE, what the change does, whether it applies to 2.0), anything
+     hidden looked for.
+  3. **Only then act:** its CI is approved after that first read, never
+     before, and a change is planned into the current work only if the
+     read holds up. Nothing merges without the full review and the
+     figures rule ("Reviews"); a figure it moves needs the owner's OK on
+     a plain before-and-after, and anything we send back to Start9 needs
+     the owner's OK.
 
 ## Working through GitHub
 
@@ -1143,6 +1318,19 @@ rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
 pushed branch is not rewritten, and the squash keeps `staging` and
 `develop` clean anyway.
 
+**A pull request from outside** (anyone but the owner and Dependabot; the
+owner, 2026-10-29, #799; `CONTRIBUTING.md` says it to contributors): we
+take only tests or documentation, after a review that reads every line,
+merged exactly as reviewed (#626 was one test file). Anything touching
+app code, CI, dependencies, the build, StartOS or tax logic is redone by
+us, by a pull request of our own. Its CI runs only after the owner
+approves it, every time (the repository's setting
+`all_external_contributors`, since 2026-10-29: an automated account's one
+merged pull request made it no longer "first-time"). No workflow is
+triggered by `pull_request_target` or `workflow_run`, so an outside pull
+request never gets a secret: keep it so. A contribution verified as
+Start9's comes first ("Start9").
+
 ## Big work: a main session and numbered sessions
 
 The owner's standard for big work (2026-10-12, first used for the stable
@@ -1161,7 +1349,7 @@ one session. Claude suggests this setup when a request is that big.
     matter most, the job, and what it waits for;
   - on the umbrella, an index of the prompts: the order, and what each
     session waits for.
-- **Starting one:** the desktop app's one-click card (`spawn_task`), or
+- **Starting one:** the desktop app's one-click card (`start_session`), or
   the kickoff prompt pasted into a new session. Each title starts with
   its number ("6 · Build hourly prices (#144)").
 - **Every session starts from `staging`** (`2.0` during the 2.0 build:

@@ -14,34 +14,22 @@ ACCOUNT_USD_FEES = 6
 # Virtual account for external transactions
 ACCOUNT_EXTERNAL = 99
 
-# The accounts that hold bitcoin; the others hold dollars
-BTC_ACCOUNTS = (ACCOUNT_WALLET, ACCOUNT_EXCHANGE_BTC)
+# The names that always mean these ids in a file (CSV, River, a 1.x
+# connector's rows), whatever those accounts are called now, and that no
+# other account can take (2.0 spec 5.1): services/account.py's book reads them
+RESERVED_NAMES = {
+    "Bank": ACCOUNT_BANK,
+    "Wallet": ACCOUNT_WALLET,
+    "Exchange USD": ACCOUNT_EXCHANGE_USD,
+    "Exchange BTC": ACCOUNT_EXCHANGE_BTC,
+    "BTC Fees": ACCOUNT_BTC_FEES,
+    "USD Fees": ACCOUNT_USD_FEES,
+    "External": ACCOUNT_EXTERNAL,
+}
 
 # The tax years a request may name: from Bitcoin's first (2009); far ahead
 # is refused rather than reaching the end of Python's years (#211)
 FIRST_TAX_YEAR, LAST_TAX_YEAR = 2009, 2100
-
-# Mapping for CSV export (account ID -> display name)
-ACCOUNT_ID_TO_NAME = {
-    ACCOUNT_BANK: "Bank",
-    ACCOUNT_WALLET: "Wallet",
-    ACCOUNT_EXCHANGE_USD: "Exchange USD",
-    ACCOUNT_EXCHANGE_BTC: "Exchange BTC",
-    ACCOUNT_BTC_FEES: "BTC Fees",
-    ACCOUNT_USD_FEES: "USD Fees",
-    ACCOUNT_EXTERNAL: "External",
-}
-
-# Mapping for CSV import (lowercase name -> account ID)
-ACCOUNT_NAME_TO_ID = {
-    "bank": ACCOUNT_BANK,
-    "wallet": ACCOUNT_WALLET,
-    "exchange usd": ACCOUNT_EXCHANGE_USD,
-    "exchange btc": ACCOUNT_EXCHANGE_BTC,
-    "btc fees": ACCOUNT_BTC_FEES,
-    "usd fees": ACCOUNT_USD_FEES,
-    "external": ACCOUNT_EXTERNAL,
-}
 
 # What a broker reported for a disposal on Form 1099-DA / 1099-B, set per
 # transaction to override the default rules in form_8949._broker_reporting

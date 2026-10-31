@@ -2,7 +2,7 @@
 
 ## Documentation
 
-- [Using BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/USING.md) — what BitcoinTX does: transactions, lots, tax forms, imports, Ledger Review
+- [Using BitcoinTX](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/USING.md) — what BitcoinTX does: your wallets, exchanges and banks, transactions, lots, tax forms, imports, Ledger Review
 - [BitcoinTX MCP server](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md) — connecting an AI assistant
 
 The MCP server page's Mac app, Docker and source steps don't apply here;
@@ -11,7 +11,7 @@ on StartOS, follow this page.
 ## What you get on StartOS
 
 - **Web UI**: the BitcoinTX app, behind your login.
-- **MCP API**: the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
+- **MCP API** (optional, off until you turn on AI access in BitcoinTX, below): the address an AI assistant (Claude Desktop, Claude Code or any MCP client) uses to read and add transactions for you. It is the same server as the web UI; the AI uses an AI key you create in BitcoinTX, never your password.
 - **A generated login**: StartOS creates your login with a random password; the app's default one never works.
 - **Prices from your own Mempool**, if you run it on this server: no address to copy, no certificate, and nothing is contacted until you choose.
 - **Backups**: your database, your login and BitcoinTX's own safety copies of the database are in every StartOS backup.
@@ -21,16 +21,17 @@ on StartOS, follow this page.
 1. Run **Set Login Credentials** when prompted. It shows the username and password once: keep them somewhere safe.
 2. Run **Price Source & Privacy** when prompted. BitcoinTX starts once you've chosen who it asks for newer Bitcoin prices: **My Mempool on this server** if you run Mempool here (or install it), **Public price sites** (optionally through Tor), **Nobody**, or **Decide in BitcoinTX instead** to choose in the app. See Privacy below.
 3. Start the service and open the **Web UI**. Log in with those credentials.
-4. In **Settings**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
-5. Add your transactions by hand, import a River CSV or a generic CSV (a generic CSV only into an empty ledger), or connect an AI assistant (below).
+4. In **Settings > Account**, check the **Tax Timezone**: it decides which tax year a transaction late on December 31 belongs to.
+5. In **Settings > Wallets, exchanges and banks**, add each wallet, exchange and bank you use: BitcoinTX starts with one of each (**Bank**, **Wallet**, and **Exchange** with its **Exchange USD** and **Exchange BTC**). A wallet is one set of keys; a backup of the same keys isn't a second wallet. For an exchange that sends no Form 1099-DA (usually one outside the US), turn off **This exchange sends me a Form 1099-DA**. A new account starts empty: move coins into it with a Transfer dated when they really moved.
+6. Add your transactions by hand, import an exchange's CSV export in **Settings > Import from an exchange** (ready-made for River, Coinbase, Kraken, Strike, Swan and Cash App; any other exchange's once you match its columns), import BitcoinTX's own CSV (only into an empty ledger), or connect an AI assistant (optional, below).
 
-You can change the username and password inside BitcoinTX (**Settings > Reset Username & Password**).
+You can change the username and password inside BitcoinTX (**Settings > Account > Reset Username & Password**).
 
 ## Using BitcoinTX
 
 ### Web interface
 
-Record deposits, withdrawals, transfers, buys and sells. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, sales go into the Form 1099-DA boxes; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
+Record deposits, withdrawals, transfers, buys and sells in each of your wallets, exchanges and banks. Cost basis is per-wallet FIFO: each wallet and exchange uses its own oldest coins first for a sale, spend or transfer, unless you choose other coins in one of your own wallets. A transfer between your accounts keeps each lot's acquisition date and its share of the cost. Every edit or deletion, and every entry dated before your latest one, recalculates the whole ledger, so backdated entries come out right. A change that would alter the figures of an earlier tax year, one you may already have filed, shows which years and what changes, and asks first; BitcoinTX makes a copy of your ledger before it saves. **Reports** produces Form 8949 and Schedule D as filled PDFs, a complete tax report and your transaction history. For 2025 and later, each exchange's sales go into the boxes its own Form 1099-DA uses; if the 1099-DA your exchange sends shows something different for a sale, set **Broker form** on that transaction.
 
 BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 
@@ -41,15 +42,17 @@ BitcoinTX sends your ledger nowhere, and it contacts nothing until you choose wh
 BitcoinTX values a transaction at the price when its hour began. It records one price per hour, so it won't always match a chart of one exchange at another moment. Its hourly price history, from 2013, is downloaded once from Bitstamp when your choice allows public price sites. Each year is checked against a fingerprint that comes with BitcoinTX. The download is the same for every install, so it never names one of your dates. Once downloaded, it works offline whatever you choose. The card in **Settings > Privacy & Network** shows its progress.
 
 - **My Mempool on this server** (most private): the live price, block height and newer hours come from your Mempool service, reached inside StartOS, and no public site is contacted. This is the Mempool service installed on this server: StartOS lists it as a dependency, so install and start it if you haven't (the action marks it "installed here, recommended" once it is). For a Mempool on another machine, choose **Decide in BitcoinTX instead** (below). It has hourly prices only from when it began recording. For older values, turn on **If Mempool can't answer, ask public price sites**, which also downloads the hourly history once (with **Use Tor**, only if you agree to download it without Tor: see below), or type them in. Mempool's own requests (its exchange rates) can go over Tor with its own setting.
-- **Public price sites** (Bitstamp and Kraken for prices; Blockchain.info, Blockstream or mempool.space for the block height): the sites see your server's IP address and when BitcoinTX is open (it asks for the price every 2 minutes while a page is showing), but never one of your transaction dates. To hide the IP address, turn on **Use Tor** (needs the Tor service), or send BitcoinTX's traffic through a VPN with the StartOS **Set Outbound Gateway** action. Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX's Dashboard asks once: **Download the price history once without Tor?** **Yes** lets only Bitstamp's history downloads go without Tor (the same for every install, naming none of your dates), so Bitstamp sees your server's IP address; the live price and everything else stay on Tor. **No** keeps everything on Tor: use your own Mempool for newer values, or type them. You can change the answer in **Settings > Privacy & Network**.
+- **Public price sites** (Bitstamp and Kraken for prices; Blockchain.info, Blockstream or mempool.space for the block height): the sites see your server's IP address and when BitcoinTX is open (it asks for the price every 2 minutes while a page is showing), but never one of your transaction dates. To hide the IP address, turn on **Use Tor** (needs the Tor service), or send BitcoinTX's outbound traffic through a VPN. Through Tor, Bitstamp currently refuses BitcoinTX's requests for the price history, so BitcoinTX's Dashboard asks once: **Download the price history once without Tor?** **Yes** lets only Bitstamp's history downloads go without Tor (the same for every install, naming none of your dates), so Bitstamp sees your server's IP address; the live price and everything else stay on Tor. **No** keeps everything on Tor: use your own Mempool for newer values, or type them. You can change the answer in **Settings > Privacy & Network**.
 - **Nobody**: fully offline. Prices BitcoinTX already has still work; you type newer values yourself. To have the hourly history and then ask nobody, choose **Public price sites** until the download finishes, then **Nobody**.
 - **Decide in BitcoinTX instead**: the app's own card decides. Choose it also for a Mempool on another machine, and type its address on the card. For Mempool on another StartOS server, use the `https://` LAN IP address that server lists in Mempool's **Interfaces** tab: the one on your home network (often 192.168.x.x), not a 10.59.x.x address, which belongs to a VPN and works only through it. From here, another server's `.local` name works only if your network's DNS knows it. When the card can't trust that server's certificate, it offers **Trust this server**, for that address only; do it only on your own home network. With **Use Tor** on, StartOS lends its Tor service to that choice: the app shows "Through Tor: Tor on this server", locked on.
+
+If you publish BitcoinTX through a tunnel to keep your home IP address private, send its outbound traffic through that tunnel too: otherwise the public price sites it asks still see your home IP address. **Nobody**, and **My Mempool on this server** with no public sites, already avoid this; so does **Use Tor**, apart from Bitstamp's history downloads if you agree to them without Tor. If you use a tunnel for another reason, such as a port your router can't forward, there's nothing to change.
 
 The card's status line says where newer prices came from and when, or why there's none. BitcoinTX's log says where each download of past prices came from, so you can check that no public site was asked.
 
 ### Connecting an AI assistant
 
-AI entry is optional: nothing uses the MCP API until you turn on AI access and create an AI key in BitcoinTX (**Settings > Connect an AI Assistant**). The key is not your password: it can read your ledger, add, change or delete single entries and make a backup, but it can't log in, change your password, restore or delete everything. Turn AI access off or revoke the key there at any time.
+AI entry is optional, and off until you turn it on: nothing uses the MCP API until you turn on AI access and create an AI key in BitcoinTX (**Settings > Connect an AI Assistant**). The key is not your password: it can read your ledger, add, change or delete single entries and make a backup, but it can't log in, change your password, restore or delete everything. Turn AI access off or revoke the key there at any time.
 
 **Privacy first:** once connected, the AI's model reads your transactions, balances and gains, and anything you paste. With a cloud AI (Claude, Grok and most others) that data goes to the provider's servers. To keep it private, use an app that runs a local model, such as LM Studio or Goose with Ollama ([setup](https://github.com/DigiMonk73/BTCTX-MCP/blob/main/mcp_server/README.md#privacy-cloud-or-local-model)).
 
@@ -72,12 +75,11 @@ The connector's version, after `btctx-mcp==` in your AI app's configuration, sho
 
 - **Price Source & Privacy**: where BitcoinTX gets Bitcoin prices, as above. BitcoinTX restarts to apply it.
 - **Connect an AI Assistant**: everything an AI client needs, as above.
-- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When an update changes how BitcoinTX calculates some gains, StartOS asks for it under **Tasks** on BitcoinTX's page, once (and again after a restore, until you have run it). If you recalculated in the app instead, dismiss the task there: its trash icon, then **Dismiss**.
+- **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Account > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When an update changes how BitcoinTX calculates some gains, StartOS asks for it under **Tasks** on BitcoinTX's page, once (and again after a restore, until you have run it). If you recalculated in the app instead, dismiss the task there: its trash icon, then **Dismiss**.
 - **Set Login Credentials**: if you are locked out, stop BitcoinTX and run it: it sets the username back to `admin` with a new random password. Your transactions are not touched.
 
 ## Limitations
 
 BitcoinTX is in English and produces US (IRS) tax forms. Beyond that:
 
-- **One wallet and one exchange.** BitcoinTX tracks one self-custody Wallet and one Exchange. Since 2025, IRS rules require cost basis to be figured wallet by wallet and account by account, so if you use multiple wallets or exchange accounts, BitcoinTX's gains can differ from what the rules give. Keep separate records for each, or ask your tax preparer.
 - **BitcoinTX cannot be downgraded.** Each update may upgrade the database, and older versions refuse a newer database. BitcoinTX keeps copies of the database from before its last few upgrades in its `backups` folder. To go back, uninstall BitcoinTX, which deletes its data (those copies too), then restore a StartOS backup made before the update. Anything you entered after that backup is lost.

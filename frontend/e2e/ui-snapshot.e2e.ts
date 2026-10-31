@@ -6,7 +6,7 @@
 //   UI_SNAPSHOT_DIR=/tmp/ui-before npx playwright test ui-snapshot --project=chicago
 //   (change the code, rebuild, run again into /tmp/ui-after)
 //   diff -r /tmp/ui-before /tmp/ui-after
-import { test, expect, openAddForm, seedKnownLedger } from "./fixtures";
+import { test, expect, openAddForm, seedKnownLedger, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -83,19 +83,19 @@ const FORM_VARIANTS: Array<[string, string, Array<[string, string]>]> = [
   ["deposit-bank", "Deposit", [["Account", "Bank"]]],
   ["deposit-wallet", "Deposit", [["Account", "Wallet"]]],
   ["deposit-wallet-income", "Deposit", [["Account", "Wallet"], ["Source", "Income"]]],
-  ["deposit-exchange-usd", "Deposit", [["Account", "Exchange"], ["Currency", "USD"]]],
-  ["deposit-exchange-btc", "Deposit", [["Account", "Exchange"], ["Currency", "BTC"], ["Source", "Gift"]]],
+  ["deposit-exchange-usd", "Deposit", [["Account", "Exchange USD"]]],
+  ["deposit-exchange-btc", "Deposit", [["Account", "Exchange BTC"], ["Source", "Gift"]]],
   ["withdrawal-bank", "Withdrawal", [["Account", "Bank"]]],
   ["withdrawal-wallet-spent", "Withdrawal", [["Account", "Wallet"], ["Purpose (BTC only)", "Spent"]]],
   ["withdrawal-wallet-gift", "Withdrawal", [["Account", "Wallet"], ["Purpose (BTC only)", "Gift"]]],
   ["withdrawal-exchange-btc-lost", "Withdrawal",
-    [["Account", "Exchange"], ["Currency", "BTC"], ["Purpose (BTC only)", "Lost"]]],
+    [["Account", "Exchange BTC"], ["Purpose (BTC only)", "Lost"]]],
   ["transfer-bank", "Transfer", [["From Account", "Bank"]]],
   ["transfer-wallet", "Transfer", [["From Account", "Wallet"]]],
-  ["transfer-exchange-usd", "Transfer", [["From Account", "Exchange"], ["From Currency", "USD"]]],
-  ["transfer-exchange-btc", "Transfer", [["From Account", "Exchange"], ["From Currency", "BTC"]]],
+  ["transfer-exchange-usd", "Transfer", [["From Account", "Exchange USD"]]],
+  ["transfer-exchange-btc", "Transfer", [["From Account", "Exchange BTC"]]],
   ["buy", "Buy", []],
-  ["buy-bank", "Buy", [["From Account", "Bank"]]],
+  ["buy-bank", "Buy", [["Paid from", "Bank"]]],
   ["sell", "Sell", []],
 ];
 
@@ -135,7 +135,10 @@ test("add form: errors on an empty save", async ({ authedPage: page }) => {
 test("edit forms", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   await page.getByRole("link", { name: "Transactions" }).click();
+  // Counted once the list is in: counted at once, it was 0 and recorded nothing
+  await expect(page.getByRole("listitem").first()).toBeVisible();
   const count = await page.getByRole("listitem").count();
+  expect(count).toBeGreaterThan(0);
   for (let i = 0; i < count; i++) {
     await page.goto("/transactions");
     await page.getByRole("listitem").nth(i).getByRole("button", { name: "Edit" }).click();
@@ -146,7 +149,8 @@ test("edit forms", async ({ authedPage: page }) => {
 
 test("imports", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
-  const river = page.getByRole("region", { name: "Import from River" });
+  await openSection(page, "Import from an exchange");
+  const river = page.getByRole("region", { name: "Import from an exchange" });
   await river.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
   });
@@ -175,7 +179,8 @@ test("imports", async ({ authedPage: page }) => {
     await record(page, name);
   }
 
-  const data = page.getByRole("region", { name: "Data Management" });
+  // One section open at a time (#355): the exchange import's closes as Data Management opens
+  const data = await openSection(page, "Data Management");
   await data.locator("#csv-file-input").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: Buffer.from(CSV),
   });

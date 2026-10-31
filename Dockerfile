@@ -7,6 +7,8 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
+# The page names its version on every request (vite.config.ts reads it)
+COPY VERSION ../VERSION
 RUN npm run build
 
 FROM python:3.13-slim@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f AS backend
@@ -18,7 +20,8 @@ ENV PIP_NO_CACHE_DIR=1
 # Without this the DB would land in /app/backend and vanish on update.
 ENV DATABASE_FILE=/data/btctx.db
 
-# No system packages needed: IRS forms are filled in pure Python (pypdf)
+# No system packages added: IRS forms are filled in pure Python (pypdf).
+# The base image's own CA bundle is only brought up to date (below).
 
 WORKDIR /app
 # The app's own user (#202): BitcoinTX never runs as root. A fixed uid and
@@ -34,6 +37,22 @@ RUN mkdir -p /data && chown btctx:btctx /data && chmod 700 /data
 # lock pins) during the install.
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --require-hashes --only-binary :all: -r requirements.txt
+
+# The system's CA bundle without the roots distrusted after the eMudhra
+# compromise (#638, from Start9): trixie's ca-certificates 20250419+deb13u1
+# drops emSign ECC Root CA - G3 and Comodo AAA Services root (Debian
+# #1151413). The app's own connections verify with certifi, or a home
+# Mempool's one root its owner trusts, never this store; only
+# `cli install-draft-forms` (test installs, irs.gov) reads it. Each grep (G3's
+# first PEM line) fails the build if the system's store or certifi's still
+# holds it, and `test -s` first, so a missing or empty file can't pass.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --only-upgrade ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && SYSTEM=/etc/ssl/certs/ca-certificates.crt && CERTIFI="$(python3 -m certifi)" \
+ && test -s "$SYSTEM" && test -s "$CERTIFI" \
+ && ! grep -q MIICTjCCAdOgAwIBAgIKPPYHqWhwDtqLhDAKBggqhkjOPQQDAzBr "$SYSTEM" \
+ && ! grep -q MIICTjCCAdOgAwIBAgIKPPYHqWhwDtqLhDAKBggqhkjOPQQDAzBr "$CERTIFI"
 
 # VERSION sits where backend/version.py reads it.
 COPY backend/ ./backend

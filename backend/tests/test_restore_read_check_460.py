@@ -74,6 +74,9 @@ SALE = ("INSERT INTO transactions (type, timestamp, created_at, updated_at, from
                       "SELECT id, created_txn_id, 0.1, 1e300, 0, 0, 'SHORT' FROM bitcoin_lots"),
     ("ledger_entries", "UPDATE ledger_entries SET amount = 9e999"),
     ("btc_price_daily", PRICE.format(day="2024-01-01", usd="1e15")),  # times a lot, past what the reports round
+    # A choice of coins' BTC (#711): 11 digits, past the amounts' rule
+    ("chosen_coins", "INSERT INTO chosen_coins (transaction_id, acquired_txn_id, btc) "
+                     "SELECT id, id, 1e10 FROM transactions LIMIT 1"),
 ])
 def test_a_number_the_reports_cant_use_is_refused(live, tmp_path, table, sql):  # noqa: F811
     """Finite, and within its kind's limit (backup.NUMBER_LIMITS)."""

@@ -88,8 +88,7 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
   };
 
   return (
-    <div className="settings-section" role="region" aria-label="Backup & Restore">
-      <h3 className="section-title">Backup & Restore</h3>
+    <>
       <p className="settings-option-subtitle">
         BitcoinTX also keeps a few unencrypted safety copies of its database in its data folder,
         next to the database: from before updates, restores and deleting every transaction, and
@@ -147,7 +146,7 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
           )}
         </form>
       </div>
-    </div>
+    </>
   );
 };
 

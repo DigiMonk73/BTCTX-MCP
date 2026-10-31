@@ -1,25 +1,45 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import { buyExchanges, buyPayers, chosenId, exchangeCount, exchangeName } from "../../utils/accounts";
+import AccountPicker from "./AccountPicker";
 
-/** A Buy: USD from Exchange USD (or the bank, for an auto-buy) into BTC. */
-const BuyFields: React.FC = () => {
-  const { register, formState: { errors } } = useFormContext<TransactionFormData>();
+/**
+ * A Buy: the exchange whose BTC account the bitcoin goes into, then the
+ * dollars that paid for it, that exchange's or a bank's (each by its own
+ * name: a bank pays for a one-off buy as well as a recurring one, #705): an
+ * exchange's dollars buy only on that exchange (5.5, Q15). With one
+ * exchange its choice isn't shown, as in 1.x.
+ */
+const BuyFields: React.FC<{ book: AccountBook }> = ({ book }) => {
+  const { register, watch, formState: { errors } } = useFormContext<TransactionFormData>();
+  const exchangeId = chosenId(watch("toAccountId"));
   return (
     <>
-      <div className="field">
-        <label htmlFor="tx-from-account">From Account</label>
-        <select
-          id="tx-from-account"
-          className="input"
-          {...register("buyFromAccount", { required: true })}
-        >
-          <option value="Exchange">Exchange USD</option>
-          <option value="Bank">Bank (auto-buy)</option>
-        </select>
+      <AccountPicker
+        id="tx-to-account"
+        label="Exchange"
+        field="toAccountId"
+        book={book}
+        choices={(saved) => buyExchanges(book, saved)}
+        placeholder="Select Exchange"
+        requiredMessage="Please select an exchange"
+        optionLabel={(id) => exchangeName(book, id)}
+        quietWhenFixed={exchangeCount(book) === 1}
+      />
+
+      <AccountPicker
+        id="tx-from-account"
+        label="Paid from"
+        field="fromAccountId"
+        book={book}
+        choices={(saved) => buyPayers(book, exchangeId, saved)}
+        placeholder={exchangeId === undefined ? "Choose the exchange first" : "Select Account"}
+        requiredMessage="Please select an account"
+      >
         <small className="field-hint">
           Select where the USD is coming from.
         </small>
-      </div>
+      </AccountPicker>
 
       <div className="field">
         <label htmlFor="tx-amount-usd">Amount USD</label>

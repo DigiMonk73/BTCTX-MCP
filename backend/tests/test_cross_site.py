@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 
 import backend.main as main
 from backend.security_headers import CROSS_SITE_REFUSED, CrossSiteGuardMiddleware
+from backend.version import app_version
 
 
 def tiny_app(trusted=()):
@@ -101,10 +102,12 @@ def test_the_app_refuses_a_cross_site_restore(auth_client):
 
 
 def test_the_app_accepts_its_own_pages(auth_client):
+    # The page says its version on every request (test_page_version.py)
+    page = {"X-BitcoinTX-Page": app_version()}
     r = auth_client.post("/api/transactions/recalculate",
-                         headers={"Sec-Fetch-Site": "same-origin", "Origin": "http://testserver"})
+                         headers={**page, "Sec-Fetch-Site": "same-origin", "Origin": "http://testserver"})
     assert r.status_code == 200
-    r = auth_client.post("/api/transactions/recalculate", headers={"Origin": "http://testserver"})
+    r = auth_client.post("/api/transactions/recalculate", headers={**page, "Origin": "http://testserver"})
     assert r.status_code == 200
 
 

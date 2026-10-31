@@ -276,7 +276,7 @@ http.server.HTTPServer(("127.0.0.1", 0), Api).serve_forever()
 PLIST = """<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>CFBundleExecutable</key><string>BitcoinTX</string>
+<key>CFBundleExecutable</key><string>BitcoinTX Preview</string>
 <key>CFBundleIdentifier</key><string>org.bitcointx.desktop.preview</string>
 </dict></plist>
 """
@@ -291,8 +291,9 @@ def fake_preview(tmp_path: Path) -> tuple[Path, dict]:
     app = root / "desktop/dist/BitcoinTX Preview.app/Contents"
     (app / "MacOS").mkdir(parents=True)
     (app / "Info.plist").write_text(PLIST)
-    (app / "MacOS/BitcoinTX").write_text(FAKE_APP.format(python=sys.executable))
-    (app / "MacOS/BitcoinTX").chmod(0o755)
+    # named after the app, as the spec names the Preview's executable (#670)
+    (app / "MacOS/BitcoinTX Preview").write_text(FAKE_APP.format(python=sys.executable))
+    (app / "MacOS/BitcoinTX Preview").chmod(0o755)
     (tmp_path / "home").mkdir()
     return root, {"GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted", "HOME": str(tmp_path / "home")}
 
@@ -380,7 +381,7 @@ def test_a_pre_release_is_a_github_prerelease_never_latest():
     pre = release[release.index("cat > pre.md"):]
     for words in ("BitcoinTX Preview", "its own ledger", "carries from one pre-release to the next",
                   "Make a StartOS backup", "a new volume", "never your real data",
-                  "docs/MAINTENANCE.md#going-back-to-1x", "prerelease_report.yml"):
+                  "README.md#going-back-to-1x", "prerelease_report.yml"):
         assert words in pre, words
 
 
@@ -440,7 +441,7 @@ def test_a_beta_is_created_as_a_prerelease_with_its_own_notes(tmp_path):
     assert notes.index("**About this beta.** Words.") < notes.index("## Downloads")
     for line in ("`uvx btctx-mcp==2.0.0b1` (a pre-release on PyPI)", "`BitcoinTX-Preview-macOS.dmg`",
                  "`ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.1` (amd64 and arm64), on a new volume",
-                 "/blob/v2.0.0-beta.1/docs/MAINTENANCE.md#going-back-to-1x", "**Checking a download:**"):
+                 "/blob/v2.0.0-beta.1/README.md#going-back-to-1x", "**Checking a download:**"):
         assert line in notes, line
 
 

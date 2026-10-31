@@ -5,51 +5,8 @@
 import React from "react";
 import { ArrowDown, ArrowLeftRight, ArrowUp, Minus, Plus, type LucideIcon } from "lucide-react";
 import { formatBtc, formatUsd } from "../utils/format";
-import { gainLabel, sourceOrPurpose } from "../utils/transactionList";
-
-function accountIdToName(id: number | null): string {
-  if (id === null) return "N/A";
-  switch (id) {
-    case 1:
-      return "Bank";
-    case 2:
-      return "Wallet";
-    case 3:
-    case 4:
-      return "Exchange";
-    case 99:
-      return "External";
-    default:
-      return `Acct #${id}`;
-  }
-}
-
-function resolveDisplayAccount(tx: ITransaction): string {
-  const { type, from_account_id, to_account_id } = tx;
-  switch (type) {
-    case "Deposit":
-      return accountIdToName(to_account_id);
-    case "Withdrawal":
-      return accountIdToName(from_account_id);
-    case "Transfer":
-      return `${accountIdToName(from_account_id)} \u2192 ${accountIdToName(to_account_id)}`;
-    case "Buy":
-    case "Sell":
-      return "Exchange";
-    default:
-      return "Unknown";
-  }
-}
-
-function formatExtra(tx: ITransaction): string {
-  const { type } = tx;
-  if (type === "Deposit" || type === "Withdrawal") return sourceOrPurpose(tx);
-  // A BTC account sent to itself records only its fee (#159)
-  if (type === "Transfer" && tx.from_account_id === tx.to_account_id) {
-    return tx.from_account_id === 2 ? "Consolidation" : "Between exchanges";
-  }
-  return "";
-}
+import { gainLabel } from "../utils/transactionList";
+import { coinsChosenNote, rowAccounts, rowAmounts, rowNote } from "../utils/transactionRows";
 
 const TYPE_ICONS: Record<string, LucideIcon> = {
   Deposit: ArrowDown,
@@ -59,38 +16,14 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   Sell: Minus,
 };
 
-const isUsdAccount = (id: number | null) => id === 1 || id === 3;
-
-/** The asset that moved (signed, as the account sees it) and its USD value. */
-function rowAmounts(tx: ITransaction): { primary: string; secondary: string } {
-  const { type, amount, cost_basis_usd, proceeds_usd, from_account_id, to_account_id } = tx;
-  const minus = "\u2212";
-  switch (type) {
-    case "Deposit":
-      return isUsdAccount(to_account_id)
-        ? { primary: `+${formatUsd(amount)}`, secondary: "" }
-        : { primary: `+${formatBtc(amount)}`, secondary: cost_basis_usd ? formatUsd(cost_basis_usd) : "" };
-    case "Withdrawal":
-      return isUsdAccount(from_account_id)
-        ? { primary: `${minus}${formatUsd(amount)}`, secondary: "" }
-        : { primary: `${minus}${formatBtc(amount)}`, secondary: proceeds_usd ? formatUsd(proceeds_usd) : "" };
-    case "Transfer":
-      return { primary: isUsdAccount(from_account_id) ? formatUsd(amount) : formatBtc(amount), secondary: "" };
-    case "Buy":
-      return { primary: `+${formatBtc(amount)}`, secondary: cost_basis_usd ? formatUsd(cost_basis_usd) : "" };
-    case "Sell":
-      return { primary: `${minus}${formatBtc(amount)}`, secondary: proceeds_usd ? formatUsd(proceeds_usd) : "" };
-    default:
-      return { primary: `${amount}`, secondary: "" };
-  }
-}
-
 interface Props {
   tx: ITransaction;
+  /** The account book, for the row's names and currencies (2.0 spec 5.13) */
+  book: AccountBook;
   onEdit: (id: number) => void;
 }
 
-const TransactionRow: React.FC<Props> = ({ tx, onEdit }) => {
+const TransactionRow: React.FC<Props> = ({ tx, book, onEdit }) => {
   const timeStr = new Date(tx.timestamp).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
@@ -99,9 +32,9 @@ const TransactionRow: React.FC<Props> = ({ tx, onEdit }) => {
   if (tx.fee_amount && tx.fee_amount !== 0) {
     feeLabel = tx.fee_currency === "BTC" ? `Fee ${formatBtc(tx.fee_amount)}` : `Fee ${formatUsd(tx.fee_amount)}`;
   }
-  const subtitle = [timeStr, formatExtra(tx), feeLabel].filter(Boolean).join(" \u00b7 ");
+  const subtitle = [timeStr, rowNote(tx, book), coinsChosenNote(tx), feeLabel].filter(Boolean).join(" \u00b7 ");
   const gain = gainLabel(tx);
-  const { primary, secondary } = rowAmounts(tx);
+  const { primary, secondary } = rowAmounts(tx, book);
   const Icon = TYPE_ICONS[tx.type] ?? ArrowLeftRight;
 
   return (
@@ -112,7 +45,7 @@ const TransactionRow: React.FC<Props> = ({ tx, onEdit }) => {
       <span className="tx-main">
         <span className="tx-title">
           {tx.type}
-          <span className="tx-account">{" \u00b7 "}{resolveDisplayAccount(tx)}</span>
+          <span className="tx-account">{" \u00b7 "}{rowAccounts(tx, book)}</span>
         </span>
         <span className="tx-sub">{subtitle}</span>
       </span>

@@ -196,7 +196,10 @@ owner's decision 28, #251). Nobody gets one by accident:
      `2.0.0bN`), which only someone asking for that version gets;
    - the Mac app is a separate app, "BitcoinTX Preview"
      (`BitcoinTX-Preview-macOS.dmg`), the same for every alpha and beta,
-     with its own ledger, which carries from one to the next;
+     with its own ledger, which carries from one to the next, and a red
+     "PREVIEW" band on its icon;
+   - every page of a pre-release, on a Mac, StartOS or Docker, has a
+     banner naming it;
    - nothing goes to the mirror or to Start9.
 5. Delete the `prerelease/` branch afterwards. A pre-release's tag can't
    be moved, and its Docker image and AI connector may be out before the
@@ -208,7 +211,8 @@ Testers report what they find with the "2.0 alpha or beta report" form
 (label `pre-release`). GitHub shows a form only once `main` has it: at
 the next fast-forward of `main` that is only docs, tests or tooling, else
 at the next 1.x release. The owner decides when the betas have run long
-enough; then 2.0's release follows section 2.
+enough; then 2.0's release follows section 2, except that its version change
+goes into `2.0` (AGENTS.md, "Releasing").
 
 ## 3. Sending a release to Start9
 

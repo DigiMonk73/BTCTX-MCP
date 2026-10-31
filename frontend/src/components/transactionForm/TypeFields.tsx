@@ -5,19 +5,22 @@ import SellFields from "./SellFields";
 import TransferFields from "./TransferFields";
 import WithdrawalFields from "./WithdrawalFields";
 
-/** The fields of the chosen transaction type; none before one is chosen. */
-const TypeFields: React.FC<{ type: TransactionType | "" }> = ({ type }) => {
+/** The fields of the chosen transaction type; none before one is chosen.
+ * `transactionId`: the saved row being edited, if any. */
+const TypeFields: React.FC<{ type: TransactionType | ""; book: AccountBook; transactionId?: number | null }> = ({
+  type, book, transactionId,
+}) => {
   switch (type) {
     case "Deposit":
-      return <DepositFields />;
+      return <DepositFields book={book} />;
     case "Withdrawal":
-      return <WithdrawalFields />;
+      return <WithdrawalFields book={book} transactionId={transactionId} />;
     case "Transfer":
-      return <TransferFields />;
+      return <TransferFields book={book} transactionId={transactionId} />;
     case "Buy":
-      return <BuyFields />;
+      return <BuyFields book={book} />;
     case "Sell":
-      return <SellFields />;
+      return <SellFields book={book} />;
     default:
       return null;
   }

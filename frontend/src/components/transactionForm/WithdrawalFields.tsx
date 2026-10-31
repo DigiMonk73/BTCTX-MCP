@@ -3,26 +3,28 @@ import { useFormContext } from "react-hook-form";
 import AccountAmountFields from "./AccountAmountFields";
 import BtcWithdrawalValues from "./BtcWithdrawalValues";
 import FeeValueField from "./FeeValueField";
+import LeavingCoins from "./LeavingCoins";
+import { chosenId } from "../../utils/accounts";
 import { isNotSold } from "../../utils/purposes";
+import { inBtcAccount } from "../../utils/transactionForm";
 
 /**
- * A withdrawal; a BTC one also has its purpose, the fee's USD value, its
- * proceeds, and for a gift, donation or loss its fair market value.
+ * A withdrawal; one from a bitcoin account also has its purpose, the fee's
+ * USD value, its proceeds, and for a gift, donation or loss its fair market
+ * value: only bitcoin leaving is spent, given, donated or lost (#449). From
+ * one of your wallets, the coins that leave, which can be chosen (#711).
  */
-const WithdrawalFields: React.FC = () => {
+const WithdrawalFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
   const { register, watch } = useFormContext<TransactionFormData>();
-  const account = watch("account");
-  const currency = watch("currency");
+  const isBtc = inBtcAccount({ type: "Withdrawal", fromAccountId: chosenId(watch("fromAccountId")) }, book);
   const purpose = watch("purpose");
-  const showPurpose = account === "Wallet" || (account === "Exchange" && currency === "BTC");
-  const isBtc = currency === "BTC";
   const notSold = isNotSold(purpose);
 
   return (
     <>
-      <AccountAmountFields />
+      <AccountAmountFields book={book} field="fromAccountId" />
 
-      {showPurpose && (
+      {isBtc && (
         <div className="field">
           <label htmlFor="tx-purpose">Purpose (BTC only)</label>
           <select
@@ -51,6 +53,7 @@ const WithdrawalFields: React.FC = () => {
       </div>
       {isBtc && <FeeValueField />}
       {isBtc && <BtcWithdrawalValues notSold={notSold} />}
+      <LeavingCoins book={book} transactionId={transactionId} />
     </>
   );
 };

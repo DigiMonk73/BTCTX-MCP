@@ -1,13 +1,15 @@
 # BitcoinTX – Bitcoin Portfolio & Tax Tracker
 
-A minimalist, self-hosted Bitcoin portfolio tracker and tax report generator
-for **one self-custody wallet and one exchange account** (see [One wallet, one
-exchange](#one-wallet-one-exchange)), with an **MCP server** so an AI
-assistant can enter transactions for you. What changed in each release:
+A self-hosted Bitcoin portfolio tracker and tax report generator for **your
+self-custody wallets, exchange accounts and banks**, each wallet and
+exchange with its own cost-basis lots (see [Wallets, exchanges and
+banks](#wallets-exchanges-and-banks)), with an **optional MCP server**, off
+until you turn it on, so an AI assistant can enter transactions for you.
+What changed in each release:
 [docs/CHANGELOG.md](docs/CHANGELOG.md).
 
 It tracks BTC and USD balances with **double-entry accounting**, computes
-FIFO cost basis and capital gains per account, and prints IRS **Form 8949**
+cost basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949**
 and **Schedule D**, including the Form 1099-DA boxes that start with tax year 2025.
 
 <img width="1000" alt="Dashboard: balances, cost basis, realized and unrealized gains, income and fees" src="docs/images/dashboard.png" />
@@ -20,28 +22,68 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
 
 ## Features
 
-- **Dashboard**: BTC holdings, USD balance, realized and unrealized gains
-- **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell. Every edit
-  or deletion, and every entry dated before your latest one, recalculates
-  the whole ledger, so backdated entries come out right.
-- **FIFO lots per account**: a transfer keeps each lot's acquisition date and basis;
-  a consolidation (Wallet to Wallet, or between exchanges BitcoinTX counts as
-  one) records only its network fee
+- **Your wallets, exchanges and banks**: add each one you use in Settings,
+  under Wallets, exchanges and banks, by the name you know it by, and
+  rename, hide or delete it there, each with its balance. Each wallet and
+  each exchange keeps its own lots, and each exchange has its own "This
+  exchange sends me a Form 1099-DA" switch ([below](#wallets-exchanges-and-banks)).
+- **Dashboard**: what your banks, exchanges and wallets hold, each kind's
+  total with a caret that lists its accounts when you have multiple
+  wallets, exchanges or banks, a wallet's or an exchange's bitcoin with its
+  own cost and unrealized gain; BTC holdings, realized and unrealized gains,
+  income and fees. Beside every page, a Sats Converter (at a price you
+  type, the live price, or BitcoinTX's stored price of a date and hour) and
+  a calculator
+- **Transactions**: Deposit, Withdrawal, Transfer, Buy and Sell, by your
+  accounts' names. A Buy names its exchange and what paid for it (that
+  exchange's dollars, or a bank), a Transfer goes between any two of your
+  accounts in one currency, and where more than one account fits, the form
+  has you choose (hidden accounts aren't offered). The list names each
+  row's accounts as you named them and filters by account or by kind. Every
+  edit or deletion, and every entry dated before your latest one,
+  recalculates the whole ledger, so backdated entries come out right.
+- **Cost basis is per-wallet FIFO**: each wallet and exchange uses its own
+  oldest coins first for a sale, spend or transfer, unless you choose other
+  coins in one of your own wallets. [Choosing which coins leave a
+  wallet](docs/USING.md#choosing-which-coins-leave-a-wallet) says when you
+  may. A transfer between your accounts keeps each lot's acquisition date and
+  basis; a consolidation (a wallet, or an exchange's BTC account, to itself)
+  records only its network fee.
+- **Earlier tax years ask first**: a save that would change the figures of
+  a tax year before this one, which you may already have filed (an add, an
+  edit or a delete, the tax timezone, an exchange's 1099-DA switch, an
+  import, an AI's change), shows which years and what changes, and saves
+  only after **Save anyway (a copy is made first)**. Catching up on an
+  earlier year, you can stop it asking about adds to that year until the
+  page is reloaded
 - **Reports**: Form 8949 and Schedule D (filled, flattened PDFs), a complete
-  tax report, and transaction history (PDF/CSV). When your broker's 1099-DA
-  says something different for a sale, record that on the transaction and the
-  right Form 8949 box follows. Each year's final IRS forms come in an update
+  tax report, and transaction history (PDF/CSV). Each exchange's sales go in
+  the boxes its own 1099-DA uses (an exchange you mark as sending none, in
+  the boxes for no broker form; coins moved into an exchange, as
+  noncovered). The complete tax report names the account of every disposal
+  and lot, and its "Sales by exchange" table adds up each exchange's sales
+  to set beside its 1099-DA. When your broker's 1099-DA says something
+  different for a sale, record that on the transaction and the right Form
+  8949 box follows. Each year's final IRS forms come in an update
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
-- **Imports**: River CSV export, generic CSV (into an empty ledger), and the
-  AI route below
-- **AI entry (MCP)**: paste an exchange email or a wallet history, or type
-  "moved 0.05 BTC to my Coldcard yesterday, fee 2k sats". The assistant
+- **Imports**: an exchange's own CSV export into a ledger in use, ready-made
+  for River, Coinbase, Kraken, Strike, Swan and Cash App, or any other once
+  you match its columns, into the exchange and the wallet you choose (the
+  preview leaves out what's already recorded, and lets you choose what paid
+  for each buy); BitcoinTX's own CSV (into an empty ledger), which the CSV
+  export writes with your accounts' names; and the optional AI route below
+- **Optional AI entry (MCP)**, off until you turn it on: paste an exchange
+  email or a wallet history, or type "moved 0.05 BTC to my Coldcard
+  yesterday, fee 2k sats". The assistant
   previews the rows (duplicate check, fair market value, resulting gains) and
-  saves them once you confirm. Use a local model if your data must stay on
-  your computer ([below](#connect-an-ai-mcp)).
+  saves them once you confirm, naming your accounts as you named them and
+  asking which one when more than one fits. Use a local model if your data
+  must stay on your computer ([below](#connect-an-ai-mcp)).
 - **Ledger Review** (Settings): a read-only list of saved entries worth a
-  second look, including every figure a recalculation would change
+  second look, each with its accounts, including every figure a
+  recalculation would change; values BitcoinTX priced at the day's price
+  can be moved to the hour's from there
 - **Your own node for prices**: point BitcoinTX at your own Mempool
   (Settings → Privacy & Network) and the live price, block height and newer
   prices come from it; no public site is contacted unless you tick **If it
@@ -68,94 +110,107 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   Bitstamp your address; the live price stays on Tor. You can change the
   answer in Settings. With No, use your own Mempool for newer values, or
   type them
-- **Tax timezone** (Settings): decides which tax year a late-night Dec 31
+- **Tax timezone** (Settings → Account): decides which tax year a late-night Dec 31
   transaction lands in, the dates on Form 8949, and when a lot turns long-term
-- **Encrypted backup/restore**, single-user login
+- **Settings** in sections, one open at a time: Account, Wallets, exchanges
+  and banks, Ledger Review, Privacy & Network, Connect an AI Assistant,
+  Data Management, Import from an exchange, Backup & Restore, and About
+  BitcoinTX
+- **Encrypted backup/restore** (2.0 restores a 1.x backup too), safety
+  copies of the database before an update, a restore, a confirmed change
+  to an earlier tax year, deleting every transaction and an AI's changes,
+  and a single-user login
 
-How each part works, the same wherever BitcoinTX runs:
-[docs/USING.md](docs/USING.md).
+How each part works, every screen included, the same wherever BitcoinTX
+runs: [docs/USING.md](docs/USING.md).
 
-## One wallet, one exchange
+## Wallets, exchanges and banks
 
 > [!IMPORTANT]
-> BitcoinTX tracks one self-custody wallet and one exchange account. Since
-> 2025, IRS rules require cost basis to be figured wallet by wallet and
-> account by account, so if you use multiple wallets or exchange accounts,
-> BitcoinTX's gains can differ from what the rules give: keep separate
-> records for each, or ask your tax preparer.
+> Add each wallet, exchange and bank you use in Settings, under Wallets,
+> exchanges and banks. From 2025, cost basis is figured wallet by wallet and
+> account by account; unless you identify the coins you sell, first in,
+> first out within each, by the date first acquired (Treas. Reg.
+> §1.1012-1(j)). Cost basis is per-wallet FIFO: each wallet and exchange
+> uses its own oldest coins first for a sale, spend or transfer, unless you
+> choose other coins in one of your own wallets. If you kept multiple
+> wallets or exchanges together in BitcoinTX 1.x, years before you added
+> them were figured together: ask a tax professional whether an earlier
+> return needs a change.
 
-BitcoinTX keeps it simple on purpose: one self-custody **Wallet**, one
-**Exchange** (USD and BTC) and one **Bank**. The two bitcoin accounts, Wallet
-and Exchange, each keep their own FIFO lots. That fits someone who keeps their
-bitcoin in one wallet and buys and sells through one exchange.
+A new BitcoinTX starts with a **Bank**, a **Wallet** and an **Exchange**
+(its dollars, **Exchange USD**, and its bitcoin, **Exchange BTC**). Add more in Settings, under Wallets, exchanges and banks, and
+rename, hide or delete them there:
 
-Multiple wallets or exchanges all go into those two accounts. The rule is
-Treas. Reg. §1.1012-1(j), from January 1, 2025, with Rev. Proc. 2024-28 for
-coins held on that date. With multiple wallets, BitcoinTX may figure a sale
-from one wallet with the cost and purchase date of coins that were in
-another. Multiple wallets and exchanges, each with its own lots, are planned
-for BitcoinTX 2.0 ([#86](https://github.com/DigiMonk73/BTCTX-MCP/issues/86);
-see [Versions](#versions)).
+- **A wallet** is one set of keys: every address it makes is part of it. A
+  backup of the same keys (a seed phrase, or another device with the same
+  keys) isn't a second wallet.
+- **An exchange** keeps its dollars and its bitcoin as two accounts,
+  "*name* USD" and "*name* BTC". Each exchange has its own "This exchange
+  sends me a Form 1099-DA" switch: adding an exchange asks "Does this
+  exchange send you a Form 1099-DA?" (Yes unless you choose No), and its
+  row's switch changes it later. Off, for an exchange that sends none
+  (usually one outside the US), its sales go in the Form 8949 boxes for no
+  broker form.
+- **External** is everything outside BitcoinTX: other people, merchants,
+  an account you don't track.
+
+Coins move between your accounts by a Transfer, which keeps each lot's date
+and cost. A new account starts empty: move coins into it with a Transfer
+dated when they really moved (BitcoinTX moves the oldest coins first,
+unless you choose others in a wallet). A save that would change an earlier
+tax year's figures, one you may already have filed, shows which years and
+what changes, and asks before it saves.
+
+Hide an account you no longer use: its history stays, and the transaction
+form stops offering it. Delete one only while no transaction names it (your
+first bank, wallet and exchange are hidden instead). In a file, Bank,
+Wallet, Exchange USD and Exchange BTC always mean your first bank, wallet
+and exchange, whatever you've renamed them, so no other account can take
+those names. A name uses letters, digits and punctuation the tax report can
+print: no emoji, and no letters outside Western European alphabets. The full story, from the name rules to how a file saved before
+a rename names an account: [docs/USING.md](docs/USING.md#wallets-exchanges-and-banks).
+
+In one of your own wallets you can choose which coins leave, if you chose
+them when they left ([how](docs/USING.md#choosing-which-coins-leave-a-wallet));
+an exchange's coins leave oldest first (BitcoinTX doesn't record a choice made at an exchange).
+BitcoinTX doesn't allocate your cost basis among your wallets as of January
+1, 2025 (Rev. Proc. 2024-28),
+nor record an allocation you made: its figures from 2025 on follow its own
+history. Your 2024 Complete Tax Report lists each account's lots at the end
+of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
-1.2.9 is the stable version of BitcoinTX 1.x, and 1.2.10 its first
-maintenance update. Until 2.0 replaces it, 1.x gets maintenance updates: bug
-and security fixes, each year's IRS forms and the price history's updates,
-and the few small improvements already planned for it
-([roadmap](docs/ROADMAP.md)).
+BitcoinTX 2.0.0 is the current version. It adds multiple wallets, exchanges
+and bank accounts, each wallet and exchange with its own cost-basis lots
+([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). It reaches
+StartOS through Start9's Community Beta first, then its Community Registry,
+which offers 1.2.10 until then. What's next is on the
+[roadmap](docs/ROADMAP.md).
 
-New features go into BitcoinTX 2.0, now in the works, which adds multiple
-wallets, exchanges and bank accounts, each wallet and exchange with its own
-cost-basis lots ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)).
-Because 2.0 changes how the ledger is stored, it's tested first on GitHub
-pre-releases, alphas and then betas, for as long as it needs. Then 2.0 is
-released here, replacing 1.x, and reaches StartOS through Start9's Community
-Beta. We don't promise dates; until then, the latest 1.x is the version to
-use for your records.
+BitcoinTX 1.x gets no more fixes. Its last release,
+[1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10), stays
+downloadable. To move to 2.0, see [From 1.x to 2.0](#from-1x-to-20).
 
-### Trying 2.0 before it's released
+### If you tried a 2.0 pre-release
 
-Anyone who chooses may try 2.0's pre-releases: the first is
-[v2.0.0-alpha.1](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0-alpha.1),
-and the later ones are on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
-marked **Pre-release**. They're for testing and may have bugs. An alpha, the
-earliest stage, is only for trying 2.0, never for your real records: try it
-with a test ledger or a copy of your records, and keep 1.x for your records.
-Nobody gets one as an update: the Mac app's download, Docker's `:latest` and
-Start9's store stay on 1.x. From alpha.2, a banner above every page says
-which pre-release you're using.
+2.0 was tested first on GitHub pre-releases, alphas and then betas. They stay
+on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
+marked **Pre-release**, and 2.0.0 replaces them:
 
-- **Mac:** a separate app, **BitcoinTX Preview** (every alpha and beta),
-  installed beside BitcoinTX with its own ledger, folder and port: your
-  BitcoinTX and its ledger are never opened. From 2.0.0-alpha.2 its icon
-  has a red **PREVIEW** band, and the banner says **BitcoinTX Preview** and
-  its version (alpha.1 still has BitcoinTX's icon: tell them apart by the
-  name) ([#670](https://github.com/DigiMonk73/BTCTX-MCP/issues/670)). It starts
-  with an empty ledger; to try your records in it, download a backup in
-  BitcoinTX (Settings, Backup & Restore) and restore it in BitcoinTX
-  Preview.
-- **StartOS:** sideloaded, it updates your BitcoinTX in place. **Make a
-  StartOS backup of BitcoinTX first**, and keep it: to go back to 1.x,
-  uninstall BitcoinTX (which deletes its data) and restore that backup.
-  While your BitcoinTX runs a pre-release, StartOS offers it no 1.x update
-  until 2.0 is out: fixes, security fixes included, come in the next
-  pre-release.
-- **Docker:** each pre-release has its own image tag (`:v2.0.0-alpha.1`,
-  never `:latest`). Start it on a new volume and restore a backup into it.
-  Started on your 1.x volume, it upgrades that ledger, and going back takes
-  the steps in its [Going back to 1.x](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0-alpha.1/docs/MAINTENANCE.md#going-back-to-1x).
-- **An AI:** each pre-release's Settings (Connect an AI Assistant) gives the
-  setup for its own connector (`btctx-mcp==2.0.0a1` for alpha.1), named
-  `bitcointx-preview`. On StartOS your `bitcointx` entry is updated instead:
-  set it back to your 1.x version if you go back.
-
-What you enter in a pre-release can't go back to 1.x: 1.x can't read a 2.0
-database or backup. Report what you find in [a new issue](https://github.com/DigiMonk73/BTCTX-MCP/issues/new/choose):
-the "2.0 alpha or beta report", or, until GitHub lists it, a Bug report
-whose title starts with the pre-release's name (for example
-"2.0.0-alpha.1:"). Show the problem on a test ledger, never your real data;
-report a security problem privately, as [SECURITY.md](SECURITY.md) explains.
+- **Mac:** BitcoinTX Preview stays a separate app, with its own ledger, folder
+  and port, and 2.0.0 never reads it. To keep a Preview ledger instead of the
+  one BitcoinTX holds, download a backup in BitcoinTX Preview and restore it in
+  BitcoinTX 2.0.0 (Settings, Backup & Restore): a restore replaces the ledger
+  there, after a copy into `backups/`. Then delete BitcoinTX Preview, and remove
+  its `bitcointx-preview` entry from your AI app.
+- **StartOS:** 2.0.0 updates a pre-release in place. The StartOS backup you
+  made under 1.x still takes you back to 1.x.
+- **Docker:** start `:v2.0.0` on the same volume.
+- **An AI:** set your AI app to `btctx-mcp==2.0.0`, and replace a
+  `bitcointx-preview` entry for a server you've updated with what Settings →
+  Connect an AI Assistant gives now.
 
 ## Install
 
@@ -274,9 +329,11 @@ before you choose.
 
 ## Connect an AI (MCP)
 
-In BitcoinTX, open **Settings → Connect an AI Assistant**, copy the setup
-prompt and paste it into your AI app (Claude Code, Claude Desktop, Grok Build
-or any app that runs MCP servers on your computer). The AI sets itself up
+Optional, and off until you turn it on: nothing connects an AI to
+BitcoinTX by itself. In BitcoinTX, open **Settings → Connect an AI
+Assistant**, copy the setup prompt and paste it into your AI app (Claude
+Code, Claude Desktop, Grok Build or any app that runs MCP servers on your
+computer). The AI sets itself up
 following [mcp_server/AI_SETUP.md](mcp_server/AI_SETUP.md). The MCP server
 uses an **AI key**, never your password. With the Mac app no key or address
 goes anywhere: the app writes a private key file the MCP server reads by
@@ -292,7 +349,10 @@ pinned to your BitcoinTX release (`==X.Y.Z`), so your AI app runs exactly that
 version and fetches nothing new on its own. `uvx` downloads it from PyPI
 the first time (PyPI sees your IP address and the version; it's cached
 after that). After you update BitcoinTX, every tool reply says so until you
-change the version in the command.
+change the version in the command. A connector older than BitcoinTX 2.0
+can't tell your wallets or exchanges apart, so once your ledger has more
+than one wallet or more than one exchange (a hidden one counted), BitcoinTX
+refuses its changes until you update it; it can still read the ledger.
 
 Docker and StartOS use `BTCTX_URL` and `BTCTX_AI_KEY` instead: create the key
 in the same Settings section (it's shown once) and paste it into your AI app's
@@ -317,9 +377,13 @@ cloud AI only with a test ledger. Setup for local models:
 - **Off by default.** The key works only after you turn on **Settings →
   Connect an AI Assistant → Let AI assistants use BitcoinTX**; turn it off to
   stop the AI.
-- **What the key can do:** read the ledger, add, change or delete single
-  entries, recalculate the ledger, and make a backup copy on the server. It can't log in, change your
-  password, restore a backup, import files or delete everything. In the Mac
+- **What the key can do:** read the ledger (your accounts' names
+  included), add, change or delete single entries, recalculate the ledger,
+  and make a backup copy on the server. A change that would move an
+  earlier tax year's figures comes back to the AI to confirm with you, and
+  is saved after a fresh copy. It can't log in, change your password,
+  restore a backup, import files, add, rename, hide or delete an account,
+  or delete everything. In the Mac
   app it works only from that Mac; on Docker and StartOS you can revoke it or
   make a new one in Settings at any time.
 
@@ -329,7 +393,7 @@ longer accepts it for AI access. (1) In **Settings → Connect an AI
 Assistant**, turn on AI access and create an AI key; (2) in your AI app's
 settings, replace `BTCTX_PASSWORD` (and `BTCTX_USERNAME`) with `BTCTX_AI_KEY`
 set to that key, and delete the password; (3) change your BitcoinTX password
-(Settings → Reset Username & Password), or on StartOS run **Set Login
+(Settings → Account → Reset Username & Password), or on StartOS run **Set Login
 Credentials**, because the old one sat in that file. Mac app users: nothing
 to do.
 
@@ -341,16 +405,21 @@ to do.
 3. Open **Settings → Ledger Review**. Without changing anything, it lists
    every figure a recalculation would change (old → new) and saved entries
    worth a second look, such as income and rebate deposits with a $0 or
-   blank value, and Inherited deposits without a date of death. After them
-   comes a reminder, not an error: My BTC and Gift
-   deposits without a date originally acquired, counted from their deposit
-   date until you add one. The release notes say which to fix.
-4. Click **Settings → Recalculate Ledger** when you agree.
-5. Check your **Tax Timezone** in Settings.
+   blank value, Inherited deposits without a date of death, and
+   transactions naming an account that doesn't exist or one made through
+   BitcoinTX 1.x's old account API. After them come two reminders, not
+   errors: My BTC and Gift deposits without a date originally acquired,
+   counted from their deposit date until you add one, and exchange sales
+   your exchange's Form 1099-DA may show differently. The release notes
+   say which to fix.
+4. Click **Settings → Account → Recalculate Ledger** when you agree.
+5. Check your **Tax Timezone** in Settings → Account.
 6. If you use the AI connector: in your AI app's settings, change
    `btctx-mcp==<old version>` to `btctx-mcp==<new version>`, then restart
-   the AI app. No new key, nothing to set up again. If you forget, every
-   connector reply tells you. Where to change it in each app:
+   the AI app. The key and the rest of the setup stay as they are. If you
+   forget, every connector reply tells you, and from 2.0 on, BitcoinTX
+   refuses an older connector's changes once your ledger has more than one
+   wallet or exchange. Where to change it in each app:
    [Updating](mcp_server/README.md#updating).
 
 From v0.7 or earlier, transfer fees, sale proceeds and the one-year holding
@@ -362,6 +431,102 @@ BitcoinTX doesn't list counted as a sale (a recalculation moves a cent or two
 on most ledgers, more on one started before 0.9.2). Either way, stored gains can change. The
 [CHANGELOG](docs/CHANGELOG.md) lists what changes existing figures in each
 release.
+
+### From 1.x to 2.0
+
+2.0 changes how the ledger is stored, so the update asks a little more of
+you. What you enter in 2.0 can't go back to 1.x ([Going back to
+1.x](#going-back-to-1x)).
+
+- **Before you update:** download BitcoinTX's encrypted backup (step 1).
+  On StartOS, also make a StartOS backup of BitcoinTX and keep it: it's
+  your way back. A later backup of BitcoinTX to the same drive replaces it,
+  so back 2.0 up to another drive.
+  Coming from 1.2.9? 2.0 has every fix of
+  [1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10),
+  four of which can change a tax figure: read its notes first.
+- **What the update does:** every transaction keeps its account. Exchange
+  USD and Exchange BTC become your first exchange, named "Exchange"; an
+  account made through 1.x's account API becomes a wallet (bitcoin) or a
+  bank (dollars), with "(account N)" added to a name another account
+  already has or one of the names files reserve. Your tax figures don't
+  change, except in a ledger started before 0.9.2: a transaction saved then
+  into an account made through BitcoinTX's old account API now counts by
+  that account's currency, so its income, rebates and gifts received can
+  move, and once the ledger is recalculated, a spend's network fee from it
+  lowers the spend's proceeds and gain. Before the update, BitcoinTX keeps
+  a copy of your 1.x database, `backups/btctx-pre-2.0-from-<revision>-<time>.db`,
+  so its data takes about twice the space; it never deletes that copy.
+- **After you update:**
+  1. Reload any BitcoinTX page left open in a browser: a page from 1.x
+     can't save ("BitcoinTX was updated: reload the page.").
+  2. Open Ledger Review, and run Recalculate Ledger when you agree (steps
+     3 and 4). It lists the rows of a ledger started before 0.9.2 that
+     count differently ("Transactions in an account made through
+     BitcoinTX's old account API"): check each.
+  3. Add your other wallets, exchanges and banks in Settings, under
+     Wallets, exchanges and banks, and move coins into each with a Transfer
+     dated when they really moved. A Transfer dated in an earlier year can
+     change that year's figures and later ones: BitcoinTX shows which years
+     and asks first. Set each exchange's "This exchange sends me a Form
+     1099-DA". If you kept multiple wallets or exchanges together in 1.x,
+     the box under [Wallets, exchanges and banks](#wallets-exchanges-and-banks)
+     says what that means for earlier returns; your 2024 Complete Tax
+     Report lists each account's lots at the end of 2024.
+  4. Update the AI connector to 2.0 (step 6) before the AI changes
+     anything: once your ledger has a second wallet or exchange, BitcoinTX
+     refuses an older connector's changes. A ledger with an extra bitcoin
+     account made through 1.x's account API has two wallets as soon as it's
+     updated.
+- **Backups across versions:** 2.0 restores a backup made by 1.x (bringing
+  its ledger up to 2.0) or by 2.0. BitcoinTX 1.x refuses a backup made by
+  2.0.
+
+## Going back to 1.x
+
+Going back from 2.0 loses what was entered in 2.0: BitcoinTX 1.x can't read
+a 2.0 database, and refuses a backup made by 2.0 ("This backup can't be
+restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, or
+restore a backup made with this version."). 2.0's first start keeps a copy
+of the 1.x database in the data folder,
+`backups/btctx-pre-2.0-from-<revision>-<time>.db`, and never removes it.
+The ways back below for Docker and the Mac app, and StartOS's by
+BitcoinTX's own backup, were tried with 1.2.10 on 2026-10-24, and StartOS's
+by its own backup in beta.2's release tests
+([#806](https://github.com/DigiMonk73/BTCTX-MCP/issues/806)).
+
+- **StartOS:** uninstall BitcoinTX (which deletes its data, that copy
+  included), then restore the StartOS backup made before the update: it
+  brings back the 1.x package itself, with its data. Without that backup,
+  sideload 1.x from its GitHub release and restore, in its Settings, a
+  BitcoinTX backup downloaded under 1.x. 2.0's release notes give the
+  steps.
+- **Docker:** a 1.x volume you never started 2.0 on (2.0's pre-releases
+  ask for a new volume) is as it was: start the 1.x image on it, by its
+  version tag. On a volume 2.0 upgraded:
+  1. Stop the container.
+  2. Copy the pre-2.0 copy over `btctx.db` and remove the files SQLite
+     keeps beside it, through the 1.x image, which runs the command as
+     BitcoinTX's own user, `btctx` (uid 10001). With the volume of the
+     README's command, `btctx-data`:
+     ```bash
+     docker run --rm -v btctx-data:/data ghcr.io/digimonk73/btctx-mcp:v1.2.10 sh -c 'cp /data/backups/btctx-pre-2.0-from-<revision>-<time>.db /data/btctx.db && rm -f /data/btctx.db-journal /data/btctx.db-wal /data/btctx.db-shm'
+     ```
+     Use the 1.x version the copy came from, or a later 1.x: an older one
+     refuses the copy's schema.
+  3. Start that 1.x image on the volume, by its version tag (never
+     `:latest` or `:main`, which are 2.0).
+
+  A copy made another way as root still works with a normal start, which
+  gives `/data` back to `btctx`. Started with `--user`, the image leaves
+  `/data` as it is, so a file root made there stops it ("unable to open
+  database file"): give it to uid 10001 first (`chown 10001:10001`).
+- **The Mac app:** quit BitcoinTX and install that 1.x app (or a later
+  1.x) from its GitHub release. Put the copy in place of
+  `~/Library/Application Support/BitcoinTX/btctx.db` and remove any
+  `btctx.db-journal`, `btctx.db-wal` or `btctx.db-shm` beside it, then open
+  the 1.x app. BitcoinTX Preview, the Mac app of 2.0's alphas and betas,
+  never opens your BitcoinTX's ledger: quit it and open BitcoinTX.
 
 ## Yearly IRS forms
 

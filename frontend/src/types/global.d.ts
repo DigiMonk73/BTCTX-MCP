@@ -30,12 +30,38 @@ declare global {
     };
   }
 
+  // GET /api/accounts/ (2.0 spec 5.9): banks, wallets, exchanges, then the
+  // two fee accounts, each by id. An exchange is two accounts, its USD and its
+  // BTC, sharing an exchange_id; `exchange` is that exchange's name.
+  type AccountKind = "bank" | "wallet" | "exchange" | "fee";
+
+  interface LedgerAccount {
+    id: number;
+    name: string;
+    kind: AccountKind;
+    currency: Currency;
+    exchange_id: number | null;
+    exchange: string | null;
+    // The exchange's "This exchange sends me a Form 1099-DA" switch (5.9); null for any other account
+    sends_1099da: boolean | null;
+    hidden: boolean;
+    in_use: boolean;
+  }
+
+  /** The account book as the API lists it (utils/accounts.ts answers from it). */
+  type AccountBook = LedgerAccount[];
+
   // The dashboard's figures
   interface AccountBalance {
     account_id: number;
     name: string;
     currency: string;
     balance: number | string; // parseDecimal
+    kind: AccountKind | null; // the dashboard's balances go by kind (2.0 spec 5.13); null: no account the book lists
+    exchange_id: number | null; // an exchange's two accounts share it
+    exchange: string | null; // that exchange's name
+    hidden: boolean;
+    cost_basis: number | null; // what the BTC a bitcoin account holds cost (#709); null: a dollar or fee account
   }
 
   interface AverageCostBasis {
@@ -152,6 +178,15 @@ declare global {
     proceeds_from_price?: boolean;    // a Spent's proceeds BitcoinTX filled in
     fmv_from_price?: boolean;         // a gift's, donation's or lost coins' value BitcoinTX filled in (#255)
     price_used?: PriceUsed | null;    // the stored price they came from (#145)
+    chosen_coins?: ChosenCoin[] | null; // the coins it chose to leave a wallet (#711); null: oldest first
+    coins_chosen_at?: string | null;    // when they were saved
+  }
+
+  /** Coins chosen to leave one of your wallets (#711): the Buy or Deposit
+   * that acquired them, by its id, and how much of them, in BTC (exact). */
+  interface ChosenCoin {
+    acquired_txn_id: number;
+    btc: string;
   }
 
   /** The stored price a transaction's filled-in values came from (#145). */
@@ -193,6 +228,8 @@ declare global {
     proceeds_from_price?: boolean;
     fmv_from_price?: boolean;
     price_used?: PriceUsed | null;
+    chosen_coins?: ChosenCoin[] | null;
+    coins_chosen_at?: string | null;
   }
 
   /** The moment a value BitcoinTX priced came from: the price when its hour
@@ -228,6 +265,9 @@ declare global {
     fee_usd?: number | null;
     // A My BTC / Gift deposit's date originally acquired (ISO 8601); null = the deposit's date
     acquired_at?: string | null;
+    // The coins chosen to leave a wallet (#711); null = oldest first; left out = none (a new
+    // transaction) or, on an edit, the stored ones kept
+    chosen_coins?: ChosenCoin[] | null;
   }
 
   interface ApiErrorResponse {
@@ -239,8 +279,6 @@ declare global {
 
   // The transaction form
   type TransactionType = "Deposit" | "Withdrawal" | "Transfer" | "Buy" | "Sell";
-
-  type AccountType = "Bank" | "Wallet" | "Exchange" | "External";
 
   type DepositSource = "N/A" | "MyBTC" | "Gift" | "Inherited" | "Income" | "Interest" | "Reward" | "Rebate";
   type WithdrawalPurpose = "N/A" | "Spent" | "Gift" | "Donation" | "Lost";
@@ -257,9 +295,13 @@ declare global {
     type: TransactionType;
     timestamp: string;
 
+    // Both of the row's accounts, by id, for every type (2.0 spec 5.13): a
+    // Deposit's is its To, a Withdrawal's and a Sell's its From; a Sell's To
+    // is its exchange's dollars. Each account's currency is the book's.
+    fromAccountId?: number;
+    toAccountId?: number;
+
     // Single-account
-    account?: AccountType;
-    currency?: Currency;
     amount?: BtcFieldValue;
     source?: DepositSource;      // for BTC deposit
     purpose?: WithdrawalPurpose; // for BTC withdrawal
@@ -268,20 +310,13 @@ declare global {
     proceeds_usd?: number;
     fmv_usd?: number;
 
-    // Transfer
-    fromAccount?: AccountType;
-    fromCurrency?: Currency;
-    toAccount?: AccountType;
-    toCurrency?: Currency;
+    // Transfer: what left and what arrived
     amountFrom?: BtcFieldValue;
     amountTo?: BtcFieldValue;
 
     // Buy / Sell
     amountUSD?: number;
     amountBTC?: BtcFieldValue;
-
-    // For Buy transactions: source account (Bank or Exchange)
-    buyFromAccount?: "Bank" | "Exchange";
 
     // A Sell's proceeds as typed, before fees
     grossProceedsUSD?: number;
@@ -303,6 +338,10 @@ declare global {
     // A My BTC / Gift deposit's date originally acquired ("2021-03-14"); blank = the deposit's date.
     // An Inherited deposit's date of death (required)
     acquiredDate?: string;
+    // The coins chosen to leave a wallet (#711), as typed: null = oldest first (the picker shut)
+    chosenCoins?: ChosenCoin[] | null;
+    chosenCoinsSaved?: ChosenCoin[] | null; // the stored choice, on an edit
+    coinsChosenAt?: string | null;          // when it was saved
   }
 
   // A Settings section's share of the page's state: one action at a time

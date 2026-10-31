@@ -9,16 +9,17 @@ AI key; privacy & network. Changing any of them is login only. Mounted at
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.services import ai_key, hourly_prices, mempool_trust, outbound
+from backend.services import ai_key, hourly_prices, mempool_trust, outbound, past_years
 from backend.services.desktop import desktop_info
+from backend.services.past_year_writes import TaxTimezone as TaxTimezoneWrite
 from backend.services.tax_time import (
-    fill_tax_timezone, get_tax_timezone_name, never_chosen_with_transactions, set_tax_timezone,
+    fill_tax_timezone, get_tax_timezone_name, never_chosen_with_transactions, validate_timezone,
 )
-from backend.services.transaction import recalculate_all_transactions
 
 router = APIRouter()
 
@@ -46,32 +47,33 @@ def get_tax_timezone_setting(db: Session = Depends(get_db)):
 
 
 @router.put("/tax-timezone")
-def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, db: Session = Depends(get_db)):
+def put_tax_timezone_setting(payload: ChosenTaxTimezone, request: Request, confirm: str | None = None,
+                             db: Session = Depends(get_db)):
     """
     Save the tax timezone and recalculate: holding periods are decided on
     calendar dates in this timezone, so stored results may change. Login
     only: it moves tax years, so never the AI key. While none was ever
     chosen and the ledger has transactions, only with `chosen` (Settings):
-    otherwise a 409, so an old page's login can't set it (#334).
+    otherwise a 409, so an old page's login can't set it (#334). One that
+    changes the figures of an earlier tax year (a holding period, a sale's
+    tax year) answers 409 with the years, what changes and a fingerprint,
+    and saves nothing until sent again with ?confirm=<fingerprint>; a copy
+    of the database comes first.
     """
     _require_login(request)
     if not payload.chosen and never_chosen_with_transactions(db):
         raise HTTPException(status_code=409, detail=RELOAD_TO_CHOOSE)
-
-    def save() -> None:
-        try:
-            set_tax_timezone(db, payload.timezone)
-        except ValueError as exc:  # its own words: an unknown timezone
-            raise HTTPException(status_code=400, detail=str(exc))
-        recalculate_all_transactions(db)
-        db.commit()
-
     try:
-        # A price the recalculation needs is looked for with the lock free (#426)
-        hourly_prices.with_prices_found(db, save)
+        validate_timezone(payload.timezone)
+    except ValueError as exc:  # its own words: an unknown timezone
+        raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        saved = past_years.save(TaxTimezoneWrite(payload.timezone), db, confirm, by_ai=False)
     except Exception:  # never its text: an unexpected one answers a fixed sentence (#430)
         db.rollback()
         raise
+    if isinstance(saved, JSONResponse):
+        return saved  # the warning
     return {"timezone": payload.timezone, "source": "setting"}
 
 

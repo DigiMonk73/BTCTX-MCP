@@ -1,0 +1,8 @@
+Transaction ID,Date,Transaction Type,Currency,Amount,Fee,Net Amount,Asset Type,Asset Price,Asset Amount
+aaa001,2025-01-10 09:15:00 EST,Bitcoin Buy,USD,-$98.15,-$2.00,-$100.15,BTC,"$98,150.00",0.001 BTC
+aaa002,2025-02-01 09:15:00 EST,Bitcoin Recurring Buy,USD,-$9.80,-$0.20,-$10.00,BTC,"$98,000.00",0.0001 BTC
+aaa003,2025-07-04 12:00:00 PDT,Bitcoin Sale,USD,$50.00,-$1.49,$48.51,BTC,"$100,000.00",0.0005 BTC
+aaa004,2025-07-05 08:00:00 PDT,Bitcoin Withdrawal,USD,$20.00,-$2.00,$18.00,BTC,"$90,000.00",0.0002 BTC
+aaa005,2025-07-06 08:00:00 PDT,Bitcoin Boost,USD,$0.50,$0.00,$0.50,BTC,"$100,000.00",0.000005 BTC
+aaa006,2025-07-07 08:00:00 PDT,Bitcoin Lightning Deposit,USD,-$10.00,$0.00,-$10.00,BTC,"$100,000.00",0.0001 BTC
+aaa007,2025-07-08 08:00:00 PDT,Bitcoin Payment,USD,$5.00,$0.00,$5.00,BTC,"$100,000.00",0.00005 BTC

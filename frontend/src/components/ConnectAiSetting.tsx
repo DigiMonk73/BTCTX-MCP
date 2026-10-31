@@ -13,8 +13,12 @@ import {
   claudeDesktopConfig,
   grokCommand,
   needsCaBundle,
+  SERVER_NAME,
+  serverName,
   serverPackage,
 } from "../utils/aiSetup";
+import { macApp } from "../utils/prereleaseVersion";
+import Chevron from "./Chevron";
 
 /** Clipboard API where allowed (https, localhost); else the older copy command. */
 async function copyText(text: string): Promise<boolean> {
@@ -211,15 +215,44 @@ const AiAccessControls: React.FC<{ access: AiAccess; onChange: (a: AiAccess) => 
   );
 };
 
-const ConnectAiSetting: React.FC = () => {
-  const [version, setVersion] = useState<string | undefined>();
+/**
+ * How to update an AI app set up for an older version: under a pre-release's
+ * own server name, or, on a server install (StartOS, which a pre-release
+ * updates in place), the bitcointx that reaches this BitcoinTX. Never while
+ * it isn't known to be one: on a Mac that bitcointx is the installed app's.
+ */
+export const OlderVersionHint: React.FC<{ version?: string; serverMode: boolean }> = ({ version, serverMode }) => {
+  if (serverPackage(version) === "btctx-mcp") return null;
+  const name = serverName(version);
+  return (
+    <p className="settings-option-subtitle">
+      Set up with an older version? Change <code>btctx-mcp==</code> in your AI app&apos;s settings for{" "}
+      <code>{name}</code>
+      {name !== SERVER_NAME && serverMode && (
+        <>
+          {" "}
+          (or for the <code>{SERVER_NAME}</code> that reaches this BitcoinTX)
+        </>
+      )}{" "}
+      to <code>{serverPackage(version)}</code>, then restart the AI app. No new key needed.
+    </p>
+  );
+};
+
+const ConnectAiSetting: React.FC<{
+  /** The edition, once the server has said it: true on the Mac app (aiSetup's keyMode). */
+  onKeyMode?: (keyMode: boolean) => void;
+}> = ({ onKeyMode }) => {
+  // This page's own version until the server answers, and if it doesn't:
+  // never an unpinned connector, which a pre-release's setup must not hand out (B10a)
+  const [version, setVersion] = useState<string | undefined>(__BTCTX_VERSION__);
   const [access, setAccess] = useState<AiAccess | null>(null);
   const url = window.location.origin;
 
   useEffect(() => {
     api
       .get<{ version?: string }>("/health")
-      .then((res) => setVersion(res.data.version))
+      .then((res) => setVersion(res.data.version ?? __BTCTX_VERSION__))
       .catch(() => undefined);
     api
       .get<AiAccess>("/settings/ai-access")
@@ -229,10 +262,14 @@ const ConnectAiSetting: React.FC = () => {
 
   const keyMode = access?.mode === "mac";
   const input = useMemo(() => ({ url, version, keyMode }), [url, version, keyMode]);
+  // The closed section's summary words the key by edition, once it's known (#724)
+  const known = access !== null;
+  useEffect(() => {
+    if (known) onKeyMode?.(keyMode);
+  }, [known, keyMode, onKeyMode]);
 
   return (
-    <div className="settings-section" role="region" aria-label="Connect an AI Assistant">
-      <h3 className="section-title">Connect an AI Assistant</h3>
+    <>
       <p className="note note-warning ai-privacy-note" role="note">
         <strong>Your data goes to the AI&apos;s model.</strong> Whatever BitcoinTX hands the
         assistant (transactions, balances, gains) and whatever you paste into the chat is read by
@@ -257,21 +294,15 @@ const ConnectAiSetting: React.FC = () => {
             here, so the AI can read your ledger and enter transactions (its guide tells it to
             show you a preview before saving).
             {keyMode
-              ? " No key or address is needed: the MCP server finds this app by itself. Keep BitcoinTX open while you use the AI."
+              ? ` No key or address is needed: the MCP server finds this app by itself. Keep ${macApp(version)} open while you use the AI.`
               : " Your AI key stays out of the chat: you paste it into the AI app's settings yourself."}
             {access && !access.on && " Turn on AI access above first."}
           </p>
           <CopyBlock label="Setup prompt" text={buildAiPrompt(input)} rows={keyMode ? 12 : 18} />
-          {serverPackage(version) !== "btctx-mcp" && (
-            <p className="settings-option-subtitle">
-              Set up with an older version? Change <code>btctx-mcp==</code> in your AI app&apos;s
-              settings to <code>{serverPackage(version)}</code>, then restart the AI app. No new key
-              needed.
-            </p>
-          )}
+          <OlderVersionHint version={version} serverMode={access?.mode === "server"} />
 
           <details className="ai-setup-manual">
-            <summary>Set it up yourself</summary>
+            <summary className="chevron-toggle">Set it up yourself<Chevron /></summary>
             <p className="settings-option-subtitle">
               {!keyMode && (
                 <>
@@ -306,7 +337,7 @@ const ConnectAiSetting: React.FC = () => {
           </details>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

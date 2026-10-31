@@ -29,7 +29,7 @@ test("Bank → Exchange: $1,000 sent, $990 arrived, a $10 fee (#447)", async ({ 
   await openAddForm(page, "Transfer");
   await page.getByLabel("Date & Time").fill("2024-03-01T10:15:30");
   await page.getByLabel("From Account").selectOption("Bank");
-  await expect(page.getByLabel("To Account")).toHaveValue("Exchange");
+  await expect(page.getByLabel("To Account")).toHaveValue("Exchange USD");
   await page.getByLabel("Amount (From)").fill("1000");
   await page.getByLabel("Amount (To)").fill("990");
   const fee = page.getByLabel("Fee (USD)");
@@ -64,7 +64,7 @@ test("one saved before #447 opens as From = amount + fee and saves the same figu
   await expect(page.getByLabel("Amount (From)")).toHaveValue("1010");
   await expect(page.getByLabel("Amount (To)")).toHaveValue("1000");
   await expect(page.getByLabel("Fee (USD)")).toHaveValue("10");
-  await saveForm(page, "Update Transaction");
+  await saveForm(page, "Update Transaction", { warning: false }); // dollars only: it never asks
 
   const after = (await listTx(page.request)).find((t) => t.id === old.id)!;
   expect([Number(after.amount), Number(after.fee_amount), after.fee_currency]).toEqual([1000, 10, "USD"]);
@@ -74,8 +74,7 @@ test("one saved before #447 opens as From = amount + fee and saves the same figu
 test("Exchange → Bank: what arrived above what left is refused, in words", async ({ authedPage: page }) => {
   await createTx(page.request, { ...BANK_DEPOSIT, to_account_id: 3 });
   await openAddForm(page, "Transfer");
-  await page.getByLabel("From Account").selectOption("Exchange");
-  await page.getByLabel("From Currency").selectOption("USD");
+  await page.getByLabel("From Account").selectOption("Exchange USD");
   await expect(page.getByLabel("To Account")).toHaveValue("Bank");
   await page.getByLabel("Amount (From)").fill("500");
   await page.getByLabel("Amount (To)").fill("505");

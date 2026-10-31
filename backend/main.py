@@ -54,7 +54,12 @@ ALLOWED_ORIGINS = cors_origins(os.getenv("CORS_ALLOW_ORIGINS"))
 
 from backend.database import init_db, get_db, SessionLocal
 from backend.session_auth import end_session, require_login, session_user_id, start_session
-from backend.security_headers import CrossSiteGuardMiddleware, LocalAddressOnlyMiddleware, SecurityHeadersMiddleware
+from backend.security_headers import (
+    CrossSiteGuardMiddleware,
+    LocalAddressOnlyMiddleware,
+    PageVersionMiddleware,
+    SecurityHeadersMiddleware,
+)
 from backend.services import ai_key
 from backend.unexpected_errors import UnexpectedErrorMiddleware, log_unexpected
 from backend.schemas.user import is_text
@@ -231,7 +236,7 @@ app = FastAPI(
     title="BitcoinTX Portfolio Tracker API",
     description=(
         "API for managing Bitcoin transactions/accounts with a "
-        "double-entry system and FIFO cost basis. Session-based auth."
+        "double-entry system and per-wallet FIFO cost basis. Session-based auth."
     ),
     version="1.0",
     debug=os.getenv("DEBUG", "false").lower() == "true",
@@ -258,6 +263,9 @@ app.add_middleware(
     # HTTP installs (Mac app on 127.0.0.1, Docker on a LAN).
     https_only=False,
 )
+# A logged-in change from a page older than the server (one left open over
+# the upgrade to 2.0 sends no X-BitcoinTX-Page) is refused (409): reload it.
+app.add_middleware(PageVersionMiddleware, session_cookie=SESSION_COOKIE)
 # A POST, PUT, PATCH or DELETE sent by another site's page (or another app on
 # the same host) with the owner's cookie is refused (403).
 app.add_middleware(CrossSiteGuardMiddleware, trusted_origins=ALLOWED_ORIGINS)
@@ -278,6 +286,8 @@ app.add_middleware(
         "/api/import/preview": MAX_FILE_SIZE,
         "/api/import/execute": MAX_FILE_SIZE,
         "/api/import/river/preview": MAX_FILE_SIZE,
+        "/api/import/exchange/preview": MAX_FILE_SIZE,
+        "/api/import/exchange/columns": MAX_FILE_SIZE,
     },
     secret_key=SECRET_KEY,
     session_cookie=SESSION_COOKIE,
@@ -400,6 +410,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not ai_key.key_may_use(request.method, route):
         logger.info("AI key refused: %s %s isn't open to it", request.method, route or request.scope["path"])
         raise HTTPException(status_code=403, detail=ai_key.NOT_ALLOWED)
+    # A 1.x connector can't tell a second wallet or exchange from the first (2.0 spec 5.12)
+    if ai_key.from_an_old_connector(request.method, route, request.headers.get(ai_key.CONNECTOR_HEADER), db):
+        logger.info("AI key refused: %s %s from a connector older than 2.0", request.method, route)
+        raise HTTPException(status_code=409, detail=ai_key.OLD_CONNECTOR)
     return "ai_key"
 
 
@@ -429,7 +443,7 @@ def require_login_dependency(request: Request, db: Session = Depends(get_db)) ->
     return require_login(request, db)
 
 
-from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, entry_import, settings, review
+from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, exchange_import, entry_import, settings, review
 
 # Every logged-in router: the login (or the AI key), then the text check
 # (#313), which an anonymous request never reaches
@@ -444,6 +458,7 @@ include(reports.reports_router, "/api/reports", tags=["reports"], dependencies=L
 include(backup.router, "/api/backup", tags=["backup"], dependencies=LOGGED_IN)
 include(csv_import.router, "/api/import", tags=["import"], dependencies=LOGGED_IN)
 include(river_import.router, "/api/import/river", tags=["import"], dependencies=LOGGED_IN)
+include(exchange_import.router, "/api/import/exchange", tags=["import"], dependencies=LOGGED_IN)
 include(entry_import.router, "/api/import/entries", tags=["import"], dependencies=LOGGED_IN)
 include(settings.router, "/api/settings", tags=["settings"], dependencies=LOGGED_IN)
 include(review.router, "/api/review", tags=["review"], dependencies=LOGGED_IN)

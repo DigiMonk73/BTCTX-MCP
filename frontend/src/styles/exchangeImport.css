@@ -1,0 +1,59 @@
+/* The importer for any exchange's file (B5b): the column matcher. Laid out
+   with components.css's fields, inputs and notes; one column on a phone. */
+
+.column-matcher {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.match-group {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  padding: var(--space-3);
+  margin: 0;
+  min-width: 0;
+}
+
+.match-group legend {
+  padding: 0 var(--space-1);
+  font-weight: 600;
+}
+
+.match-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.match-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+
+.match-word {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.match-samples {
+  max-height: 240px;
+}
+
+@media (max-width: 600px) {
+  .match-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* A phone: a picker and a button a thumb can hit (P7) */
+@media (max-width: 480px) {
+  .exchange-file-choice .input,
+  .exchange-file-choice .btn {
+    height: 44px;
+  }
+}

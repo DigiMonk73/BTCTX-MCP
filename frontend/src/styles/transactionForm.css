@@ -11,14 +11,71 @@
   gap: var(--space-4);
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
+/* Transaction Type, then Date & Time, each the grid's whole width: a
+   column of two is narrower than Chromium's date and time with seconds,
+   which then lost its month (#755) */
+.form-field-wide { grid-column: 1 / -1; }
 .transaction-form .field-hint,
 .transaction-form .field-error,
 .transaction-form .field-warning { display: block; }
 
 .form-status { justify-content: center; padding: var(--space-3) 0; }
 
+/* The coins a Transfer will move (#706): the grid's whole width */
+.transfer-coins {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.transfer-coins [role="status"] > * { margin-top: var(--space-2); }
+.transfer-coins-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.transfer-coins caption { text-align: left; padding-bottom: var(--space-2); }
+.transfer-coins .num { text-align: right; }
+/* The list for the transfer as it was a moment ago, while the new one is asked */
+.transfer-coins-list[aria-busy="true"] { opacity: 0.5; }
+
+/* Choosing which coins leave a wallet (#711): a table at desktop width, a card per purchase on a phone */
+.coins-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+.coins-picker legend { padding: 0 var(--space-1); }
+.coins-picker-table .input { width: 7rem; text-align: right; }
+.coins-picker-table td { vertical-align: top; }
+.coins-picker-stack { display: flex; flex-direction: column; gap: 2px; }
+.coins-picker-stack .nowrap { white-space: nowrap; }
+.coins-picker-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.coins-picker-unlisted { margin: 0; padding-left: var(--space-4); }
+
 .hidden-trigger { display: none; }
 
 @media (max-width: 480px) {
   .form-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  /* Each purchase a card: its cells one under another, each named by its column (P7, #572) */
+  .coins-picker-table thead { display: none; }
+  .coins-picker-table caption { display: block; }
+  .coins-picker-table,
+  .coins-picker-table tbody,
+  .coins-picker-table tr,
+  .coins-picker-table td { display: block; width: 100%; }
+  .coins-picker-table tr {
+    margin-bottom: var(--space-2);
+    padding: var(--space-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+  }
+  .coins-picker-table td { display: flex; justify-content: space-between; gap: var(--space-2); text-align: right; }
+  .coins-picker-table td::before { content: attr(data-label); color: var(--color-text-muted); text-align: left; }
+  .coins-picker-stack { align-items: flex-end; }
+  .coins-picker-table .input { width: 100%; max-width: 12rem; height: 44px; }
+  .coins-picker-actions .btn,
+  .coins-picker-open .btn { min-height: 44px; }
 }

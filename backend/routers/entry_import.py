@@ -22,11 +22,14 @@ size is limited for every route (body_limit.py).
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette.concurrency import run_in_threadpool
 
 from backend.database import get_db
 from backend.models.transaction import Transaction
+from backend.services import chosen_coins, past_years
+from backend.services.account import account_book
 from backend.services.tax_time import get_tax_timezone
 from backend.routers.csv_import import MAX_ROWS
 from backend.routers.transaction import _copy_before_ai_changes
@@ -48,6 +51,7 @@ from backend.services.entry_import import (
     from_price,
     mark_duplicates,
     normalized_view,
+    past_year_write,
     refusal,
     simulate,
     validate_rows,
@@ -92,12 +96,15 @@ def _check_size(payload: EntryRequest, ai: bool) -> None:
 def _recalculates(prepared: list[PreparedRow], db: Session) -> bool:
     """Whether saving the rows recalculates the whole ledger: one dated
     before the ledger's latest entry does (services/transaction
-    _is_backdated), and can move stored figures. The rows are saved oldest
-    first, so one can't come before another of the same import."""
+    _is_backdated), and can move stored figures, and so does a row choosing
+    coins while a lot doesn't know its acquisition (#711's call (j)). The
+    rows are saved oldest first, so one can't come before another of the
+    same import."""
+    rows = [p.tx_data for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES]
+    if chosen_coins.replays_first(rows, db):
+        return True
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
-    return latest is not None and any(
-        p.tx_data["timestamp"] < latest.timestamp
-        for p in prepared if p.tx_data is not None and p.result.status in WRITABLE_STATUSES)
+    return latest is not None and any(row["timestamp"] < latest.timestamp for row in rows)
 
 
 def _copy_if_it_recalculates(rows: list[PreparedRow], db: Session) -> None:
@@ -113,7 +120,10 @@ def _check_ai_request(prepared: list[PreparedRow], db: Session) -> None:
     AI_MAX_REPLAYED entries: each row dated before the ledger's latest entry
     replays the whole ledger with the rows added before it
     (services/transaction.create_transaction_record). One such row is always
-    allowed, as for an edit made in BitcoinTX.
+    allowed, as for an edit made in BitcoinTX. (A row choosing coins while
+    a lot doesn't know its acquisition, #711's call (j), replays once and
+    gives every lot its own, or not at all beside a backdated row, which
+    replays first: never more than one replay, which is always allowed.)
     """
     latest = db.query(Transaction).order_by(Transaction.timestamp.desc()).first()
     if latest is None:
@@ -141,22 +151,28 @@ async def preview_entries(
     """
     Validate rows, autofill FMV-derived USD values, flag duplicates of
     existing transactions, and simulate the write (then roll it back).
-    Nothing is saved.
+    Nothing is saved. `past_years`: when the rows would change the figures
+    of an earlier tax year, the past-year warning the execute answers with
+    (its years, what changes and its fingerprint, 2.0 spec 5.8), else null.
     """
     ai = _with_ai_key(request)
     _check_size(payload, ai)
 
-    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
+    book = account_book(db)
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), book)
     if ai:
         await run_in_threadpool(_check_ai_request, prepared, db)
     await autofill_fmv(prepared, db)
+    write = past_year_write(prepared, lambda _db: None)  # the rows as the execute takes them, before the marks below
     await run_in_threadpool(mark_duplicates, prepared, db)
     affected, balances = await run_in_threadpool(simulate, prepared, db)
 
     results = [p.result for p in prepared]
+    goes_through = all(r.status in (STATUS_READY, STATUS_DUPLICATE, STATUS_POSSIBLE_DUPLICATE) for r in results)
+    warning = await run_in_threadpool(past_years.warning, write, db, ai) if goes_through else None
     for p in prepared:
         if p.tx_data is not None:
-            p.result.normalized = normalized_view(p.tx_data)
+            p.result.normalized = normalized_view(p.tx_data, book)
 
     def count(status: str) -> int:
         return sum(1 for r in results if r.status == status)
@@ -171,6 +187,7 @@ async def preview_entries(
         results=results,
         affected_existing=affected,
         balances_after=balances,
+        past_years=warning,
     )
 
 
@@ -188,6 +205,7 @@ def _created_answers(created: list[tuple[PreparedRow, Transaction]], db: Session
             realized_gain_usd=tx.realized_gain_usd,
             holding_period=tx.holding_period,
             from_price=from_price(tx, db, years),
+            warnings=p.account_warnings,
         )
         for p, tx in sorted(created, key=lambda c: c[0].row)
     ]
@@ -197,6 +215,7 @@ def _created_answers(created: list[tuple[PreparedRow, Transaction]], db: Session
 async def execute_entries(
     payload: EntryRequest,
     request: Request,
+    confirm: str | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -210,11 +229,16 @@ async def execute_entries(
     again while this one runs finds its rows (#454). With the AI key, rows
     that recalculate the ledger come after the hour's AI copy of the
     database (#414), as an edit, a deletion or Recalculate Ledger do.
+    Rows that would change the figures of an earlier tax year answer 409
+    with the years, what changes and a fingerprint, and nothing is saved
+    until the request is sent again with ?confirm=<fingerprint>: one
+    confirm for the batch, checked inside the write lock the rows are
+    written under, after a copy of the database (2.0 spec 5.8).
     """
     ai = _with_ai_key(request)
     _check_size(payload, ai)
 
-    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db))
+    prepared = await run_in_threadpool(validate_rows, payload.rows, get_tax_timezone(db), account_book(db))
     invalid = [p.result for p in prepared if p.result.status == STATUS_INVALID]
     if invalid:
         raise refusal(invalid)
@@ -222,15 +246,12 @@ async def execute_entries(
         await run_in_threadpool(_check_ai_request, prepared, db)
 
     await autofill_fmv(prepared, db)
-    if ai:  # with the lock free, as the copy can take a while
-        await run_in_threadpool(lambda: _copy_if_it_recalculates(writable_now(prepared, db), db))
-
-    # The duplicate check and the writes hold one write lock (#454); with the
-    # key, a save made before it, of a later row, can make the rows
-    # recalculate: their copy is then made under the lock
-    copy = (lambda: _copy_if_it_recalculates(prepared, db)) if ai else (lambda: None)
-    created = await run_in_threadpool(write_rows, prepared, db, copy)
-    skipped = sum(1 for p in prepared if p.result.status == STATUS_DUPLICATE)
+    write = past_year_write(prepared, lambda session: (_add(prepared, session, ai), prepared))
+    saved = await run_in_threadpool(past_years.save, write, db, confirm, ai)
+    if isinstance(saved, JSONResponse):
+        return saved  # the warning
+    created, checked = saved
+    skipped = sum(1 for p in checked if p.result.status == STATUS_DUPLICATE)
     out = await run_in_threadpool(_created_answers, created, db)
 
     message = f"Imported {len(out)} transaction(s)."
@@ -243,3 +264,15 @@ async def execute_entries(
         created=out,
         message=message,
     )
+
+
+def _add(prepared: list[PreparedRow], db: Session, ai: bool) -> list[tuple[PreparedRow, Transaction]]:
+    """The add as it saves when no earlier tax year can move: the duplicate
+    check and the writes under one write lock (#454). With the key, rows that
+    recalculate come after the hour's AI copy: made with the lock free, as it
+    can take a while, or under the lock when a save made before it, of a
+    later row, makes them recalculate."""
+    if ai:
+        _copy_if_it_recalculates(writable_now(prepared, db), db)
+    copy = (lambda: _copy_if_it_recalculates(prepared, db)) if ai else (lambda: None)
+    return write_rows(prepared, db, copy)

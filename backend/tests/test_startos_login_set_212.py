@@ -22,7 +22,8 @@ LAST_WITH_PASSWORD = (1, 2, 8, 0)
 
 
 def package_version(text: str) -> tuple[int, ...]:
-    version = re.findall(r"version: '(\d+)\.(\d+)\.(\d+):(\d+)'", text)
+    # a 2.0 pre-release's 2.0.0-alpha.N:0 or 2.0.0-beta.N:0 counts as 2.0.0 (B10a)
+    version = re.findall(r"version: '(\d+)\.(\d+)\.(\d+)(?:-(?:alpha|beta)\.\d+)?:(\d+)'", text)
     assert len(version) == 1
     return tuple(int(n) for n in version[0])
 

@@ -123,11 +123,13 @@ echo "  Frontend built to frontend/dist/"
 echo ""
 echo "[4/6] Verifying resources..."
 
-if [ ! -f "$SCRIPT_DIR/resources/icon.icns" ]; then
-    echo "  WARNING: icon.icns not found at $SCRIPT_DIR/resources/icon.icns"
-    echo "  The app will be built without a custom icon."
-    echo "  To add an icon, convert logo.svg to icon.icns and place it in desktop/resources/"
-fi
+# BitcoinTX's icon, and BitcoinTX Preview's with its band (#670): the spec takes one
+for icon in icon.icns icon-preview.icns; do
+    if [ ! -f "$SCRIPT_DIR/resources/$icon" ]; then
+        echo "  ERROR: $icon not found at $SCRIPT_DIR/resources/ (docs/MACOS_DESKTOP_APP.md, \"App icon\")"
+        exit 1
+    fi
+done
 
 if [ ! -d "$PROJECT_ROOT/backend/assets/irs_templates" ]; then
     echo "  ERROR: IRS templates not found at backend/assets/irs_templates/"
@@ -141,34 +143,40 @@ echo ""
 echo "[5/6] Building application bundle..."
 
 cd "$SCRIPT_DIR"
+# Only this build's app in dist/: BitcoinTX.app, or BitcoinTX Preview.app for a
+# 2.0 pre-release (the spec takes its name from VERSION)
+rm -rf "$SCRIPT_DIR/dist"
 pyinstaller --clean --noconfirm BitcoinTX.spec
 
 # Step 6: Report results
 echo ""
 echo "[6/6] Build complete!"
 
-APP_PATH="$SCRIPT_DIR/dist/BitcoinTX.app"
-if [ -d "$APP_PATH" ]; then
+APPS=("$SCRIPT_DIR"/dist/*.app)
+APP_PATH="${APPS[0]}"
+APP_NAME="$(basename "$APP_PATH" .app)"
+if [ "${#APPS[@]}" = 1 ] && [ -d "$APP_PATH" ]; then
     APP_SIZE=$(du -sh "$APP_PATH" | cut -f1)
     echo ""
     echo "  Application: $APP_PATH"
     echo "  Size: $APP_SIZE"
     echo ""
-    echo "To test:"
-    echo "  open $APP_PATH"
+    # Never "open" it: that runs it on the installed app's data folder, a real ledger (#679)
+    echo "To test, on its own data folder and port, never the installed app's ledger:"
+    printf '  %q\n' "$SCRIPT_DIR/run-test-build.sh"
     echo ""
 
     # Create DMG if create-dmg is available
     if command -v create-dmg &> /dev/null; then
         echo "Creating DMG installer..."
-        DMG_PATH="$SCRIPT_DIR/dist/BitcoinTX.dmg"
+        DMG_PATH="$SCRIPT_DIR/dist/${APP_NAME// /-}.dmg"
         rm -f "$DMG_PATH"
         create-dmg \
-            --volname "BitcoinTX" \
+            --volname "$APP_NAME" \
             --window-pos 200 120 \
             --window-size 600 400 \
             --icon-size 100 \
-            --icon "BitcoinTX.app" 150 190 \
+            --icon "$APP_NAME.app" 150 190 \
             --app-drop-link 450 190 \
             "$DMG_PATH" \
             "$APP_PATH"
@@ -184,7 +192,7 @@ if [ -d "$APP_PATH" ]; then
         echo "  brew install create-dmg"
         echo ""
         echo "Then run:"
-        echo "  create-dmg --volname BitcoinTX --app-drop-link 450 190 BitcoinTX.dmg $APP_PATH"
+        echo "  create-dmg --volname \"$APP_NAME\" --app-drop-link 450 190 \"${APP_NAME// /-}.dmg\" \"$APP_PATH\""
     fi
 else
     echo "  ERROR: Application bundle not created"

@@ -1,0 +1,10 @@
+"Swan Bitcoin (an example of the two lines Swan writes above its header)"
+Phone: 0000000000
+Event,Date,Timezone,Status,Transaction ID,Total USD,Transaction USD,Fee USD,Unit Count,Asset Type,BTC Price,Address Label,USD Cost Basis,Acquisition Date
+deposit,2025-03-01 14:00:00+00,UTC,settled,,100.00,,,,USD,,,,
+purchase,2025-03-03 14:05:10+00,UTC,settled,20000000-0000-4000-8000-000000000001,100.00,99.00,1.00,0.00110000,BTC,90000.00,,,
+purchase,2025-03-10 14:05:10+00,UTC,settled,20000000-0000-4000-8000-000000000002,50.00,50.00,0.00,0.00055000,BTC,90909.09,,,
+purchase,2025-03-17 14:05:10+00,UTC,pending,20000000-0000-4000-8000-000000000003,50.00,50.00,0.00,0.00050000,BTC,100000.00,,,
+deposit,2025-03-18 09:00:00+00,UTC,settled,,,,,0.01000000,BTC,,Custodial Transfer from Prime Trust,,
+deposit,2025-03-19 09:00:00+00,UTC,settled,,,,,0.00200000,BTC,,,,
+monthly_fee,2025-03-31 00:00:00+00,UTC,settled,,10.00,,,,USD,,,,

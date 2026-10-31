@@ -10,6 +10,23 @@
   margin-bottom: var(--space-6);
 }
 
+/* The account filter and the sort, side by side; they wrap on a phone */
+.transactions-filters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.transactions-filters .select-pill { max-width: 100%; }
+
+/* "3 of 7 transactions", while an account is picked */
+.transactions-count {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-3);
+  font-size: var(--text-13);
+  color: var(--color-text-muted);
+}
+
 /* A select that reads as a secondary pill */
 .select-pill {
   width: auto;
@@ -128,6 +145,9 @@
 /* Phones: Edit drops below the amounts */
 @media (max-width: 480px) {
   .transactions-header { flex-wrap: wrap; }
+  /* The two selects share the row under the button, each a tap target a thumb can hit */
+  .transactions-filters { width: 100%; flex-wrap: nowrap; }
+  .transactions-filters .select-pill { flex: 1 1 0; min-width: 0; height: 44px; }
   .tx-row {
     grid-template-columns: 40px minmax(0, 1fr) auto;
     grid-template-areas:

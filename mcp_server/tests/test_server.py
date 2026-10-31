@@ -52,6 +52,9 @@ def backend_db(monkeypatch, tmp_path):
         finally:
             db.close()
 
+    # Put back what was there: a backend test may run next on this worker,
+    # on the session database its own override names (#814)
+    previous = dict(app.dependency_overrides)
     app.dependency_overrides[get_db] = override_get_db
 
     async def fake_current():
@@ -61,6 +64,7 @@ def backend_db(monkeypatch, tmp_path):
     monkeypatch.setattr("backend.services.bitcoin.get_current_price", fake_current)
     yield engine
     app.dependency_overrides.clear()
+    app.dependency_overrides.update(previous)
     engine.dispose()
 
 
@@ -115,7 +119,7 @@ async def test_tools_listed_without_bulk_delete(mcp_client):
     assert tools == {
         "get_ledger_guide", "get_portfolio", "list_transactions", "get_btc_price",
         "preview_transactions", "add_transactions", "update_transaction", "delete_transaction",
-        "recalculate_ledger", "review_ledger", "backup_ledger",
+        "recalculate_ledger", "review_ledger", "backup_ledger", "get_coins_moved",
     }
 
 
@@ -137,21 +141,39 @@ async def test_ai_setup_guide_names_the_startos_certificate_file():
     assert f"`{ca_file}`" in (repo / "mcp_server/AI_SETUP.md").read_text()
 
 
-async def test_ledger_guide_says_a_second_wallet_is_pooled():
-    """A user adding a second wallet or exchange through the AI hears that
-    BitcoinTX pools it (#92), pointing to the README section that explains it."""
+async def test_ledger_guide_says_each_wallet_is_its_own_account():
+    """2.0 (#357; 5.12, 5.14): the AI names accounts as get_portfolio lists
+    them, and a wallet or exchange the user hasn't added is added by the
+    user in Settings, never pooled into another account nor recorded as
+    External, pointing to the README section that explains it."""
     from btctx_mcp.guide import LEDGER_GUIDE
 
     readme = (Path(__file__).parents[2] / "README.md").read_text()
-    assert "## One wallet, one exchange" in readme
+    assert "## Wallets, exchanges and banks" in readme
     flat = " ".join(LEDGER_GUIDE.split())
-    assert "second wallet or a second exchange" in flat
-    assert "pools it" in flat and '"One wallet, one exchange"' in flat
-    assert "github.com/DigiMonk73/BTCTX-MCP#one-wallet-one-exchange" in flat
-    # The user's own second wallet as External would make a move between
-    # their own wallets a taxable withdrawal
-    assert "Exchange BTC / Exchange USD, never External" in flat
-    assert "untracked exchanges" not in flat
+    assert "get_portfolio" in flat and "accounts" in flat
+    assert "A second wallet or exchange that isn't listed: the user adds it" in flat
+    assert "Settings -> Wallets, exchanges and banks" in flat
+    # At the connector's own release: main's README is 1.x's until 2.0's (#699)
+    assert "/README.md#wallets-exchanges-and-banks" in flat
+    # The user's own wallet as External would make a move between their
+    # own wallets a taxable withdrawal; pooling it would mix their lots
+    assert "never as External" in flat
+    for gone in ("pools it", "One wallet, one exchange", "one-wallet-one-exchange", "exchange by exchange"):
+        assert gone not in flat, gone
+
+
+async def test_ledger_guide_explains_a_past_year_confirm():
+    """B6c's saved: false (#353): the AI shows the years and changes, and
+    confirms only after the user's yes, never on its own."""
+    from btctx_mcp.guide import LEDGER_GUIDE
+
+    flat = " ".join(LEDGER_GUIDE.split())
+    assert "saved: false" in flat
+    for word in ("confirm", "past_years"):
+        assert word in flat, word
+    assert "confirm_move" not in flat  # every write takes confirm (#797)
+    assert "Never send a confirm the user didn't say yes to" in flat
 
 
 async def test_ledger_guide_says_its_figures_are_not_tax_advice():
@@ -712,3 +734,131 @@ async def test_the_row_limit_reaches_the_ai(mcp_client):
         assert f"BitcoinTX returned 400: Too many transactions. Maximum is {AI_MAX_ROWS} rows per request " \
                "with the AI key: send them in smaller groups, oldest first." in error, error
     assert (await call(mcp_client, "list_transactions"))["total_matching"] == 0
+
+
+# The past-year warning (2.0 spec 5.8, 5.12; #353): a write that would change
+# an earlier tax year's figures answers 409, which reaches the tool as its
+# answer (saved: false, the years, the changes, the fingerprint); sent again
+# with the fingerprint, it saves
+
+OLD_DEPOSIT = {"date": "2023-12-01T12:00:00Z", "type": "Deposit", "amount": "0.01", "from_account": "External",
+               "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "100.00"}
+SALE_2025 = {"date": "2025-03-01T12:00:00Z", "type": "Sell", "amount": "0.005", "from_account": "Exchange BTC",
+             "to_account": "Exchange USD", "proceeds_usd": "300.00"}
+ASKED = {"saved", "detail", "years", "changes", "pending", "recalc_error", "exact", "why_not_exact", "timezone",
+         "confirm", "to_confirm"}
+
+
+@pytest.fixture
+async def past_year_ledger(mcp_client, tax_year):
+    """A 2024 buy and a 2025 sale from it; then this tax year is 2026."""
+    created = (await call(mcp_client, "add_transactions", {"transactions": [BUY, SALE_2025]}))["created"]
+    tax_year(2026)
+    return {"buy": created[0]["id"], "sale": created[1]["id"]}
+
+
+async def test_a_past_year_409_reaches_the_tool_and_its_confirm_saves(mcp_client, past_year_ledger):
+    asked = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT]})
+    assert set(asked) == ASKED
+    assert asked["saved"] is False and re.fullmatch(r"[0-9a-f]{64}", asked["confirm"])
+    assert asked["years"] == [2023, 2025] and asked["changes"] and asked["pending"] == []
+    assert "add_transactions again with the same arguments and confirm" in asked["to_confirm"]
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 2  # nothing saved
+    added = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT], "confirm": asked["confirm"]})
+    assert added["imported_count"] == 1
+
+
+async def test_the_preview_shows_the_past_years_the_add_asks_about(mcp_client, past_year_ledger):
+    preview = await call(mcp_client, "preview_transactions", {"transactions": [OLD_DEPOSIT]})
+    asked = await call(mcp_client, "add_transactions", {"transactions": [OLD_DEPOSIT]})
+    assert (preview["past_years"]["years"], preview["past_years"]["confirm"]) == (asked["years"], asked["confirm"])
+    this_year = dict(OLD_DEPOSIT, date="2026-03-01T12:00:00Z")
+    assert (await call(mcp_client, "preview_transactions", {"transactions": [this_year]}))["past_years"] is None
+
+
+async def test_update_transaction_confirms_as_the_other_writes_do(mcp_client, past_year_ledger):
+    """#797: confirm, as on add_transactions, delete_transaction and
+    recalculate_ledger; confirm_move, its older name, says the same."""
+    change = {"transaction_id": past_year_ledger["buy"], "cost_basis_usd": "400.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    assert set(asked) == ASKED and asked["years"] == [2024, 2025]  # the lots it made, and the sale from them
+    assert "update_transaction again with the same arguments and confirm set to this answer's confirm" \
+        in asked["to_confirm"]
+    error = await call(mcp_client, "update_transaction",
+                       {**change, "confirm": asked["confirm"], "confirm_move": "another"}, expect_error=True)
+    assert "Send one confirm: confirm_move is its older name." in error, error
+    [buy] = (await call(mcp_client, "list_transactions", {"type": "Buy"}))["transactions"]
+    assert Decimal(buy["cost_basis_usd"]) != Decimal("400.00")  # nothing saved
+    updated = await call(mcp_client, "update_transaction", {**change, "confirm": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("400.00")
+
+
+async def test_update_transaction_still_takes_confirm_move(mcp_client, past_year_ledger):
+    change = {"transaction_id": past_year_ledger["buy"], "cost_basis_usd": "400.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    updated = await call(mcp_client, "update_transaction",
+                         {**change, "confirm_move": asked["confirm"], "confirm": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("400.00")
+    change = {**change, "cost_basis_usd": "500.00"}
+    asked = await call(mcp_client, "update_transaction", change)
+    updated = await call(mcp_client, "update_transaction", {**change, "confirm_move": asked["confirm"]})
+    assert Decimal(updated["cost_basis_usd"]) == Decimal("500.00")
+
+
+async def test_delete_transactions_confirm(mcp_client, past_year_ledger):
+    asked = await call(mcp_client, "delete_transaction", {"transaction_id": past_year_ledger["sale"]})
+    assert set(asked) == ASKED and asked["years"] == [2025]
+    assert (await call(mcp_client, "list_transactions"))["total_matching"] == 2
+    deleted = await call(mcp_client, "delete_transaction",
+                         {"transaction_id": past_year_ledger["sale"], "confirm": asked["confirm"]})
+    assert deleted["deleted"]["id"] == past_year_ledger["sale"]
+
+
+async def test_recalculate_ledger_confirms_a_change_pending_in_an_earlier_year(mcp_client, backend_db,
+                                                                              past_year_ledger):
+    from sqlalchemy import text
+
+    with backend_db.begin() as con:  # a stored figure a recalculation would put right
+        con.execute(text("UPDATE transactions SET realized_gain_usd = '1.00' WHERE id = :i"),
+                    {"i": past_year_ledger["sale"]})
+    asked = await call(mcp_client, "recalculate_ledger")
+    assert set(asked) == ASKED and asked["years"] == [2025] and asked["changes"] == []
+    assert [item["id"] for item in asked["pending"]] == [past_year_ledger["sale"]]
+    out = await call(mcp_client, "recalculate_ledger", {"confirm": asked["confirm"]})
+    assert out["transactions"] == 2
+
+
+async def test_each_request_waits_as_long_as_it_can_take():
+    """1,200 s for the writes that can answer the past-year warning and the
+    long reads (each can replay the whole ledger more than once: #352's
+    measurement on the StartOS test VM; #637), 120 s for the rest."""
+    waits = {}
+
+    def answer(request):
+        waits[(request.method, request.url.path)] = request.extensions["timeout"]["read"]
+        return httpx.Response(200, json={})
+
+    btctx = BtctxClient(base_url="http://testserver", ai_key="k", transport=httpx.MockTransport(answer))
+    long, short = [("POST", "/api/import/entries/preview"), ("POST", "/api/import/entries/execute"),
+                   ("POST", "/api/transactions"), ("PUT", "/api/transactions/5"),
+                   ("DELETE", "/api/transactions/5"), ("POST", "/api/transactions/recalculate"),
+                   ("GET", "/api/review")], [("GET", "/api/transactions"), ("GET", "/api/transactions/5"),
+                                             ("GET", "/api/bitcoin/price"), ("POST", "/api/backup/ai-copy")]
+    for method, path in long + short:
+        await btctx.request(method, path)
+    await btctx.aclose()
+    assert waits == {**dict.fromkeys(long, 1200.0), **dict.fromkeys(short, 120.0)}
+
+
+async def test_a_409_that_isnt_the_past_year_warning_stays_an_error():
+    """Only the warning's 409 gives a fingerprint (`confirm`) and is a tool's
+    answer; any other 409 (a refusal in plain words) is an error, as before."""
+    btctx = BtctxClient(base_url="http://testserver", ai_key="k", transport=httpx.MockTransport(
+        lambda request: httpx.Response(409, json={"detail": "Not saved: something else."})))
+    server.set_client(btctx)
+    try:
+        with pytest.raises(server.ToolError, match="^BitcoinTX returned 409: Not saved: something else.$"):
+            await server._write("POST", "/api/transactions/recalculate", None)
+    finally:
+        server.set_client(None)
+        await btctx.aclose()

@@ -1,5 +1,5 @@
 import { request as playwrightRequest, type Page } from "@playwright/test";
-import { test, expect, USER, PASSWORD, claimAccount, createTx, loginViaUi, setupCode, type App } from "./fixtures";
+import { test, expect, USER, PASSWORD, MAC_APP, claimAccount, createTx, loginViaUi, setupCode, type App, openSection } from "./fixtures";
 
 test("Create account shows only until the default login is claimed", async ({ page, app }) => {
   // Afterwards /register resets the account (every transaction deleted).
@@ -212,6 +212,7 @@ test("on a phone every header tab, Logout too, is on screen without scrolling", 
 test("logout from Settings", async ({ authedPage: page }) => {
   page.on("dialog", (d) => void d.accept());
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Account");
   await page.getByRole("button", { name: "Logout" }).click();
   await expect(page).toHaveURL(/\/login$/);
   expect((await page.request.get("/api/transactions")).status()).toBe(401);
@@ -245,6 +246,7 @@ test("a login leaves the tax timezone alone once the ledger has transactions (#3
   const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
   expect(tz).toEqual({ timezone: "UTC", source: "default" });
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Account");
   const suggestion = page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" });
   await expect(suggestion).toContainText(`This computer is set to ${info.project.use.timezoneId}: if that's where you file`);
 
@@ -362,6 +364,7 @@ test.describe("the Mac app", () => {
     const tz = await (await page.request.get("/api/settings/tax-timezone")).json();
     expect(tz).toEqual({ timezone: "UTC", source: "default" });
     await page.getByRole("link", { name: "Settings" }).click();
+    await openSection(page, "Account");
     await expect(page.getByRole("note").filter({ hasText: "No tax timezone has been chosen" }))
       .toContainText(`This computer is set to ${info.project.use.timezoneId}`);
   });
@@ -384,13 +387,13 @@ test.describe("the Mac app", () => {
     await expect(page.getByLabel("Setup Code")).toBeVisible();
     // Where the code is on a Mac, not a server's log (#258)
     const hint = page.locator("#login-setup-code-hint");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("password");
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByRole("alert")).toContainText("enter the setup code");
-    await expect(page.getByRole("alert")).toContainText("Application Support/BitcoinTX");
+    await expect(page.getByRole("alert")).toContainText(`Application Support/${MAC_APP}`);
     await expect(page).toHaveURL(/\/login$/);
     const claim = await page.request.post("/api/users/reset-account", { data: { username: USER, password: PASSWORD } });
     expect(claim.status()).toBe(403);
@@ -400,7 +403,7 @@ test.describe("the Mac app", () => {
   test("in a browser, Create account says where the Mac app keeps the setup code", async ({ page }) => {
     await page.goto("/register");
     const hint = page.locator("#setup-code-hint");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
   });
 
@@ -410,15 +413,16 @@ test.describe("the Mac app", () => {
     });
     expect(r.ok(), await r.text()).toBeTruthy();
     await page.goto("/settings");
+    await openSection(page, "Account");
     const hint = page.getByText("This is still the default login");
-    await expect(hint).toContainText("Application Support/BitcoinTX");
+    await expect(hint).toContainText(`Application Support/${MAC_APP}`);
     await expect(hint).not.toContainText("docker logs");
   });
 
   test("a window that can't supply the code offers the typed field and says where it is", async ({ page, app }) => {
     await asTheAppWindow(page, setupCode(app), false);
     await page.goto("/login");
-    await expect(page.getByText("setup-code.txt in BitcoinTX's data folder")).toBeVisible();
+    await expect(page.getByText(`setup-code.txt in ${MAC_APP}'s data folder`)).toBeVisible();
     await expect(page.getByText("set your own username and password in Settings")).toBeVisible();
     await page.getByLabel("Username").fill("admin");
     await page.getByLabel("Password", { exact: true }).fill("password");

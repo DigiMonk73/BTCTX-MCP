@@ -9,11 +9,16 @@
 //     0.0001 BTC at $50,000 = $5 proceeds − $2 basis = 3  → 1,983
 //   Long-term: sell 2 (held > 1 year) 9,000 − 2,000 = 7,000
 //   Income: 0.01 BTC at $50,000 = 500
-import { test, expect, figure, seedKnownLedger, choosePriceSource, CURRENT_PRICE } from "./fixtures";
+import {
+  test, expect, figure, seedKnownLedger, choosePriceSource, CURRENT_PRICE, sendConfirmed,
+} from "./fixtures";
 
 test("empty ledger shows zeros", async ({ authedPage: page }) => {
   await expect(page.getByRole("heading", { name: "Portfolio Overview" })).toBeVisible();
   expect(await figure(page, "Bank (USD)")).toBe(0);
+  expect(await figure(page, "Exchange (USD)")).toBe(0);
+  expect(await figure(page, "Exchange (BTC)")).toBe(0);
+  expect(await figure(page, "Wallet (BTC)")).toBe(0);
   expect(await figure(page, "Total BTC")).toBe(0);
   expect(await figure(page, "Total Net Capital Gains")).toBe(0);
 });
@@ -26,6 +31,8 @@ test("balances, basis, gains and income after a known ledger", async ({ authedPa
   expect(await figure(page, "Exchange (USD)")).toBe(15980);
   expect(await figure(page, "Exchange (BTC)")).toBe(0.15);
   expect(await figure(page, "Wallet (BTC)")).toBe(0.5099);
+  // One account of each kind: Portfolio Overview is 1.x's card, with no caret (#674)
+  await expect(page.locator(".portfolio-overview").getByRole("button")).toHaveCount(0);
   expect(await figure(page, "Total BTC")).toBe(0.6599);
   expect(await figure(page, "Avg. Cost per BTC")).toBeCloseTo(13498 / 0.6599, 1);
   expect(await figure(page, "Unrealized Gains/Losses")).toBeCloseTo(26096, 0);
@@ -48,7 +55,8 @@ test("a rebate has its own line, never income (#129)", async ({ authedPage: page
     type: "Deposit", timestamp: "2026-04-01T12:00:00Z", from_account_id: 99, to_account_id: 2,
     amount: "0.001", fee_amount: "0", fee_currency: "BTC", source: "Rebate", cost_basis_usd: "50",
   };
-  const r = await page.request.post("/api/transactions", { data: rebate });
+  // Confirmed once its year is past: from 1 January 2027 (2.0 spec 5.8)
+  const r = await sendConfirmed((params) => page.request.post("/api/transactions", { data: rebate, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   await page.reload();
   expect(await figure(page, "Rebates (received)")).toBe(50);

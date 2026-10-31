@@ -1,8 +1,26 @@
 /* App layout: sidebar on the left, header and page on the right. */
 
+/* Every page: a pre-release's banner, then the page, which fills the rest of
+   the window (components/PrereleaseBanner.tsx, #670): each page's own
+   container grows into it instead of taking the window's height. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.prerelease-banner {
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-warning-tint);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-warning);
+  font-size: var(--text-13);
+  text-align: center;
+}
+.prerelease-banner strong { font-weight: var(--font-semibold); }
+
 .app-container {
   display: flex;
-  min-height: 100vh;
+  flex: 1 0 auto;
   max-width: 100vw;
   overflow-x: hidden;
 }
@@ -11,7 +29,6 @@
 .sidebar {
   width: var(--sidebar-width);
   flex-shrink: 0;
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
   background-color: var(--color-bg-elevated);
@@ -88,9 +105,9 @@
 /* Waiting for the session check */
 .auth-spinner-container {
   display: flex;
+  flex: 1 0 auto;
   justify-content: center;
   align-items: center;
-  height: 100vh;
 }
 
 /* ---------- Narrower windows ---------- */

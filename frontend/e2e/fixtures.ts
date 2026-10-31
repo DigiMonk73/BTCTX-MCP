@@ -2,7 +2,7 @@
 // (scripts/smoke_test.py --serve: historical BTC price $50,000, current
 // $60,000, block height 900,000), so tests never depend on each other.
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
-import { test as base, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { test as base, expect, type Page, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
@@ -13,6 +13,13 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const REPO = path.resolve(__dirname, "..", "..");
+export const VERSION = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
+// A 2.0 pre-release (2.0.0-alpha.N, 2.0.0-beta.N; B10a): on a Mac, BitcoinTX
+// Preview, whose AI setup names its server bitcointx-preview; every page has
+// its banner (#670)
+export const PRERELEASE = /^\d+\.\d+\.\d+-(alpha|beta)\.[1-9]\d*$/.test(VERSION);
+export const MAC_APP = PRERELEASE ? "BitcoinTX Preview" : "BitcoinTX";
+export const AI_SERVER_NAME = PRERELEASE ? "bitcointx-preview" : "bitcointx";
 export const USER = "e2e-user";
 export const PASSWORD = "e2e-password-123";
 export const HISTORICAL_PRICE = 50000;
@@ -155,11 +162,33 @@ export async function choosePriceSource(page: Page, choice: PriceChoice) {
 
 export type TxPayload = Record<string, string | number | null>;
 
-/** Create a transaction over the API; returns the saved record. */
+/** Create a transaction over the API, confirming the past-year warning (sendConfirmed); returns the saved record. */
 export async function createTx(request: APIRequestContext, data: TxPayload) {
-  const r = await request.post("/api/transactions", { data });
+  const r = await sendConfirmed((params) => request.post("/api/transactions", { data, params }));
   expect(r.ok(), await r.text()).toBeTruthy();
   return r.json();
+}
+
+/**
+ * A write over the API through 2.0's past-year warning (docs/temp/2.0-accounts.md 5.8): the tests' rows are
+ * dated in earlier tax years, and no switch turns the warning off on a running server, so a 409 that gives a
+ * fingerprint (`confirm`) is sent again, once, with ?confirm=<it>. The answer either way: a second 409 (the
+ * ledger changed meanwhile) is the caller's to check.
+ */
+export async function sendConfirmed(
+  send: (params?: { confirm: string }) => Promise<APIResponse>,
+): Promise<APIResponse> {
+  const r = await send();
+  const fingerprint = await fingerprintAsked(r);
+  return fingerprint === undefined ? r : send({ confirm: fingerprint });
+}
+
+/** The `confirm` of the warning's 409; undefined for any other answer (Delete All's 409 asks for a typed DELETE). */
+async function fingerprintAsked(r: APIResponse): Promise<string | undefined> {
+  if (r.status() !== 409) return undefined;
+  const body: unknown = await r.json().catch(() => undefined);
+  const confirm = body !== null && typeof body === "object" ? (body as { confirm?: unknown }).confirm : undefined;
+  return typeof confirm === "string" ? confirm : undefined;
 }
 
 export async function listTx(request: APIRequestContext) {
@@ -275,11 +304,45 @@ export async function openAddForm(page: Page, type: string) {
   await page.getByLabel("Transaction Type").selectOption(type);
 }
 
-/** Save the open form and wait for the panel to close. */
-export async function saveForm(page: Page, button = "Save Transaction") {
-  await page.getByRole("button", { name: button }).click();
-  await expect(page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ })).toHaveCount(0);
+// Settings' sections whose region tests know by another name than their title
+const SECTION_REGION: Record<string, string> = {
+  "Ledger Review": "Ledger review",
+  "Privacy & Network": "Privacy & network",
+};
+
+/**
+ * One of Settings' sections, opened by its button if it isn't, on the
+ * Settings page already: its region. One is open at a time (#355), so
+ * opening one closes the one before.
+ */
+export async function openSection(page: Page, title: string) {
+  const button = page.getByRole("button", { name: title, exact: true });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  return page.getByRole("region", { name: SECTION_REGION[title] ?? title });
 }
+
+/**
+ * Save the open form and wait for the panel to close. A save that changes an earlier tax year asks first (2.0
+ * spec 5.8): its dialog is confirmed here, since the tests' rows are nearly all dated in earlier years;
+ * past-years-352.e2e.ts checks the dialog. With `{ warning: false }` (a save that must move nothing), the
+ * dialog appearing fails the test.
+ */
+export async function saveForm(page: Page, button = "Save Transaction", { warning = true } = {}) {
+  await page.getByRole("button", { name: button }).click();
+  const formOpen = page.getByRole("heading", { name: /^(Add|Edit) Transaction$/ });
+  const saveAnyway = page.getByRole("button", { name: SAVE_ANYWAY });
+  await expect.poll(async () => (await saveAnyway.isVisible()) || (await formOpen.count()) === 0).toBe(true);
+  if (await saveAnyway.isVisible()) {
+    expect(warning, "this save asked about an earlier tax year").toBe(true);
+    await saveAnyway.click();
+  }
+  await expect(formOpen).toHaveCount(0);
+}
+
+/** The past-year dialog's buttons (components/PastYearDialog.tsx). */
+export const SAVE_ANYWAY = "Save anyway (a copy is made first)";
+export const DELETE_ANYWAY = "Delete anyway (a copy is made first)";
 
 /** Seed a funded ledger over the API: $100k in the bank, 1 BTC bought 2023-01-10. */
 export async function seedFunds(request: APIRequestContext) {

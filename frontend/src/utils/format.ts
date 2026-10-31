@@ -62,8 +62,15 @@ export function formatLocalDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString();
 }
 
+/** "Mar 1, 2017": a date (YYYY-MM-DD), read at UTC midnight so no timezone moves it (#185). */
+export function dayText(day: string): string {
+  return new Date(`${day}T00:00:00Z`).toLocaleDateString(
+    "en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
 /** A transaction from the API with its amounts as numbers; a missing text
  * field is undefined rather than null. */
+
 export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
   return {
     id: rawTx.id,
@@ -91,11 +98,17 @@ export function parseTransaction(rawTx: ITransactionRaw): ITransaction {
     fee_usd_manual: rawTx.fee_usd_manual ?? false,
     acquired_at: rawTx.acquired_at ?? null,
     price_moment: rawTx.price_moment ?? null,
+    ...chosenFrom(rawTx),
     ...pricedFrom(rawTx),
     fee_currency: rawTx.fee_currency ?? undefined,
     created_at: rawTx.created_at ?? undefined,
     updated_at: rawTx.updated_at ?? undefined,
   };
+}
+
+/** The coins it chose to leave a wallet, and when they were saved (#711). */
+function chosenFrom(rawTx: ITransactionRaw) {
+  return { chosen_coins: rawTx.chosen_coins ?? null, coins_chosen_at: rawTx.coins_chosen_at ?? null };
 }
 
 /** Which saved values BitcoinTX filled in, and the stored price they came from (#145). */

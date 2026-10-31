@@ -17,11 +17,12 @@ from io import BytesIO, StringIO
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from backend.constants import ACCOUNT_EXTERNAL, BTC_ACCOUNTS, normalized
+from backend.constants import ACCOUNT_EXTERNAL, normalized
 from backend.models.account import Account
 from backend.models.transaction import Transaction
+from backend.services.account import AccountBook, account_book
 from backend.services.reports.pdf_layout import (
     DISCLAIMER, FOOTER_NOTE, ReportStyles, data_table, draw_footer_note, draw_running_header, numbered_canvas,
 )
@@ -59,6 +60,7 @@ def generate_transaction_history_report(db: Session, year: int, format: str = "p
     start_of_year, end_of_year = tax_year_bounds(year, get_tax_timezone(db))
     txs = (
         db.query(Transaction)
+        .options(selectinload(Transaction.chosen_coins))
         .filter(
             Transaction.type.in_(TYPES),
             Transaction.timestamp >= start_of_year,
@@ -72,7 +74,8 @@ def generate_transaction_history_report(db: Session, year: int, format: str = "p
         len(txs), year, start_of_year, end_of_year
     )
     accounts = {a.id: a for a in db.query(Account).all()}
-    rows = [_build_row(accounts, tx) for tx in txs]
+    book = account_book(db)
+    rows = [_build_row(accounts, tx, book) for tx in txs]
     if format.lower() == "csv":
         return _generate_csv(rows, year).encode("utf-8")
     tz = get_tax_timezone(db)
@@ -86,7 +89,7 @@ def _pdf_cells(tx: Transaction, row: dict, tz) -> dict:
     detail = tx.source if tx.type == "Deposit" else tx.purpose if tx.type == "Withdrawal" else None
     return {
         "_date": format_tax_date(tx.timestamp, tz),
-        "_kind": f"{tx.type} ({detail})" if detail and detail != "N/A" else tx.type,
+        "_kind": (f"{tx.type} ({detail})" if detail and detail != "N/A" else tx.type) + (", coins chosen" if tx.chosen_coins else ""),
         "_amount": _with_currency(row["amount"], row["asset"]),
         "_fee": _with_currency(row["fee_amount"], row["fee_currency"]),
         **{col: _usd(row[col]) for col in ("cost_basis_usd", "proceeds_usd", "realized_gain_usd")},
@@ -108,12 +111,12 @@ def _with_currency(value: str, currency: str) -> str:
     return f"${Decimal(value):,.2f}" if currency == "USD" else f"{value} {currency}"
 
 
-def _build_row(accounts: dict, tx: Transaction) -> dict:
+def _build_row(accounts: dict, tx: Transaction, book: AccountBook) -> dict:
     """The transaction's cells, by column."""
     asset = _determine_asset(accounts, tx)
     return {
         "date": tx.timestamp.isoformat(),
-        "type": _map_tx_type(tx),
+        "type": _map_tx_type(tx, book),
         "from_account": _get_account_name(accounts, tx.from_account_id),
         "to_account": _get_account_name(accounts, tx.to_account_id),
         "asset": asset,
@@ -124,7 +127,8 @@ def _build_row(accounts: dict, tx: Transaction) -> dict:
         "proceeds_usd": _format_decimal(tx.proceeds_usd),
         "realized_gain_usd": _format_decimal(tx.realized_gain_usd),
         "holding_period": tx.holding_period or "",
-        "description": _map_description(tx),
+        # The coins it chose (#711): the tax report lists them ("Coins you chose")
+        "description": "; ".join(part for part in (_map_description(tx), "coins chosen" if tx.chosen_coins else "") if part),
     }
 
 
@@ -136,10 +140,10 @@ def _format_decimal(value, currency: str = "USD") -> str:
     return f"{Decimal(value):.{places}f}"
 
 
-def _map_tx_type(tx: Transaction) -> str:
+def _map_tx_type(tx: Transaction, book: AccountBook) -> str:
     if tx.type == "Deposit":
-        # A deposit into Bank or Exchange USD is dollars, never income
-        if tx.to_account_id not in BTC_ACCOUNTS:
+        # A deposit into a dollar account is dollars, never income
+        if not book.is_btc(tx.to_account_id):
             return "Deposit"
         return SOURCE_LABELS.get(normalized(tx.source), "Deposit")
     if tx.type in ("Sell", "Withdrawal"):

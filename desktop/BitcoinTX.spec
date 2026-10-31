@@ -14,7 +14,19 @@ from PyInstaller.utils.hooks import collect_submodules
 SPEC_DIR = Path(SPECPATH)
 PROJECT_ROOT = SPEC_DIR.parent
 
+# The app's name and bundle id: BitcoinTX, or BitcoinTX Preview for a 2.0
+# pre-release (VERSION 2.0.0-alpha.N or 2.0.0-beta.N), installed beside it
+# (2.0 plan 7.4, B10a; #251's decision 28). desktop_paths reads VERSION as the app will
+sys.path[:0] = [str(PROJECT_ROOT), str(SPEC_DIR)]
+from desktop_paths import bundle_id, icon_name, own_name  # noqa: E402
+
+APP_NAME, APP_ID = own_name(), bundle_id()
+# The Preview's icon has a "PREVIEW" band, and its executable is named after
+# it too: crash reports, Console and ps name the executable (#670)
+ICON = SPEC_DIR / "resources" / icon_name()
+
 # Verify paths exist
+assert ICON.exists(), f"{ICON} not found"
 assert (PROJECT_ROOT / "backend").exists(), "backend/ not found"
 assert (PROJECT_ROOT / "frontend" / "dist").exists(), "frontend/dist/ not found - run npm build first"
 
@@ -126,6 +138,7 @@ hidden_imports = [
     "backend.models",
     "backend.models.user",
     "backend.models.account",
+    "backend.models.exchange",
     "backend.models.transaction",
     "backend.routers",
     "backend.routers.user",
@@ -137,6 +150,7 @@ hidden_imports = [
     "backend.routers.backup",
     "backend.routers.csv_import",
     "backend.routers.river_import",
+    "backend.routers.exchange_import",
     "backend.routers.entry_import",
     "backend.routers.settings",
     "backend.routers.review",
@@ -146,6 +160,7 @@ hidden_imports = [
     "backend.schemas.transaction",
     "backend.schemas.csv_import",
     "backend.schemas.river_import",
+    "backend.schemas.exchange_import",
     "backend.schemas.entry_import",
     "backend.services",
     "backend.services.user",
@@ -156,6 +171,10 @@ hidden_imports = [
     "backend.services.backup",
     "backend.services.csv_import",
     "backend.services.river_import",
+    "backend.services.exchange_import",
+    "backend.services.exchange_cells",
+    "backend.services.exchange_kraken",
+    "backend.services.exchange_mappings",
     "backend.services.entry_import",
     "backend.services.tax_time",
     "backend.services.desktop",
@@ -170,6 +189,14 @@ hidden_imports = [
     "backend.services.outbound",
     "backend.services.mempool_trust",
     "backend.services.wipe",
+    "backend.services.old_rows",
+    "backend.services.recalculated_by",
+    "backend.services.year_changes",
+    "backend.services.past_years",
+    "backend.services.past_year_writes",
+    "backend.services.transfer_coins",
+    "backend.services.chosen_coins",
+    "backend.services.csv_choices",
     "socksio",
     "httpcore._async.socks_proxy",
     "backend.secret_key",
@@ -230,7 +257,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="BitcoinTX",
+    name=APP_NAME,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -251,20 +278,22 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name="BitcoinTX",
+    name=APP_NAME,
 )
 
+# Apple takes only numbers for a bundle's version: a pre-release's bundle says
+# X.Y.Z, and the app shows its VERSION itself
 app = BUNDLE(
     coll,
-    name="BitcoinTX.app",
-    icon=str(SPEC_DIR / "resources" / "icon.icns") if (SPEC_DIR / "resources" / "icon.icns").exists() else None,
-    bundle_identifier="org.bitcointx.desktop",
+    name=f"{APP_NAME}.app",
+    icon=str(ICON),
+    bundle_identifier=APP_ID,
     info_plist={
-        "CFBundleName": "BitcoinTX",
-        "CFBundleDisplayName": "BitcoinTX",
-        "CFBundleIdentifier": "org.bitcointx.desktop",
-        "CFBundleVersion": "1.2.10",
-        "CFBundleShortVersionString": "1.2.10",
+        "CFBundleName": APP_NAME,
+        "CFBundleDisplayName": APP_NAME,
+        "CFBundleIdentifier": APP_ID,
+        "CFBundleVersion": "2.0.0",
+        "CFBundleShortVersionString": "2.0.0",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "NSRequiresAquaSystemAppearance": False,  # Support dark mode
