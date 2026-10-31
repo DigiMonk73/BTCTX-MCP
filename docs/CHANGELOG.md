@@ -35,7 +35,7 @@ copy, made once); it never deletes that copy.
 
 - **StartOS:** Start9 publishes 2.0 to its Community Beta registry first, then
   to its Community Registry. From a registry, StartOS asks for the backups
-  before it downloads the update. A sideload doesn't ask: make them first.
+  before it downloads the update. A sideload doesn't remind you: make them first.
 - **Docker:** `:latest` and `:main` are 2.0 from this release. An auto-updater
   takes it with no backup step: pin `:v1.2.10` to stay on 1.x.
 - **Mac:** 2.0.0 is BitcoinTX, the same app, port and data folder as 1.x, so
@@ -1505,6 +1505,14 @@ only the pre-releases. Each pre-release's own notes stay on
   its output is piped into a command that stops reading early, and its
   macOS build stopping at launch on newer macOS. The SHA-256 is the
   release notes' and GitHub's own digest of `start-cli_x86_64-linux`.
+- **start-cli 2.6.0** (from 2.5.2) packs `btctx.s9pk` in CI and the
+  release, and the package is tested on StartOS 0.4.1 (#866). StartOS 0.4.1
+  asks "Install untrusted software?" before a sideload of a package no key
+  it trusts has signed, as BitcoinTX's own release file is, and blocks a
+  Marketplace install of one, as Community Beta's are until you turn on
+  Start9 Alpha under System > Trusted keyrings. The README says both, and the
+  release's download notes the first. With start-cli, such an install takes
+  `--trust`.
 - **The Python suite runs across machines, and CI checks that every test
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,

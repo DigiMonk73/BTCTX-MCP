@@ -125,6 +125,13 @@ names the release walk's corrections.
   installing); an action with input needs the `eventId` from
   `package action get-input` passed to `package action run --event-id`,
   with the input as JSON on stdin (`null` for none).
+- On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
+  2.6.0 or later) for a package no enabled keyring signed: our own packages,
+  and anything from Community Beta, which only Start9's community build key
+  signs. Without it: "Signer(s) not accepted". On StartOS's own web page, a
+  Community Beta install stays blocked until **Start9 Alpha** is on for
+  service packages (System > Trusted keyrings). The Community Registry's
+  1.2.10 needs neither.
 
 ### Settings, one section at a time (2.0)
 
@@ -293,7 +300,8 @@ Start from the `clean` snapshot.
 
 ### INS: install
 
-- **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload). Expect: it
+- **INS-1** Sideload `btctx_x86_64.s9pk` (StartOS > Sideload; StartOS 0.4.1
+  and later ask "Install untrusted software?": **Install anyway**). Expect: it
   installs, and the service page shows version `X.Y.Z`.
 - **INS-2** Expect two critical tasks: **Set Login Credentials** and
   **Price Source & Privacy** ("Choose who BitcoinTX asks for newer Bitcoin
@@ -1981,8 +1989,9 @@ not a step to skip.
 - **BETA-1** (StartOS VM, from `clean`; needs the second disk and the VM's
   StartOS password) As a tester would: install BitcoinTX from Start9's
   Community Beta registry (`https://community-beta-registry.start9.com`;
-  with `start-cli`, `-r` that address), do its tasks, start it and run
-  `golden_loader.py`; record its version, the Dashboard figures and
+  with `start-cli`, `-r` that address; on StartOS 0.4.1 or later, `--trust`
+  or Start9 Alpha on, as "On an Apple-silicon Mac" says), do its tasks, start
+  it and run `golden_loader.py`; record its version, the Dashboard figures and
   Schedule D 2024 and 2025. Make a StartOS backup of BitcoinTX (BAK-5's
   steps). Sideload the pre-release's `btctx.s9pk`. Expect StartOS to take
   it over Start9's build of 1.x, though our key signed it, not Start9's:
@@ -2088,7 +2097,10 @@ Community Registry (`https://community-registry.start9.com`). These are
 the updates users make from there, on the VM from `clean`, with the second
 disk and the VM's StartOS password. Installing from a registry goes
 through StartOS's own Marketplace page if `start-cli` can't read the
-registries (with `start-cli`: `-r` the address).
+registries (with `start-cli`: `-r` the address). On StartOS 0.4.1 or later,
+Community Beta's packages are signed only by Start9's community build key:
+record what StartOS shows for one, then turn **Start9 Alpha** on for service
+packages (System > Trusted keyrings), or use `--trust`.
 
 - **CB-1** 1.2.10 from the Community Registry (Start9's own build),
   updated from Community Beta. Install BitcoinTX from the Community

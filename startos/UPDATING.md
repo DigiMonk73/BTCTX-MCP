@@ -307,7 +307,9 @@ docker pull --platform linux/arm64 ghcr.io/digimonk73/btctx-mcp:v$(cat ../VERSIO
 make universal                          # btctx.s9pk; `make x86` for one arch
 ```
 
-Sideload the result in StartOS (**Sideload** in the top bar).
+Sideload the result in StartOS (**Sideload** in the top bar; StartOS 0.4.1 and
+later ask "Install untrusted software?": **Install anyway**. With start-cli:
+`package install --trust -s`).
 
 ## One-time setup: secrets and a variable
 
