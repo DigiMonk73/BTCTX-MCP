@@ -4,6 +4,14 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Security
+- **pypdf 6.21.4** (from 6.21.2), which fills the IRS forms, for seven
+  advisories published on 2026-10-30 (CVE-2026-119203 to -119209): a crafted
+  PDF could take long or use much memory. BitcoinTX opens only its own forms
+  and reports, and the IRS's drafts on a test install, so the risk here was
+  low. The forms come out byte for byte the same, and the Complete Tax Report
+  differs only in the time it was made.
+
 ### Changed
 - **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
   web framework BitcoinTX's server is built on, and lucide-react 1.61.0
