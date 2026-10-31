@@ -877,17 +877,17 @@ class _TaxReport:
         if not any(b["box"] in FORM_1099DA_BOXES for b in self.data.get("form_8949_boxes", [])):
             return []
         before = ["Set each sale in boxes G, H, J and K beside your Form 1099-DA (section 2 lists them). Compare each "
-                  "day's total, not row by row: BitcoinTX gives a sale a row per lot, and a broker can split a sale "
-                  "too, and a sale near midnight can show another day there. Box H or K: the proceeds (box 1f). Box G or J: also the cost (box 1g) and short or long (box "
-                  "6). A \"gross proceeds\" label on the form (box 3a) is about option premiums: it doesn't mean "
-                  "before fees.",
+                  "day's total, not row by row: BitcoinTX gives a sale a row per lot, a broker can split a sale too, "
+                  "and a sale near midnight can show another day there. Box H or K: the proceeds (box 1f). Box G or "
+                  "J: also the cost (box 1g) and short or long (box 6). A \"gross proceeds\" label on the form (box "
+                  "3a) is about option premiums: it doesn't mean before fees.",
                   "A difference can be a mistake in the ledger: correct the transaction, and the forms follow. A "
                   "transaction's Broker form setting changes only its box. A real difference stays on Form 8949 like "
                   "this:"]
         after = [*self.printed_forms_note(),
-                 "Another difference that needs an adjustment: code O (the column (f) table of the Instructions for Form 8949). More than one "
-                 "code goes in alphabetical order, with the net adjustment in (g). (h) is (d) less (e) plus (g), so "
-                 "it stays your correct gain.",
+                 "Another difference that needs an adjustment: code O (the column (f) table of the Instructions for "
+                 "Form 8949). More than one code goes in alphabetical order, with the net adjustment in (g). (h) is "
+                 "(d) less (e) plus (g), so it stays your correct gain.",
                  "If your Form 1099-DA lists a network fee as a sale (a transfer's fee, a gift's, donation's or lost "
                  "coins' fee, a fee listed without its withdrawal), BitcoinTX has it in box I or L: move its row by "
                  "hand to the page of the box your form gives, and Schedule D's lines with it. Its gain is the same. "
@@ -903,7 +903,8 @@ class _TaxReport:
         if any(b in FORM_1099DA_BOXES for b in boxes) or not any(b in ("I", "L") for b in boxes):
             return []
         return ["If a Form 1099-DA lists a network fee as a sale, BitcoinTX has it in box I or L: move its row by "
-                "hand to the page of the box your form gives, and Schedule D's lines with it. Its gain is the same."]
+                "hand to the page of the box your form gives, and Schedule D's lines with it. Its gain is the same. "
+                "A spend listed with its fee: set the spend's Broker form, and the fee follows."]
 
     def corrections_table(self) -> Table:
         as_above = "As in the rows above"

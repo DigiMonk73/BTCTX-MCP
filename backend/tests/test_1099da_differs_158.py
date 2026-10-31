@@ -47,6 +47,7 @@ def test_the_table_gives_each_difference_its_columns():
                 "the correct cost: positive if the form's is higher; if lower, negative, in parentheses",
                 "Cost, box H or K: shown, not reported The form's The correct cost B -0-",
                 "not taken off The form's As in the rows above E That cost, negative, in parentheses",
+                "you received more than it shows The correct proceeds As in the rows above",
                 "Short or long The form's As in the rows above T -0-, in the correct Part of the form"):
         assert row in text, row
 
