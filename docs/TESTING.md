@@ -53,14 +53,15 @@ make hooks          # installs the pre-push gate
     every change merged (a cancelled run's red "CI passed" isn't a
     failure). Every other pull request (into `develop`, `main` or any
     other branch) runs the full set. AGENTS.md, "Branches".
-- **Daily** (from the release that brings it to `main`, since GitHub runs a
-  schedule only from there; until then each session runs the script, AGENTS.md,
-  "Starting a session"): `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+- **Weekly, on Mondays** (from the release that brings it to `main`, since
+  GitHub runs a schedule only from there; until then each session runs the
+  script, AGENTS.md, "Starting a session"): `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
   packaging guide or shared package workflows, a failed build on the mirror
   or their fork, changes on their fork not taken back (startos/UPDATING.md,
-  "Watching Start9").
+  "Watching Start9"). Hours later `monday-report.yml` writes the week's one
+  issue of what needs attention (docs/MAINTENANCE.md, "Scheduled checks").
 - **Weekly:** `irs-forms-watch.yml` opens an issue when the IRS publishes
   new draft forms (to ship as the preview) or the final forms for a new year.
   Monthly, `price-history-watch.yml` checks that Bitstamp still gives every

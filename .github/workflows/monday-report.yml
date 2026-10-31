@@ -1,0 +1,40 @@
+name: Monday report
+
+# Mondays: one issue ("Monday report: what needs attention"), opened if none
+# is open and edited in place otherwise, with what needs the owner's or
+# Claude's attention: open tax-figures issues, outside reports with no answer
+# (here, on Start9's fork and on the mirror) and open start9 issues
+# (scripts/monday-report.sh; docs/MAINTENANCE.md, "The Monday report"). It
+# runs no Claude and asks for no token of its own. Security advisories are
+# never in it, not even a count. start9-watch.yml runs hours earlier, so the
+# start9 issues it opens are in the same week's report.
+# GitHub runs a schedule only from the default branch (main), so this file
+# starts at the release that brings it there. It runs develop's script, so a
+# fix to the script needs no release.
+on:
+  schedule:
+    - cron: '7 13 * * 1'   # Mondays 13:07 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+# A manual run and the scheduled one never both open the issue
+concurrency:
+  group: monday-report
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: develop
+      - name: Write the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          START9_FORK: ${{ vars.START9_FORK }}   # as release.yml finds the fork
+        run: scripts/monday-report.sh
