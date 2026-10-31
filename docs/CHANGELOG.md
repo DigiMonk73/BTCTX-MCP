@@ -11,6 +11,9 @@ All notable changes to BitcoinTX are documented in this file.
   and reports, and the IRS's drafts on a test install, so the risk here was
   low. The forms come out byte for byte the same, and the Complete Tax Report
   differs only in the time it was made.
+- **follow-redirects 1.16.2** (from 1.16.1), for a high advisory published the
+  same day (GHSA-mrwp-f3q8-3g9p). It comes with axios and only runs on a server:
+  the web app BitcoinTX ships is byte for byte the same.
 
 ### Changed
 - **FastAPI 0.143.5 and Starlette 1.8.0** (from 0.143.0 and 1.7.0), the
