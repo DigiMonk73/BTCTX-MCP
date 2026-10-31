@@ -1510,8 +1510,9 @@ only the pre-releases. Each pre-release's own notes stay on
   asks "Install untrusted software?" before a sideload of a package no key
   it trusts has signed, as BitcoinTX's own release file is, and blocks a
   Marketplace install of one, as Community Beta's are until you turn on
-  Start9 Alpha under System > Trusted keyrings: the README and the release's
-  notes say so. With start-cli, such an install takes `--trust`.
+  Start9 Alpha under System > Trusted keyrings. The README says both, and the
+  release's download notes the first. With start-cli, such an install takes
+  `--trust`.
 - **The Python suite runs across machines, and CI checks that every test
   ran** (#814). Each version's suite is three shards, on machines of their
   own, about a third of the time it took: each shard runs whole test files,

@@ -128,9 +128,10 @@ names the release walk's corrections.
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no enabled keyring signed: our own packages,
   and anything from Community Beta, which only Start9's community build key
-  signs (on the page, its Marketplace is blocked until **Start9 Alpha** is on
-  for service packages, System > Trusted keyrings). Without it: "Signer(s)
-  not accepted". The Community Registry's 1.2.10 needs neither.
+  signs. Without it: "Signer(s) not accepted". On StartOS's own web page, a
+  Community Beta install stays blocked until **Start9 Alpha** is on for
+  service packages (System > Trusted keyrings). The Community Registry's
+  1.2.10 needs neither.
 
 ### Settings, one section at a time (2.0)
 
@@ -2097,9 +2098,9 @@ the updates users make from there, on the VM from `clean`, with the second
 disk and the VM's StartOS password. Installing from a registry goes
 through StartOS's own Marketplace page if `start-cli` can't read the
 registries (with `start-cli`: `-r` the address). On StartOS 0.4.1 or later,
-turn **Start9 Alpha** on for service packages first (System > Trusted
-keyrings), or use `--trust`: Community Beta's packages are signed only by
-Start9's community build key. Record what StartOS shows before it's on.
+Community Beta's packages are signed only by Start9's community build key:
+record what StartOS shows for one, then turn **Start9 Alpha** on for service
+packages (System > Trusted keyrings), or use `--trust`.
 
 - **CB-1** 1.2.10 from the Community Registry (Start9's own build),
   updated from Community Beta. Install BitcoinTX from the Community
