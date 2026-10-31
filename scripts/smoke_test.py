@@ -330,10 +330,35 @@ def check_auth(c: httpx.Client, user: str, password: str, setup_code: str | None
 
 
 def create(c: httpx.Client, **data) -> dict:
-    r = c.post("/api/transactions", json=data)
+    r = send_confirmed(c, "POST", "/api/transactions", data)
     if r.status_code != 200:
         raise SmokeFailure(f"create {data['type']} failed: {r.status_code} {r.text}")
     return r.json()
+
+
+def send_confirmed(c: httpx.Client, method: str, path: str, body: dict | None = None) -> httpx.Response:
+    """A write through 2.0's past-year warning (docs/temp/2.0-accounts.md
+    5.8): this test's rows are dated in earlier tax years, and no switch
+    turns the warning off on a running server, so a 409 that gives a
+    fingerprint (`confirm`) is sent again, once, with ?confirm=<it>. The
+    answer either way: a second 409 (the ledger changed meanwhile) is the
+    caller's to report."""
+    r = c.request(method, path, json=body)
+    fingerprint = _fingerprint_asked(r)
+    return r if fingerprint is None else c.request(method, path, json=body, params={"confirm": fingerprint})
+
+
+def _fingerprint_asked(r: httpx.Response) -> str | None:
+    """The `confirm` of the warning's 409; None for any other answer (Delete
+    All's 409 asks for a typed DELETE instead)."""
+    if r.status_code != 409:
+        return None
+    try:
+        body = r.json()
+    except ValueError:  # not JSON
+        return None
+    confirm = body.get("confirm") if isinstance(body, dict) else None
+    return confirm if isinstance(confirm, str) else None
 
 
 def check_ledger(c: httpx.Client, own_server: bool) -> dict:
@@ -389,9 +414,10 @@ def check_entry_import(c: httpx.Client) -> None:
     r = c.post("/api/import/entries/preview", json={"rows": rows})
     check("preview", r.status_code == 200 and r.json()["ready_count"] == 1, r.text)
     check("preview saved nothing", len(c.get("/api/transactions").json()) == 4)
-    r = c.post("/api/import/entries/execute", json={"rows": rows})
+    # In an earlier tax year: the execute asks first (past_years), and is confirmed
+    r = send_confirmed(c, "POST", "/api/import/entries/execute", {"rows": rows})
     check("execute", r.status_code == 200 and r.json()["imported_count"] == 1, r.text)
-    r = c.post("/api/import/entries/execute", json={"rows": rows})
+    r = send_confirmed(c, "POST", "/api/import/entries/execute", {"rows": rows})
     check("re-import skips the duplicate", r.json()["skipped_duplicates"] == 1, r.text)
 
 

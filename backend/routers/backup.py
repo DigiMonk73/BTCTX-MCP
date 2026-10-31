@@ -19,7 +19,7 @@ from tempfile import NamedTemporaryFile
 from fastapi import APIRouter, Depends, Form, HTTPException, BackgroundTasks, Request, UploadFile
 from fastapi.responses import StreamingResponse, PlainTextResponse
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models.app_setting import AppSetting, save_setting
@@ -28,13 +28,14 @@ from backend.models.user import User
 from backend.schemas.user import MIN_PASSWORD_LENGTH, NOT_TEXT, is_text
 from backend.migrate import AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
 from backend import session_auth
-from backend.services import ai_key, first_run, outbound, tax_time
+from backend.services import account as account_service, ai_key, csv_choices, exchange_mappings, first_run, outbound, tax_time
+from backend.services.account import AccountBook, account_book
 from backend.services.backup import make_backup, restore_backup
 from backend.services.csv_import import CSV_COLUMNS
 from backend.unexpected_errors import log_unexpected
 from backend.services.reports.safe_text import csv_text
 from backend.services.tax_time import get_tax_timezone, local_date
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 
 logger = logging.getLogger(__name__)
 
@@ -147,10 +148,14 @@ def _in_use(db: Session, own: str | None) -> dict:
     have other user ids). The backup's own list of sessions never comes
     back, so a session that ended since it was made stays ended. The tax
     timezone is the backup's, unless tzdata doesn't name it: then this
-    install's (#407)."""
+    install's (#407). The last account id given: the higher of this
+    install's and the backup's (2.0 spec 5.1, 5.11), so no id given here is
+    given again. The exchange import's mappings: this install's and the
+    backup's together (exchange_mappings.kept_by_restore, #656)."""
     sessions = [h for h in session_auth.open_sessions(db) if h != own][-session_auth.MAX_OPEN_SESSIONS:]
     return {"login": _login_in_use(db), "ai": ai_key.snapshot(db), "prices": outbound.snapshot(db),
-            "sessions": sessions, "timezone": _stored_tax_timezone(db)}
+            "sessions": sessions, "timezone": _stored_tax_timezone(db), "last_id": _last_account_id(db),
+            "mappings": _import_mappings(db)}
 
 
 def _login_in_use(db: Session) -> tuple | None:
@@ -161,14 +166,15 @@ def _login_in_use(db: Session) -> tuple | None:
 def _write_kept(own: str | None, notices: list[str], live: Session | None, restored: Session) -> None:
     """
     Write this install's login, AI key and switch, and price settings into
-    the restored database before it replaces the live one, and its tax
+    the restored database before it replaces the live one, its tax
     timezone in place of a backup's tzdata doesn't name (added to
-    `notices`, #407), then read them back from the file, with its one
-    login. They're read from the live database just before the swap, under
-    its write lock (services/backup.py), so a change saved while the restore
-    ran is kept. No live database to read them from (DATABASE_URL names
-    another), an error, or a value that doesn't read back as written, stops
-    the restore with the live database untouched (#201).
+    `notices`, #407), and its import mappings beside the backup's (#656),
+    then read them back from the file, with its one login. They're read
+    from the live database just before the swap, under its write lock
+    (services/backup.py), so a change saved while the restore ran is kept.
+    No live database to read them from (DATABASE_URL names another), an
+    error, or a value that doesn't read back as written, stops the restore
+    with the live database untouched (#201).
     """
     if live is None:
         logger.error("Restore stopped: there's no database at DATABASE_FILE to keep this install's settings from")
@@ -180,10 +186,13 @@ def _write_kept(own: str | None, notices: list[str], live: Session | None, resto
         _keep_login(restored, kept["login"])
         session_auth.put_open_sessions(restored, kept["sessions"])
         zone = _known_tax_timezone(restored, kept["timezone"], notices)
+        last_id = _keep_the_higher_last_id(restored, kept["last_id"])
+        mappings = exchange_mappings.kept_by_restore(restored, kept["mappings"])
         restored.commit()
         restored.close()  # read back on a fresh connection, from the file
         as_written = (restored.query(User).count() == 1
-                      and _as_stored(restored, kept) == {**kept, "timezone": zone})
+                      and _as_stored(restored, kept) == {**kept, "timezone": zone, "last_id": last_id,
+                                                         "mappings": mappings})
     except SQLAlchemyError as e:
         logger.error("Restore stopped: this install's settings couldn't be written into the restored database (%s)",
                      type(e).__name__)
@@ -236,12 +245,33 @@ def _as_stored(db: Session, kept: dict) -> dict:
     "unset": a restore that lost it would pass the check."""
     login = _login_in_use(db) if kept["login"] is not None else None
     return {"login": login, "ai": _rows(db, kept["ai"]), "prices": _rows(db, kept["prices"]),
-            "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db)}
+            "sessions": session_auth.open_sessions(db), "timezone": _stored_tax_timezone(db),
+            "last_id": _last_account_id(db), "mappings": _import_mappings(db)}
 
 
 def _rows(db: Session, keys) -> dict:
     """These app_settings rows' values, None for a missing one."""
     return {key: row.value if (row := db.get(AppSetting, key)) else None for key in keys}
+
+
+def _last_account_id(db: Session) -> int | None:
+    """The last account id given (account_service.LAST_ID_KEY), or None."""
+    return account_service.read_last_id(_rows(db, [account_service.LAST_ID_KEY])[account_service.LAST_ID_KEY])
+
+
+def _keep_the_higher_last_id(restored: Session, own: int | None) -> int | None:
+    """The higher of this install's last account id and the backup's, written
+    into the restored database: an id given here, even to an account made in
+    another tab while the restore ran, is never given again."""
+    higher = max((i for i in (own, _last_account_id(restored)) if i is not None), default=None)
+    if higher is not None:
+        save_setting(restored, account_service.LAST_ID_KEY, str(higher))
+    return higher
+
+
+def _import_mappings(db: Session) -> str | None:
+    """The exchange import's mappings' row, as stored."""
+    return _rows(db, [exchange_mappings.SETTING_KEY])[exchange_mappings.SETTING_KEY]
 
 
 def _stored_tax_timezone(db: Session) -> str | None:
@@ -279,7 +309,8 @@ def restore_encrypted_backup(
     Restore the database from an encrypted backup file. The login in use (and
     the AI key and switch, and the price settings) stays: an old backup never
     brings back an old password, and on StartOS the password Set Login
-    Credentials gave stays right. The restored database is rebuilt from
+    Credentials gave stays right. The exchange import's mappings in use stay
+    too, with the backup's added beside them (#656). The restored database is rebuilt from
     BitcoinTX's own migrations with only the backup's own data, and these are
     written into it before it replaces the live one; if anything fails,
     nothing is restored. A backup's tax timezone that tzdata doesn't name is
@@ -360,7 +391,7 @@ def export_transactions_csv(
 
     # Same-time transactions in the order they were saved, as the ledger
     # replays them: a round trip gives the same FIFO results.
-    transactions = db.query(Transaction).order_by(
+    transactions = db.query(Transaction).options(selectinload(Transaction.chosen_coins)).order_by(
         Transaction.timestamp.asc(),
         Transaction.id.asc()
     ).all()
@@ -369,7 +400,8 @@ def export_transactions_csv(
     writer = csv.DictWriter(output, fieldnames=CSV_COLUMNS)
     writer.writeheader()
     tz = get_tax_timezone(db)
-    writer.writerows(_export_row(txn, tz) for txn in transactions)
+    book = account_book(db)
+    writer.writerows(_export_row(txn, tz, book) for txn in transactions)
     filename = f"btctx_transactions_{datetime.now().strftime('%Y-%m-%d')}.csv"
 
     return PlainTextResponse(
@@ -399,7 +431,7 @@ def _date_acquired(txn: Transaction, tz) -> str:
     return txn.acquired_at.isoformat()
 
 
-def _export_row(txn: Transaction, tz) -> dict[str, str]:
+def _export_row(txn: Transaction, tz, book: AccountBook) -> dict[str, str]:
     """
     The transaction as a CSV row of the values the user entered: a Sell's or
     Withdrawal's basis comes from its lots and isn't exported, and its
@@ -417,8 +449,8 @@ def _export_row(txn: Transaction, tz) -> dict[str, str]:
         "date": txn.timestamp.strftime("%Y-%m-%dT%H:%M:%SZ") if txn.timestamp else "",
         "type": csv_text(txn.type),
         "amount": _csv_number(txn.amount, 8) if txn.amount else "",
-        "from_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.from_account_id, "")),
-        "to_account": csv_text(ACCOUNT_ID_TO_NAME.get(txn.to_account_id, "")),
+        "from_account": csv_text(_account_name(txn.from_account_id, book)),
+        "to_account": csv_text(_account_name(txn.to_account_id, book)),
         "cost_basis_usd": _csv_number(txn.cost_basis_usd, 2) if txn_type in ("buy", "deposit") else "",
         "proceeds_usd": _csv_number(entered_proceeds, 2) if txn_type in ("sell", "withdrawal") else "",
         "fee_amount": _csv_number(txn.fee_amount, 8),
@@ -430,12 +462,21 @@ def _export_row(txn: Transaction, tz) -> dict[str, str]:
         "fmv_usd": _csv_number(txn.fmv_usd, 2) if gift_like else "",
         "broker_reporting": csv_text(txn.broker_reporting),
         "fee_usd_typed": ("yes" if txn.fee_usd_manual else "no") if btc_fee and txn.fee_usd is not None else "",
-        "cost_basis_typed": _basis_typed(txn),
+        "cost_basis_typed": _basis_typed(txn, book),
         "acquired_at": _date_acquired(txn, tz),
         "proceeds_typed": _proceeds_typed(txn),
         "price_moment": csv_text(txn.price_moment),
         "fmv_typed": ("no" if txn.fmv_from_price else "yes") if gift_like and txn.fmv_usd is not None else "",
+        **csv_choices.export_cells(txn),  # its id, the coins it chose and when (#711)
     }
+
+
+def _account_name(account_id: int | None, book: AccountBook) -> str:
+    """An account's name now (5.11), which an import reads back; blank for
+    an id with no account (a row from before 0.9.2, 5.3), as before."""
+    if account_id != ACCOUNT_EXTERNAL and book.kind(account_id) is None:
+        return ""
+    return book.name(account_id)
 
 
 def _proceeds_typed(txn: Transaction) -> str:
@@ -447,11 +488,11 @@ def _proceeds_typed(txn: Transaction) -> str:
     return "no" if txn.proceeds_from_price else "yes"
 
 
-def _basis_typed(txn: Transaction) -> str:
+def _basis_typed(txn: Transaction, book: AccountBook) -> str:
     """An income or rebate deposit's basis: yes if typed, no if priced (so a
     re-import keeps re-pricing it on edits, #76); blank otherwise."""
     valued = (txn.type or "").lower() == "deposit" and normalized(txn.source) in VALUED_AT_RECEIPT \
-        and txn.to_account_id in BTC_ACCOUNTS
+        and book.is_btc(txn.to_account_id)
     if not valued or txn.cost_basis_usd is None:
         return ""
     return "no" if txn.cost_basis_from_price else "yes"

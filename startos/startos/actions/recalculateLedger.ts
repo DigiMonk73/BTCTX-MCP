@@ -12,7 +12,7 @@ export const recalculateLedger = sdk.Action.withoutInput(
   async () => ({
     name: i18n('Recalculate Ledger'),
     description: i18n(
-      'Rebuild every ledger entry, lot and gain from your transactions, the same as Settings > Recalculate Ledger in BitcoinTX. Run it once after an update that changes how gains are calculated.',
+      'Rebuild every ledger entry, lot and gain from your transactions, the same as Settings > Account > Recalculate Ledger in BitcoinTX. Run it once after an update that changes how gains are calculated.',
     ),
     warning: i18n(
       'This rebuilds all lots and gains from your transactions. Your transactions themselves are not changed. It can take a minute on a large ledger.',

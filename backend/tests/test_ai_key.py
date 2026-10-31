@@ -113,8 +113,8 @@ REFUSED = [
     ("River import", "POST", "/api/import/river/execute", {"files": CSV}, 403),
     ("delete everything", "DELETE", "/api/transactions/delete_all", {}, 403),
     ("new transaction outside the import", "POST", "/api/transactions", {"json": {}}, 403),
-    ("account: create", "POST", "/api/accounts/", {"json": {"name": "x", "currency": "BTC"}}, 403),
-    ("account: change", "PUT", "/api/accounts/2", {"json": {"name": "x"}}, 403),
+    ("account: create", "POST", "/api/accounts/", {"json": {"kind": "wallet", "name": "x"}}, 403),
+    ("account: change", "PUT", "/api/accounts/2", {"json": {"hidden": True}}, 403),
     ("account: delete", "DELETE", "/api/accounts/2", {}, 403),
     ("Ledger review: values at the hour", "POST", "/api/review/hourly-prices", {"json": {"ids": [1]}}, 403),
     ("tax timezone", "PUT", "/api/settings/tax-timezone", {"json": {"timezone": "Asia/Tokyo"}}, 403),
@@ -195,7 +195,8 @@ def test_every_route_the_mcp_tools_call_is_allowed():
     source = (REPO / "mcp_server" / "btctx_mcp" / "server.py").read_text()
     calls = re.findall(r'_call\(\s*"([A-Z]+)",\s*f?"(/api/[^"]+)"', source)
     assert len(calls) >= 12
-    for method, path in calls:
+    from btctx_mcp.client import ACCOUNTS_PATH  # the user's accounts, read by the client itself (5.12)
+    for method, path in [*calls, ("GET", ACCOUNTS_PATH)]:
         path = re.sub(r"\{[^}]+\}", "7", path)
         assert ai_key.key_may_use(method, _route_of(method, path)), (method, path)
 
@@ -306,8 +307,9 @@ def test_every_claude_code_command_adds_the_server_for_all_folders():
     action = (REPO / "startos" / "startos" / "actions" / "connectAi.ts").read_text()
     settings = (REPO / "frontend" / "src" / "utils" / "aiSetup.ts").read_text()
     guide = (REPO / "mcp_server" / "AI_SETUP.md").read_text()
-    assert "'claude mcp add --scope user bitcointx'" in action
-    assert "claude mcp add --scope user ${SERVER_NAME}" in settings
+    assert "claude mcp add --scope user ${serverName}" in action  # a pre-release's name apart (#721)
+    assert "claude mcp add --scope user ${serverName(input.version)}" in settings
     assert "claude mcp add --scope user bitcointx" in guide
     for source in (action, settings, guide):
         assert "claude mcp add bitcointx" not in source
+        assert "claude mcp add ${" not in source

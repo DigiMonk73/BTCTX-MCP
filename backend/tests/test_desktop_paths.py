@@ -14,6 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "desktop"))
 import desktop_paths  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+def a_release(monkeypatch):
+    """BitcoinTX's own defaults, whatever VERSION is: from 2.0's first
+    pre-release (an alpha, then a beta) it's BitcoinTX Preview's, whose own
+    are test_preview_app_532.py's."""
+    monkeypatch.setattr(desktop_paths, "app_version", lambda: "2.0.0")
+
+
 def test_default_is_application_support(monkeypatch, tmp_path):
     monkeypatch.delenv(desktop_paths.DATA_DIR_ENV, raising=False)
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -247,13 +255,15 @@ def test_an_unknown_option_is_refused(tmp_path):
 def test_no_doc_runs_a_build_s_binary_by_itself():
     """Run on a Mac with BitcoinTX installed, a build's binary opens the real
     ledger: the docs launch builds only through run-test-build.sh (the
-    installed app may be run from /Applications)."""
+    installed app, or the installed BitcoinTX Preview, may be run from
+    /Applications)."""
     root = Path(__file__).resolve().parents[2]
     skipped = {".claude", ".git", ".venv", "node_modules", "dist", "build"}  # other worktrees, packages
     offenders = [
         f"{doc.relative_to(root)}:{n}"
         for doc in root.rglob("*.md") if not skipped & set(doc.relative_to(root).parts)
         for n, line in enumerate(doc.read_text(errors="ignore").splitlines(), start=1)
-        if "Contents/MacOS/BitcoinTX" in line and "/Applications/BitcoinTX.app" not in line
+        if "Contents/MacOS/BitcoinTX" in line
+        and not any(f"/Applications/{app}.app" in line for app in ("BitcoinTX", "BitcoinTX Preview"))
     ]
     assert offenders == []

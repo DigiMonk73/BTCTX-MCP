@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import api from "../api";
-import { reviewAmount, typeWithSourceOrPurpose } from "../utils/transactionList";
+import { showTheList } from "../utils/reminderList";
+import { reviewSummary } from "../utils/transactionList";
 import HourlyCheck from "./ledgerReview/HourlyCheck";
 import type { HourlyPick, LedgerReviewResponse, ReviewCheck } from "./ledgerReview/types";
 
@@ -14,8 +15,7 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
   <ul aria-label={check.title}>
     {check.items.map((item) => (
       <li key={item.id}>
-        #{item.id} · {item.date} · {typeWithSourceOrPurpose(item)} · {reviewAmount(item)} —{" "}
-        {item.issue} {item.change}
+        {reviewSummary(item)} — {item.issue} {item.change}
       </li>
     ))}
   </ul>
@@ -24,7 +24,8 @@ const ReviewItems: React.FC<{ check: ReviewCheck }> = ({ check }) => (
 /**
  * A reminder (#128): its rows aren't errors, so one explanation for
  * the group and the list folded until asked for. Nothing is saved: the
- * group shrinks as the owner edits the deposits.
+ * deposits' group shrinks as the owner edits them; the sales' (#349)
+ * stays, since nothing would clear it.
  */
 const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
   const [open, setOpen] = useState(false);
@@ -40,12 +41,20 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
       ))}
       <p className="settings-option-subtitle">{check.action}</p>
       <button onClick={() => setOpen(!open)} className="btn btn-secondary">
-        {open ? "Hide the list" : `Show the ${check.count} deposit${check.count === 1 ? "" : "s"}`}
+        {open ? "Hide the list" : showTheList(check.key, check.count)}
       </button>
       {open && <ReviewItems check={check} />}
     </div>
   );
 };
+
+interface LedgerReviewProps {
+  /** Each answer, or null when the review failed: the section's summary (#355). A stable function. */
+  onReview?: (review: LedgerReviewResponse | null) => void;
+  /** Changed by Settings once another section saved what the review reads (the tax timezone, Recalculate
+   * Ledger, an exchange's 1099-DA switch, #645): asked again. */
+  round?: number;
+}
 
 /**
  * Settings section: the Ledger review (GET /api/review) — saved
@@ -53,28 +62,36 @@ const ReminderGroup: React.FC<{ check: ReviewCheck }> = ({ check }) => {
  * nothing; the owner edits a transaction or runs Recalculate Ledger
  * themselves, or applies the hourly check's values (#144).
  */
-const LedgerReview: React.FC = () => {
+const LedgerReview: React.FC<LedgerReviewProps> = ({ onReview, round }) => {
   const [review, setReview] = useState<LedgerReviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Asked again while an earlier review is still on its way (Settings' refresh,
+  // Check again): only the last one asked for is shown, whichever comes last
+  const asked = useRef(0);
   const load = useCallback(async () => {
+    const ask = ++asked.current;
     setLoading(true);
     setFailed(false);
     try {
       const res = await api.get<LedgerReviewResponse>("/review");
+      if (ask !== asked.current) return;
       setReview(res.data);
+      onReview?.(res.data);
     } catch {
+      if (ask !== asked.current) return;
       setFailed(true);
+      onReview?.(null);
     } finally {
-      setLoading(false);
+      if (ask === asked.current) setLoading(false);
     }
-  }, []);
+  }, [onReview]);
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, round]);
 
   // Only the hourly check applies anything: it asks first (HourlyCheck)
   // Its outcome stays shown after the review reloads (load() clears `failed`)
@@ -103,8 +120,7 @@ const LedgerReview: React.FC = () => {
   const reminders = review?.checks.filter((c) => c.count > 0 && c.kind === "reminder") ?? [];
 
   return (
-    <div className="settings-section" role="region" aria-label="Ledger review">
-      <h3 className="section-title">Ledger Review</h3>
+    <>
       <div className="settings-option">
         <div className="option-info">
           <span className="settings-option-title">Transactions to check</span>
@@ -148,7 +164,7 @@ const LedgerReview: React.FC = () => {
       {review && review.total + review.reminders > 0 && (
         <p className="settings-option-subtitle">Dates in {review.timezone}.</p>
       )}
-    </div>
+    </>
   );
 };
 

@@ -27,21 +27,29 @@ backend/
 ├── assets/irs_templates/
 │   ├── 2024/  f8949.pdf  f1040sd.pdf
 │   ├── 2025/  f8949.pdf  f1040sd.pdf     # one folder per tax year, exact filenames
-│   └── drafts/2026/  f8949.pdf  f1040sd.pdf   # the IRS's drafts: a preview until 2027-01-01
+│   └── drafts/<year>/  f8949.pdf  f1040sd.pdf   # the IRS's drafts for the year after the newest final forms (one at a time): a preview until January 1 after that year
 ├── routers/reports.py                    # endpoints, template lookup, per-box sheets, merge
 ├── services/
+│   ├── account.py                        # the account book: each account's kind, name, exchange and 1099-DA switch
 │   ├── tax_time.py                       # tax timezone, tax-year bounds, date formatting
-│   ├── transaction.py                    # FIFO lots, holding_period()
+│   ├── transaction.py                    # lots per account, per-wallet FIFO or the coins chosen in a wallet, holding_period()
+│   ├── review.py                         # Ledger Review, its reminder sale_may_differ_from_1099da
 │   └── reports/
-│       ├── form_8949.py                  # rows, 1099-DA box rules, Schedule D totals, per-year field config
+│       ├── form_8949.py                  # rows, 1099-DA box rules per exchange, Schedule D totals, per-year field config
 │       ├── pdf_form_filler.py            # fill_pdf_form(): pypdf fill + flatten
 │       ├── draft_forms.py                # the IRS's draft forms of the next year: shipped preview, test installs
-│       ├── complete_tax_report.py
+│       ├── complete_tax_report.py        # its sections, "Sales by exchange", "Coins you chose"
+│       ├── pdf_layout.py                 # the report PDFs' shared layout
 │       ├── transaction_history.py
 │       └── reporting_core.py
 └── tests/
     ├── test_irs_templates.py             # every year folder: fields exist, values land, boxes, line 2, flatten
     ├── test_1099da_boxes.py              # box selection from real ledger data
+    ├── test_1099da_boxes_349.py          # boxes per exchange: its switch, covered only for coins bought there
+    ├── test_add_exchange_1099da_708.py   # the switch asked when an exchange is added
+    ├── test_review_1099da_349.py         # Ledger Review's reminder where an exchange's own lot order may differ
+    ├── test_fee_broker_override_549.py   # a spend's override places its fee's rows too
+    ├── test_independent_figures_1099da.py  # the second calculation's boxes agree
     ├── test_2025_forms.py                # 11-row pages, overflow sheets, Part I/II, Schedule D totals
     ├── test_golden_years.py              # three hand-worked tax years: exact 8949 rows, Schedule D lines
     ├── test_draft_forms.py               # draft forms: off by default, checked, marked on every page
@@ -110,7 +118,8 @@ LotDisposal rows for the tax year
   │  build_form_8949_and_schedule_d(year, db)                 form_8949.py
   │    - tax-year window in the tax timezone
   │    - taxable_disposals(): skip Gift / Donation / Lost, except their network-fee disposals
-  │    - _broker_reporting() + _determine_box()  -> box letter per disposal
+  │    - disposal_box(): _broker_reporting() (the exchange's switch, _on_a_1099da();
+  │      covered_lot()) + _determine_box()  -> box letter per disposal
   │    - Form8949Row per disposal, split SHORT / LONG
   │    - Schedule D totals per line (SCHEDULE_D_LINE_FOR_BOX)
   ▼
@@ -125,8 +134,9 @@ get_irs_reports()                                             reports.py
 _merge_all_pdfs(): each sheet's used Parts in order, then all of Schedule D's pages -> IRSReports_YYYY.pdf
 ```
 
-Each LotDisposal is the part of a disposal that came from one lot, so a Sell
-that used three FIFO lots gives three 8949 rows. Sells, spends and
+Each LotDisposal is the part of a disposal that came from one lot, so a
+disposal that used three lots (per-wallet FIFO, or the coins chosen in a
+wallet, #711) gives three 8949 rows. Sells, spends and
 network-fee disposals are included.
 
 ## Tax timezone
@@ -139,13 +149,16 @@ Timestamps are stored in UTC. The tax timezone decides:
   MM/DD/YYYY in the tax timezone.
 - **the holding period** (next section).
 
-Where the timezone comes from: **Settings → Tax Timezone** (the
+Where the timezone comes from: **Settings → Account → Tax Timezone** (the
 `tax_timezone` row in `app_settings`), then the `BTCTX_TIMEZONE` env var,
 then UTC. Only the names of the `tzdata` package BitcoinTX ships with are
 saved (#407), the same list on every machine: a restore elsewhere reads the
 same zone, and a backup holding another name keeps this install's own.
 API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
-the whole ledger, because stored holding periods can change. A login fills
+the whole ledger, because stored holding periods can change; a change that
+moves an earlier tax year's figures first asks the past-year question (409,
+saved when sent again with `?confirm=`, after a copy; AGENTS.md, "The
+past-year warning"). A login fills
 it from the browser (`POST /api/settings/tax-timezone/fill`) only while
 none was chosen and the ledger has no transactions (#334): with
 transactions, only the owner's change in Settings moves it (its PUT sends
@@ -172,18 +185,51 @@ Each disposal gets one checkbox letter, from `_broker_reporting()` (is it on a
 
 | Disposal | 2024 and earlier | 2025 | 2026+ |
 |---|---|---|---|
-| Exchange **Sell** of a lot bought on the exchange on/after 2026-01-01 and never transferred out ("covered") | — | — | **G** / **J** (1099-DA, basis reported) |
-| Any other exchange Sell: lot bought before 2026, or BTC transferred in from elsewhere | C / F | **H** / **K** (1099-DA, proceeds only) | **H** / **K** |
-| Self-custody spends, network-fee disposals (no 1099; a spend's override can place its fee, below) | C / F | **I** / **L** | **I** / **L** |
+| Exchange **Sell** of a lot bought on that exchange on/after 2026-01-01 and never transferred out ("covered") | — | — | **G** / **J** (1099-DA, basis reported) |
+| Any other exchange Sell: lot bought before 2026, or BTC transferred in from elsewhere (another exchange included) | C / F | **H** / **K** (1099-DA, proceeds only) | **H** / **K** |
+| Spends (from a wallet or an exchange), network-fee disposals, and Sells on an exchange whose 1099-DA switch is off (no 1099; a spend's override can place its fee, below) | C / F | **I** / **L** | **I** / **L** |
 
 (short / long). Details:
-- "Exchange Sell" means `type == "Sell"` from the Exchange BTC account. That is
-  what the broker (River) reports on Form 1099-DA, starting with 2025.
-- Covered means the lot was created by a Buy into Exchange BTC with
-  an acquisition date on or after `COVERED_DIGITAL_ASSET_START` (2026-01-01,
-  as a date in the tax timezone, the same date printed in column (b)). A lot created by a Transfer is never covered, because a transfer
-  breaks the broker's basis chain.
+- "Exchange Sell" means `type == "Sell"` from an exchange's BTC account whose
+  exchange has "This exchange sends me a Form 1099-DA" on
+  (`exchanges.sends_1099da`, #349; asked when an exchange is added, on
+  unless answered No, #708; changed in Settings › Wallets, exchanges and
+  banks, `PUT /api/accounts/{id}` `{sends_1099da}`, which asks the
+  past-year question by comparing boxes, with no replay): what each US
+  exchange (River, say) reports on its Form 1099-DA, starting with 2025.
+  With the switch off (an exchange outside the US usually sends none), that
+  exchange's Sells are I/L, as a self-custody spend's are; the gain is the
+  same either way. In a 1.x ledger the only such account is Exchange BTC.
+- Covered means the lot was created by a Buy into the same account the Sell
+  is from, with an acquisition date on or after
+  `COVERED_DIGITAL_ASSET_START` (2026-01-01, as a date in the tax timezone,
+  the same date printed in column (b)). A lot created by a Transfer is never
+  covered, because a transfer breaks the broker's basis chain: coins moved
+  from one exchange to another arrive noncovered (no transfer statement is
+  required between brokers).
 - From 2025, Boxes C/F exclude digital assets, so self-custody BTC moves to I/L.
+
+**Per exchange in the complete tax report** (#635). Section 2 shows
+each disposal's account under its kind ("Sale", then "Kraken BTC"), and
+"Sales by exchange" follows it: for each exchange with Sells in the year,
+whether it sends a 1099-DA, its Sells' boxes and rows, and their proceeds,
+cost and gain, network fees left out, to set beside each exchange's
+1099-DA. It moves no figure: its totals are its Sells' rows. Each lot held
+when the year began names its account too, as the year-end lots do. In a
+year with coins chosen in a wallet (#711), "Coins you chose" follows: each
+such transaction's purchases or deposits the coins came from, with the day
+the choice was saved (marked when that was after the coins left), the
+record of the specific identification for whoever files the return.
+Ledger Review's reminder `sale_may_differ_from_1099da` lists a Sell from
+2026, on an exchange that sends a 1099-DA (and whose Broker form doesn't
+say "none" or "proceeds"), for which the exchange's own lot order and
+BitcoinTX's take different coins bought there (whose basis it reports): an
+exchange without the purchase
+dates of coins moved in counts them from their arrival (Instructions for
+Form 1099-DA, lot selection). Once the two orders part, a later Sell can
+differ too. Where the form differs, the Form 8949 the owner files may show the
+exchange's figures with an adjustment (code B); BitcoinTX's forms leave
+columns (f) and (g) blank, so that is for whoever files the return.
 
 **Per-transaction override.** When a real 1099-DA (or, for 2024 and earlier,
 1099-B) disagrees with these rules, the user sets `broker_reporting` on that

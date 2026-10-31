@@ -47,7 +47,9 @@ year only if its text gives the fingerprint here. That happens once public
 price sites are the chosen source (with your own mempool server and its
 fallback, only when a lookup needs an hour the server doesn't have), newest
 year first, each request with the choice as it is then: through the proxy
-(Tor) set then, and none once public sites aren't allowed. So every install
+(Tor) set then (directly, for these fixed blocks only, once the owner
+answered Yes to downloading them without Tor, #241:
+`outbound.history_client`), and none once public sites aren't allowed. So every install
 holds exactly the same prices, and anyone can check them. If permission
 comes, the year files are added here and the fingerprints stay the same.
 
@@ -78,7 +80,8 @@ comes, the year files are added here and the fingerprints stay the same.
   test.
 - **The release workflow** checks again before it builds anything: the
   manifest is well formed, its newest 30 days still give their fingerprint
-  and pass the cross-check, and it ends at most 14 days before the release.
+  and pass the cross-check, and it ends at most 14 days before the release
+  (a package-only revision, `-N`, ships the history it had: no age check).
 - **A monthly check** (`.github/workflows/price-history-watch.yml`)
   downloads every year and opens an issue if Bitstamp no longer gives one.
 - **A closed year never changes.** A test pins each closed year's line

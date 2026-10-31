@@ -177,15 +177,21 @@ def test_apply_brings_their_changes_into_startos(repos):
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it\n"
 
 
-def test_apply_runs_on_a_branch_cut_from_develop(repos):
-    """develop takes changes only by pull request, so --apply runs on a branch."""
+def test_every_message_sends_their_changes_through_staging():
+    """Start9's changes come back through staging, as every change does (#836):
+    the script's words said develop, which takes changes only from staging."""
+    assert "develop" not in SCRIPT.read_text()
+
+
+def test_apply_runs_on_a_branch_cut_from_staging(repos):
+    """staging takes changes only by pull request, so --apply runs on a branch."""
     proj, fork = repos
     start9_changes(fork)
     git(proj, "switch", "-qc", "start9-changes")
     r = run(proj, "--apply", **FORKED)
     assert r.returncode == 0, r.stderr
     assert (proj / "startos" / "main.ts").read_text() == "one\ntwo, as Start9 wants it\n"
-    assert "pull request" in r.stdout
+    assert "pull request into staging" in r.stdout
 
 
 def test_apply_is_refused_on_main(repos):

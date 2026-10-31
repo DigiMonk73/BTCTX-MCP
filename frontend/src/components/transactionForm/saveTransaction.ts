@@ -1,24 +1,41 @@
-import axios from "axios";
+import axios, { type AxiosRequestConfig } from "axios";
 import api from "../../api";
 import { serverReason } from "../../utils/apiError";
 import { formatUsd, parseDecimal } from "../../utils/format";
 import { buildTransactionPayload } from "../../utils/transactionForm";
 
+/** A write sent again with the past-year warning's confirm (#352); as
+ * always without one. */
+export function withConfirm(confirm?: string): AxiosRequestConfig | undefined {
+  return confirm ? { params: { confirm } } : undefined;
+}
+
 /**
- * Save the form: a new transaction, or `transactionId`'s changes. Returns
- * the message to show, with the realized gain when there is one.
+ * Save the form: a new transaction, or `transactionId`'s changes, with
+ * `confirm` once the owner confirmed a change to an earlier tax year.
+ * Returns the message to show, with the realized gain when there is one.
  */
-export async function saveTransaction(data: TransactionFormData, transactionId?: number | null): Promise<string> {
-  const payload = buildTransactionPayload(data);
+export async function saveTransaction(
+  data: TransactionFormData,
+  book: AccountBook,
+  transactionId?: number | null,
+  confirm?: string,
+): Promise<string> {
+  const payload = buildTransactionPayload(data, book);
   if (transactionId) {
-    const response = await api.put(`/transactions/${transactionId}`, payload);
+    const response = await api.put(`/transactions/${transactionId}`, payload, withConfirm(confirm));
     if (response.status !== 200) {
       throw new Error(`Update failed with status ${response.status}`);
     }
     return savedMessage("updated", response.data as ITransactionRaw);
   }
-  const response = await api.post("/transactions", payload);
+  const response = await api.post("/transactions", payload, withConfirm(confirm));
   return savedMessage("created", response.data as ITransactionRaw);
+}
+
+/** Delete `transactionId`, with `confirm` once the owner confirmed a change to an earlier tax year. */
+export async function deleteTransaction(transactionId: number, confirm?: string): Promise<void> {
+  await api.delete(`/transactions/${transactionId}`, withConfirm(confirm));
 }
 
 function savedMessage(done: "created" | "updated", tx: ITransactionRaw): string {

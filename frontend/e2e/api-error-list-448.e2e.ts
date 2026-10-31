@@ -1,7 +1,7 @@
 // A field-by-field refusal (FastAPI's 422, its `detail` a list) is said in
 // its words (#448): River's preview crashed to "Something went wrong" and
 // lost every edit; the transaction form said "[object Object]".
-import { test, expect, createTx, listTx, acceptDialogs, openAddForm, seedFunds } from "./fixtures";
+import { test, expect, createTx, listTx, acceptDialogs, openAddForm, seedFunds, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 const RIVER_CSV = [
@@ -11,7 +11,7 @@ const RIVER_CSV = [
 ].join("\n") + "\n";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 function riverRow(page: Page, n: number) {
@@ -22,6 +22,7 @@ test("River: a refused cost basis is said in words, and the preview keeps every 
   await seedFunds(page.request); // the send's bitcoin
   const before = (await listTx(page.request)).length;
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
@@ -86,6 +87,7 @@ test("the form: a refused amount is said in words, on a new transaction and an e
 
 test("the price card: a refused address is said in words, not a fixed sentence (#448)", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Privacy & Network");
   const net = page.getByRole("region", { name: "Privacy & network" });
   await net.getByLabel(/^My own Mempool/).check();
   // Over the server's 300 characters: refused field by field

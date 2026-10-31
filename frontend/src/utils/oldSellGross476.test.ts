@@ -4,6 +4,7 @@
 // (backend/services/transaction._sell_net_proceeds), so a save that changes
 // nothing sends the gross back and takes no fee off again.
 import { describe, expect, it } from "vitest";
+import { ONE_OF_EACH as book } from "../test/books";
 import { buildTransactionPayload, mapTransactionToFormData } from "./transactionForm";
 import { parseTransaction } from "./format";
 
@@ -25,7 +26,7 @@ const OLD_SELL = {
 
 /** What the edit form loads for a raw transaction (TransactionForm.tsx). */
 function formFor(raw: Partial<Record<keyof ITransactionRaw, unknown>>) {
-  return mapTransactionToFormData(parseTransaction({ ...OLD_SELL, ...raw } as ITransactionRaw));
+  return mapTransactionToFormData(parseTransaction({ ...OLD_SELL, ...raw } as ITransactionRaw), book);
 }
 
 describe("a Sell saved before its gross was kept (#476)", () => {
@@ -34,7 +35,7 @@ describe("a Sell saved before its gross was kept (#476)", () => {
   });
 
   it("saved unchanged, sends that gross and the same fee", () => {
-    expect(buildTransactionPayload(formFor({}))).toMatchObject({
+    expect(buildTransactionPayload(formFor({}), book)).toMatchObject({
       type: "Sell",
       amount: 0.05,
       fee_amount: 10,
@@ -73,7 +74,7 @@ describe("a Sell whose gross is kept", () => {
   });
 
   it("saved unchanged, sends that gross", () => {
-    expect(buildTransactionPayload(formFor({ gross_proceeds_usd: "5000.00" }))).toMatchObject({
+    expect(buildTransactionPayload(formFor({ gross_proceeds_usd: "5000.00" }), book)).toMatchObject({
       gross_proceeds_usd: 5000,
       fee_amount: 10,
     });

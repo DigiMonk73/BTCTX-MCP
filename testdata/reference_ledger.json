@@ -1,6 +1,104 @@
 {
- "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026, every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. Every USD value a price lookup would fill is given, so it loads with the price source Off. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them). 'why' says what a row is for; it isn't sent.",
+ "about": "BitcoinTX's reference test ledger: made-up, 2023 to 2026 (and one deposit dated 2022, so 2023 starts holding coins), every kind of transaction each year (each deposit source, withdrawal purpose, transfers both ways, cash moves, consolidations (a transfer to the same account), buys and sells) and every account route the app offers, every Form 8949 box of 2024 (A-F), 2025 and 2026 (G-L), rebates, My BTC and Gift deposits with a date originally acquired, and inherited coins sold within a year of the death. From 2.0, multiple wallets, exchanges or accounts: 'accounts' adds two of each kind, a fourth wallet and a fifth (scripts/seed_ledger.py makes them through the account API first, with these ids, and after the rows names and hides them as listed: one made under the name in 'renamed_from' is renamed, one is hidden while it still holds coins), and the rows marked 'since': '2.0' use them. B7a's are in 2026; #702's, from 2022 to 2026, fill each year 2.0's dimensions: every deposit source and withdrawal purpose in more than one wallet and exchange, each route between more than one pair of accounts, each exchange's sales in the boxes its 1099-DA switch gives and every Broker form choice against each switch, gains and losses of both terms and inherited coins sold in every forms year, and the rows Ledger Review lists ($0 cost, $0 proceeds). #730's, in 2025 and 2026, choose which coins leave a wallet (#711): a fourth wallet, the Sparrow, filled only from External, spends, gives, donates and loses chosen coins, and sends them to the Jade and to Kraken; a row names the coins it acquired with a 'key', and a later row chooses them by it ('chosen_coins'), which scripts/seed_ledger.py sends as the id the server gave that row. 'added' names the change that added a 2.0 row (#702's, #730's), so a test can leave that batch out. #702's rows go only into 2.0's accounts, each after that account's last earlier disposal (Kraken's and Overseas' bitcoin emptied by the end of 2025), and #730's into the Jade and Kraken only after each one's last earlier row, so no older row's figures move (backend/tests/test_reference_ledger_354.py). The one row naming Wallet is the split of a pooled wallet, the ledger's last row. Every USD value a price lookup would fill is given, so it loads with the price source Off, but in #715's rows marked 'priced': in a fifth wallet, the Trezor, they take their values from the stored-price fixture (testdata/reference_prices.json), so the report's priced values and Ledger Review's price checks are filled; scripts/seed_ledger.py sends them only with --with-prices, to a database it stored those prices in first (--store-prices), and says how many it left out otherwise. Load it with scripts/seed_ledger.py; its figures are in reference_figures.json (backend/tests/test_seed_ledger.py checks them, and what it must cover). 'why' says what a row or an account is for; it isn't sent.",
+ "accounts": [
+  {
+   "id": 100,
+   "name": "Coldcard",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A second wallet: Wallet's coins that were really on a Coldcard come to it by the split row."
+  },
+  {
+   "id": 101,
+   "name": "Jade",
+   "kind": "wallet",
+   "currency": "BTC",
+   "hidden": true,
+   "why": "A third wallet, so a wallet sends to a wallet; hidden after its rows while it still holds coins, as an owner hides a wallet they stopped using."
+  },
+  {
+   "id": 102,
+   "name": "Kraken USD",
+   "kind": "exchange",
+   "currency": "USD",
+   "exchange_id": 2,
+   "sends_1099da": true,
+   "why": "A second exchange's dollars."
+  },
+  {
+   "id": 103,
+   "name": "Kraken BTC",
+   "kind": "exchange",
+   "currency": "BTC",
+   "exchange_id": 2,
+   "sends_1099da": true,
+   "why": "A second exchange's bitcoin, on a Form 1099-DA: G for coins bought there in 2026, H for coins moved in or held a year or less before 2026, K for coins held more than a year; I where the owner recorded no form."
+  },
+  {
+   "id": 104,
+   "name": "Overseas USD",
+   "kind": "exchange",
+   "currency": "USD",
+   "exchange_id": 3,
+   "sends_1099da": false,
+   "renamed_from": "Offshore USD",
+   "why": "An exchange outside the US: its 1099-DA switch is off. Made as \"Offshore\" and renamed after its rows, as an owner renames an exchange in use (the exchange and both its accounts)."
+  },
+  {
+   "id": 105,
+   "name": "Overseas BTC",
+   "kind": "exchange",
+   "currency": "BTC",
+   "exchange_id": 3,
+   "sends_1099da": false,
+   "renamed_from": "Offshore BTC",
+   "why": "Its sales are on no broker form, I or L, unless the owner recorded what a form showed: H and G by their Broker form choice."
+  },
+  {
+   "id": 106,
+   "name": "Credit union",
+   "kind": "bank",
+   "currency": "USD",
+   "why": "A second bank."
+  },
+  {
+   "id": 107,
+   "name": "Savings",
+   "kind": "bank",
+   "currency": "USD",
+   "why": "A third bank, so a bank sends to a bank."
+  },
+  {
+   "id": 108,
+   "name": "Sparrow",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A fourth wallet, for the rows that choose which coins leave (#711, #730): filled only from External, so no older row takes from it; it sends chosen coins to the Jade and to Kraken after each one's last earlier row."
+  },
+  {
+   "id": 109,
+   "name": "Trezor",
+   "kind": "wallet",
+   "currency": "BTC",
+   "why": "A fifth wallet, for the rows valued from a stored price (#715, testdata/reference_prices.json): filled only from External and used by no other row, so no older row takes from it and none of its coins goes elsewhere."
+  }
+ ],
  "transactions": [
+  {
+   "type": "Deposit",
+   "timestamp": "2022-12-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.05",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "3400.00",
+   "acquired_at": "2021-11-10T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "My own coins, bought at the November 2021 top elsewhere and moved to Kraken before the ledger's first year: 2023 starts holding them (the report's holdings at the start of the year), and 2024 sells them at a long-term loss, Box F."
+  },
   {
    "type": "Deposit",
    "timestamp": "2023-01-15T10:00:00Z",
@@ -107,6 +205,20 @@
    "cost_basis_usd": "53.60",
    "acquired_at": "2023-05-20T12:00:00Z",
    "why": "Inherited (#154): its cost basis is its value on the date of death (acquired_at), and it's long-term whenever sold. Newer than the wallet's coins that are sold, so it stays in the year-end lots."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2023-06-14T15:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Reward",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A reward with no value given: valued at its hour's stored price, $259.12 of income (#715)."
   },
   {
    "type": "Deposit",
@@ -244,6 +356,19 @@
   },
   {
    "type": "Deposit",
+   "timestamp": "2024-01-08T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 102,
+   "amount": "20000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "source": "N/A",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Dollars into Kraken: a second exchange's USD account gets a deposit."
+  },
+  {
+   "type": "Deposit",
    "timestamp": "2024-01-10T10:00:00Z",
    "from_account_id": 99,
    "to_account_id": 3,
@@ -262,6 +387,19 @@
    "fee_amount": "21.25",
    "fee_currency": "USD",
    "cost_basis_usd": "21271.25"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2024-01-22T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.03",
+   "fee_amount": "1.19",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1185.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Part of the 2021 coins sold in the January 2024 dip: long-term, on no 1099-B, a loss: Box F, on a second exchange (Sales by exchange)."
   },
   {
    "type": "Transfer",
@@ -321,6 +459,19 @@
    "cost_basis_usd": "12600.00"
   },
   {
+   "type": "Buy",
+   "timestamp": "2024-03-14T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 103,
+   "amount": "0.1",
+   "fee_amount": "7.30",
+   "fee_currency": "USD",
+   "cost_basis_usd": "7300.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Bought on Kraken at the March 2024 top."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2024-03-20T12:00:00Z",
    "from_account_id": 99,
@@ -342,6 +493,21 @@
    "cost_basis_usd": "19519.50"
   },
   {
+   "type": "Deposit",
+   "timestamp": "2024-04-02T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.05",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "3600.00",
+   "acquired_at": "2024-03-13T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Inherited coins into an exchange, valued on the date of death (2024-03-13), near the top: they come before the March 14 buy."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2024-05-01T12:00:00Z",
    "from_account_id": 1,
@@ -349,6 +515,20 @@
    "amount": "10000",
    "fee_amount": "0",
    "fee_currency": "USD"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2024-05-08T10:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Income with no value given, at its hour's stored price: $305.005, an exact half cent, rounds to the even cent, $305.00 (#556)."
   },
   {
    "type": "Withdrawal",
@@ -429,6 +609,19 @@
    "why": "What the broker's form showed: 2024 Box E."
   },
   {
+   "type": "Sell",
+   "timestamp": "2024-08-05T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.12",
+   "fee_amount": "6.48",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "6480.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Sold in the August 2024 drop: FIFO takes the rest of the 2021 coins (F, a loss), the inherited coins (F, INHERITED, a loss below their value at the death) and half the March buy (C, a short-term loss)."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2024-09-01T16:00:00Z",
    "from_account_id": 2,
@@ -450,6 +643,20 @@
    "fee_currency": "BTC",
    "source": "Income",
    "cost_basis_usd": "7200.00"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2024-09-17T14:00:00Z",
+   "from_account_id": 109,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0.00005",
+   "fee_currency": "BTC",
+   "purpose": "Spent",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A spend with neither its proceeds nor its network fee's value given: both at the hour's stored price ($116.50, the fee $2.91), its proceeds less the fee; long-term, from the 2023 reward's coins (box F)."
   },
   {
    "type": "Buy",
@@ -596,6 +803,38 @@
    "why": "A sale the broker didn't report, e.g. abroad: Box I."
   },
   {
+   "type": "Deposit",
+   "timestamp": "2025-01-14T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "410.00",
+   "acquired_at": "2023-03-10T12:00:00Z",
+   "key": "sparrow-mybtc-2023",
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins (#711, #730): the Sparrow's oldest coins, My BTC first acquired 2023-03-10, named by their key so later rows can choose them. The Sparrow is filled only from External, so no older row takes from it."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-01-15T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Gift",
+   "cost_basis_usd": "860.00",
+   "acquired_at": "2024-02-01T12:00:00Z",
+   "key": "sparrow-gift-2024",
+   "since": "2.0",
+   "added": "#730",
+   "why": "A gift into the Sparrow with the giver's basis and date (2024-02-01): long-term from 2025-02-02."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2025-01-20T09:00:00Z",
    "from_account_id": 2,
@@ -618,6 +857,66 @@
   },
   {
    "type": "Buy",
+   "timestamp": "2025-02-03T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 103,
+   "amount": "0.1",
+   "fee_amount": "10.00",
+   "fee_currency": "USD",
+   "cost_basis_usd": "10000.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A Buy on Kraken in 2025: before 2026, so its basis isn't reported (not covered)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-04T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.03",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "3060.00",
+   "acquired_at": "2025-02-01T12:00:00Z",
+   "key": "sparrow-mybtc-2025",
+   "since": "2.0",
+   "added": "#730",
+   "why": "My BTC first acquired 2025-02-01: short-term through 2026-02-01."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-10T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 108,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "1060.00",
+   "acquired_at": "2025-01-20T12:00:00Z",
+   "key": "sparrow-inherited-2025",
+   "since": "2.0",
+   "added": "#730",
+   "why": "Inherited coins into the Sparrow, valued on the date of death (2025-01-20): long-term whenever they leave (INHERITED)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-12T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.02",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "2120.00",
+   "acquired_at": "2025-01-20T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Inherited coins into Overseas, valued on the date of death (2025-01-20)."
+  },
+  {
+   "type": "Buy",
    "timestamp": "2025-02-15T10:00:00Z",
    "from_account_id": 3,
    "to_account_id": 4,
@@ -625,6 +924,20 @@
    "fee_amount": "15.00",
    "fee_currency": "USD",
    "cost_basis_usd": "15015.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-02-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.03",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "2850.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "My own coins into Overseas, bought elsewhere that week, with no date originally acquired: counted from the deposit (Ledger Review's reminder lists it)."
   },
   {
    "type": "Sell",
@@ -637,6 +950,20 @@
    "gross_proceeds_usd": "15750.00",
    "broker_reporting": "basis",
    "why": "What the broker's form showed: 2025 Box J."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2025-03-11T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.0003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A rebate with no value given, priced at its day ($24.31): its hour's price is stored only later, so Ledger Review lists it (day_priced_values)."
   },
   {
    "type": "Deposit",
@@ -696,6 +1023,32 @@
   },
   {
    "type": "Sell",
+   "timestamp": "2025-04-07T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.1",
+   "fee_amount": "7.80",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "7800.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Kraken's 2025 Form 1099-DA reports proceeds only: the March 2024 coins, held more than a year (K, a gain), and half the 2025 buy (H, a short-term loss): H and K on a second exchange with its switch on."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2025-04-07T14:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.03",
+   "fee_amount": "2.34",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "2340.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Overseas sends no 1099-DA (its switch is off): the inherited coins (L, INHERITED, a long-term loss) and part of the My BTC (I, a loss)."
+  },
+  {
+   "type": "Sell",
    "timestamp": "2025-04-15T14:00:00Z",
    "from_account_id": 4,
    "to_account_id": 3,
@@ -749,6 +1102,31 @@
    "fee_usd": "2.88"
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2025-06-16T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.012",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "10.60",
+   "gross_proceeds_usd": "1272.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-gift-2024",
+     "btc": "0.0051"
+    },
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.007"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend choosing coins that aren't the oldest (the 2023 coins stay), across both terms: the gift's (long-term, Box L) and the 2025 coins (short-term, Box I). Its network fee is paid by the chosen coins, the oldest of them first: the gift's (Box L)."
+  },
+  {
    "type": "Sell",
    "timestamp": "2025-07-01T14:00:00Z",
    "from_account_id": 4,
@@ -780,6 +1158,20 @@
   },
   {
    "type": "Withdrawal",
+   "timestamp": "2025-07-22T16:00:00Z",
+   "from_account_id": 109,
+   "to_account_id": 99,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "purpose": "Gift",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "A gift with no value given: its value at the hour's stored price, $118.40."
+  },
+  {
+   "type": "Withdrawal",
    "timestamp": "2025-08-01T11:00:00Z",
    "from_account_id": 4,
    "to_account_id": 99,
@@ -789,6 +1181,55 @@
    "purpose": "Lost",
    "fmv_usd": "0.00",
    "fee_usd": "1.20"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-08-11T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.004",
+   "fee_amount": "0.00005",
+   "fee_currency": "BTC",
+   "fee_usd": "6.00",
+   "fmv_usd": "480.00",
+   "purpose": "Gift",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.00405"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A gift choosing the 2025 coins (short-term), not the oldest; its fee from them too (Box I)."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2025-08-14T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.01",
+   "fee_amount": "1.20",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1200.00",
+   "broker_reporting": "none",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A Kraken sale the owner recorded as on no broker form: Box I, though Kraken's switch is on."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2025-08-14T14:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.01",
+   "fee_amount": "1.20",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1200.00",
+   "broker_reporting": "proceeds",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Overseas sent a 1099-DA for this sale after all (proceeds only), as the owner recorded: Box H, though its switch is off."
   },
   {
    "type": "Buy",
@@ -857,6 +1298,30 @@
    "fee_usd": "3.38"
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2025-10-06T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.006",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "744.00",
+   "purpose": "Donation",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.003"
+    },
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.003"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A donation choosing coins of both terms: the 2023 coins (long-term) and the 2025 ones (short-term)."
+  },
+  {
    "type": "Sell",
    "timestamp": "2025-10-15T14:00:00Z",
    "from_account_id": 4,
@@ -891,6 +1356,21 @@
    "why": "Purchase rebate in BTC: a Rebate since 1.2.6 (#98), valued at receipt, not income."
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2025-11-03T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 99,
+   "amount": "0.03999",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "0.90",
+   "fmv_usd": "3599.10",
+   "purpose": "Donation",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A donation straight from an exchange (its network fee is Box I). Kraken's bitcoin is then empty, so its 2026 rows keep their figures."
+  },
+  {
    "type": "Buy",
    "timestamp": "2025-11-15T11:00:00Z",
    "from_account_id": 3,
@@ -899,6 +1379,26 @@
    "fee_amount": "11.20",
    "fee_currency": "USD",
    "cost_basis_usd": "11211.20"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-11-17T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "184.00",
+   "purpose": "Lost",
+   "chosen_coins": [
+    {
+     "key": "sparrow-gift-2024",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Lost coins chosen: the gift's, not the oldest. Not a sale."
   },
   {
    "type": "Withdrawal",
@@ -911,6 +1411,20 @@
    "purpose": "Gift",
    "fmv_usd": "2100.00",
    "fee_usd": "2.10"
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2025-12-01T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 99,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "900.00",
+   "purpose": "Lost",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Coins lost at an exchange (an account frozen for good): not a sale. Overseas' bitcoin is then empty, so its 2026 rows keep their figures."
   },
   {
    "type": "Sell",
@@ -991,6 +1505,40 @@
    "source": "N/A"
   },
   {
+   "type": "Deposit",
+   "timestamp": "2026-01-06T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 106,
+   "amount": "30000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "source": "N/A",
+   "since": "2.0",
+   "why": "Dollars into a second bank, the credit union."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-01-08T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 107,
+   "amount": "5000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Bank to bank: the credit union to savings."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-01-12T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 102,
+   "amount": "15000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "The credit union to Kraken's dollars."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-01-15T12:00:00Z",
    "from_account_id": 4,
@@ -1000,6 +1548,19 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "30400.00",
    "why": "Exchange BTC starts 2026 with 0.8848 BTC: 0.0348 (2024-10-01) and 0.35 (2024-12-01), then 0.15 (2025-02-15), 0.05, 0.12, 0.10 and 0.08 from later in 2025; FIFO sells the oldest first. This sale: 2024 BTC, long-term, not covered: Box K."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-01-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 100,
+   "amount": "0.2",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "28000.00",
+   "since": "2.0",
+   "why": "The user's own coins into the Coldcard, bought elsewhere that day: short-term all of 2026."
   },
   {
    "type": "Sell",
@@ -1014,6 +1575,18 @@
    "why": "The rest of the 2024 BTC, and the 1099-DA showed its basis: Box J."
   },
   {
+   "type": "Buy",
+   "timestamp": "2026-02-03T13:00:00Z",
+   "from_account_id": 106,
+   "to_account_id": 103,
+   "amount": "0.05",
+   "fee_amount": "10",
+   "fee_currency": "USD",
+   "cost_basis_usd": "7000.00",
+   "since": "2.0",
+   "why": "A Buy on Kraken paid from the credit union."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-02-09T12:00:00Z",
    "from_account_id": 4,
@@ -1025,6 +1598,18 @@
    "why": "Bought 2025-02-15, held a year or less, before 2026 (not covered): Box H."
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-02-16T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.05",
+   "fee_amount": "11",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "7300.00",
+   "since": "2.0",
+   "why": "Coins bought on Kraken in 2026 and never moved, sold there: covered, Box G."
+  },
+  {
    "type": "Transfer",
    "timestamp": "2026-02-20T12:00:00Z",
    "from_account_id": 1,
@@ -1032,6 +1617,45 @@
    "amount": "10000",
    "fee_amount": "0",
    "fee_currency": "USD"
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-03-02T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 103,
+   "amount": "0.03001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.40",
+   "since": "2.0",
+   "why": "The Coldcard to Kraken: 0.03 arrives, keeping its 2026-01-20 date; the fee is Box I."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-03-02T15:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "acquired_at": "2026-02-10",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Inherited with no value given: its value is the date of death's (acquired_at) 00:00 stored price, $140.50."
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2026-03-05T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 103,
+   "amount": "0.04",
+   "fee_amount": "8",
+   "fee_currency": "USD",
+   "cost_basis_usd": "5600.00",
+   "since": "2.0",
+   "why": "A Buy on Kraken paid from Kraken's dollars."
   },
   {
    "type": "Transfer",
@@ -1055,6 +1679,41 @@
    "cost_basis_usd": "35052.50"
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-03-23T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.03",
+   "fee_amount": "6.50",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "4350.00",
+   "since": "2.0",
+   "why": "FIFO takes the coins moved in from the Coldcard (2026-01-20) before the 03-05 Buy: not covered, Box H."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-06T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 105,
+   "amount": "0.02001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "since": "2.0",
+   "why": "Kraken to Overseas: one exchange's bitcoin to another's; the fee is Box I."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-08T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 104,
+   "amount": "2000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Kraken's dollars to Overseas' dollars."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-04-10T12:00:00Z",
    "from_account_id": 99,
@@ -1064,6 +1723,32 @@
    "fee_currency": "BTC",
    "source": "MyBTC",
    "cost_basis_usd": "4140.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-04-15T12:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.0004",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "priced": true,
+   "since": "2.0",
+   "added": "#715",
+   "why": "Interest with no value given, at its hour's stored price: $33.65."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-04-20T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 105,
+   "amount": "0.02",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "since": "2.0",
+   "why": "A consolidation at Overseas: only its fee, Box I."
   },
   {
    "type": "Sell",
@@ -1077,6 +1762,18 @@
    "why": "Covered, short-term: Box G."
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-05-11T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.01",
+   "fee_amount": "3",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1400.00",
+   "since": "2.0",
+   "why": "A sale on Overseas, whose 1099-DA switch is off: on no broker form, Box I."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-05-15T12:00:00Z",
    "from_account_id": 99,
@@ -1086,6 +1783,89 @@
    "fee_currency": "BTC",
    "source": "Gift",
    "cost_basis_usd": "300.00"
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-20T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 100,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "280.00",
+   "since": "2.0",
+   "why": "Income into the Coldcard: 2026's income grows by its value."
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2026-05-20T14:00:00Z",
+   "from_account_id": 104,
+   "to_account_id": 105,
+   "amount": "0.02",
+   "fee_amount": "5.60",
+   "fee_currency": "USD",
+   "cost_basis_usd": "2800.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Bought on Overseas in 2026 and never moved: covered by the rule, but Overseas sends no 1099-DA, so its sale is Box I, not G."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-26T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Gift",
+   "cost_basis_usd": "245.00",
+   "acquired_at": "2023-03-15T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A gift into an exchange, with the giver's basis and date (2023): long-term when sold."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-27T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "280.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Income paid into an exchange account: 2026's income grows by its value."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-28T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "cost_basis_usd": "140.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Interest paid into an exchange account."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-05-29T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 105,
+   "amount": "0.0005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "cost_basis_usd": "70.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A rebate into an exchange account: valued at receipt, never income."
   },
   {
    "type": "Withdrawal",
@@ -1101,6 +1881,44 @@
    "why": "Spent straight from the exchange account: no 1099-DA, short-term: Box I (its fee too)."
   },
   {
+   "type": "Transfer",
+   "timestamp": "2026-06-03T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 100,
+   "amount": "0.1",
+   "fee_amount": "0.00002",
+   "fee_currency": "BTC",
+   "fee_usd": "2.80",
+   "since": "2.0",
+   "why": "A consolidation in the Coldcard: only its fee, Box I."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-06-03T14:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 109,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "80.00",
+   "since": "2.0",
+   "added": "#715",
+   "why": "Income typed at $80.00 (not valued from a price, so it loads anywhere): where its hour's price ($105.00 for it) is stored, Ledger Review lists it as more than 5% off (income_value_off)."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-06-10T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 101,
+   "amount": "0.05001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.40",
+   "since": "2.0",
+   "why": "The Coldcard to the Jade: a wallet to a wallet; the fee is Box I."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-06-15T12:00:00Z",
    "from_account_id": 99,
@@ -1112,6 +1930,33 @@
    "cost_basis_usd": "1425.00"
   },
   {
+   "type": "Sell",
+   "timestamp": "2026-06-16T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.01",
+   "fee_amount": "1.42",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1420.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "FIFO takes the gift (acquired 2023): long-term on an exchange that sends no 1099-DA, Box L."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-06-17T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.00999",
+   "fee_amount": "1.42",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1418.58",
+   "broker_reporting": "none",
+   "since": "2.0",
+   "added": "#702",
+   "why": "The owner recorded that no broker form showed it: Box I, as Overseas' switch gives anyway."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-06-20T12:00:00Z",
    "from_account_id": 99,
@@ -1121,6 +1966,60 @@
    "fee_currency": "BTC",
    "source": "Interest",
    "cost_basis_usd": "142.00"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-06-23T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.01",
+   "fee_amount": "1.42",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1420.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Half the coins bought on Overseas: Box I, not G, since its switch is off."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-06-24T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 100,
+   "amount": "0.00501",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "since": "2.0",
+   "why": "Kraken back to the Coldcard; the fee is Box I."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-06-25T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 104,
+   "amount": "0.005",
+   "fee_amount": "0.71",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "710.00",
+   "broker_reporting": "basis",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Overseas sent a 1099-DA with this sale's basis, as the owner recorded: Box G, though its switch is off."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-06-30T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 99,
+   "amount": "0.001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "fmv_usd": "142.00",
+   "purpose": "Donation",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A donation from a second exchange: not a sale; its network fee is Box I."
   },
   {
    "type": "Withdrawal",
@@ -1136,6 +2035,106 @@
    "why": "Self-custody spend of the wallet's oldest BTC (the 2019 My BTC first, by its date originally acquired, then 2023 BTC): Box L (its fee too)."
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2026-07-02T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 99,
+   "amount": "0.001",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.42",
+   "fmv_usd": "142.00",
+   "purpose": "Gift",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A gift from a second exchange: not a sale; its network fee is Box I."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-07-07T13:00:00Z",
+   "from_account_id": 100,
+   "to_account_id": 99,
+   "amount": "0.01",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "fmv_usd": "1450.00",
+   "purpose": "Gift",
+   "since": "2.0",
+   "why": "A gift from the Coldcard: not a sale, its network fee is (Box I)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-08T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Gift",
+   "cost_basis_usd": "880.00",
+   "acquired_at": "2024-11-12T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A gift into Kraken, with the giver's basis and date (2024): long-term when sold."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-09T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Income",
+   "cost_basis_usd": "284.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Income paid into Kraken."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-10T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "cost_basis_usd": "142.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Interest paid into Kraken."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-13T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.0005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "cost_basis_usd": "71.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A rebate into Kraken: never income."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-14T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Reward",
+   "cost_basis_usd": "284.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A reward paid into Kraken (staking, a bonus): income."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-07-15T12:00:00Z",
    "from_account_id": 99,
@@ -1147,6 +2146,143 @@
    "cost_basis_usd": "290.00"
   },
   {
+   "type": "Deposit",
+   "timestamp": "2026-07-15T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 103,
+   "amount": "0.01",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "1480.00",
+   "acquired_at": "2026-03-01T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Inherited coins into Kraken, valued on the date of death (2026-03-01): they come before the 2026-03-05 coins left there."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-07-20T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 106,
+   "amount": "3000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Kraken's dollars to the credit union: a second exchange's dollars to a bank."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-07-21T13:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.02",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.45",
+   "gross_proceeds_usd": "2900.00",
+   "purpose": "Spent",
+   "since": "2.0",
+   "why": "Spent from the Jade, with its fee: Box I."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-07-22T13:00:00Z",
+   "from_account_id": 107,
+   "to_account_id": 106,
+   "amount": "500",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Savings to the credit union: a second pair of banks."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-07-24T13:00:00Z",
+   "from_account_id": 104,
+   "to_account_id": 102,
+   "amount": "1000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Overseas' dollars to Kraken's: a second pair of exchanges' dollars."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-27T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Gift",
+   "cost_basis_usd": "102.50",
+   "acquired_at": "2022-06-18T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A gift into a second wallet, with the giver's basis and date (2022)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-28T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Inherited",
+   "cost_basis_usd": "426.00",
+   "acquired_at": "2026-06-01T12:00:00Z",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Inherited coins into a second wallet, valued on the date of death (2026-06-01)."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-29T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.0005",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Interest",
+   "cost_basis_usd": "71.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Interest into a second wallet."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-30T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Reward",
+   "cost_basis_usd": "142.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A reward into a second wallet."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-07-31T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.0002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "Rebate",
+   "cost_basis_usd": "28.40",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Card sats-back into a second wallet."
+  },
+  {
    "type": "Sell",
    "timestamp": "2026-08-03T12:00:00Z",
    "from_account_id": 4,
@@ -1156,6 +2292,113 @@
    "fee_currency": "USD",
    "gross_proceeds_usd": "7500.00",
    "why": "Covered, short-term again: Box G."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-04T13:00:00Z",
+   "from_account_id": 107,
+   "to_account_id": 99,
+   "amount": "1000",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Cash from savings."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-06T13:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.006",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.44",
+   "fmv_usd": "864.00",
+   "purpose": "Donation",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A donation from the Jade taking coins of both terms: the gift's, held since 2022 (its network fee too, Box L), then short-term ones."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-07T13:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "fmv_usd": "144.00",
+   "purpose": "Lost",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Coins lost from a second wallet: not a sale."
+  },
+  {
+   "type": "Deposit",
+   "timestamp": "2026-08-08T13:00:00Z",
+   "from_account_id": 99,
+   "to_account_id": 101,
+   "amount": "0.001",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "source": "MyBTC",
+   "cost_basis_usd": "0.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "My own coins whose cost the owner doesn't know, entered at $0 (allowed: all of it is gain when sold). Ledger Review lists it (a deposit without a basis), and reminds that it has no date originally acquired."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-10T13:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.0005",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.44",
+   "gross_proceeds_usd": "0.00",
+   "purpose": "Spent",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A spend saved with $0 proceeds, as a slip would save it: its basis is a loss, and its fee is worth no more than the $0 received (#157). Ledger Review lists it."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-11T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 99,
+   "amount": "500",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "since": "2.0",
+   "why": "Dollars withdrawn from Kraken."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-08-12T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.015",
+   "fee_amount": "2.16",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "2160.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Kraken's 1099-DA reports proceeds only: FIFO takes the gift (2024, long-term, a gain) and half the inherited coins (INHERITED, a long-term loss): Box K on a second exchange."
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-08-18T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.01",
+   "fee_amount": "1.44",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "1440.00",
+   "broker_reporting": "proceeds",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Kraken's 1099-DA showed this sale's proceeds only, as the owner recorded: the rest of the inherited coins (K) and coins bought on Kraken in 2026, which go to H instead of G."
   },
   {
    "type": "Deposit",
@@ -1171,6 +2414,51 @@
    "why": "A gift with the giver's basis and the giver's date: the 2026-09-01 gift and its fee take these coins first."
   },
   {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-20T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.44",
+   "gross_proceeds_usd": "288.00",
+   "purpose": "Spent",
+   "broker_reporting": "basis",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A spend from Kraken that its 1099-DA showed with its basis, as the owner recorded: the spend and its network fee are both Box G (#549)."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-08-21T13:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.44",
+   "gross_proceeds_usd": "288.00",
+   "purpose": "Spent",
+   "broker_reporting": "none",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A spend the owner recorded as on no broker form: it and its fee are Box I, as a spend's are anyway."
+  },
+  {
+   "type": "Buy",
+   "timestamp": "2026-08-22T13:00:00Z",
+   "from_account_id": 102,
+   "to_account_id": 103,
+   "amount": "0.0001",
+   "fee_amount": "0",
+   "fee_currency": "USD",
+   "cost_basis_usd": "0.00",
+   "since": "2.0",
+   "added": "#702",
+   "why": "A Buy saved with no cost, as when its amount is forgotten: Ledger Review lists it. Kept, never sold."
+  },
+  {
    "type": "Deposit",
    "timestamp": "2026-08-25T12:00:00Z",
    "from_account_id": 99,
@@ -1181,6 +2469,42 @@
    "source": "Rebate",
    "cost_basis_usd": "14.80",
    "why": "Card sats-back: a Rebate, valued at receipt (its cost basis), not income."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-08-25T13:00:00Z",
+   "from_account_id": 105,
+   "to_account_id": 103,
+   "amount": "0.00101",
+   "fee_amount": "0.00001",
+   "fee_currency": "BTC",
+   "fee_usd": "1.43",
+   "since": "2.0",
+   "added": "#702",
+   "why": "Overseas' bitcoin to Kraken's: a second pair of exchanges. 0.001 arrives keeping its date (2026-05-20), after Kraken's last disposal; the fee is Box I."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-08-27T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 101,
+   "amount": "0.0061",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "11.20",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.0021"
+    },
+    {
+     "key": "sparrow-inherited-2025",
+     "btc": "0.004"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins to another wallet, after the Jade's last earlier row: the 2023 coins and the inherited ones arrive keeping their dates, costs and inheritance; the fee is paid by the oldest chosen, the 2023 coins (Box L)."
   },
   {
    "type": "Transfer",
@@ -1208,6 +2532,24 @@
    "why": "Inherited coins into the exchange: dated by the death (2026-02-01), they come before the 2026-03-20 coins left there, so the next sale takes them."
   },
   {
+   "type": "Transfer",
+   "timestamp": "2026-08-31T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 101,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "More of the same 2023 coins to the Jade, so it holds that purchase in two lots."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-09-01T12:00:00Z",
    "from_account_id": 2,
@@ -1233,6 +2575,46 @@
   },
   {
    "type": "Withdrawal",
+   "timestamp": "2026-09-03T14:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.002",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "gross_proceeds_usd": "224.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-inherited-2025",
+     "btc": "0.002"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend from the Jade choosing the inherited coins the Sparrow sent it (INHERITED, long-term, Box L), though the 2023 coins are older."
+  },
+  {
+   "type": "Withdrawal",
+   "timestamp": "2026-09-04T14:00:00Z",
+   "from_account_id": 101,
+   "to_account_id": 99,
+   "amount": "0.003",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "gross_proceeds_usd": "336.00",
+   "purpose": "Spent",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2023",
+     "btc": "0.003"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "A spend from the Jade choosing the 2023 coins across both their lots, the first made first: also exactly what oldest first would take, so the same figures as no choice (Box L)."
+  },
+  {
+   "type": "Withdrawal",
    "timestamp": "2026-09-05T12:00:00Z",
    "from_account_id": 2,
    "to_account_id": 99,
@@ -1244,6 +2626,25 @@
    "purpose": "Donation"
   },
   {
+   "type": "Transfer",
+   "timestamp": "2026-09-07T14:00:00Z",
+   "from_account_id": 108,
+   "to_account_id": 103,
+   "amount": "0.0051",
+   "fee_amount": "0.0001",
+   "fee_currency": "BTC",
+   "fee_usd": "11.20",
+   "chosen_coins": [
+    {
+     "key": "sparrow-mybtc-2025",
+     "btc": "0.0051"
+    }
+   ],
+   "since": "2.0",
+   "added": "#730",
+   "why": "Chosen coins to an exchange, after Kraken's last earlier row: the 2025 coins, not the 2023 ones; the fee is theirs (Box L)."
+  },
+  {
    "type": "Withdrawal",
    "timestamp": "2026-09-08T12:00:00Z",
    "from_account_id": 2,
@@ -1253,6 +2654,19 @@
    "fee_currency": "BTC",
    "purpose": "Lost",
    "fmv_usd": "148.00"
+  },
+  {
+   "type": "Sell",
+   "timestamp": "2026-09-09T14:00:00Z",
+   "from_account_id": 103,
+   "to_account_id": 102,
+   "amount": "0.005",
+   "fee_amount": "2.80",
+   "fee_currency": "USD",
+   "gross_proceeds_usd": "560.00",
+   "since": "2.0",
+   "added": "#730",
+   "why": "An exchange's coins leave oldest first: the coins the Sparrow chose to send are Kraken's oldest, moved in and held more than a year (Box K)."
   },
   {
    "type": "Transfer",
@@ -1318,6 +2732,17 @@
    "fee_amount": "0",
    "fee_currency": "USD",
    "why": "Dollars withdrawn straight from the exchange."
+  },
+  {
+   "type": "Transfer",
+   "timestamp": "2026-09-20T13:00:00Z",
+   "from_account_id": 2,
+   "to_account_id": 100,
+   "amount": "1",
+   "fee_amount": "0",
+   "fee_currency": "BTC",
+   "since": "2.0",
+   "why": "The split of a pooled wallet (C3): Wallet's coins that were really on the Coldcard go to it, with no fee (a fee would be a Form 8949 row and move 2026's totals). The ledger's last row, after every row that takes coins from Wallet or the Coldcard, so it moves only their year-end lots and balances (backend/tests/test_reference_ledger_354.py)."
   }
  ]
 }

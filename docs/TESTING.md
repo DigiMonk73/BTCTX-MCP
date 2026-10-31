@@ -18,19 +18,20 @@ make hooks          # installs the pre-push gate
 
 | Layer | Command | What it proves | Time |
 |---|---|---|---|
-| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages) | secs |
-| Unit + integration | `make test-fast` | ~3,200 tests (backend and MCP server), on every core: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~2 min |
-| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests and property tests | ~10 min |
+| Lint | `make lint` | Python: ruff with all Pyflakes rules (undefined names, unused imports/variables), bare `except`, and in the app code modern syntax (`list[str]`, `X | None`) and a size limit per function (complexity 10, 12 branches, 50 statements, 6 returns; `docs/CODE_STYLE.md`). Frontend: ESLint with zero warnings and a size limit (complexity 15 per function, 400 lines per file; tests exempt) + TypeScript + Vitest unit tests (`src/**/*.test.ts`: form ↔ API mapping, local time, the AI setup prompt, River rows, dashboard totals, the transaction list's pages, server error messages; and in jsdom, `*.test.tsx` beside their components, mounted against a stubbed server with `src/test/`'s helpers: the transaction form, its account pickers and coin picker, Settings' accounts, the import from an exchange, the past-year question, the dashboard…) | secs |
+| Unit + integration | `make test-fast` | Every test but the slow ones (backend and MCP server), on every core: FIFO lots, gains, fees, holding period, 1099-DA boxes, tax timezone, imports, IRS templates, the printed forms read back (`test_printed_forms.py`), auth, the AI key, MCP tools | ~3 min |
+| Full suite | `make test` | Adds the slow tests (`@pytest.mark.slow`): 250-transaction stress tests, the property tests' long runs, and every reference row saved again (#352) | ~6 min |
 | Smoke | `make smoke` | Starts the **real server** and walks it like a user: login → buy → move to cold storage → sell → MCP import → every report → logout | ~15 s |
-| Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports, every report download, Settings, the widgets. Each test gets its own server on a temp database with stubbed prices | ~5 min |
+| Click-through (e2e) | `make e2e` | Playwright drives the real UI in Chromium, in Chicago and Tokyo time: first run, login, every transaction type, edit/delete, the list, dashboard figures, River and CSV imports and the import from any exchange, every report download, Settings and its wallets, exchanges and banks, the past-year question, the coin picker, the widgets. Each test gets its own server on a temp database with stubbed prices | ~20 min (one worker) |
 | Docker | `make docker-smoke` | Builds the image from this checkout and runs CI's container checks on it locally: first-run setup code, smoke test, data on `/data`, the app as its own user `btctx`, health, maintenance CLI. `scripts/docker_update_check.sh <image>` runs CI's update from the published 1.2.8 image, whose `/data` is root's (#202) | ~5 min |
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
-| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~6 min |
+| Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~7 min |
 | Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
 
 ## When they run
 
-- **Before every `git push`** (`.githooks/pre-push`): lint, static
+- **Before every `git push`** (`.githooks/pre-push`): first the branch
+  rules (`.githooks/branch-rules.sh`: AGENTS.md, "Branches"), then lint, static
   Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
   smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
   exists), StartOS package format check (`npm run format:check`), then type
@@ -39,7 +40,9 @@ make hooks          # installs the pre-push gate
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
 - **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
-  (Docker's, StartOS's and the Mac app's) full suite, frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
+  (Docker's, StartOS's and the Mac app's) full suite, each split across
+  three machines with a guard that every test ran once ("The Python suite
+  across machines", below), frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
   - A pull request into `staging` or `2.0` (and only there) runs the
@@ -50,7 +53,9 @@ make hooks          # installs the pre-push gate
     every change merged (a cancelled run's red "CI passed" isn't a
     failure). Every other pull request (into `develop`, `main` or any
     other branch) runs the full set. AGENTS.md, "Branches".
-- **Daily:** `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
+- **Daily** (from the release that brings it to `main`, since GitHub runs a
+  schedule only from there; until then each session runs the script, AGENTS.md,
+  "Starting a session"): `start9-watch.yml` (`scripts/start9-watch.sh`) opens an issue for
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
   packaging guide or shared package workflows, a failed build on the mirror
@@ -67,6 +72,31 @@ make hooks          # installs the pre-push gate
   zipped `.app` and an unsigned `.dmg` to the run; `audit-macos` audits the
   Mac app's dependency locks.
 
+## The Python suite across machines
+
+CI runs each Python version's suite as three shards, each on a machine of
+its own (#814):
+
+- `pytest -n auto --dist loadgroup --shard 2/3` runs shard 2 of 3 here, as
+  CI does. A shard runs whole test files, shared out by how long each took
+  on CI (`backend/tests/test_durations.json`) so the shards end together; a
+  file not timed yet counts as the average one (`backend/tests/shards.py`).
+  It runs them in the order the whole suite does, so a test that leaves
+  something behind still runs after the tests it would upset.
+- Each shard also collects the whole suite in a run of its own, and records
+  what it ran (`--ran-list`). The guard job (`scripts/check_test_shards.py`)
+  fails "CI passed" unless every test collected ran in exactly one shard, so
+  no test drops out unseen.
+- Each run's guard hands out its timings as the artifact `test-durations`.
+  When one shard takes much longer than the others, bring a full run's in by
+  pull request: `gh run download <run id> -n test-durations -D backend/tests`.
+- Keep each test under about a minute on CI, so no shard waits on one: split
+  a long one into parts that run side by side, each checking its share
+  (`test_saved_again_unchanged_352.py`'s rows, `test_invariants_property.py`'s
+  examples). A module with a long setup can keep its tests on one worker,
+  so the setup runs once (`pytestmark = pytest.mark.xdist_group(...)`, which
+  `--dist loadgroup` honours: `test_printed_forms.py`).
+
 ## Writing a new test
 
 Tests for a bug fix should fail on the old code and pass on the new one. Use
@@ -80,14 +110,25 @@ def test_my_fix(auth_client):              # logged-in client, temp database
 
 Mark anything slower than ~5 s with `@pytest.mark.slow`.
 
+"This tax year" is pinned to 2009 in the tests (`tax_time.current_tax_year`,
+`conftest.py`), so no save meets the past-year warning by chance; a test of
+the warning sets the year with the `tax_year` fixture (`tax_year(2026)`). A
+click-through spec that writes into an earlier tax year meets its 409 and
+confirms it: `createTx` and `sendConfirmed` for the API, `saveForm` for the
+form (`e2e/fixtures.ts`).
+
 ## Property tests and golden years
 
 - `backend/tests/test_invariants_property.py` (Hypothesis): random valid
   ledgers must keep the tax invariants (balances = lots, gain = proceeds −
   basis, basis conservation, holding periods, Form 8949 = Schedule D = the
   complete report, recalculation and entry order change nothing). 8 examples
-  in the fast set, 120 in the slow set. A failure prints the smallest ledger
-  that breaks it.
+  in the fast set, 120 in the slow set (six runs of 22 that go side by
+  side: each starts from the simplest ledgers, which repeat); a second
+  generator does the same over
+  multiple wallets, exchanges and banks
+  (`test_random_ledgers_over_multiple_accounts_keep_the_invariants`). A
+  failure prints the smallest ledger that breaks it.
 - `backend/tests/test_golden_years.py`: three tax years worked out by hand
   in the docstring, with the exact Form 8949 rows, boxes and Schedule D lines.
   If a change moves one of these numbers, it changes users' tax forms.
@@ -100,15 +141,23 @@ hint pass), compare everything the app produces with a release:
 ```bash
 python scripts/equivalence_check.py            # against v1.2.2-1, ~5 min
 python scripts/equivalence_check.py --bench    # plus recalculation time (fails if >5% slower)
-python scripts/equivalence_check.py --against v1.3.0
+python scripts/equivalence_check.py --against v1.2.10
+python scripts/equivalence_check.py --against origin/2.0   # on 2.0: its tip, or a step's pin
 ```
+
+On `2.0`, compare against `2.0` itself (its tip, or `pin/2.0-step-N`): a
+build from before 2.0's coin choice (dc2cab07) refuses the chosen-coins
+ledger below, the default release included.
 
 It checks out the release in a temporary git worktree and snapshots both
 it and this checkout on the same inputs:
-- **Ledgers:** the golden ledger, the reference test ledger
-  (`testdata/reference_ledger.json`), and 40
-  random ledgers from the property test's generator (fixed seeds, in UTC,
-  Chicago and Tokyo time).
+- **Ledgers:** 1.x's golden ledger and random generator, frozen in
+  `scripts/equivalence_ledgers_1x.py` (so a release before 2.0 can take
+  them), the reference test ledger's 1.x rows
+  (`testdata/reference_ledger.json` without its `"since"` rows), 40 random
+  ledgers from that generator (fixed seeds, in UTC, Chicago and Tokyo
+  time), and a ledger whose wallet chooses its coins
+  (`equivalence_inputs.CHOSEN_LEDGER`).
 - **Bad inputs:** each invalid API payload, CSV row and file in
   `scripts/equivalence_inputs.py`.
 
@@ -157,7 +206,7 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 - Figures are read as numbers (`figure()`, `parseFigure()` in
   `e2e/fixtures.ts`), so thousands separators or a Unicode minus don't break
   them.
-- The `tokyo` project reruns the create, edit, list and sidebar-matrix specs
+- The `tokyo` project reruns the create, edit, list, sidebar-matrix and chosen-coins specs
   in UTC+9. The `webkit` project (the Mac app's engine) runs only with
   `E2E_WEBKIT=1`, which CI sets; without it, it matches no test. Locally:
   `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
@@ -186,8 +235,8 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   run the sidebar's converter and calculator under every price-source
   state, checking that nothing is asked before a choice or while off and
   that no request names the day.
-- A `test.fail()` marks a known bug the test describes correctly (see
-  `docs/HARDENING_FINDINGS.md`); remove it with the fix.
+- A `test.fail()` marks a known bug the test describes correctly, naming
+  its `bug` issue; remove it with the fix.
 - Install the browsers once per Playwright version: `npx playwright install
   chromium` (and `webkit` for its project). Claude Code's cloud sessions
   (claude.ai/code) aren't known to ship Playwright's browsers: Anthropic's
@@ -205,9 +254,13 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 ## Smoke-testing a live instance
 
 ```bash
-python scripts/smoke_test.py --url http://127.0.0.1:8080
+python scripts/smoke_test.py --url http://127.0.0.1:8080 \
+  --user NAME --password <12 characters or more> --setup-code XXXX-XXXX-XXXX
 ```
 
+`--setup-code` claims a fresh install's default login first (the code is in
+`docker logs` and `/data/setup-code.txt`); without it the smoke test logs in
+as `admin` / `password`, which a fresh install refuses without the code.
 Only against an **empty** instance (a fresh Docker container, never your real
 data) — it creates transactions. `make docker-smoke` does this for an image
 built from the checkout (`scripts/docker_smoke.sh --keep` leaves the container
@@ -216,7 +269,8 @@ running on 127.0.0.1:8778).
 ## The reference test ledger
 
 One made-up ledger is the test data for everything that needs a full one:
-`testdata/reference_ledger.json` (119 transactions, 2023 to 2026). Every
+`testdata/reference_ledger.json` (2023 to 2026, and a
+deposit dated 2022 so 2023 starts holding coins). Every
 year has every kind of transaction (each deposit source, Rebate included,
 each withdrawal purpose, transfers both ways, cash moves, buys and sells;
 the test takes the lists from the app, so a new kind fails it until the
@@ -224,7 +278,50 @@ ledger has one), it uses every account route the app offers,
 every report has entries in each part (every Form 8949 box of 2024, 2025
 and 2026, in any tax timezone), My BTC and Gift deposits carry a date
 originally acquired, and inherited coins are sold within a year of the death. Every USD value a price lookup would fill is given, so
-it loads with the price source Nobody. Each row's `why` says what it is for.
+it loads with the price source Nobody, but in the rows marked `"priced"`
+(#715): they leave their value to a price from the stored-price fixture
+(`testdata/reference_prices.json`), so every year's report lists values from
+a price and Ledger Review shows its price checks. Each row's `why` says what it is for.
+From 2.0 it holds multiple wallets, exchanges or accounts: its `accounts`
+list adds two of each kind (wallets Coldcard and Jade, exchanges Kraken and
+Overseas, whose 1099-DA switch is off, banks Credit union and Savings) and
+a fourth wallet, the Sparrow, and a fifth, the Trezor (only #715's rows use
+it), which the seed makes through the account API
+before the rows and, after them, names and hides as listed (Overseas is
+made as "Offshore" and renamed; the Jade is hidden while it still holds
+coins). The rows marked `"since": "2.0"` use them: B7a's in 2026, #702's
+in 2022 and from 2024 to 2026, each filling its year's 2.0 dimensions, and #730's in
+2025 and 2026, which choose which coins leave a wallet (#711). A row names
+the coins it acquired with a `key`, and a later row chooses them by it
+(`"chosen_coins": [{"key": …, "btc": …}]`): the seed sends each as the id
+the server gave that row, never by position, and stops before sending
+anything if a key is defined twice or chosen before its row.
+`test_seed_ledger.py` fails if one empties: each deposit source and
+withdrawal purpose in more than one wallet and exchange, each account
+route between more than one pair of accounts, each exchange's sales in the
+boxes its 1099-DA switch gives
+(`SALES_BOXES`), every Broker form choice against each switch (a spend's
+fee following it), gains and losses of both terms and inherited coins sold
+in each forms year (2024 to 2026), holdings at each year's start, a hidden
+and a renamed account on the dashboard, and each Ledger Review item a row
+can show (it names the others, with why no row can); and chosen coins
+for each withdrawal purpose and each move out of a wallet, choices in 2025
+and 2026, inherited coins chosen, a spend's coins and a donation's of both
+terms, one purchase chosen across two lots, and a choice equal to oldest
+first beside choices that aren't. #715's, in the Trezor, take their
+values from the stored-price fixture, so every year lists values from a
+price; every other value is typed, so the rest loads with the price
+source Off. The 2.0 rows go only into 2.0's accounts (the one exception is the last row,
+the fee-less split of a pooled wallet, Wallet to the Coldcard), and
+#702's (marked `"added": "#702"`) each after that account's last earlier
+disposal (Kraken's and Overseas' bitcoin are emptied by the end of 2025);
+#730's (`"added": "#730"`) live in the Sparrow, filled only from External,
+and send chosen coins to the Jade and Kraken only after each one's last
+earlier row; so no older row's figure moves. `test_reference_ledger_354.py`
+proves it row by row, 1.x's beside every 2.0 row (the equivalence check's
+ledgers leave those out), 1.x's and B7a's beside #702's and #730's, and
+those and #702's beside #730's, and that the split moves only those two
+wallets' year-end lots and balances.
 Neither it nor any test data ships in a build (Docker copies only
 `backend/` and `frontend/`; the Mac app leaves out `backend/tests/`).
 
@@ -234,11 +331,29 @@ Neither it nor any test data ships in a build (Docker copies only
 python scripts/seed_ledger.py --url https://host:port --user NAME --password-stdin [--ca root-ca.crt] < password-file
 ```
 
+Without `--with-prices` it leaves out the rows marked `"priced"` and says how
+many, since a server has no stored price for them (a 422 otherwise); its
+figures are then not `reference_figures.json`'s. To load every row, store
+the fixture's prices in the test database's file before its server starts,
+then seed with `--with-prices`:
+
+```bash
+python scripts/seed_ledger.py --store-prices path/to/test/btctx.db
+```
+
+It writes only those prices, asks nothing of the network, and refuses an
+installed app's data folder however the path is written, a file that isn't
+a BitcoinTX database and one holding transactions the seed didn't make.
+
 It refuses a ledger that has transactions, and the Mac app's address
-(`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine.
+(`127.0.0.1:8765`) outright; the Mac test build's port 8766 is fine. It
+stops if an account it makes doesn't get the id the ledger lists (an
+install where accounts were added by hand); one a Delete All left is used
+again.
 `--setup-code` claims a fresh Docker install first. On the StartOS test VM,
 the lab's `tools/vmtest seed` loads it and installs the next year's draft
-forms (the app ships the 2026 drafts as a preview until 2027-01-01; see
+forms (the app ships the IRS's drafts for the year after its newest final forms, as a
+preview until January 1 after that year; see
 docs/IRS_FORM_GENERATION.md, "Draft forms: the preview, and test installs").
 For a box: export it there as CSV (Settings) and import that.
 
@@ -262,7 +377,8 @@ review once every figures check is green.
 
 **A second calculation checks them.** `scripts/independent_figures.py`
 recomputes the ledger's figures (Form 8949 rows, Schedule D lines, box
-totals, the gains summary, income, rebates, gifts, year-end lots) from the
+totals, each exchange's Sells, the gains summary, income, rebates, gifts,
+the lots held at each year's start and end) from the
 IRS's and the ledger's documented rules, importing nothing of the app
 (#150). `backend/tests/test_independent_figures.py` fails on any difference
 in those from `reference_figures.json`, so a change meant to move figures
@@ -290,6 +406,34 @@ The stored figures must be identical after the upgrade (a figure the new
 version adds, which the older file lacks, isn't counted). Then
 `python -m backend.cli recalculate` on the copy, and compare again: what
 moves must be what the CHANGELOG says a recalculation changes.
+
+## Testing by hand: the test pack
+
+[HAND-TEST.md](HAND-TEST.md) is for a person, in plain words, on a throwaway
+install: which file, where to click, and what to expect. It takes the CSV
+template, a made-up file for each exchange importer
+(`testdata/exchange_files/`) and the whole reference ledger as a CSV
+(`testdata/reference_ledger.csv`). [testdata/README.md](../testdata/README.md)
+says what each file is.
+
+An automatic test does the same import. `backend/tests/test_reference_csv_844.py`
+exports the seeded reference ledger through the app and imports that CSV into
+an empty install with the same accounts, then compares every figure of
+`reference_figures.json`, every IRS form field of each forms year, Ledger
+Review's counts and a second export, which must be the same to the byte.
+Tests with a column left out show it checks.
+
+The CSV and the guide's tables are never typed. `backend/tests/hand_test_tables.py`
+works them out from the reference figures and the app's own previews, and a
+test fails when one is stale. After a change to the reference ledger, to what
+an import says or to a sample file:
+
+```bash
+make test-pack               # testdata/reference_ledger.csv and HAND-TEST.md's tables
+```
+
+The pull request shows the difference. A new sample file also needs its line in
+`hand_test_tables.py`'s `EXCHANGE_FILES`.
 
 ## The landing page's pictures
 
@@ -320,9 +464,9 @@ make preview PY=.venv/bin/python   # http://127.0.0.1:8777
 
 `scripts/preview.py` builds the frontend and serves the checked-out code on
 a throwaway database (deleted when it stops) with the smoke test's stubbed
-offline prices, logged in as the smoke test's account (`SMOKE_USER`,
-`SMOKE_PASSWORD` in `scripts/smoke_test.py`). Claude's browser preview starts
-it from `.claude/launch.json` ("preview").
+offline prices, with the smoke test's login (`SMOKE_USER`,
+`SMOKE_PASSWORD` in `scripts/smoke_test.py`), which you sign in with.
+Claude's browser preview starts it from `.claude/launch.json` ("preview").
 
 ## Schema migrations
 
@@ -332,6 +476,15 @@ code (`backend/tests/fixtures/v0_7_0.db`), including older variants and
 restored backups. CI also starts the Docker image on that database and checks
 the upgrade (`scripts/check_upgraded_instance.py`). Every test database is
 built by the migrations, not `create_all()`.
+
+2.0's migrations start at 0100 (`docs/MAINTENANCE.md`, "Database
+migrations"), and two databases written by 1.x's own code test the way up
+to them: `fixtures/old_accounts_1x.db` (`test_migrations.py`), and
+`fixtures/reference_1x.db`, the reference test ledger as the last 1.x
+release saved it, with 1.x's figures for it in `reference_1x_figures.json`
+(`test_reference_1x.py`: migrated and recalculated, it must give the same
+figures). `fixtures/make_reference_1x_db.py` makes it and its figures again for a new 1.x
+release or new reference rows.
 
 ## Yearly IRS templates
 

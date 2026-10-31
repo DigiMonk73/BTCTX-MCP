@@ -1,6 +1,6 @@
 """
 The local BTC price history and stored fee values (hardening F14, F42, P1;
-docs/HARDENING_FINDINGS.md; v1.1.0 price privacy):
+docs/archive/HARDENING_FINDINGS.md; v1.1.0 price privacy):
 
 - no request ever names the day being looked up: the public sites are asked
   for the whole history once, in fixed blocks that are the same for every

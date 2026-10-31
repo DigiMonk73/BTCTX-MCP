@@ -5,7 +5,9 @@ Two ways in, both with an AI key sent as a bearer token (never a password):
 - The Mac app on the same computer: no settings needed. The app writes
   ~/Library/Application Support/BitcoinTX/mcp.json (owner-only) with its URL
   and the key; the client reads it, and reads it again if the key was reset
-  or the app restarted.
+  or the app restarted. A 2.0 pre-release of the connector (2.0.0aN, 2.0.0bN)
+  reads BitcoinTX Preview's instead, the Mac pre-release app installed beside
+  BitcoinTX, so it never reaches the installed app's real ledger.
 - Docker or StartOS: BTCTX_URL and BTCTX_AI_KEY, the key the owner created
   in BitcoinTX Settings.
 
@@ -19,6 +21,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import socket
 import sys
 from pathlib import Path
@@ -26,10 +29,38 @@ from typing import Any
 
 import httpx
 
+from btctx_mcp import __version__
+
 
 class BtctxError(Exception):
     """An API error with a message suitable for showing to the model."""
 
+
+class PastYearWarning(BtctxError):
+    """
+    BitcoinTX's past-year warning (2.0 spec 5.8): the write would change the
+    figures of an earlier tax year, so it saved nothing. `body` is its 409:
+    the years, what changes, and the fingerprint (`confirm`) the same write
+    is sent again with once the user says yes.
+    """
+
+    def __init__(self, body: dict[str, Any]):
+        super().__init__(str(body.get("detail") or "BitcoinTX asks before this changes an earlier tax year."))
+        self.body = body
+
+
+class ChooseAgain(BtctxError):
+    """BitcoinTX refused an edit that changes what leaves a transaction whose
+    coins were chosen, without its coins (#711, call (e)): its 422 names the
+    transaction in CHOOSE_AGAIN_HEADER, and `detail` says what to send."""
+
+    def __init__(self, detail: str):
+        super().__init__(detail)
+        self.detail = detail
+
+
+# BitcoinTX's header on that 422 (services/chosen_coins.py)
+CHOOSE_AGAIN_HEADER = "X-BitcoinTX-Choose-Again"
 
 PASSWORD_REFUSED = (
     "BitcoinTX no longer uses your password for AI access. Create an AI key in "
@@ -40,6 +71,31 @@ KEY_REFUSED = (
     "BitcoinTX refused: the AI key can't do this. Ask the user to do it in "
     "BitcoinTX itself."
 )
+
+# The user's accounts (BitcoinTX 2.0 spec 5.12), which the AI key may read
+ACCOUNTS_PATH = "/api/accounts/"
+# Every request says it comes from a 2.0 connector, one that tells the
+# user's wallets and exchanges apart, with its version ("unknown" from a
+# source tree): a 1.x connector sends none (5.12)
+CONNECTOR_HEADER = "X-BitcoinTX-Connector"
+
+# How long a request may take: previews fetch historical prices
+TIMEOUT = 120.0
+# The writes that can answer the past-year warning (2.0 spec 5.8) and the
+# long reads: each can replay the whole ledger more than once (a dry run's
+# two passes, then the save). Three times that on the StartOS test VM at
+# 10,000 rows, 3 x (2 x 140 s + 111 s), rounded up (#352's measurement;
+# Ledger Review alone outran 120 s there: #637)
+LONG_TIMEOUT = 1200.0
+LONG_WRITES = ("/api/transactions", "/api/import/entries")
+LONG_READS = ("/api/review",)
+
+
+def timeout_for(method: str, path: str) -> float:
+    """The time a request to `path` may take (TIMEOUT or LONG_TIMEOUT)."""
+    if path in LONG_READS or (method != "GET" and path.startswith(LONG_WRITES)):
+        return LONG_TIMEOUT
+    return TIMEOUT
 
 
 def normalize_base_url(url: str) -> str:
@@ -111,10 +167,19 @@ def _home_name(name: str) -> bool:
     return name.endswith(HOME_SUFFIXES) if "." in name else True
 
 
-def default_key_file() -> Path:
+def mac_app(version: str | None = None) -> str:
+    """The Mac app this connector (or `version` of it) belongs with:
+    BitcoinTX, or BitcoinTX Preview for a 2.0 pre-release of the connector,
+    an alpha or a beta (PEP 440's 2.0.0aN, 2.0.0bN; 2.0 plan 7.4, B10a), the
+    pre-release app installed beside it."""
+    pre = re.fullmatch(r"\d+\.\d+\.\d+[ab][1-9]\d*", __version__ if version is None else version)
+    return "BitcoinTX Preview" if pre else "BitcoinTX"
+
+
+def default_key_file(version: str | None = None) -> Path:
     if os.environ.get("BTCTX_MCP_FILE"):
         return Path(os.environ["BTCTX_MCP_FILE"]).expanduser()
-    return Path.home() / "Library" / "Application Support" / "BitcoinTX" / "mcp.json"
+    return Path.home() / "Library" / "Application Support" / mac_app(version) / "mcp.json"
 
 
 def _pid_alive(pid: Any) -> bool:
@@ -160,9 +225,10 @@ class BtctxClient:
         self._http = httpx.AsyncClient(
             base_url=self._configured_url or "http://127.0.0.1",
             verify=verify,
-            timeout=120.0,  # previews fetch historical prices
+            timeout=TIMEOUT,  # each request's own: timeout_for
             transport=transport,
             follow_redirects=False,  # the key goes only to BitcoinTX's own address
+            headers={CONNECTOR_HEADER: __version__},
         )
         self._logged_in = False
 
@@ -216,10 +282,10 @@ class BtctxClient:
 
         token, url, pid = data.get("token"), data.get("url"), data.get("pid")
         if not token or not url:
-            looked.append(f"{path}: incomplete (no key or URL); reopen BitcoinTX")
+            looked.append(f"{path}: incomplete (no key or URL); reopen {mac_app()}")
             raise BtctxError(self._not_found(looked))
         if not _pid_alive(pid):
-            looked.append(f"{path}: written by BitcoinTX (pid {pid}), which is no longer running")
+            looked.append(f"{path}: written by {mac_app()} (pid {pid}), which is no longer running")
             # Or the app is open but couldn't write this run's key, leaving the earlier one (#238)
             raise BtctxError(self._not_found(looked, reset_key=True))
         url = normalize_base_url(url)
@@ -237,7 +303,7 @@ class BtctxClient:
         """Why BitcoinTX can't be reached, and what to do. `reset_key`: an open app may
         have no key of this run (its file couldn't be written): Reset key writes one (#238)."""
         also = ", or, if it's open, press Reset key in its Settings (Connect an AI Assistant)" if reset_key else ""
-        return f"Cannot reach BitcoinTX. Open the BitcoinTX app and try again{also}. Looked at:\n- " + "\n- ".join(looked)
+        return f"Cannot reach BitcoinTX. Open the {mac_app()} app and try again{also}. Looked at:\n- " + "\n- ".join(looked)
 
     # The key from BTCTX_AI_KEY
     async def _connect(self) -> None:
@@ -250,19 +316,31 @@ class BtctxClient:
         self._logged_in = True
 
     async def request(self, method: str, path: str, **kwargs: Any) -> Any:
+        return self._answer(await self._response(method, path, **kwargs), path)
+
+    async def accounts(self) -> list[dict[str, Any]] | None:
+        """The user's accounts, as BitcoinTX lists them; None from a BitcoinTX
+        before 2.0, whose AI key may not read them (403) or that has no such
+        list (404): its accounts are 1.x's (5.12)."""
+        r = await self._response("GET", ACCOUNTS_PATH)
+        if r.status_code in (403, 404):
+            return None
+        return self._answer(r, ACCOUNTS_PATH)
+
+    async def _response(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         if self._refusal:
             raise BtctxError(self._refusal)
         if not self._logged_in:
             await self._connect()
         try:
-            r = await self._send(method, path, **kwargs)
+            return await self._send(method, path, **kwargs)
         except httpx.HTTPError as exc:
             raise BtctxError(f"Request to BitcoinTX at {self._http.base_url} failed: {exc}") from exc
-        return self._answer(r, path)
 
     async def _send(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         """The request; with the Mac app's key file, sent again once the file
         is read afresh when the app restarted or the key was reset."""
+        kwargs.setdefault("timeout", timeout_for(method, path))
         try:
             r = await self._http.request(method, path, **kwargs)
         except httpx.ConnectError:
@@ -282,6 +360,10 @@ class BtctxClient:
             raise BtctxError(self._redirected(r))
         if r.status_code == 403:
             raise BtctxError(KEY_REFUSED)
+        if r.status_code == 409 and (warning := _past_year_warning(r)) is not None:
+            raise PastYearWarning(warning)
+        if r.status_code == 422 and CHOOSE_AGAIN_HEADER in r.headers:
+            raise ChooseAgain(_error_detail(r, path))
         if r.is_error:
             raise BtctxError(f"BitcoinTX returned {r.status_code}: {_error_detail(r, path)}")
         if r.status_code == 204 or not r.content:
@@ -332,6 +414,16 @@ class BtctxClient:
 
     async def aclose(self) -> None:
         await self._http.aclose()
+
+
+def _past_year_warning(r: httpx.Response) -> dict[str, Any] | None:
+    """The past-year warning's 409 body; None for any other 409 (only it
+    gives a fingerprint, `confirm`)."""
+    try:
+        body = r.json()
+    except ValueError:
+        return None
+    return body if isinstance(body, dict) and isinstance(body.get("confirm"), str) else None
 
 
 def _error_detail(r: httpx.Response, path: str) -> str:

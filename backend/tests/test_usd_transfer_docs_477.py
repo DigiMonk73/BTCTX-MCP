@@ -27,7 +27,7 @@ def dollars(figure: str) -> Decimal:
 def test_the_guide_says_a_dollar_transfers_amount_is_what_arrived():
     guide = text(SHIPPED)
     assert "BTC Transfer: what left the account, fee included." in guide
-    assert "USD Transfer (between Bank and Exchange USD): what arrived, fee on top." in guide
+    assert "USD Transfer (between dollar accounts): what arrived, fee on top." in guide  # by kind since 2.0 (#350)
     # The old words, for every transfer
     assert not re.search(r"(?<!BTC )Transfer: what left the account", guide)
 

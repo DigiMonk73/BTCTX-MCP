@@ -14,7 +14,7 @@ temp folder. The genuine ones (v0.7.0, revision 0007, current) are compared
 table by table with what starting the app on the same file gives.
 """
 
-import json
+import importlib.util
 import shutil
 import sqlite3
 from contextlib import closing
@@ -33,10 +33,13 @@ import backend.migrate
 from backend.database import get_db, seed_defaults
 from backend.main import app
 from backend.migrate import alembic_config, upgrade_database
+from backend.models.account import Account
+from backend.models.exchange import Exchange
 from backend.models.user import User
 from backend import session_auth
 from backend.routers import backup as backup_router
 from backend.schemas.transaction import TransactionCreate
+from backend.services import account as account_service
 from backend.services import ai_key, backup, outbound
 from backend.services.transaction import create_transaction_record
 from backend.tests.conftest import init_test_db
@@ -51,6 +54,16 @@ V0_7_0 = Path(__file__).parent / "fixtures" / "v0_7_0.db"
 STOPPED = "Restore failed: This install's login, AI key and price settings couldn't be kept in the " \
           "restored backup, so the restore stopped. Your database is unchanged."
 DAMAGED = "Restore failed: This file isn't a BitcoinTX backup, or it's damaged."
+
+
+def _script(name: str):
+    spec = importlib.util.spec_from_file_location(name, REPO / "scripts" / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+seed_ledger = _script("seed_ledger")  # the reference ledger's rows and accounts, as it seeds them
 
 
 def _engine(path):
@@ -686,16 +699,16 @@ def test_the_notice_shows_a_long_name_cut_short(live, tmp_path, monkeypatch):
 @pytest.fixture(scope="module")
 def reference_db(tmp_path_factory):
     """The reference test ledger (testdata/reference_ledger.json: every kind
-    of transaction, with its lots, disposals and ledger lines), stored daily
-    and hourly prices, and settings of its own, at the current schema."""
+    of transaction, with its lots, disposals and ledger lines, and 2.0's
+    multiple wallets, exchanges or accounts), stored daily and hourly
+    prices, and settings of its own, at the current schema."""
     path = tmp_path_factory.mktemp("reference") / "btctx.db"
     engine = _engine(path)
     init_test_db(engine)
-    rows = json.loads((REPO / "testdata" / "reference_ledger.json").read_text())["transactions"]
     with sessionmaker(bind=engine)() as db:
-        for row in rows:
-            data = TransactionCreate(**{k: v for k, v in row.items() if k != "why"}).model_dump()
-            create_transaction_record(data, db)
+        _add_the_ledgers_accounts(db)
+        seed_ledger.create_rows(seed_ledger.ledger_rows(),  # its chosen coins by the ids their rows get
+                                lambda n, row: create_transaction_record(TransactionCreate(**row).model_dump(), db).id)
     with engine.begin() as conn:
         for day, usd in (("2023-01-15", "21000.00"), ("2024-06-01", "67000.50"), ("2025-03-03", "86000.25")):
             conn.execute(text("INSERT INTO btc_price_daily (day, usd, source) VALUES (:d, :u, 'bitstamp')"),
@@ -707,6 +720,18 @@ def reference_db(tmp_path_factory):
                        outbound.FALLBACK_KEY: "off", ai_key.ACCESS_KEY: "on", ai_key.HASH_KEY: "0" * 64})
     engine.dispose()
     return path
+
+
+def _add_the_ledgers_accounts(db) -> None:
+    """Its accounts list, with the ids it gives them (1.x's exchange is
+    there already), and each exchange's 1099-DA switch as it has it."""
+    for account in seed_ledger.ledger_accounts():
+        there = [db.get(Account, i) for i in account["ids"]]
+        made = there if all(there) else account_service.add_account(db, account["kind"], account["name"])
+        assert [a.id for a in made] == account["ids"], account
+        if account["kind"] == "exchange":
+            db.get(Exchange, made[0].exchange_id).sends_1099da = account["sends_1099da"]
+            db.commit()
 
 
 def _at_revision(source: Path, dest: Path, revision: str) -> Path:
@@ -773,3 +798,85 @@ def test_a_genuine_backup_brings_back_every_row(live, tmp_path, reference_db, fr
     if source != "v0.7.0":
         assert restored["lot_disposals"] and restored["btc_price_daily"]
     assert _logs_in(live.client, OWNER) and _key_works(live.token)
+
+
+# 2.0's accounts (2.0 spec 5.11): a 1.x backup and a 2.0 backup restore;
+# each exchange needs its two accounts, and two names alike are refused
+REFERENCE_1X = Path(__file__).parent / "fixtures" / "reference_1x.db"
+ACCOUNTS_DONT_FIT = "Restore failed: This backup can't be restored: its accounts don't fit."
+KINDS = "SELECT id, name, kind, exchange_id FROM accounts ORDER BY id"
+
+
+def _rows(engine, sql) -> list:
+    with engine.connect() as conn:
+        return [tuple(row) for row in conn.execute(text(sql))]
+
+
+def test_a_1x_backup_restores_into_2_0_with_its_kinds(live):
+    r = _restore(live.client, _sealed(REFERENCE_1X.read_bytes()))
+    assert r.status_code == 200, r.text
+    assert _rows(live.engine, KINDS) == [
+        (1, "Bank", "bank", None), (2, "Wallet", "wallet", None), (3, "Exchange USD", "exchange", 1),
+        (4, "Exchange BTC", "exchange", 1), (5, "BTC Fees", "fee", None), (6, "USD Fees", "fee", None)]
+    assert _rows(live.engine, "SELECT id, name, sends_1099da FROM exchanges") == [(1, "Exchange", 1)]
+    assert _logs_in(live.client, OWNER)
+
+
+def test_a_2_0_backup_restores_with_its_exchange_and_names(live, tmp_path):
+    blob, _ = _backup(tmp_path, "UPDATE exchanges SET name = 'River', sends_1099da = 0",
+                      "UPDATE accounts SET name = 'River USD' WHERE id = 3",
+                      "UPDATE accounts SET name = 'River BTC' WHERE id = 4",
+                      "UPDATE accounts SET name = 'Coldcard', hidden = 1 WHERE id = 2")
+    r = _restore(live.client, blob)
+    assert r.status_code == 200, r.text
+    assert _rows(live.engine, "SELECT id, name, sends_1099da FROM exchanges") == [(1, "River", 0)]
+    assert _rows(live.engine, "SELECT id, name, hidden FROM accounts WHERE id IN (2, 3, 4) ORDER BY id") == [
+        (2, "Coldcard", 1), (3, "River USD", 0), (4, "River BTC", 0)]
+
+
+NEW_ACCOUNT = "INSERT INTO accounts (id, user_id, name, currency, kind, exchange_id, hidden) VALUES "
+
+
+@pytest.mark.parametrize("sql", [
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)"],  # no BTC account
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)"],  # no account at all
+    [NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 7, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'BTC', 'exchange', 7, 0)"],  # no such exchange
+    [NEW_ACCOUNT + "(100, 1, 'Loose', 'BTC', 'exchange', NULL, 0)"],  # an exchange's account of none
+    [NEW_ACCOUNT + "(100, 1, 'Jade', 'BTC', 'wallet', 1, 0)"],  # a wallet tied to an exchange
+    [NEW_ACCOUNT + "(100, 1, 'Savings', 'BTC', 'bank', NULL, 0)"],  # a bank in bitcoin
+    [NEW_ACCOUNT + "(100, 1, 'Jade', 'USD', 'wallet', NULL, 0)"],  # a wallet in dollars
+    [NEW_ACCOUNT + "(100, 1, 'Vault', 'BTC', 'vault', NULL, 0)"],  # a kind BitcoinTX doesn't have
+    [NEW_ACCOUNT + "(100, 1, 'Euros', 'EUR', 'fee', NULL, 0)"],  # a currency it doesn't have
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Kraken', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Kraken USD', 'USD', 'exchange', 2, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Kraken BTC', 'USD', 'exchange', 2, 0)"],  # two dollar accounts
+    [NEW_ACCOUNT + "(100, 1, 'Cold\u034fcard', 'BTC', 'wallet', NULL, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Coldcard', 'BTC', 'wallet', NULL, 0)"],  # alike, beyond what NOCASE sees
+    ["INSERT INTO exchanges (id, name, sends_1099da) VALUES (2, 'Caf\u00e9', 1)",
+     NEW_ACCOUNT + "(100, 1, 'Caf\u00e9 USD', 'USD', 'exchange', 2, 0)",
+     NEW_ACCOUNT + "(101, 1, 'Caf\u00e9 BTC', 'BTC', 'exchange', 2, 0)",
+     "INSERT INTO exchanges (id, name, sends_1099da) VALUES (3, 'CAF\u00c9', 1)",
+     NEW_ACCOUNT + "(102, 1, 'Other USD', 'USD', 'exchange', 3, 0)",
+     NEW_ACCOUNT + "(103, 1, 'Other BTC', 'BTC', 'exchange', 3, 0)"],  # two exchanges alike
+], ids=["one account", "no account", "no exchange", "no exchange id", "a wallet's exchange", "bank in BTC",
+        "wallet in USD", "a kind", "a currency", "two dollars", "names alike", "exchanges alike"])
+def test_accounts_that_dont_fit_are_refused(live, tmp_path, sql):
+    """An exchange without its two accounts, or an account whose kind or currency BitcoinTX doesn't have."""
+    _assert_refused(live, sql, ACCOUNTS_DONT_FIT, tmp_path)
+
+
+def test_two_names_alike_are_refused(live, tmp_path):
+    """A backup whose accounts table lost NOCASE (no BitcoinTX makes one) holding "Cold" and "cold"."""
+    _assert_refused(live, [
+        "CREATE TABLE accounts_new (id INTEGER NOT NULL, user_id INTEGER NOT NULL, name VARCHAR NOT NULL, "
+        "currency VARCHAR NOT NULL, kind VARCHAR NOT NULL, exchange_id INTEGER, hidden BOOLEAN NOT NULL, "
+        "PRIMARY KEY (id), UNIQUE (name))",
+        "INSERT INTO accounts_new SELECT id, user_id, name, currency, kind, exchange_id, hidden FROM accounts",
+        NEW_ACCOUNT.replace("accounts", "accounts_new") + "(100, 1, 'Cold', 'BTC', 'wallet', NULL, 0)",
+        NEW_ACCOUNT.replace("accounts", "accounts_new") + "(101, 1, 'cold', 'BTC', 'wallet', NULL, 0)",
+        "DROP TABLE accounts",
+        "ALTER TABLE accounts_new RENAME TO accounts",
+    ], "Restore failed: This backup can't be restored: its accounts rows don't fit BitcoinTX's database.",
+        tmp_path)

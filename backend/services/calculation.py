@@ -11,10 +11,11 @@ from sqlalchemy import func
 from decimal import Decimal, ROUND_HALF_DOWN
 import logging
 
-from backend.constants import BTC_ACCOUNTS, REBATE_SOURCE, normalized
+from backend.constants import REBATE_SOURCE, normalized
 from backend.models.account import Account
 from backend.models.transaction import Transaction, LedgerEntry, LotDisposal, BitcoinLot
 from backend.schemas.transaction import eight_places
+from backend.services.account import AccountBook, account_book
 from backend.services.tax_time import get_tax_timezone, tax_year_bounds
 from backend.services.transaction import cost_left, counts_as_spent
 
@@ -68,23 +69,35 @@ def get_all_account_balances(db: Session) -> list[dict]:
     ]
 
 
+def held_by_account(db: Session) -> dict[int, tuple[Decimal, Decimal]]:
+    """
+    Each bitcoin account's BTC still held and what it cost, {account id:
+    (BTC, USD)}: its lots' BTC left and cost left (a lot's cost less its
+    pieces', #100), each lot in the account it was made in. The opened lines
+    and the average cost per BTC read the same sums, so they agree (#709).
+    """
+    held: dict[int, tuple[Decimal, Decimal]] = {}
+    lots = (
+        db.query(BitcoinLot, Transaction.to_account_id)
+          .join(Transaction, Transaction.id == BitcoinLot.created_txn_id)
+          .filter(BitcoinLot.remaining_btc > 0, BitcoinLot.total_btc > 0)
+    )
+    for lot, account_id in lots:
+        btc, cost = held.get(account_id, (Decimal("0"), Decimal("0")))
+        held[account_id] = (btc + lot.remaining_btc, cost + cost_left(lot))
+    return held
+
+
 def get_average_cost_basis(db: Session) -> Decimal:
     """
     Returns the average USD cost basis per BTC across all currently held BTC lots,
     i.e. sum of leftover cost basis / sum of remaining_btc, rounded to 2 decimals.
     """
-    lots = db.query(BitcoinLot).filter(BitcoinLot.remaining_btc > 0).all()
-    total_btc_remaining = Decimal("0")
-    total_cost_basis_remaining = Decimal("0")
-
-    for lot in lots:
-        if lot.total_btc > 0:
-            total_btc_remaining += lot.remaining_btc
-            total_cost_basis_remaining += cost_left(lot)  # the lot's cost less its pieces' (#100)
-
+    held = held_by_account(db).values()
+    total_btc_remaining = sum((btc for btc, _ in held), Decimal("0"))
     if total_btc_remaining == 0:
         return Decimal("0")
-
+    total_cost_basis_remaining = sum((cost for _, cost in held), Decimal("0"))
     average_basis = total_cost_basis_remaining / total_btc_remaining
     return average_basis.quantize(CENT, rounding=ROUND_HALF_DOWN)
 
@@ -99,8 +112,9 @@ def get_gains_and_losses(db: Session) -> dict:
     """
     gains = _realized_gains(db.query(LotDisposal).all())
     transactions = db.query(Transaction).all()
-    proceeds = _proceeds(transactions)
-    deposit_usd, deposit_btc = _deposits_by_source(transactions)
+    book = account_book(db)
+    proceeds = _proceeds(transactions, book)
+    deposit_usd, deposit_btc = _deposits_by_source(transactions, book)
     fees_usd, fees_btc = _fees(transactions)
     short_term_net = gains["short_term_gains"] - gains["short_term_losses"]
     long_term_net = gains["long_term_gains"] - gains["long_term_losses"]
@@ -161,7 +175,7 @@ def _realized_gains(disposals: list[LotDisposal]) -> dict[str, Decimal]:
     return totals
 
 
-def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
+def _proceeds(transactions: list[Transaction], book: AccountBook) -> dict[str, Decimal]:
     """What Sells and Spent withdrawals of bitcoin brought in, after their
     fees (a BTC withdrawal of unknown purpose counts as Spent, #61; a dollar
     withdrawal is none, whatever purpose an older save left on it, #449)."""
@@ -172,19 +186,20 @@ def _proceeds(transactions: list[Transaction]) -> dict[str, Decimal]:
         tx_type = tx.type.lower()
         if tx_type == "sell":
             totals["sell"] += Decimal(str(tx.proceeds_usd))
-        elif tx_type == "withdrawal" and counts_as_spent(tx):
+        elif tx_type == "withdrawal" and counts_as_spent(tx, book):
             totals["spent"] += Decimal(str(tx.proceeds_usd))
     return totals
 
 
-def _deposits_by_source(transactions: list[Transaction]) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
+def _deposits_by_source(transactions: list[Transaction],
+                        book: AccountBook) -> tuple[dict[str, Decimal], dict[str, Decimal]]:
     """(USD basis, BTC amount) of the deposits from each DEPOSIT_TOTALS source."""
     usd = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     btc = {source: Decimal("0.0") for source in DEPOSIT_TOTALS}
     for tx in transactions:
         source = normalized(tx.source)
-        # Into Wallet or Exchange BTC only: a USD deposit's amount is dollars
-        if tx.type.lower() != "deposit" or source not in usd or tx.to_account_id not in BTC_ACCOUNTS:
+        # Into a bitcoin account only: a USD deposit's amount is dollars
+        if tx.type.lower() != "deposit" or source not in usd or not book.is_btc(tx.to_account_id):
             continue
         if tx.cost_basis_usd is None or tx.amount is None:
             continue

@@ -2,18 +2,25 @@
 // restore, CSV export, Ledger Review, Privacy & Network, the Connect an AI
 // Assistant prompt, and About BitcoinTX.
 import {
-  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, python, USER, PASSWORD, REPO,
-  BLOCKED_KEY_FOLDER,
+  test, expect, seedKnownLedger, createTx, listTx, loginViaUi, acceptDialogs, openSection, python, USER, PASSWORD,
+  REPO, BLOCKED_KEY_FOLDER, sendConfirmed, SAVE_ANYWAY, AI_SERVER_NAME,
 } from "./fixtures";
 import { request as playwrightRequest, type Page } from "@playwright/test";
 import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 
-async function openSettings(page: Page) {
+/** Settings, with one of its sections open (#355: one at a time); its region. */
+async function openSettings(page: Page, section: string) {
   await page.getByRole("link", { name: "Settings" }).click();
-  await expect(page.getByText("Recalculate Ledger")).toBeVisible();
+  return openSection(page, section);
 }
+
+// Settings' sections, in the page's order
+const SECTIONS = [
+  "Account", "Wallets, exchanges and banks", "Ledger Review", "Privacy & Network", "Connect an AI Assistant",
+  "Data Management", "Import from an exchange", "Backup & Restore", "About BitcoinTX",
+];
 
 async function historyCsv(page: Page, year: number) {
   const r = await page.request.get(`/api/reports/simple_transaction_history?year=${year}&format=csv`);
@@ -28,7 +35,7 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
     type: "Sell", timestamp: "2024-12-31T20:00:00Z", from_account_id: 4, to_account_id: 3,
     amount: "0.01", gross_proceeds_usd: "900", fee_amount: "0", fee_currency: "USD",
   });
-  await openSettings(page);
+  await openSettings(page, "Account");
   const select = page.getByLabel("Tax timezone");
   await expect(select).toHaveValue("America/Chicago");
   await expect(page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true })).toBeDisabled();
@@ -36,6 +43,10 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
 
   await select.selectOption("Asia/Tokyo");
   await page.getByRole("region", { name: "Account" }).getByRole("button", { name: "Save", exact: true }).click();
+  // It moves earlier tax years' figures: asked first, the sale under both years (2.0 spec 5.8, #353)
+  const dialog = page.getByRole("dialog", { name: "Change an earlier tax year?" });
+  await expect(dialog).toContainText(/tax year 2024 -> 2025/i);
+  await dialog.getByRole("button", { name: SAVE_ANYWAY }).click();
   await expect(page.getByText("Tax timezone set to Asia/Tokyo. Gains were recalculated.")).toBeVisible();
   expect((await historyCsv(page, 2024)).match(/Sell/g)).toHaveLength(1);
   expect((await historyCsv(page, 2025)).match(/Sell/g)).toHaveLength(1);
@@ -44,7 +55,7 @@ test("changing the tax timezone moves a sale across the year boundary", async ({
 test("recalculate ledger leaves the figures unchanged", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  await openSettings(page);
+  await openSettings(page, "Account");
   await page.getByRole("button", { name: "Recalculate" }).click();
   await expect(page.getByText("Recalculated 6 transaction(s).")).toBeVisible();
   const after = await listTx(page.request);
@@ -56,7 +67,7 @@ test("recalculate ledger leaves the figures unchanged", async ({ authedPage: pag
 test("reset username and password keeps transactions", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const dialogs = acceptDialogs(page);
-  await openSettings(page);
+  await openSettings(page, "Account");
   await page.getByLabel("New username").fill("renamed-user");
   await page.getByLabel("New password").fill("\u{1F511}".repeat(6)); // 6 characters, 12 in .length (#405)
   await page.getByRole("button", { name: "Update" }).click();
@@ -81,8 +92,9 @@ test("reset username and password keeps transactions", async ({ authedPage: page
   expect(await listTx(page.request)).toHaveLength(6);
 });
 
-/** Settings → Delete, then the dialog with DELETE typed (#256). */
+/** Settings → Data Management → Delete, then the dialog with DELETE typed (#256). */
 async function deleteAll(page: Page, count: number) {
+  await openSection(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
@@ -94,7 +106,7 @@ test("delete all: a dialog says what goes, deletes only once DELETE is typed, af
   authedPage: page, app,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   page.on("dialog", () => { throw new Error("no browser confirm any more"); });
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
@@ -129,7 +141,7 @@ test("delete all: a transaction saved while the dialog is open is shown, not del
   authedPage: page,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
@@ -157,7 +169,7 @@ test("delete all: the same count over other tax years is a change too (#390's re
   authedPage: page,
 }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await expect(dialog).toContainText("This deletes 6 transactions, 2023\u20132024");
@@ -167,7 +179,9 @@ test("delete all: the same count over other tax years is a change too (#390's re
     amount: "100", fee_amount: "0", fee_currency: "USD",
   });
   const oldest = (await listTx(page.request)).sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)))[0];
-  expect((await page.request.delete(`/api/transactions/${oldest.id}`)).status()).toBe(204);
+  // A row of 2023: its delete is confirmed past the warning (2.0 spec 5.8)
+  expect((await sendConfirmed((params) => page.request.delete(`/api/transactions/${oldest.id}`, { params })))
+    .status()).toBe(204);
   await dialog.getByLabel("Type DELETE to confirm").fill("DELETE");
   await dialog.getByRole("button", { name: "Delete 6 transactions" }).click();
   const note = dialog.getByRole("alert");
@@ -186,7 +200,7 @@ test("delete all: the same count over other tax years is a change too (#390's re
 
 test("delete all: the dialog downloads the encrypted backup first (#256)", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Data Management");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Delete all transactions?" });
   await dialog.getByRole("button", { name: "Download a backup first" }).click();
@@ -206,7 +220,7 @@ test("delete all: the dialog downloads the encrypted backup first (#256)", async
 test("encrypted backup downloads and restores", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   const before = await listTx(page.request);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   // Privacy audit 2026-09-29 (3d): the plain safety copies are mentioned
   await expect(page.getByText("unencrypted safety copies")).toBeVisible();
 
@@ -223,15 +237,17 @@ test("encrypted backup downloads and restores", async ({ authedPage: page }) => 
   expect(await listTx(page.request)).toHaveLength(0);
 
   // A wrong password is refused and changes nothing.
+  await openSection(page, "Backup & Restore");
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("wrong");
-  await page.getByRole("button", { name: "Restore" }).click();
-  await expect(page.getByText(/Restore failed: .*Wrong password\?/)).toBeVisible();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(page.getByText(/Restore failed: .*Wrong password, or the file is damaged or isn't a BitcoinTX backup\./))
+    .toBeVisible();
   expect(await listTx(page.request)).toHaveLength(0);
 
   await page.getByLabel("Backup file").setInputFiles(backup);
   await page.getByLabel("Backup password").fill("backup-secret");
-  await page.getByRole("button", { name: "Restore" }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
   await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
   await loginViaUi(page);
   const after = await listTx(page.request);
@@ -244,7 +260,7 @@ test("the backup password is hidden, 12+ characters and typed twice alike", asyn
   // shown as typed and asked once, so a typo made a backup no one could open.
   let downloads = 0;
   page.on("download", () => downloads++);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   await expect(page.getByLabel("Encrypt with password")).toHaveAttribute("type", "password");
   await expect(page.getByLabel("Repeat password")).toHaveAttribute("type", "password");
   await page.getByLabel("Encrypt with password").fill("backup-secret");
@@ -262,7 +278,7 @@ test("the backup password is hidden, 12+ characters and typed twice alike", asyn
 
 test("export as CSV", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Backup & Restore");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export CSV" }).click();
   const d = await download;
@@ -278,7 +294,7 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
   // WebKit has no clipboard permissions to grant; read the clipboard back in Chromium only.
   const canReadClipboard = browserName === "chromium";
   if (canReadClipboard) await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await openSettings(page);
+  await openSettings(page, "Connect an AI Assistant");
   await expect(page.getByRole("heading", { name: "Connect an AI Assistant" })).toBeVisible();
   // The privacy warning comes before the setup prompt.
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
@@ -297,9 +313,13 @@ test("connect an AI assistant: prompt and configs name this server, never a pass
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await prompt.inputValue());
   }
 
-  // How to update an AI app set up for an older version
+  // How to update an AI app set up for an older version: a 2.0 pre-release's
+  // connector in PEP 440's form, X.Y.ZaN or X.Y.ZbN, under its own name (B10a)
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
-  await expect(ai.getByText("Set up with an older version?")).toContainText(`btctx-mcp==${version}`);
+  const pre = /^(\d+\.\d+\.\d+)-(alpha|beta)\.([1-9]\d*)$/.exec(version);
+  const older = ai.getByText("Set up with an older version?");
+  await expect(older).toContainText(`btctx-mcp==${pre ? `${pre[1]}${pre[2][0]}${pre[3]}` : version}`);
+  await expect(older).toContainText(pre ? "bitcointx-preview" : "bitcointx");
 
   await page.getByText("Set it up yourself").click();
   await expect(page.getByLabel("Claude Desktop config")).toHaveValue(/btctx/i);
@@ -315,7 +335,14 @@ test.describe("Mac app: AI key file instead of a password", () => {
     expect(first.url).toBe(app.url);
     expect(statSync(keyFile).mode & 0o777).toBe(0o600);
 
-    await openSettings(page);
+    await page.getByRole("link", { name: "Settings" }).click();
+    // The app makes its key, so the closed section never says you create one (#724)
+    const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
+    await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
+    await expect(sectionButton).toHaveAccessibleDescription(
+      "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key BitcoinTX keeps for it",
+    );
+    await openSection(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     await expect(ai.getByText("No AI key yet: press Reset key.")).toHaveCount(0); // it has one (#238)
     const prompt = ai.getByLabel("Setup prompt");
@@ -324,7 +351,7 @@ test.describe("Mac app: AI key file instead of a password", () => {
       await expect(prompt).not.toHaveValue(new RegExp(secret));
     }
     await ai.getByText("Set it up yourself").click();
-    await expect(ai.getByLabel("Grok Build command")).toHaveValue(/^grok mcp add bitcointx -- uvx/);
+    await expect(ai.getByLabel("Grok Build command")).toHaveValue(new RegExp(`^grok mcp add ${AI_SERVER_NAME} -- uvx`));
     await expect(ai.getByLabel("Claude Code command")).not.toHaveValue(/-e /);
 
     // Off until the owner turns it on.
@@ -362,7 +389,7 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
   test.use({ appMode: "mac", keyFileBlocked: true });
 
   test("Settings says so, and Reset key writes one once it can", async ({ authedPage: page, app }) => {
-    await openSettings(page);
+    await openSettings(page, "Connect an AI Assistant");
     const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
     const noKey = ai.getByText("No AI key yet: press Reset key.");
     await expect(noKey).toBeVisible();
@@ -381,8 +408,29 @@ test.describe("Mac app: no AI key when its file couldn't be written at start (#2
   });
 });
 
+test("Set it up yourself opens with the app's one chevron, never the browser's triangle (#681)", async ({
+  authedPage: page,
+}) => {
+  await openSettings(page, "Connect an AI Assistant");
+  const summary = page.locator("summary", { hasText: "Set it up yourself" });
+  // Chromium and today's WebKit draw a summary's marker only for a list item (Safari 15's
+  // ::-webkit-details-marker, hidden too, isn't one these engines report)
+  expect(await summary.evaluate((el) => [getComputedStyle(el).display, getComputedStyle(el).listStyleType]))
+    .toEqual(["flex", "none"]);
+  const chevron = summary.locator(".chevron");
+  await expect(chevron).toHaveCSS("transform", "none");
+  await summary.click();
+  await expect(chevron).not.toHaveCSS("transform", "none"); // turned over while open, as Settings' sections
+});
+
 test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", async ({ authedPage: page, app }) => {
-  await openSettings(page);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const sectionButton = page.getByRole("button", { name: "Connect an AI Assistant", exact: true });
+  await expect(sectionButton).toHaveAttribute("aria-expanded", "false");
+  await expect(sectionButton).toHaveAccessibleDescription(
+    "Optional and off until you turn it on: an AI app that reads your ledger and enters transactions, with a key you create",
+  );
+  await openSection(page, "Connect an AI Assistant");
   const ai = page.getByRole("region", { name: "Connect an AI Assistant" });
   const anon = await playwrightRequest.newContext({ baseURL: app.url });
   const works = async (key: string) =>
@@ -410,7 +458,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
 
   // Leaving the page forgets it: a reload shows no key.
   await page.reload();
-  await openSettings(page);
+  await openSettings(page, "Connect an AI Assistant");
   await expect(ai.getByRole("group", { name: "New AI key" })).toHaveCount(0);
   await expect(page.getByText(first)).toHaveCount(0);
 
@@ -440,7 +488,7 @@ test("Docker/StartOS: create, replace and revoke the AI key; it's shown once", a
 
 test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   await expect(review.getByText("Nothing to review.")).toBeVisible();
 
@@ -453,7 +501,7 @@ test("ledger review lists a $0 spend and changes nothing", async ({ authedPage: 
   const list = review.getByRole("list", { name: "Spent withdrawals saved with $0 proceeds" });
   await expect(list.getByRole("listitem")).toHaveCount(1);
   await expect(list).toContainText(`#${spend.id} · `);
-  await expect(list).toContainText("Withdrawal (Spent) · 0.01000000 BTC");
+  await expect(list).toContainText("Withdrawal (Spent) · Wallet · 0.01000000 BTC"); // its account named (#356)
   expect(await listTx(page.request)).toEqual(before);
 });
 
@@ -463,7 +511,7 @@ test("ledger review: a My BTC deposit without its original date is a folded remi
     type: "Deposit", timestamp: "2024-06-01T15:00:00Z", from_account_id: 99, to_account_id: 2,
     amount: "0.01", cost_basis_usd: "500", fee_amount: "0", fee_currency: "BTC", source: "MyBTC",
   });
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   const title = "Reminder: My BTC and Gift deposits counted from their deposit date";
   await expect(review.getByText("Nothing looks wrong.")).toBeVisible();
@@ -473,7 +521,7 @@ test("ledger review: a My BTC deposit without its original date is a folded remi
   await expect(list).toHaveCount(0);
   await review.getByRole("button", { name: "Show the 1 deposit" }).click();
   await expect(list).toContainText(`#${mine.id} · `);
-  await expect(list).toContainText("Deposit (MyBTC) · 0.01000000 BTC");
+  await expect(list).toContainText("Deposit (MyBTC) · Wallet · 0.01000000 BTC"); // its account named (#356)
   await review.getByRole("button", { name: "Hide the list" }).click();
   await expect(list).toHaveCount(0);
 });
@@ -489,7 +537,7 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
   await page.request.post("/api/transactions/recalculate");
 
   const dialogs = acceptDialogs(page);
-  await openSettings(page);
+  await openSettings(page, "Ledger Review");
   const review = page.getByRole("region", { name: "Ledger review" });
   const title = "Values priced at the day's price that the hour would change";
   await expect(review.getByText(`${title}: 1`)).toBeVisible();
@@ -522,7 +570,7 @@ test("ledger review prices a day-valued fee again after asking (#144)", async ({
 test("privacy & network: the price card, its fields and errors; Nobody shows on the dashboard", async ({
   authedPage: page,
 }) => {
-  await openSettings(page);
+  await openSettings(page, "Privacy & Network");
   const net = page.getByRole("region", { name: "Privacy & network" });
   const save = net.getByRole("button", { name: "Save" });
   await expect(net.getByLabel(/^Public price sites/)).toBeChecked();
@@ -599,7 +647,7 @@ test.describe("a fresh install asks where prices come from", () => {
     expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
     await page.reload();
     await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
-    await openSettings(page);
+    await openSettings(page, "Privacy & Network");
     await expect(page.getByRole("region", { name: "Privacy & network" }).getByLabel(/^Public price sites/)).toBeChecked();
   });
 });
@@ -611,7 +659,7 @@ test.describe("prices set by StartOS", () => {
     authedPage: page,
   }) => {
     await expect(page.getByRole("region", { name: "Bitcoin prices" })).toHaveCount(0);
-    await openSettings(page);
+    await openSettings(page, "Privacy & Network");
     const net = page.getByRole("region", { name: "Privacy & network" });
     await expect(net.getByText("Set in StartOS. To change it: BitcoinTX › Actions › Price Source & Privacy.")).toBeVisible();
     const chosen = net.locator(".price-choice.chosen");
@@ -628,11 +676,12 @@ test.describe("prices set by StartOS", () => {
 });
 
 test("settings rows: text fields sit under their text, and no control rises above its row", async ({ authedPage: page }) => {
-  await openSettings(page);
+  await page.getByRole("link", { name: "Settings" }).click();
   const textField = 'input:not([type]), input[type="text"], input[type="url"], input[type="password"], textarea';
-  // Desktop, the tablet sidebar layout, and a phone.
-  for (const width of [1280, 960, 390]) {
+  // Desktop, the tablet sidebar layout, and a phone; each section open in turn (#355)
+  for (const [width, section] of [1280, 960, 390].flatMap((w) => SECTIONS.map((s) => [w, s] as const))) {
     await page.setViewportSize({ width, height: 900 });
+    await openSection(page, section);
     const problems = await page.locator(".settings-option").evaluateAll((rows, textField) =>
       rows.flatMap((row) => {
         const title = row.querySelector(".settings-option-title");
@@ -654,18 +703,19 @@ test("settings rows: text fields sit under their text, and no control rises abov
         }
         return out;
       }), textField);
-    expect(problems, `at ${width}px wide`).toEqual([]);
+    expect(problems, `${section} at ${width}px wide`).toEqual([]);
   }
 });
 
 test("About BitcoinTX shows the version and where to report a problem", async ({ authedPage: page }) => {
-  await openSettings(page);
+  await openSettings(page, "About BitcoinTX");
   const about = page.getByRole("region", { name: "About BitcoinTX" });
   const version = readFileSync(path.join(REPO, "VERSION"), "utf8").trim();
   await expect(about.getByText(`Version ${version}`)).toBeVisible();
-  // The one-wallet notice and the disclaimer, worded as everywhere else
+  // The notice on wallets and exchanges and the disclaimer, worded as everywhere else (#357)
   await expect(about.getByRole("note")).toContainText(
-    "Important: one wallet, one exchange. BitcoinTX tracks one self-custody wallet and one exchange account.");
+    "Important: add each wallet and exchange. Add each wallet, exchange and bank you use in Settings, under " +
+    "Wallets, exchanges and banks. From 2025, cost basis is figured wallet by wallet and account by account;");
   await expect(about.getByText("BitcoinTX is software, not tax, legal or financial advice.")).toBeVisible();
   const github = "https://github.com/DigiMonk73/BTCTX-MCP";
   for (const [name, href] of [

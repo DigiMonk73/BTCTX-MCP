@@ -2,9 +2,21 @@
 // request built from them.
 import type { InputPlace } from "./apiError";
 
+/** The file's exchange (its bitcoin account) and wallet, by the names the
+ * import reads (2.0 spec 5.11, 5.13): a row's type change keeps them. */
+export interface RiverAccounts {
+  exchange: string;
+  wallet: string;
+}
+
+/** Your first exchange's and wallet's: what any file's names mean with one of each (1.x's). */
+export const FIRST_RIVER_ACCOUNTS: RiverAccounts = { exchange: "Exchange BTC", wallet: "Wallet" };
+
 /** One preview row plus the owner's edits. */
 export interface EditableRow {
   proposal: RiverProposal;
+  /** The file's exchange and wallet, as chosen for its preview. */
+  accounts: RiverAccounts;
   include: boolean;
   type: string;
   fromAccount: string;
@@ -27,9 +39,10 @@ export const STATUS_LABEL: Record<RiverProposal["status"], string> = {
 /** A preview row as it starts: ticked unless it's already in the ledger,
  * or matched only by a near amount, most likely the same move typed by hand
  * (a row of the same amount to review is never left out by itself, #253). */
-export function toEditableRow(p: RiverProposal): EditableRow {
+export function toEditableRow(p: RiverProposal, accounts: RiverAccounts = FIRST_RIVER_ACCOUNTS): EditableRow {
   return {
     proposal: p,
+    accounts,
     include: p.status === "new" || (p.status === "discrepancy" && !p.near_amount),
     type: p.type,
     fromAccount: p.from_account,
@@ -41,21 +54,124 @@ export function toEditableRow(p: RiverProposal): EditableRow {
   };
 }
 
-/** Accounts implied by a type flip on a BTC move (direction-aware). */
+/** Accounts implied by a type flip on a BTC move (direction-aware): the
+ * file's exchange and wallet, never the first ones (5.13). */
 function accountsForType(row: EditableRow, newType: string) {
-  const isSend = row.proposal.from_account === "Exchange BTC";
-  if (newType === "Withdrawal") return { from: "Exchange BTC", to: "External" };
-  if (newType === "Deposit") return { from: "External", to: "Exchange BTC" };
+  const { exchange, wallet } = row.accounts;
+  const isSend = row.proposal.from_account === exchange;
+  if (newType === "Withdrawal") return { from: exchange, to: "External" };
+  if (newType === "Deposit") return { from: "External", to: exchange };
   // Transfer
-  return isSend
-    ? { from: "Exchange BTC", to: "Wallet" }
-    : { from: "Wallet", to: "Exchange BTC" };
+  return isSend ? { from: exchange, to: wallet } : { from: wallet, to: exchange };
 }
 
 /** The edit a new type makes: the type and the accounts it implies. */
 export function typeChange(row: EditableRow, newType: string): Partial<EditableRow> {
   const accounts = accountsForType(row, newType);
   return { type: newType, fromAccount: accounts.from, toAccount: accounts.to };
+}
+
+/** An exchange or a wallet a River file can be from or send to. */
+export interface RiverChoice {
+  /** An exchange's bitcoin account, or the wallet. */
+  id: number;
+  /** The exchange's name ("Kraken"), or the wallet's. */
+  name: string;
+  hidden: boolean;
+}
+
+export interface RiverChoices {
+  exchanges: RiverChoice[];
+  wallets: RiverChoice[];
+  /** The first wallet shown (Q8's), and the only exchange if it's shown, or
+   * of more than one, the one shown that the file is named for; none
+   * otherwise (every one of its kind hidden, or no exchange named so). */
+  defaults: { exchange?: number; wallet?: number };
+  /** Whether the screen asks: more than one to choose from, or none chosen. */
+  askExchange: boolean;
+  askWallet: boolean;
+}
+
+/** What River's "Exchange" and "Wallet for sends and receives" offer (5.11,
+ * 5.13): every exchange and wallet, hidden ones too, since they're still
+ * yours; asked once there's more than one, so a file never goes to the only
+ * one shown unasked; the first shown wallet chosen, never a hidden one. Of
+ * more than one exchange, none is chosen but the one shown that the file
+ * (`fileExchange`: "River", a mapping's name) is named for: 1.x's guide had
+ * a second exchange's trades recorded in the first, so a file taken there
+ * unasked holds them twice (the owner's decision, 2026-10-25, #707). */
+export function riverChoices(book: AccountBook, fileExchange?: string): RiverChoices {
+  const choice = (a: LedgerAccount, name: string) => ({ id: a.id, name, hidden: a.hidden });
+  const exchanges = book.filter((a) => a.kind === "exchange" && a.currency === "BTC")
+    .map((a) => choice(a, a.exchange ?? a.name));
+  const wallets = book.filter((a) => a.kind === "wallet").map((a) => choice(a, a.name));
+  const exchange = exchanges.length > 1 ? namedFor(exchanges, fileExchange) : exchanges.find((c) => !c.hidden)?.id;
+  const wallet = wallets.find((c) => !c.hidden)?.id;
+  return {
+    exchanges, wallets,
+    defaults: { exchange, wallet },
+    askExchange: exchanges.length > 1 || exchange === undefined,
+    askWallet: wallets.length > 1 || wallet === undefined,
+  };
+}
+
+/** The one exchange shown that the file's is named for, ignoring case: "Swan"
+ * for "Swan: withdrawals", as ready-made mappings are named. */
+function namedFor(exchanges: RiverChoice[], fileExchange: string | undefined): number | undefined {
+  const file = fileExchange?.trim().toLowerCase();
+  if (!file) return undefined;
+  const named = exchanges.filter((c) => {
+    const name = c.name.trim().toLowerCase();
+    return !c.hidden && (file === name || file.startsWith(`${name}:`));
+  });
+  return named.length === 1 ? named[0].id : undefined;
+}
+
+/** The file's exchange (its bitcoin account) and wallet, by id; undefined: none chosen. */
+export interface RiverPick {
+  exchange?: number;
+  wallet?: number;
+}
+
+/** The file's exchange and wallet: the owner's pick while that account is
+ * there (hidden since, it stays: a preview made with it still names it),
+ * else riverChoices' default. Nothing before the book is read: the server
+ * then takes your first exchange and wallet. */
+export function chosenRiverAccounts(choices: RiverChoices | undefined, picked: RiverPick): RiverPick {
+  if (!choices) return {};
+  const offeredId = (id: number | undefined, list: RiverChoice[]) => (list.some((c) => c.id === id) ? id : undefined);
+  return {
+    exchange: offeredId(picked.exchange, choices.exchanges) ?? choices.defaults.exchange,
+    wallet: offeredId(picked.wallet, choices.wallets) ?? choices.defaults.wallet,
+  };
+}
+
+/** What the file's preview waits for, as Preview says it (#773): the book
+ * read, and an exchange (of more than one, none preselected, #707) or a
+ * wallet (every one hidden) not chosen, the exchange first, as the screen
+ * asks them; nothing once both are. */
+export function pickNeeded(choices: RiverChoices | undefined, pick: RiverPick): string | undefined {
+  if (choices === undefined) return undefined;
+  if (pick.exchange === undefined) return "Choose the exchange first.";
+  return pick.wallet === undefined ? "Choose the wallet first." : undefined;
+}
+
+/** Whether the preview on screen was made with another exchange or wallet
+ * than the one picked now (its account deleted since): its rows would then
+ * go elsewhere than the pickers say. One made before the book was read sent
+ * no ids, so it's never compared. */
+export function previewOutOfDate(made: RiverPick | null, now: RiverPick): boolean {
+  if (!made || made.exchange === undefined) return false;
+  return made.exchange !== now.exchange || made.wallet !== now.wallet;
+}
+
+/** The chosen exchange and wallet by the names the import reads; the first ones' until the book is read. */
+export function riverAccountNames(book: AccountBook | undefined, chosen: RiverPick): RiverAccounts {
+  const name = (id: number | undefined) => book?.find((a) => a.id === id)?.name;
+  return {
+    exchange: name(chosen.exchange) ?? FIRST_RIVER_ACCOUNTS.exchange,
+    wallet: name(chosen.wallet) ?? FIRST_RIVER_ACCOUNTS.wallet,
+  };
 }
 
 /** The rows to import: the ticked ones, a row already in the ledger
@@ -73,7 +189,7 @@ export function importableRows(rows: EditableRow[]): EditableRow[] {
 export function importRequestRows(rows: EditableRow[]) {
   return rows
     .filter((r) => r.include || r.proposal.status === "matched")
-    .map((r) => importRow(r.include ? r : toEditableRow(r.proposal)));
+    .map((r) => importRow(r.include ? r : toEditableRow(r.proposal, r.accounts)));
 }
 
 /** A fee's currency: USD on a Buy or Sell, BTC otherwise (River's rows say so too). */

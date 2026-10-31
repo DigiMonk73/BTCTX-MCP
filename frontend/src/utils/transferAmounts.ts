@@ -1,6 +1,7 @@
 // A transfer's two amounts: the dollar fee between them (#447) and what the
 // form refuses in them, kept apart from the form's mapping
 // (transactionForm.ts) so each stays one job.
+import { accountCurrency, chosenId } from "./accounts";
 import { parseDecimal } from "./format";
 
 /** A dollar transfer's fee: what left less what arrived, in cents (#447). */
@@ -24,21 +25,24 @@ export function pastTheCent(amount: number): boolean {
  * is the amount saved, so it must be more than 0.
  */
 export function transferAmountProblem(
-  data: Pick<TransactionFormData, "fromAccount" | "fromCurrency" | "toAccount" | "amountFrom" | "amountTo">,
+  data: Pick<TransactionFormData, "fromAccountId" | "toAccountId" | "amountFrom" | "amountTo">,
+  book: AccountBook,
   field: "amountFrom" | "amountTo",
 ): string | null {
   const from = parseDecimal(data.amountFrom);
   const to = parseDecimal(data.amountTo);
-  if (data.fromCurrency === "USD" && pastTheCent(parseDecimal(data[field]))) {
+  const fromId = chosenId(data.fromAccountId);
+  const currency = accountCurrency(book, fromId);
+  if (currency === "USD" && pastTheCent(parseDecimal(data[field]))) {
     return "A USD amount can have at most 2 decimal places.";
   }
   if (field === "amountFrom") return null;
   if (to > from) {
     return "Amount (To) can't be more than Amount (From): it's what arrived, Amount (From) less the fee.";
   }
-  if (data.fromCurrency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
-  if (data.fromCurrency === "BTC" && data.toAccount === data.fromAccount && !(to < from)) {
-    return "A move within the same account records only its network fee: Amount (To) must be less than Amount (From).";
+  if (currency === "USD" && !(to > 0)) return "Amount (To) must be more than 0.";
+  if (currency === "BTC" && chosenId(data.toAccountId) === fromId && !(to < from)) {
+    return "A consolidation within the same wallet or exchange records only its network fee: Amount (To) must be less than Amount (From).";
   }
   return null;
 }

@@ -21,7 +21,7 @@ from typing import NamedTuple
 from pydantic import ValidationError
 from sqlalchemy import Date, DateTime, Numeric, create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.pool import NullPool
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -69,9 +69,12 @@ SQLITE_HEADER = b"SQLite format 3\x00"
 # Why a restore was refused: plain words, never SQL
 NOT_OURS = "This backup can't be restored: it holds database objects BitcoinTX doesn't make."
 DAMAGED = "This file isn't a BitcoinTX backup, or it's damaged."
+# A wrong key and a damaged or foreign file look the same to the MAC (and to v1's check): name all three (#690)
+CANT_DECRYPT = "❌ Failed to decrypt backup. Wrong password, or the file is damaged or isn't a BitcoinTX backup."
 NOT_UPGRADED = "This backup can't be restored: its database couldn't be brought up to this version of BitcoinTX."
 DOESNT_FIT = "This backup can't be restored: its {table} rows don't fit BitcoinTX's database."
 ONE_LOGIN = "This backup can't be restored: it holds more than one login, and BitcoinTX has one."
+ACCOUNTS_DONT_FIT = "This backup can't be restored: its accounts don't fit."
 NEWER = ("This backup can't be restored: it was made by a newer version of BitcoinTX. Update BitcoinTX, "
          "or restore a backup made with this version.")
 BUSY = "Another restore is running: wait for it to finish, then try again."
@@ -114,7 +117,7 @@ def encrypt_backup(db_data: bytes, password: str, iterations: int = PBKDF2_ITERA
 
 
 def decrypt_backup(blob: bytes, password: str) -> bytes:
-    """The database inside a v2 or v1 backup; ValueError for a wrong password."""
+    """The database inside a v2 or v1 backup; ValueError for a wrong password or a damaged file."""
     if blob.startswith(MAGIC):
         if len(blob) < _HEADER_LENGTH + SALT_LENGTH + IV_LENGTH + MAC_LENGTH:
             raise ValueError("This backup file is damaged (too short).")
@@ -133,7 +136,7 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
         keys = _derive_key(password, salt, iterations, 2 * KEY_LENGTH)
         enc_key, mac_key = keys[:KEY_LENGTH], keys[KEY_LENGTH:]
         if not hmac.compare_digest(_mac(mac_key, body), tag):
-            raise ValueError("❌ Failed to decrypt backup. Wrong password?")
+            raise ValueError(CANT_DECRYPT)
         try:
             return _decrypt_data(body[_HEADER_LENGTH + SALT_LENGTH + IV_LENGTH:], enc_key, iv)
         except ValueError as e:  # the library's own words (padding) aren't the owner's (#422)
@@ -147,9 +150,9 @@ def decrypt_backup(blob: bytes, password: str) -> bytes:
     try:
         data = _decrypt_data(blob[SALT_LENGTH + IV_LENGTH:], key, iv)
     except Exception as e:
-        raise ValueError("❌ Failed to decrypt backup. Wrong password?") from e
+        raise ValueError(CANT_DECRYPT) from e
     if not data.startswith(SQLITE_HEADER):
-        raise ValueError("❌ Failed to decrypt backup. Wrong password?")
+        raise ValueError(CANT_DECRYPT)
     return data
 
 
@@ -364,8 +367,8 @@ def _rebuild(staging: Path, rebuilt: Path):
     """
     Check and upgrade the backup's database, make the new one with the
     migrations (as a fresh install does), copy the backup's own data into
-    it, seed the fixed accounts and require one login. Database errors come
-    back in plain words, never SQL.
+    it, seed the fixed accounts and require one login and whole exchanges.
+    Database errors come back in plain words, never SQL.
     """
     from backend.database import seed_defaults
     from backend.migrate import MigrationError, upgrade_database
@@ -378,6 +381,7 @@ def _rebuild(staging: Path, rebuilt: Path):
             _copy_own_data(new, staging)
             seed_defaults(new)
             _require_one_login(new)
+            _require_accounts_fit(new)
             _read_as_the_app_does(new)
         finally:
             new.dispose()
@@ -535,13 +539,16 @@ def _read_as_the_app_does(new) -> None:
     read would fail every later read of that table, so it refuses the
     restore now.
     """
-    from backend.models import Base
+    from backend.models import Base, Transaction
 
     with Session(new) as session:
         for mapper in Base.registry.mappers:
             checks = _checks(mapper)
+            query = session.query(mapper.class_)
+            if mapper.class_ is Transaction:  # TransactionRead reads its chosen coins: one query a batch
+                query = query.options(selectinload(Transaction.chosen_coins))
             try:
-                for row in session.query(mapper.class_).yield_per(1000):
+                for row in query.yield_per(1000):
                     _require_usable(row, checks)
             except (ValueError, TypeError, ArithmeticError, SQLAlchemyError) as e:
                 logger.warning("Restore refused: a %s row can't be read (%s)", mapper.local_table.name, _reason(e))
@@ -566,7 +573,8 @@ def _read_as_the_app_does(new) -> None:
 #   million lots, each at a save's limit, would pass it).
 NUMBER_LIMITS = {
     **dict.fromkeys([("transactions", "amount"), ("transactions", "fee_amount"), ("bitcoin_lots", "total_btc"),
-                     ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc")], Decimal(10) ** 10),
+                     ("bitcoin_lots", "remaining_btc"), ("lot_disposals", "disposed_btc"), ("chosen_coins", "btc")],
+                    Decimal(10) ** 10),
     **dict.fromkeys([("btc_price_daily", "usd"), ("btc_price_hourly", "usd")], Decimal(10) ** 15),
 }
 FIGURES_BELOW = Decimal(10) ** 17
@@ -645,6 +653,45 @@ def _require_one_login(new) -> None:
     with new.connect() as conn:
         if conn.exec_driver_sql("SELECT count(*) FROM users").scalar() != 1:
             raise ValueError(ONE_LOGIN)
+
+
+def _require_accounts_fit(new) -> None:
+    """Each account is a bank (dollars), a wallet (bitcoin), an exchange's
+    or a fee account, in dollars or bitcoin; each exchange has its two
+    accounts, one in dollars and one in bitcoin; an exchange's account
+    names an exchange there is, which no other account does; and no two
+    names are alike (2.0 spec 5.1, 5.11)."""
+    with new.connect() as conn:
+        broken = conn.exec_driver_sql("""
+            SELECT 1 FROM exchanges e
+             WHERE (SELECT count(*) FROM accounts a WHERE a.exchange_id = e.id) != 2
+                OR NOT EXISTS (SELECT 1 FROM accounts a WHERE a.exchange_id = e.id AND a.currency = 'USD')
+                OR NOT EXISTS (SELECT 1 FROM accounts a WHERE a.exchange_id = e.id AND a.currency = 'BTC')
+            UNION ALL
+            SELECT 1 FROM accounts a
+             WHERE a.kind NOT IN ('bank', 'wallet', 'exchange', 'fee')
+                OR a.currency NOT IN ('USD', 'BTC')
+                OR (a.kind = 'bank' AND a.currency != 'USD')
+                OR (a.kind = 'wallet' AND a.currency != 'BTC')
+                OR (a.kind = 'exchange') != (a.exchange_id IS NOT NULL)
+                OR (a.exchange_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM exchanges e WHERE e.id = a.exchange_id))
+            LIMIT 1""").first()
+    if broken or _names_alike(new):
+        raise ValueError(ACCOUNTS_DONT_FIT)
+
+
+def _names_alike(new) -> bool:
+    """Two accounts', or two exchanges', names alike by the account book's
+    comparison (2.0 spec 5.1), which the NOCASE column, folding ASCII case
+    only, doesn't see."""
+    from backend.services.account import name_key
+
+    with new.connect() as conn:
+        for table in ("accounts", "exchanges"):
+            names = [name for (name,) in conn.exec_driver_sql(f"SELECT name FROM {table}")]
+            if len({name_key(str(name)) for name in names}) != len(names):
+                return True
+    return False
 
 
 def _reason(error: BaseException) -> str:

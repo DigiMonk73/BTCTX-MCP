@@ -29,7 +29,8 @@ The first says the file is the one the release lists (`--ignore-missing`
 leaves out the release's other files, the ones you didn't download); the
 second (the GitHub CLI, signed in) that this repository's release workflow
 built it. If either reports a mismatch, don't open it: download it again
-from the release page.
+from the release page. A 2.0 pre-release's file is
+`BitcoinTX-Preview-macOS.dmg` (or `.zip`), checked the same way.
 
 ## How it works
 
@@ -37,18 +38,20 @@ from the release page.
 BitcoinTX.app
    └─ desktop/entrypoint.py
         ├─ sets DATABASE_FILE=~/Library/Application Support/BitcoinTX/btctx.db
-        │    (or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
+        │    (BitcoinTX Preview: its own BitcoinTX Preview folder, never BitcoinTX's;
+        │    or in BTCTX_DESKTOP_DATA_DIR, for a test run; desktop/desktop_paths.py)
         ├─ sets BTCTX_FRONTEND_DIST to the bundled frontend/dist (bundled app only)
-        ├─ if a BitcoinTX already answers /api/health on 8765: brings it forward
+        ├─ if a BitcoinTX already answers /api/health on 8765 (BitcoinTX Preview:
+        │    8767): brings it forward
         │    (a test run only says so), exits
-        ├─ binds 127.0.0.1:8765 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
+        ├─ binds 127.0.0.1:8765 or 8767 (SO_REUSEADDR, retried up to 10s; desktop/desktop_ports.py)
         ├─ starts Uvicorn (backend.main:app) on that socket in a daemon thread
         ├─ polls http://127.0.0.1:<port>/ until it answers (backoff 0.1s → 1s, 30s timeout)
         └─ opens a pywebview (WebKit) window on that URL
 ```
 
-- **Port:** fixed at `127.0.0.1:8765` so external clients (e.g. the MCP
-  server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
+- **Port:** fixed at `127.0.0.1:8765` (BitcoinTX Preview's: 8767) so
+  external clients (e.g. the MCP server) can find the app. Override with the `BTCTX_DESKTOP_PORT` environment
   variable. The listening socket itself is bound (with `SO_REUSEADDR`, like
   Uvicorn) and passed to Uvicorn, so connections left in TIME_WAIT by the
   previous run don't block it (the v0.9.1 bug: a probe without
@@ -117,11 +120,14 @@ Everything lives in `~/Library/Application Support/BitcoinTX/`:
 | `mcp.json` | The app's address and AI key for the MCP server, mode 600 |
 | `setup-code.txt` | The one-time first-run setup code, mode 600, only while the login is still `admin` / `password` ("First start") |
 | `btc-prices/` | The hourly BTC price history (one `YYYY.csv` per year, about 3 MB), downloaded once from Bitstamp when your price choice allows public price sites, each year checked against a fingerprint; deleting it only means it's downloaded again |
-| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-….db`, newest 5 kept, apart), and the AI copies: those the AI connector's `backup_ledger` asks for, and one before the AI key's first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
+| `backups/` | Copies of `btctx.db` (mode 600): taken automatically before a schema upgrade or a restore (newest 5 kept), before Ledger Review's hourly prices are applied (newest 5 kept, apart), before every transaction is deleted, by Delete All or by Create account on a ledger with transactions (`btctx-before-delete-all-….db`, newest 5 kept, apart), before a change to an earlier tax year you confirmed with **Save anyway** or **Delete anyway** (`btctx-pre-change-past-year-….db`, newest 5 kept, plus, for a week, the first of each day), the copy of a 1.x database made when 2.0 first opened it (`btctx-pre-2.0-from-….db`, never deleted by BitcoinTX: the way back to 1.x, README "Going back to 1.x"), and the AI copies: those the AI connector's `backup_ledger` asks for, one before each change to an earlier tax year it confirms, and one before the AI key's first change in an hour, an edit, a deletion, a recalculation or an import holding an entry dated before the latest entry (newest 3 kept, plus, for a week, the oldest and the first copy of each day made before the AI changed anything that day) |
 
 A new app version upgrades the database schema on first launch (after copying
 it into `backups/`). Opening an older app version on a database a newer one
-already upgraded is refused with an error instead of risking your data.
+already upgraded is refused with an error instead of risking your data: 1.x
+can't open a database 2.0 upgraded, nor restore a 2.0 backup. The way back
+from 2.0 to 1.x, with the copy above, is the README's
+[Going back to 1.x](../README.md#going-back-to-1x).
 
 The desktop app does not hardcode a secret key. `backend/secret_key.py` uses
 `SECRET_KEY` from the environment if set (and not a known public default or
@@ -137,10 +143,40 @@ sqlite3 ~/Library/Application\ Support/BitcoinTX/btctx.db  # inspect
 **Backups:** use the encrypted backup/restore in the app's Settings page, or
 quit the app and copy the whole `BitcoinTX` folder.
 
+### BitcoinTX Preview (a 2.0 alpha or beta)
+
+A build whose `VERSION` is a 2.0 pre-release, an alpha or a beta
+(`2.0.0-alpha.N`, `2.0.0-beta.N`), is another app, **BitcoinTX Preview**
+(`BitcoinTX Preview.app`, bundle id `org.bitcointx.desktop.preview`), the
+same app for every alpha and beta, installed beside BitcoinTX, never in its
+place. It keeps everything in `~/Library/Application Support/BitcoinTX
+Preview/`, logs to `~/Library/Logs/BitcoinTX Preview/`, and answers on
+`127.0.0.1:8767`, so it never opens or upgrades BitcoinTX's ledger, and a
+tester's test ledger carries from one pre-release to the next. The 1.x
+connector never reaches it, nor the pre-release connector
+(`btctx-mcp==2.0.0aN` or `2.0.0bN`) BitcoinTX: each reads its own app's key
+file. It refuses a data folder that is BitcoinTX's, however written
+(another case, a link), and says so. It starts empty: to try your records,
+download a backup in BitcoinTX and restore it in BitcoinTX Preview's
+Settings, which copies the data and leaves BitcoinTX's file as it is. So
+that it can't be taken for BitcoinTX (#670), its icon is BitcoinTX's with
+a red "PREVIEW" band (`desktop/resources/icon-preview.icns`, "App icon"
+below), its executable is `BitcoinTX Preview` too (the name crash reports,
+Console and `ps` show; the Dock, Activity Monitor and Force Quit show the
+app's), a banner above every page names the pre-release ("BitcoinTX
+Preview · 2.0.0-alpha.N: a test version, apart from your BitcoinTX"; on
+StartOS and Docker, where the pre-release is BitcoinTX itself, "a test
+version, not a release"), and its first page says that it starts empty and
+BitcoinTX and its ledger are still there. Its names, icon, folders and port
+come from `desktop/desktop_paths.py` and `desktop_ports.py` (`is_preview()`,
+from `VERSION`), which `BitcoinTX.spec` reads too. To test a pre-release
+build on a Mac where BitcoinTX is installed, run it only through
+`desktop/run-test-build.sh`, as any build ("Testing a build").
+
 ## Building
 
-Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (Vite 8 needs it;
-CI builds with Node 24).
+Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (the frontend's
+build tools need it; CI builds with Node 24).
 
 ```bash
 ./desktop/build-mac.sh
@@ -156,13 +192,16 @@ The script:
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
    pywebview), each package checked against its hash
 3. Builds the frontend (`npm ci && npm run build` in `frontend/`)
-4. Checks `desktop/resources/icon.icns` (warns if missing) and
-   `backend/assets/irs_templates/` (fails if missing)
+4. Checks the icons in `desktop/resources/` (BitcoinTX's `icon.icns`,
+   BitcoinTX Preview's `icon-preview.icns`) and
+   `backend/assets/irs_templates/` (fails if one is missing)
 5. Runs `pyinstaller --clean --noconfirm BitcoinTX.spec`
-6. Creates `desktop/dist/BitcoinTX.dmg` if `create-dmg` is installed
+6. Creates `desktop/dist/BitcoinTX.dmg` (`BitcoinTX-Preview.dmg` for a pre-release) if `create-dmg` is installed
    (`brew install create-dmg`)
 
-Output: `desktop/dist/BitcoinTX.app`.
+Output: `desktop/dist/BitcoinTX.app`, or `BitcoinTX Preview.app` (and
+`BitcoinTX-Preview.dmg`) for a 2.0 alpha or beta. The build empties
+`desktop/dist` first, so it holds only the app just built.
 
 ### Testing a build
 
@@ -172,9 +211,9 @@ run its binary by itself:** either opens the real ledger in
 the installed app out). Run it with the script instead, for every launch:
 
 ```bash
-desktop/run-test-build.sh                    # desktop/dist/BitcoinTX.app
+desktop/run-test-build.sh                    # the one app in desktop/dist
 desktop/run-test-build.sh --app PATH         # another build, e.g. a CI artifact
-desktop/run-test-build.sh --fresh            # start again from an empty folder
+desktop/run-test-build.sh --fresh            # start again with an empty ledger (the price history stays)
 desktop/run-test-build.sh --background       # detached (for an agent's shell)
 ```
 
@@ -182,8 +221,8 @@ It sets `BTCTX_DESKTOP_DATA_DIR` to one test folder (`btctx-test-build` in the
 user's temp folder, or `$BTCTX_TEST_DATA_DIR`) and `BTCTX_DESKTOP_PORT` to
 8766, the same on every launch from any shell, so a reopen or a second
 launch finds the same data. It uses only a folder that is empty or that it
-marked as its own (`.btctx-test-folder`), never the installed app's folder
-however it is spelled; `--fresh` is refused while a test run answers on
+marked as its own (`.btctx-test-folder`), never an installed app's folder
+(BitcoinTX's, or BitcoinTX Preview's) however it is spelled; `--fresh` is refused while a test run answers on
 8766. That folder holds everything the app would keep in Application
 Support (`btctx.db`, the session key, `mcp.json`, `setup-code.txt`,
 `btc-prices/`, `backups/`) and its log
@@ -199,15 +238,16 @@ too.
   prints the folder) is in **the MCP server's own environment**: the MCP
   Inspector's `-e`, or a client's `env` block. Exported in a shell, it may
   not reach the server: the Inspector passes it only through `-e`.
-- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run:
+- **A build from 1.2.8 on calls itself "BitcoinTX Test"** on a test run
+  ("BitcoinTX Preview Test" for a 2.0 pre-release):
   the window title and its messages (a second launch, a busy port) say
   so. The menu bar, the Dock and the page inside the window still say
   BitcoinTX (the first two come from the bundle), and an older build run
   with `--app` says BitcoinTX everywhere. Whatever a message says during a
   test run, act only on the test copy, and leave the installed app alone.
 - **A second launch** on the same port says "BitcoinTX Test is already
-  open" but doesn't bring a window forward: AppleScript would find the
-  installed app by name.
+  open" but doesn't bring a window forward: AppleScript finds the app by
+  its bundle id, which a test build shares with the installed app.
 
 ### Manual build
 
@@ -216,6 +256,7 @@ cd desktop
 python3 -m venv .venv && source .venv/bin/activate
 # then run step 2 of build-mac.sh (the setuptools extraction and the two installs)
 (cd ../frontend && npm ci && npm run build)
+rm -rf dist   # as build-mac.sh does: run-test-build.sh wants one app there
 pyinstaller --clean --noconfirm BitcoinTX.spec
 ```
 
@@ -246,10 +287,12 @@ nothing.
   **When you add a backend module or a dependency, add it here** or the bundled
   app may fail at import time even though dev runs work.
 - **Excludes:** pytest, tkinter, matplotlib, numpy, scipy, pandas.
-- **Bundle:** `org.bitcointx.desktop`, its version typed into
-  `BitcoinTX.spec` (`CFBundleVersion` / `CFBundleShortVersionString`; bump
-  both on release; `backend/tests/test_versions_agree.py` checks they match
-  `VERSION`), minimum macOS 11.0,
+- **Bundle:** `org.bitcointx.desktop` (BitcoinTX Preview's:
+  `org.bitcointx.desktop.preview`; the name, id and icon come from
+  `desktop/desktop_paths.py`), its version typed into `BitcoinTX.spec`
+  (`CFBundleVersion` / `CFBundleShortVersionString`: `VERSION`'s X.Y.Z, so
+  a 2.0.0-beta.N's is 2.0.0, since Apple takes only numbers; bump both on
+  release; `backend/tests/test_versions_agree.py` checks them), minimum macOS 11.0,
   dark mode supported.
 
 ## Using the MCP server with the Mac app
@@ -265,13 +308,14 @@ run of the app; an AI app left open across a restart carries on by itself,
 since the MCP server rereads the file when its key is refused. A restore
 keeps the key in use. It's accepted only from 127.0.0.1, only while AI access is on (off
 until the owner turns it on in Settings), and only on the routes the MCP
-tools use (`AI_KEY_ROUTES`; login, backup/restore, file imports (CSV, River), delete-all, the
+tools use (`AI_KEY_ROUTES`; login, backup/restore, file imports (CSV, River, any exchange's), delete-all, the
 key and switch settings and every other route answer 403). Settings can turn access off or reset the key. The app must be
 running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md).
 
 ## CI
 
-On every pull request, every push to `develop` or `main`, or manually from the Actions tab, `.github/workflows/ci.yml`
+On every pull request, every push to `develop`, `main`, `staging` or `2.0`,
+or manually from the Actions tab, `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
 sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the
 newest in the test matrix, which tests it; Docker and StartOS run 3.13 too. It
@@ -326,6 +370,15 @@ session" banner, another program had port 8765 when it started: quit
 BitcoinTX, close that program (`lsof -nP -iTCP:8765 -sTCP:LISTEN` names it) and
 reopen. The log records each attempt ("Port 8765 unavailable … EADDRINUSE").
 
+**BitcoinTX Preview.** The same, with its own names: its log is
+`~/Library/Logs/BitcoinTX Preview/BitcoinTX.log`, its port is 8767, and it
+runs from Terminal as
+```bash
+"/Applications/BitcoinTX Preview.app/Contents/MacOS/BitcoinTX Preview"
+```
+Its empty ledger is its own, not your BitcoinTX reset: BitcoinTX and its
+ledger are as they were ("BitcoinTX Preview" above).
+
 **Debugging PyInstaller:** `pyinstaller --debug=imports BitcoinTX.spec`.
 
 ## App icon
@@ -341,3 +394,24 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns icon.iconset -o desktop/resources/icon.icns
 ```
+
+Nothing is painted outside its rounded square (#680): a dark Dock or Finder
+window shows through the corners. A new picture with its corners painted
+white gets them cut by `scripts/icon_corners.py`, which rewrites
+`icon.icns`, every size made from its 1024-pixel image:
+
+```bash
+.venv/bin/python scripts/icon_corners.py
+```
+
+BitcoinTX Preview's `desktop/resources/icon-preview.icns` (#670) is checked
+in too: the same icon with a red "PREVIEW" band across its lower part (a
+plain stripe at 16 and 32 pixels, where the word would blur). After a new
+`icon.icns`, make it again on a Mac and commit both:
+
+```bash
+.venv/bin/python scripts/preview_icon.py
+```
+
+`backend/tests/test_preview_look_670.py` checks it is `icon.icns` with the
+band, at every size, and that both icons' corners are transparent.

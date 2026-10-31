@@ -19,27 +19,34 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, object_session
 from starlette.concurrency import run_in_threadpool
 
-from backend.constants import ACCOUNT_ID_TO_NAME, BTC_ACCOUNTS, GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
+from backend.constants import GIFT_LIKE_PURPOSES, INHERITED_SOURCE, VALUED_AT_RECEIPT, normalized
 from backend.database import is_busy, take_write_lock
-from backend.models.transaction import Transaction
+from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
 from backend.schemas.entry_import import (
     AccountBalance,
     AffectedTransaction,
+    CoinLine,
+    CoinsSeen,
     EntryResult,
     EntryRow,
     FromPrice,
+    HeldCoins,
     SimulatedResult,
 )
+from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services import hourly_prices, price_history
+from backend.services.past_year_writes import Rows
+from backend.services.chosen_coins import HELD_HOOK, Held
 from backend.services.tax_time import DateOutOfRange, as_utc, get_tax_timezone, local_date, local_noon_utc
 from backend.services.calculation import get_all_account_balances
 from backend.schemas.transaction import USD_PLACES
@@ -53,6 +60,7 @@ from backend.services.river_import import (
     STATUS_NEW,
     DuplicateRule,
     RiverProposal,
+    account_differences,
     annotate_duplicates,
     is_duplicate,
     match_by_moving,
@@ -62,8 +70,8 @@ from backend.services.transaction import (
     create_transaction_record,
     date_of_death,
     date_of_death_price,
-    ensure_fee_account_exists,
     find_prices_first,
+    holding_period,
     price_used,
     values_from_price,
 )
@@ -86,6 +94,12 @@ WRITABLE_STATUSES = (STATUS_READY, STATUS_POSSIBLE_DUPLICATE)
 # the error's own text (SQL, a path, a date), which the AI would pass on (#204)
 SIMULATION_FAILED = "Unexpected error: the dry run stopped at this row. BitcoinTX's log says what."
 SIMULATION_BUSY = "BitcoinTX was busy saving something else: preview again in a moment."
+# A row leaving a wallet: the acquisitions the preview lists of what the
+# wallet holds (#711, 6.5), so its answer stays small with years of buys
+MOST_HELD = 200
+COINS_NOT_LISTED = ("BitcoinTX can't list this wallet's coins by purchase yet: some were recorded before it kept "
+                    "which purchase coins came from, and the ledger hasn't been recalculated since (Recalculate "
+                    "Ledger, or a save that chooses coins, does it). Until then this row takes the oldest coins.")
 ADD_BUSY = "Not added: BitcoinTX was busy saving something else, and nothing was saved. Try again."
 
 
@@ -96,6 +110,8 @@ class PreparedRow:
     result: EntryResult = None
     day: date | None = None  # given as a date alone: its day in the tax timezone (#253)
     not_a_duplicate_of: int | None = None  # the user said it's another transaction than this one (#253, #378)
+    # The warnings about its accounts (a hidden one, 5.5), which the add passes on too
+    account_warnings: list[str] = field(default_factory=list)
 
 
 # Validation
@@ -135,15 +151,16 @@ def _date_only(raw: str) -> bool:
     return bool(raw) and len(raw) <= 10 and ":" not in raw
 
 
-def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
-    """Echo the validated row back in canonical form."""
+def normalized_view(tx_data: dict[str, Any], book: AccountBook) -> dict[str, str | None]:
+    """Echo the validated row back in canonical form, its accounts by their
+    names now (5.11)."""
     ts: datetime = tx_data["timestamp"]
     view = {
         "date": ts.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "type": tx_data["type"],
         "amount": _dec_str(tx_data["amount"]),
-        "from_account": ACCOUNT_ID_TO_NAME[tx_data["from_account_id"]],
-        "to_account": ACCOUNT_ID_TO_NAME[tx_data["to_account_id"]],
+        "from_account": book.name(tx_data["from_account_id"]),
+        "to_account": book.name(tx_data["to_account_id"]),
     }
     for key in ("cost_basis_usd", "proceeds_usd", "fee_amount", "fmv_usd", "fee_usd"):
         if tx_data.get(key) is not None:
@@ -153,11 +170,16 @@ def normalized_view(tx_data: dict[str, Any]) -> dict[str, str | None]:
             view[key] = tx_data[key]
     if tx_data.get("acquired_at"):
         view["acquired_at"] = tx_data["acquired_at"].isoformat()  # a date (#185)
+    if tx_data.get("chosen_coins"):  # each acquisition's id and BTC, as read (#711)
+        view["chosen_coins"] = "; ".join(f"{line['acquired_txn_id']}: {_dec_str(line['btc'])}"
+                                         for line in tx_data["chosen_coins"])
     return view
 
 
-def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
-    """Validate every row with the CSV importer's rules (dates in tax timezone `tz`)."""
+def validate_rows(rows: list[EntryRow], tz=timezone.utc, book: AccountBook | None = None) -> list[PreparedRow]:
+    """Validate every row with the CSV importer's rules (dates in tax timezone
+    `tz`, accounts in the ledger's `book`; without one, 1.x's accounts)."""
+    book = book or FIXED_BOOK
     prepared: list[PreparedRow] = []
     for i, row in enumerate(rows, start=1):
         str_row = {
@@ -177,8 +199,10 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
         }
         # The tax timezone: a date originally acquired given with a time is
         # its date there (#185); every row's own date is already in UTC
-        tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz)
+        tx_data, _preview, errors, warnings = _validate_row(str_row, i, tz, book)
         error_msgs = [e.message for e in errors]
+        if tx_data is not None and row.chosen_coins:  # the coins the user chose (#711, Q4): the save checks them
+            tx_data["chosen_coins"] = [line.model_dump() for line in row.chosen_coins]
 
         if tx_data is not None and row.fee_usd is not None:
             fee_usd = _parse_decimal(number_text(row.fee_usd), USD_PLACES)
@@ -191,7 +215,7 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             fmv = _parse_decimal(number_text(row.fmv_usd), USD_PLACES)
             if fmv is None:
                 error_msgs.append(f"fmv_usd must be a USD amount with at most {number_limits(USD_PLACES)}.")
-            elif tx_data["type"] == "Withdrawal" and tx_data["from_account_id"] not in BTC_ACCOUNTS:
+            elif tx_data["type"] == "Withdrawal" and not book.is_btc(tx_data["from_account_id"]):
                 warnings.append(dollar_withdrawal_warning(i, "fmv_usd"))  # the save drops it (#449)
             else:
                 tx_data["fmv_usd"] = fmv
@@ -208,23 +232,24 @@ def validate_rows(rows: list[EntryRow], tz=timezone.utc) -> list[PreparedRow]:
             result=result,
             day=local_date(tx_data["timestamp"], tz) if tx_data and _date_only(row.date) else None,
             not_a_duplicate_of=row.not_a_duplicate_of,
+            account_warnings=[w.message for w in warnings if w.column in ("from_account", "to_account")],
         ))
     return prepared
 
 
 # FMV autofill
-def _autofill_target(tx_data: dict[str, Any]) -> str | None:
+def _autofill_target(tx_data: dict[str, Any], book: AccountBook) -> str | None:
     """
     Which USD field (if any) should be filled from the hour's BTC price. Only
-    BTC moves: a deposit into or withdrawal from Bank or Exchange USD is in
-    USD, so its amount times the BTC price means nothing.
+    BTC moves: a deposit into or withdrawal from a dollar account is in USD,
+    so its amount times the BTC price means nothing.
     """
     tx_type = tx_data["type"]
-    if tx_type == "Deposit" and tx_data["to_account_id"] in BTC_ACCOUNTS:
+    if tx_type == "Deposit" and book.is_btc(tx_data["to_account_id"]):
         source = normalized(tx_data.get("source"))
         if source in VALUED_AT_RECEIPT and tx_data.get("cost_basis_usd") is None:
             return "cost_basis_usd"
-    elif tx_type == "Withdrawal" and tx_data["from_account_id"] in BTC_ACCOUNTS:
+    elif tx_type == "Withdrawal" and book.is_btc(tx_data["from_account_id"]):
         purpose = normalized(tx_data.get("purpose"))
         if purpose == "spent" and tx_data.get("proceeds_usd") is None:
             return "proceeds_usd"
@@ -247,10 +272,11 @@ async def autofill_fmv(prepared: list[PreparedRow], db: Session) -> None:
     the row gets a warning.
     """
     price_cache: dict[tuple, hourly_prices.Priced | None] = {}
+    book = account_book(db)
     for p in prepared:
         if p.tx_data is None:
             continue
-        target = _autofill_target(p.tx_data)
+        target = _autofill_target(p.tx_data, book)
         if target is None:
             continue
         # An inheritance is valued on the date of death (#154), anything else at its own time
@@ -306,13 +332,13 @@ def _label(value: str | None) -> str:
     return "" if text == "n/a" else text
 
 
-def _compared(item: RiverProposal | Transaction, name: str) -> str:
+def _compared(item: RiverProposal | Transaction, name: str, book: AccountBook) -> str:
     """A row's or a transaction's source or purpose as the duplicate check
     compares it (_label): a dollar withdrawal's bitcoin purpose (Spent,
     Gift, Donation, Lost) as none, since the save keeps none (#449) and an
     older save may have left one."""
     label = _label(getattr(item, name))
-    if name == "purpose" and item.type == "Withdrawal" and item.from_account_id not in BTC_ACCOUNTS \
+    if name == "purpose" and item.type == "Withdrawal" and not book.is_btc(item.from_account_id) \
             and label in ("spent", *GIFT_LIKE_PURPOSES):
         return ""
     return label
@@ -326,29 +352,21 @@ def _entry_differences(row: RiverProposal, tx: Transaction) -> list[str]:
     fees."""
     if tx.type != row.type:
         return [f"recorded as a {tx.type}, not a {row.type}"]
-    out = _account_differences(row, tx)
+    session = object_session(tx)  # a transaction built outside one (a test's): 1.x's accounts
+    book = account_book(session) if session is not None else FIXED_BOOK
+    # The owner's rule (#522): a payout into Exchange BTC beside one recorded
+    # into Wallet isn't that payout, only similar, though it goes the same way
+    # (river_import._compatible: the same source account or the same
+    # destination, all River's rule asks)
+    out = account_differences(row, tx, book)
     out += [
         f"its {name} is {getattr(tx, name) or 'none'}, not {getattr(row, name) or 'none'}"
         for name in ("source", "purpose")
-        if _compared(tx, name) != _compared(row, name)
+        if _compared(tx, name, book) != _compared(row, name, book)
     ]
     if row.type == "Buy" and row.cost_basis_usd is not None and Decimal(tx.cost_basis_usd or 0) != row.cost_basis_usd:
         out.append(f"its cost basis is ${Decimal(tx.cost_basis_usd or 0):.2f}, not ${Decimal(row.cost_basis_usd):.2f}")
     return out
-
-
-def _account_differences(row: RiverProposal, tx: Transaction) -> list[str]:
-    """The accounts the transaction left or went into that aren't the row's
-    (the owner's rule, #522): a payout into Exchange BTC beside one recorded
-    into Wallet isn't that payout, only similar, though it goes the same way
-    (river_import._compatible: the same source account or the same
-    destination, all River's rule asks)."""
-    sides = (("from", tx.from_account_id, row.from_account_id), ("into", tx.to_account_id, row.to_account_id))
-    return [
-        f"recorded {way} {ACCOUNT_ID_TO_NAME.get(recorded, 'no account')}, not {ACCOUNT_ID_TO_NAME[sent]}"
-        for way, recorded, sent in sides
-        if recorded != sent
-    ]
 
 
 ENTRY_RULE = DuplicateRule(amounts=(same_ledger_amount,), differences=_entry_differences)
@@ -400,7 +418,7 @@ def mark_duplicates(prepared: list[PreparedRow], db: Session, exact_only: bool =
         p.result.matched_transaction_id = stub.matched_tx_id
         if stub.status == STATUS_MATCHED:
             p.result.status = STATUS_DUPLICATE
-            p.result.warnings.append(_duplicate_warning(p, stub.matched_tx_id, p.row in named))
+            p.result.warnings.append(_duplicate_warning(p, stub.matched_tx_id, p.row in named, account_book(db)))
         else:
             p.result.status = STATUS_POSSIBLE_DUPLICATE
             p.result.warnings.append(f"{stub.discrepancy}. Saved unless you remove it.")
@@ -415,9 +433,10 @@ def _named(valid: list[PreparedRow], stubs: list[RiverProposal], db: Session) ->
         return {}
     txs = {tx.id: tx for tx in db.query(Transaction).filter(Transaction.id.in_(ids))}
     tz = get_tax_timezone(db) if any(p.day for p in valid) else timezone.utc
+    book = account_book(db)
     return {
         p.row: txs[p.not_a_duplicate_of] for p, stub in zip(valid, stubs)
-        if p.not_a_duplicate_of in txs and is_duplicate(stub, txs[p.not_a_duplicate_of], ENTRY_RULE, tz)
+        if p.not_a_duplicate_of in txs and is_duplicate(stub, txs[p.not_a_duplicate_of], ENTRY_RULE, tz, book)
     }
 
 
@@ -449,6 +468,7 @@ def _unclear(
     if not named or len(named) == len(valid):
         return {}
     tz = get_tax_timezone(db) if any(p.day for p in valid) else timezone.utc
+    book = account_book(db)
     plain: dict[tuple, list[tuple[PreparedRow, RiverProposal]]] = {}  # by type, amount and minute or day
     for p, stub in zip(valid, stubs):
         if p.row not in named:
@@ -458,7 +478,7 @@ def _unclear(
         if p.row in named:
             tx = named[p.row]
             beside = [q for by_day in (False, True) for q, qs in plain.get(_moment_key(stub, tx.timestamp, by_day, tz), [])
-                      if is_duplicate(qs, tx, ENTRY_RULE, tz)]
+                      if is_duplicate(qs, tx, ENTRY_RULE, tz, book)]
             if beside:
                 unclear[p.row] = sorted(q.row for q in beside)
     return unclear
@@ -523,13 +543,13 @@ def refusal(results: list[EntryResult]) -> HTTPException:
     return HTTPException(status_code=400, detail=detail.rstrip(".") + ". No transactions were saved.")
 
 
-def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool) -> str:
+def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool, book: AccountBook) -> str:
     if again:
         return (f"Already recorded as tx #{tx_id}, besides tx #{p.not_a_duplicate_of} the user said it isn't: left "
                 f"out (the same request sent twice, or another copy of this payout in the ledger).")
     # A dollar row's amount is dollars, as the similar-row note says it (#525)
     tx = p.tx_data
-    unit = "dollar" if _amount_currency(tx["type"], tx["from_account_id"], tx["to_account_id"]) == "USD" else "BTC"
+    unit = "dollar" if _amount_currency(tx["type"], tx["from_account_id"], tx["to_account_id"], book) == "USD" else "BTC"
     warning = (f"Already recorded as tx #{tx_id} (the same type, accounts, {unit} amount, source or purpose, a "
                f"Buy's cost basis, and time): left out. If the user says it's another transaction, send it with "
                f"not_a_duplicate_of: {tx_id}.")
@@ -579,8 +599,6 @@ def simulate(
     years: dict = {}
     hourly_prices.read_year_files((p.tx_data["timestamp"] for p in ordered), years)
 
-    # May commit (only if the fee account is missing) — do it before the dry run.
-    ensure_fee_account_exists(db)
     return hourly_prices.with_prices_found(db, lambda: _dry_run(ordered, db, years))
 
 
@@ -588,13 +606,18 @@ def _dry_run(
     ordered: list[PreparedRow], db: Session, years: dict
 ) -> tuple[list[AffectedTransaction], list[AccountBalance]]:
     find_prices_first(db, [p.tx_data for p in ordered])  # before the first row is written (#426)
+    book = account_book(db)
+    from_a_wallet = any(_leaves_a_wallet(p.tx_data["type"], p.tx_data["from_account_id"],
+                                         p.tx_data["to_account_id"], book) for p in ordered)
     before = _gain_snapshot(db)
+    held = _listen_for_coins_held(db) if from_a_wallet else {}
     try:
         created, failed_at = _create_until_refused(ordered, db)
         if failed_at is None:
             db.flush()
         else:
             _mark_not_simulated(ordered[failed_at + 1:])
+        rows_of = {tx.id: p.row for p, tx in created}
         for p, tx in created:
             p.result.simulated = SimulatedResult(
                 cost_basis_usd=tx.cost_basis_usd,
@@ -605,12 +628,101 @@ def _dry_run(
                 fmv_usd=tx.fmv_usd,
                 fee_usd=tx.fee_usd if (tx.fee_currency or "").upper() == "BTC" else None,
                 from_price=from_price(tx, db, years),
+                coins=_coins_seen(p, tx, held.get(tx.id), rows_of, db),
             )
         if failed_at is not None:
             return [], []
         return _affected(before, db), _balances(db)
     finally:
+        db.info.pop(HELD_HOOK, None)
         db.rollback()
+
+
+def _leaves_a_wallet(kind: str, from_id: int, to_id: int, book: AccountBook) -> bool:
+    """A Transfer to another account, or a Withdrawal, from one of the user's
+    wallets: the rows whose coins can be chosen (#711, 2.2). An exchange's
+    coins leave oldest first (#711's call (g))."""
+    leaves = kind == "Withdrawal" or (kind == "Transfer" and to_id != from_id)
+    return leaves and book.kind(from_id) == "wallet"
+
+
+def _listen_for_coins_held(db: Session) -> dict[int, list[Held]]:
+    """What a new row's account holds before it takes any (#711): the engine
+    hands it over on every path, a replay's included, so the last word for a
+    row is the ledger as the save leaves it (a backdated row, or one
+    choosing coins while a lot doesn't know its acquisition, replays: call
+    (j); every row of the request is handed over again then). Only the rows
+    this dry run creates are kept (ids past the ledger's newest): a replay
+    hands over every transaction's."""
+    held: dict[int, list[Held]] = {}
+    newest = db.query(func.max(Transaction.id)).scalar() or 0
+
+    def heard(tx: Transaction, lines: list[Held]) -> None:
+        if tx.id > newest:
+            held[tx.id] = lines
+
+    db.info[HELD_HOOK] = heard
+    return held
+
+
+def _coins_seen(p: PreparedRow, tx: Transaction, held: list[Held] | None, rows_of: dict[int, int],
+                db: Session) -> CoinsSeen | None:
+    """A row leaving one of the user's wallets: the coins it takes and those
+    the wallet held before it took any, so the AI can show the user the
+    purchases they say they sent coins from (#711, Q4). None for any other
+    row, and for one whose wallet holds lots that don't know their
+    acquisition (made before migration 0101, with nothing replayed since):
+    they'd be listed as one, dated as the first, so the row says why."""
+    book = account_book(db)
+    if held is None or not _leaves_a_wallet(tx.type, tx.from_account_id, tx.to_account_id, book):
+        return None
+    if any(h.acquired_txn_id is None for h in held):
+        if COINS_NOT_LISTED not in p.result.warnings:  # a dry run made again keeps the row's result
+            p.result.warnings.append(COINS_NOT_LISTED)
+        return None
+    tz = get_tax_timezone(db)
+    named = [h.acquired_txn_id for h in held[:MOST_HELD] if h.acquired_txn_id is not None]
+    acquired_by = {t.id: t for t in db.query(Transaction).filter(Transaction.id.in_(named))}
+    return CoinsSeen(
+        takes=[CoinLine(**_by_id_or_row(acquired, rows_of), btc=btc) for acquired, btc in _taken(tx, db).items()],
+        held=[_held_line(h, tx, acquired_by.get(h.acquired_txn_id), rows_of, tz, book) for h in held[:MOST_HELD]],
+        held_not_listed=max(0, len(held) - MOST_HELD),
+    )
+
+
+def _taken(tx: Transaction, db: Session) -> dict[int | None, Decimal]:
+    """The BTC a transaction took, by acquisition, in the order taken: its
+    disposals (a network fee's, a spend's or a gift's) and, for a Transfer,
+    the lots it put in its To account."""
+    taken: dict[int | None, Decimal] = {}
+    pieces = [(d.lot.acquired_txn_id, d.disposed_btc) for d in
+              db.query(LotDisposal).filter(LotDisposal.transaction_id == tx.id).order_by(LotDisposal.id)]
+    if tx.type == "Transfer":
+        pieces += [(lot.acquired_txn_id, lot.total_btc) for lot in
+                   db.query(BitcoinLot).filter(BitcoinLot.created_txn_id == tx.id).order_by(BitcoinLot.id)]
+    for acquired, btc in pieces:
+        taken[acquired] = taken.get(acquired, Decimal(0)) + Decimal(btc)
+    return taken
+
+
+def _by_id_or_row(acquired: int | None, rows_of: dict[int, int]) -> dict:
+    """A row of this request has no id the AI can name yet: its row number instead."""
+    return {"row": rows_of[acquired]} if acquired in rows_of else {"acquired_txn_id": acquired}
+
+
+def _held_line(h: Held, tx: Transaction, acquired_by: Transaction | None, rows_of: dict[int, int], tz,
+               book: AccountBook) -> HeldCoins:
+    how = None
+    if acquired_by is not None:
+        source = f" ({acquired_by.source})" if acquired_by.type == "Deposit" and acquired_by.source else ""
+        how = (f"a {acquired_by.type}{source} of {local_date(acquired_by.timestamp, tz).isoformat()} into "
+               f"{book.name(acquired_by.to_account_id)}")
+    return HeldCoins(
+        **_by_id_or_row(h.acquired_txn_id, rows_of), btc=h.btc, how=how, cost_usd=h.cost_usd,
+        acquired="INHERITED" if h.inherited else local_date(h.acquired, tz).isoformat(),
+        # Inherited coins are long-term whenever they leave (IRC §1223(9))
+        term="LONG" if h.inherited else holding_period(h.acquired, tx.timestamp, tz),
+    )
 
 
 def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromPrice | None:
@@ -621,7 +733,7 @@ def from_price(tx: Transaction, db: Session, years: dict | None = None) -> FromP
     the AI connector (#208): its preview and add answers say which hour and
     source each came from. None when every value was given.
     """
-    values = values_from_price(tx)
+    values = values_from_price(tx, account_book(db))
     return FromPrice(values=values, **(price_used(tx, db, years) or {})) if values else None
 
 
@@ -714,7 +826,6 @@ def write_rows(
     """
     if not any(p.result.status in WRITABLE_STATUSES for p in prepared if p.tx_data is not None):
         return []
-    ensure_fee_account_exists(db)  # it may commit: before the lock
     unchecked = [p.result.model_copy(deep=True) for p in prepared]
 
     def check_and_write() -> list[tuple[PreparedRow, Transaction]]:
@@ -738,19 +849,52 @@ def write_rows(
 
 
 def _write_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
-    created: list[tuple[PreparedRow, Transaction]] = []
     try:
-        for p in ordered:
-            try:
-                tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
-            except HTTPException as exc:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
-                )
-            created.append((p, tx))
+        created = _create_in_order(ordered, db)
         db.commit()
     except Exception:
         db.rollback()
         raise
     return created
+
+
+def _create_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[PreparedRow, Transaction]]:
+    """Each row created in turn, uncommitted; 400 naming the first refused."""
+    created: list[tuple[PreparedRow, Transaction]] = []
+    for p in ordered:
+        try:
+            tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
+        except HTTPException as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
+            )
+        created.append((p, tx))
+    return created
+
+
+# Through the past-year warning (2.0 spec 5.8)
+def past_year_write(
+    prepared: list[PreparedRow], save_them: Callable[[Session], Any],
+) -> Rows:
+    """
+    The rows as one write through the past-year warning: one confirm for
+    the batch. Each pass and the confirmed save check them for duplicates
+    and write them as write_rows does (the double-submit guard, exact_only),
+    on copies of the rows as they are now, so the fingerprint takes them as
+    given; the confirmed save does so under the write lock it holds (#504).
+    `save_them` is the add as it always saved. Each pass returns the rows
+    created with their transactions, and the rows as checked.
+    """
+    taken = [replace(p, result=p.result.model_copy(deep=True)) for p in prepared]
+
+    def write_them(db: Session) -> tuple[list[tuple[PreparedRow, Transaction]], list[PreparedRow]]:
+        checked = [replace(p, result=p.result.model_copy(deep=True)) for p in taken]
+        mark_duplicates(checked, db, exact_only=True)
+        return _create_in_order(_chronological(checked), db), checked
+
+    def kept(db: Session) -> list[dict]:
+        return [p.tx_data for p in writable_now(taken, db)]
+
+    rows = tuple(p.tx_data for p in taken if p.tx_data is not None)
+    return Rows(rows, kept, write_them, save_them, named=[p.not_a_duplicate_of for p in taken])

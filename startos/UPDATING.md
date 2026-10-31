@@ -13,8 +13,13 @@ The upstream is the BitcoinTX app, released from DigiMonk73/BTCTX-MCP as
 `vX.Y.Z` together with its image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z`:
 
 ```sh
-gh release view -R DigiMonk73/BTCTX-MCP --json tagName -q .tagName
+gh release list -R DigiMonk73/BTCTX-MCP --exclude-pre-releases --limit 5
 ```
+
+Take the newest `vX.Y.Z` from the list, not GitHub's "Latest" (Start9's
+`maintaining-a-package.md`, "Skip prereleases, and don't trust
+'Latest'"): never a pre-release (`vX.Y.Z-alpha.N`, `-beta.N`), and a
+`vX.Y.Z-N` is a package-only revision of app `X.Y.Z`.
 
 The current pin is `images.main.source.dockerTag` in
 `startos/manifest/index.ts` (`ghcr.io/digimonk73/btctx-mcp:v<version>`).
@@ -32,16 +37,19 @@ as a pull request from DigiMonk73/BTCTX-StartOS. By hand:
 
 ## Releasing a new version
 
-Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull request;
-`main` holds released code only and moves by fast-forwarding to `develop`.
+Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `staging` by
+pull request, and `develop` takes it in a daily merge; `main` holds released
+code only and moves by fast-forwarding to `develop`.
 
-1. In a pull request into `develop`, bump the version everywhere it is
-   written (the tests fail until all agree):
+1. In a pull request straight into `develop`, like an urgent fix, opened
+   after a daily merge so it carries what `staging` held, bump the version
+   everywhere it is written (the tests fail until all agree; a minor bump
+   when a new tax year's forms are added):
    - `VERSION` and the two `CFBundle…Version` values in `desktop/BitcoinTX.spec`
    - `version` in `mcp_server/pyproject.toml` (the AI connector)
    - `dockerTag` in `startos/startos/manifest/index.ts`:
      `ghcr.io/digimonk73/btctx-mcp:v<VERSION>`
-   - the package version (next section)
+   - the package version ("The package version", below)
 
    In the same pull request, run `make prices` (online): it adds the hourly
    price history's new hours to `backend/assets/btc_prices/MANIFEST.csv`,
@@ -49,7 +57,9 @@ Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull r
    release refuses a history that ends more than 14 days before it.
 2. Move the `## [Unreleased]` section of `docs/CHANGELOG.md` to
    `## [vX.Y.Z] - <date> - <summary>`, and remove the ticked items from
-   `docs/ROADMAP.md` (the CHANGELOG has them now).
+   `docs/ROADMAP.md` (the CHANGELOG has them now). The release notes in
+   `current.ts` repeat each `tax-figures` fix: what was wrong, which tax
+   years, what to do.
 3. Once it has merged, wait for CI on `develop`. Run the agent release tests
    (`docs/AGENT-TESTS.md`) on that commit's CI artifacts; a blocker FAIL
    stops the release. Meanwhile, the docs check (BTCTX-MCP's `AGENTS.md`,
@@ -66,14 +76,25 @@ Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by pull r
    (titled `vX.Y.Z · StartOS package X.Y.Z:N`, the version StartOS and the
    mirror show) and their `SHA256SUMS`, with a GitHub build provenance
    attestation of each (`gh attestation verify <file> -R DigiMonk73/BTCTX-MCP`),
-   publishes the AI connector to PyPI (`btctx-mcp==X.Y.Z`,
-   not for `-N` revisions), and pushes `startos/` to BTCTX-StartOS's `main`
+   publishes the AI connector to PyPI (`btctx-mcp==X.Y.Z`, by trusted
+   publishing through the GitHub environment `pypi`, no token; not for
+   `-N` revisions), and pushes `startos/` to BTCTX-StartOS's `main`
    (when `MIRROR_TOKEN` exists). There, Start9's **Tag and Release** workflow
    tags it `v<upstream>_<revision>` and creates the release with its own
    build (it needs `DEV_KEY` and `REFERENCE_REGISTRY`, below). Delete the
    `release/…` branch afterwards.
 5. Once Start9 has forked the mirror: open a pull request from
    DigiMonk73/BTCTX-StartOS `main` to their fork (below).
+6. Check the landing page (BTCTX-MCP's `AGENTS.md`, "Releasing", step 5).
+
+Between releases, a change to `startos/` that is docs only (its root-level
+`*.md`) reaches the mirror at once, when everything on `develop` not yet on
+`main` is docs, tests or tooling: fast-forward `main` and run
+`scripts/sync-startos-mirror.sh --push` (BTCTX-MCP's `AGENTS.md`,
+"Branches" and "Releasing"). Once Start9 has forked the mirror, such a sync
+also needs its pull request to their fork (or rides in one of ours still
+open), or Start9 never gets it. Anything else in `startos/` waits for a
+release, except a change Start9's review asks for (below).
 
 ## After Start9 forks the mirror
 
@@ -82,10 +103,10 @@ their fork is the package's upstream for the registry. They change it too:
 template updates about monthly (their `syncNext` workflow keeps a `next`
 branch), SDK bumps and review fixes, by pull requests on their fork.
 
-- **Before each sync, take their changes:** on a branch cut from `develop`,
+- **Before each sync, take their changes:** on a branch cut from `staging`,
   run `scripts/start9-pull.sh` to see what they changed since they last took
   ours, then `scripts/start9-pull.sh --apply`, review, run the checks,
-  commit and open a pull request into `develop`. If what they changed moves
+  commit and open a pull request into `staging`. If what they changed moves
   a sibling in `package-lock.json`, save the bundle's list of sibling
   modules before `--apply` and compare it after ("Bumping the SDK", step 2).
   `--apply` also records their commit in BTCTX-MCP's `scripts/start9-taken`;
@@ -154,7 +175,7 @@ its release notes (what StartOS shows before updating) and its migration.
 - **Revision only** (package change, same app, once the community registry
   serves the current version; below): bump the number after the
   `:`, moving the old `current.ts` to its own file first in the same way if
-  its `up` does real work (1.2.9:0's does), or installs already on it would
+  its `up` does real work (1.2.9:0's did: `v1.2.9_0.ts`), or installs already on it would
   run it again.
 - `down` is always `IMPOSSIBLE`: an older BitcoinTX refuses a database a newer
   one has migrated.
@@ -194,7 +215,9 @@ Start9 moves fast (on 2026-10-23 alone: StartOS 0.4.0.3, start-cli 2.5.0 and
 start-registry 1.2.0), and their reviewers hold the
 package to their current guide and SDK. So BTCTX-MCP watches them daily
 (BTCTX-MCP's `.github/workflows/start9-watch.yml` and `scripts/start9-watch.sh`; the owner,
-2026-10-23): one issue, labelled `start9`, for each newer start-sdk or
+2026-10-23; GitHub runs the schedule only from `main`, so until `main`
+carries the workflow, the script is run by hand at the start of each day's
+work: BTCTX-MCP's `AGENTS.md`, "Starting a session"): one issue, labelled `start9`, for each newer start-sdk or
 start-cli than `develop` pins, each StartOS release (test the package on it,
 the lab VM first), each start-registry release (check our start-cli still
 reads the registries), each day Start9's packaging guide or shared package
@@ -264,8 +287,9 @@ BTCTX-MCP's `scripts/start9-watch.sh` opens an issue when npm has a newer
 
 ## Building locally
 
-Needs Docker 28.1 or later (Start9's guide, `environment-setup.md`; start-cli
-takes the image with Docker's `image save --platform`), with the containerd
+Needs Docker with Engine API 1.48 or later (Start9's guide,
+`environment-setup.md`; start-cli takes the image with Docker's
+`image save --platform`), with the containerd
 image store for multi-arch images, `jq`, Node 24 and
 [start-cli](https://docs.start9.com/packaging/environment-setup.html): the
 release `START_CLI_VERSION` names in BTCTX-MCP's `.github/workflows/ci.yml`.

@@ -1,6 +1,6 @@
 // River CSV import (preview statuses, edits, execute, re-import) and the
 // generic CSV import (template, instructions, empty-database import).
-import { test, expect, createTx, listTx, acceptDialogs, seedFunds } from "./fixtures";
+import { test, expect, createTx, listTx, acceptDialogs, seedFunds, openSection, SAVE_ANYWAY } from "./fixtures";
 import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -18,15 +18,30 @@ const RIVER_ROWS = [
 const RIVER_CSV = [RIVER_HEADER, ...RIVER_ROWS].join("\n") + "\n";
 
 function river(page: Page) {
-  return page.getByRole("region", { name: "Import from River" });
+  return page.getByRole("region", { name: "Import from an exchange" });
 }
 
 function riverRow(page: Page, n: number) {
   return river(page).getByRole("row").filter({ has: page.getByLabel(`Include row ${n}`) });
 }
 
+/**
+ * Click River's Import of `count` rows. Once these rows' year is a past tax
+ * year (from 1 January after they were written), the import asks first
+ * (2.0 spec 5.8, #353): its dialog is confirmed, so the test doesn't change
+ * on its own each year.
+ */
+async function importRiver(page: Page, count: number) {
+  await river(page).getByRole("button", { name: `Import ${count} Transaction(s)` }).click();
+  const saveAnyway = page.getByRole("button", { name: SAVE_ANYWAY });
+  const imported = page.getByText(new RegExp(`Imported ${count} transaction`, "i"));
+  await expect.poll(async () => (await saveAnyway.isVisible()) || (await imported.isVisible())).toBe(true);
+  if (await saveAnyway.isVisible()) await saveAnyway.click();
+}
+
 async function previewRiver(page: Page) {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "river.csv", mimeType: "text/csv", buffer: Buffer.from(RIVER_CSV),
@@ -80,7 +95,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
   await r.getByLabel("Include row 3").uncheck();
 
   const dialogs = acceptDialogs(page);
-  await r.getByRole("button", { name: "Import 3 Transaction(s)" }).click();
+  await importRiver(page, 3);
   await expect(page.getByText(/Imported 3/i)).toBeVisible();
   expect(dialogs).toEqual(["Import 3 transaction(s) from River into your ledger?"]);
 
@@ -112,7 +127,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
   await expect(r.getByLabel("Include row 2")).toBeChecked();
   await expect(r.getByLabel("Include row 4")).toHaveCount(0);
   for (const n of [3, 5]) await r.getByLabel(`Include row ${n}`).uncheck();
-  await r.getByRole("button", { name: "Import 1 Transaction(s)" }).click();
+  await importRiver(page, 1);
   await expect(page.getByText(/Imported 1/i)).toBeVisible();
   const after = await listTx(page.request);
   expect(after).toHaveLength(before + 4);
@@ -121,6 +136,7 @@ test("River import: preview statuses, edits, execute, re-import; a ticked duplic
 
 test("River import rejects a file that isn't a River export", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Import from an exchange");
   const r = river(page);
   await r.getByLabel("River CSV file").setInputFiles({
     name: "other.csv", mimeType: "text/csv", buffer: Buffer.from("date,type,amount\n2026-01-01,Buy,1\n"),
@@ -159,6 +175,7 @@ async function download(page: Page, button: string) {
 
 test("CSV import: template and instructions download; the template imports into an empty ledger", async ({ authedPage: page }) => {
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Data Management");
   const tpl = await download(page, "Template");
   expect(tpl.name).toBe("btctx_import_template.csv");
   const template = readFileSync(tpl.file, "utf8");
@@ -190,6 +207,7 @@ test("CSV import: template and instructions download; the template imports into 
 test("CSV import refuses a ledger that already has transactions", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Data Management");
   const tpl = await download(page, "Template");
   await data(page).getByLabel("CSV file to import").setInputFiles({
     name: "import.csv", mimeType: "text/csv", buffer: readFileSync(tpl.file),

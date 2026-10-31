@@ -32,8 +32,8 @@ cleanup commit, never inside a behaviour change.
    commented-out code.
 7. **One idiom for each thing**:
    - Type hints: `list[str]`, `dict[str, Any]`, `X | None` (ruff `UP`).
-   - Money: `Decimal`, with a named constant per precision (`CENT`, `SATS`)
-     rather than repeated `Decimal("0.01")`.
+   - Money: `Decimal`, with a named constant per precision (`CENT`, `SAT`:
+     `services/calculation.py`) rather than repeated `Decimal("0.01")`.
    - Errors: `HTTPException` with the exact user-facing text; the tests, the
      frontend and the MCP guide match on it.
    - `except`: the narrowest exception the code expects.
@@ -43,6 +43,16 @@ cleanup commit, never inside a behaviour change.
    - SQLite's write lock: taken with `database.take_write_lock`, and "the
      database is locked" recognised with `database.is_busy` (#402), never
      a copy of their lines.
+   - An account: asked of the account book (`services/account.py`; the
+     frontend's `src/utils/accounts.ts`: `accountKind`, `isBtcAccount`…),
+     never compared with the first accounts' ids 1 to 4, which a ledger
+     may have renamed, hidden or joined by others (ESLint's
+     `no-restricted-syntax`, `test_no_account_checked_by_number.py`).
+     External (99) and the fee accounts (5, 6) stay fixed ids.
+   - A write that can change an earlier tax year: through
+     `past_years.save`, the past-year warning (AGENTS.md).
+   - Text: "multiple wallets, exchanges or accounts", never "several"
+     (`test_disclaimer.py`).
    - Logs: no amounts, dates or addresses at INFO or above
      (`test_privacy.py`); no DEBUG line that only echoes a function's input
      or every row.
@@ -59,8 +69,11 @@ cleanup commit, never inside a behaviour change.
    `htmlFor`/`id`, role and `aria-label` is part of the interface; so are the
    ids and classes other components or tests use (`#transaction-form`,
    `#trigger-form-delete`, `#csv-file-input`, `.settings-option`…).
-4. CSS only from `src/styles/theme.css` and `components.css`, and only what
-   Safari 15 supports (the Mac app's WebKit).
+4. Design tokens and the shared styles (buttons, inputs, cards, badges…)
+   only from `src/styles/theme.css` and `components.css`; a page's own
+   stylesheet only lays them out, never restyles them. Only what Safari 15
+   supports (the Mac app's WebKit: `styles/safari15.test.ts`, and Vite's
+   build target).
 5. Limits: complexity 15 per function, 400 lines per file.
 
 ## Changing code without changing behaviour
@@ -80,11 +93,15 @@ moves these breaks or silently weakens a test):
   price: `conftest.stub_daily_prices`), the routers' `parse_csv_file`,
   `execute_import` and `annotate_duplicates`, `river_import._nearby` (the
   whole ledger instead, the duplicate check's reference),
-  `login_throttle._now` (the throttle's clock), the login route's
-  `get_user_by_username` (in `main`), `User.verify_password` and
+  `login_throttle._now` (the throttle's clock), `tax_time.current_tax_year`
+  ("this tax year", pinned to 2009 for every test: `conftest.py`), the
+  login route's `get_user_by_username` (in `main`), `User.verify_password` and
   `first_run.check_code` (tries held there, in flight together),
   `secret_key.app_secret_key` (another install's key, for the device
-  cookie) and `migrate._second` (the second a copy is named for). Callers keep calling the module names
+  cookie), `migrate._second` (the second a copy is named for), and the
+  past-year warning's `past_years.scratch_copy` (a dry run made to fail)
+  and `past_years.DRY_RUN_SECONDS` (its time limit). Others replace more
+  (`grep -rn setattr backend/tests` lists every one). Callers keep calling the module names
   (`hourly_prices.price_at(...)`, never a name imported from it), and
   those handlers stay plain `def` (a test checks imports don't block the
   server).

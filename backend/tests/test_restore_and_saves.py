@@ -11,6 +11,7 @@ Real restores over a database of their own (test_restore_checks.py's
 `live`).
 """
 
+import json
 import sqlite3
 import sys
 import threading
@@ -329,3 +330,113 @@ def test_only_a_save_the_swap_refused_says_so(name, answer, request, caplog):
 
     assert (r.status_code, r.json()["detail"]) == answer
     assert ("not saved: a restore replaced the database" in caplog.text) == (answer[0] == 503)
+
+
+# The last account id given (accounts_last_id, 2.0 spec 5.1, 5.11): a
+# restore keeps the higher of this install's and the backup's, so an id
+# handed out here, even while the restore ran, is never handed out again
+LAST_ID = "SELECT value FROM app_settings WHERE key = 'accounts_last_id'"
+
+
+def _last_id(live):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        return con.execute(LAST_ID).fetchall()
+
+
+def _add_wallet(client, name):
+    r = client.post("/api/accounts/", json={"kind": "wallet", "name": name})
+    assert r.status_code == 201, r.text
+    return r.json()[0]["id"]
+
+
+def test_a_restore_keeps_an_id_given_here_before_it(live, tmp_path):  # noqa: F811
+    blob, _ = _backup(tmp_path)
+    assert _add_wallet(live.client, "Jade") == 100  # not in the backup
+    assert _restore(live.client, blob).status_code == 200
+    assert _last_id(live) == [("100",)]
+    assert _add_wallet(_browser(), "Coldcard") == 101
+
+
+def test_a_restore_keeps_a_backups_higher_last_id(live, tmp_path):  # noqa: F811
+    _add_wallet(live.client, "Jade")
+    blob, _ = _backup(tmp_path, "INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', '150')")
+    assert _restore(live.client, blob).status_code == 200
+    assert _last_id(live) == [("150",)]
+
+
+@pytest.mark.parametrize("stored", ["'\u00b2'", "'9223372036854775807'", "X'313530'", "X'FF'"])
+def test_a_backups_last_id_that_isnt_one_is_ignored(live, tmp_path, stored):  # noqa: F811
+    _add_wallet(live.client, "Jade")
+    blob, _ = _backup(tmp_path, f"INSERT INTO app_settings (key, value) VALUES ('accounts_last_id', {stored})")
+    assert _restore(live.client, blob).status_code == 200
+    assert _last_id(live) == [("100",)]
+    assert _add_wallet(_browser(), "Coldcard") == 101
+
+
+def test_an_id_given_while_a_restore_runs_isnt_given_again(live, tmp_path, monkeypatch):  # noqa: F811
+    other, given = _browser(), []
+    blob, _ = _backup(tmp_path)
+    _once_rebuilt(monkeypatch, lambda: given.append(_add_wallet(other, "Jade")))
+    assert _restore(live.client, blob).status_code == 200
+    assert given == [100] and _last_id(live) == [("100",)]
+    assert _add_wallet(_browser(), "Coldcard") == 101
+
+
+# The rows from before 0.9.2 (accounts_old_rows, 2.0 spec 5.13, 5.11): a
+# restore takes the backup's list, which names the backup's own rows; a 1.x
+# backup has none, and the start after the restore writes it from its rows
+OLD_ROWS = "SELECT value FROM app_settings WHERE key = 'accounts_old_rows'"
+
+
+def _old_rows(live):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        return con.execute(OLD_ROWS).fetchall()
+
+
+def test_a_restore_takes_a_2_0_backups_list_of_old_rows(live, tmp_path):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        con.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('accounts_old_rows', '[1, 2]')")
+        con.commit()
+    blob, _ = _backup(tmp_path, "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('accounts_old_rows', '[42]')")
+    assert _restore(live.client, blob).status_code == 200
+    assert _old_rows(live) == [("[42]",)]
+
+
+def test_a_restore_of_a_1x_backup_lists_its_own_old_rows(live, tmp_path):  # noqa: F811
+    blob, _ = _backup(
+        tmp_path,
+        "DELETE FROM app_settings WHERE key = 'accounts_old_rows'",
+        "INSERT INTO accounts (id, user_id, name, currency, kind, hidden) VALUES (7, 1, 'cold2', 'BTC', 'wallet', 0)",
+        "UPDATE transactions SET to_account_id = 7 WHERE type = 'Buy'",  # rows naming 7, as only 1.x saved
+    )
+    assert _restore(live.client, blob).status_code == 200
+    with closing(sqlite3.connect(live.path)) as con:
+        naming_7 = [i for (i,) in con.execute("SELECT id FROM transactions WHERE to_account_id = 7 ORDER BY id")]
+    assert naming_7 and _old_rows(live) == [(json.dumps(naming_7),)]
+
+
+# Which BitcoinTX last recalculated the ledger (recalculated_by, 2.0 spec
+# 5.8, 5.11): a restore takes the backup's, which describes the figures that
+# come with it; a 1.x backup has none, so the next covered write takes both
+# passes of the past-year warning's dry run
+RECALCULATED_BY = "SELECT value FROM app_settings WHERE key = 'recalculated_by'"
+
+
+def _recalculated_by(live):  # noqa: F811
+    with closing(sqlite3.connect(live.path)) as con:
+        return con.execute(RECALCULATED_BY).fetchall()
+
+
+def test_a_restore_takes_a_2_0_backups_recalculated_by(live, tmp_path):  # noqa: F811
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+    assert _recalculated_by(live)  # this install's
+    blob, _ = _backup(tmp_path, "INSERT INTO app_settings (key, value) VALUES ('recalculated_by', '2.0.0 0101 UTC')")
+    assert _restore(live.client, blob).status_code == 200
+    assert _recalculated_by(live) == [("2.0.0 0101 UTC",)]
+
+
+def test_a_restore_of_a_1x_backup_leaves_none(live, tmp_path):  # noqa: F811
+    assert live.client.post("/api/transactions/recalculate").status_code == 200
+    blob, _ = _backup(tmp_path, "DELETE FROM app_settings WHERE key = 'recalculated_by'")
+    assert _restore(live.client, blob).status_code == 200
+    assert _recalculated_by(live) == []

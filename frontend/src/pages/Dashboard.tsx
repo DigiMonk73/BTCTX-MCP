@@ -3,20 +3,19 @@ import api from "../api";
 import BtcPriceCard from "../components/dashboard/BtcPriceCard";
 import HistoryQuestionCard from "../components/dashboard/HistoryQuestionCard";
 import IncomeFeesCard from "../components/dashboard/IncomeFeesCard";
+import LoadingCard from "../components/dashboard/LoadingCard";
 import PriceSourceCard from "../components/priceCard/PriceSourceCard";
 import { PRICE_CHOICE_SAVED } from "../components/priceCard/usePriceCard";
 import PortfolioOverview from "../components/dashboard/PortfolioOverview";
 import RealizedGainsCard from "../components/dashboard/RealizedGainsCard";
-import { NO_TOTALS, accountTotals, type AccountTotals } from "../utils/dashboard";
 import { useLivePrice } from "../components/dashboard/useLivePrice";
 import { parseGainsAndLosses } from "../utils/format";
 import "../styles/dashboard.css";
 
-const CARD_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (FIFO)", "Income & Fees"];
+const GRID_TITLES = ["Portfolio Overview", "Current Bitcoin Price", "Realized Gains/Losses (Per-wallet FIFO)", "Income & Fees"];
 
 const Dashboard: React.FC = () => {
   const [balances, setBalances] = useState<AccountBalance[] | null>(null);
-  const [totals, setTotals] = useState<AccountTotals>(NO_TOTALS);
   const [averageBtcCostBasis, setAverageBtcCostBasis] = useState<number | null>(null);
   const [gainsAndLosses, setGainsAndLosses] = useState<GainsAndLosses | null>(null);
 
@@ -90,11 +89,6 @@ const Dashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!balances) return;
-    setTotals(accountTotals(balances));
-  }, [balances]);
-
-  useEffect(() => {
     api
       .get<GainsAndLossesRaw>("/calculations/gains-and-losses")
       .then((response) => {
@@ -120,14 +114,7 @@ const Dashboard: React.FC = () => {
     return (
       <div className="dashboard" aria-busy="true">
         <div className="dashboard-grid">
-          {CARD_TITLES.map((title) => (
-            <div key={title} className="card dashboard-card-loading">
-              <h3 className="card-title">{title}</h3>
-              <div className="loading-row">
-                <div className="spinner" /> Loading…
-              </div>
-            </div>
-          ))}
+          {GRID_TITLES.map((title) => <LoadingCard key={title} title={title} />)}
         </div>
       </div>
     );
@@ -137,7 +124,7 @@ const Dashboard: React.FC = () => {
     <div className="dashboard">
       {unchosen ? <PriceSourceCard variant="first-run" /> : <HistoryQuestionCard />}
       <div className="dashboard-grid">
-        <PortfolioOverview totals={totals} averageCostBasis={averageBtcCostBasis} price={price} />
+        <PortfolioOverview balances={balances} averageCostBasis={averageBtcCostBasis} price={price} />
         <BtcPriceCard price={price} blockHeight={blockHeight} />
         <RealizedGainsCard gains={gainsAndLosses} />
         <IncomeFeesCard gains={gainsAndLosses} price={price} />

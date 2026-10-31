@@ -16,6 +16,8 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from backend.models.account import Account
+from backend.models.exchange import Exchange
 from backend.models.transaction import Transaction
 from backend.services import river_import
 from backend.services.entry_import import ENTRY_RULE
@@ -28,11 +30,17 @@ BUDGET = 2.0  # seconds; about 0.15 s on a Mac, 0.5 s on CI's runners
 
 
 def database(transactions: list[Transaction]):
-    """A database of its own holding `transactions`; its engine and path."""
+    """A database of its own holding `transactions`, with a second exchange
+    and wallet beside 1.x's accounts (the passes across accounts, #707);
+    its engine and path."""
     path = temp_db_file()
     engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     init_test_db(engine)
     with Session(engine) as db:
+        db.add(Exchange(id=2, name="Kraken"))
+        db.add_all([Account(id=100, user_id=1, name="Cold Storage", kind="wallet", currency="BTC"),
+                    Account(id=102, user_id=1, name="Kraken USD", kind="exchange", currency="USD", exchange_id=2),
+                    Account(id=103, user_id=1, name="Kraken BTC", kind="exchange", currency="BTC", exchange_id=2)])
         db.add_all(transactions)
         db.commit()
     return engine, path
@@ -80,6 +88,8 @@ def test_a_large_check_stays_fast(large_ledger, rule, rows):
 KINDS = [  # type, from, to
     ("Buy", 1, 4), ("Buy", 3, 4), ("Sell", 4, 3), ("Deposit", 99, 2), ("Deposit", 99, 4),
     ("Withdrawal", 2, 99), ("Withdrawal", 4, 99), ("Transfer", 4, 2), ("Transfer", 2, 4),
+    # A second exchange and wallet (#707)
+    ("Buy", 1, 103), ("Sell", 103, 102), ("Transfer", 103, 100), ("Transfer", 4, 103), ("Deposit", 99, 100),
 ]
 AMOUNTS = [Decimal(a) for a in ("0.001", "0.0011", "0.002", "0.0025", "0.01")]
 LABELS = [None, "Interest", "Reward", "Spent", "Gift"]

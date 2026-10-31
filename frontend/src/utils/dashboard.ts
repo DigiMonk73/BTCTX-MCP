@@ -1,8 +1,8 @@
 // The dashboard's figures worked out from the server's answers.
 import { parseDecimal } from "./format";
 
-/** The balances the Portfolio Overview shows, and the BTC held in all
- * accounts. */
+/** Each kind's balances, added up over its accounts, and the BTC held in
+ * all of them. */
 export interface AccountTotals {
   bank: number;
   exchangeUsd: number;
@@ -11,7 +11,7 @@ export interface AccountTotals {
   totalBtc: number;
 }
 
-export const NO_TOTALS: AccountTotals = { bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 };
+const NO_TOTALS: AccountTotals = { bank: 0, exchangeUsd: 0, exchangeBtc: 0, wallet: 0, totalBtc: 0 };
 
 /** Today's BTC price as the dashboard fetched it. `off` when the owner has
  * no price source or turned prices off; `problem` is the server's reason
@@ -79,20 +79,138 @@ export function priceSourceShort(source: string | undefined, throughTor = false)
   return `${siteName(source)}${throughTor ? ", through Tor" : ""}`;
 }
 
-/** The totals of the account balances. Fee accounts and unreadable balances
- * are left out. */
+/** Your accounts' balances that can be read: a bank's, a wallet's, an
+ * exchange's two; never a fee account's (by kind, whatever its name), nor
+ * an unreadable one. */
+function readable(balances: AccountBalance[]): { account: AccountBalance; balance: number }[] {
+  return balances
+    .filter((account) => account.kind === "bank" || account.kind === "wallet" || account.kind === "exchange")
+    .map((account) => ({ account, balance: parseDecimal(account.balance) }))
+    .filter(({ balance }) => !Number.isNaN(balance));
+}
+
+/** A kind's line on Portfolio Overview, as 1.x has them (#674): its key is its total's in AccountTotals. */
+export type BalanceLineKey = Exclude<keyof AccountTotals, "totalBtc">;
+
+/** The line an account's balance adds to: a bank's and a wallet's by kind, an exchange's by currency. */
+function lineOf(account: AccountBalance): BalanceLineKey {
+  if (account.kind === "bank") return "bank";
+  if (account.kind === "wallet") return "wallet";
+  return account.currency === "USD" ? "exchangeUsd" : "exchangeBtc";
+}
+
+/** The totals of the account balances, by kind (2.0 spec 5.13), hidden
+ * accounts included: they still hold what they hold. */
 export function accountTotals(balances: AccountBalance[]): AccountTotals {
   const totals = { ...NO_TOTALS };
-  for (const acc of balances) {
-    const balance = parseDecimal(acc.balance);
-    if (Number.isNaN(balance) || acc.name === "BTC Fees" || acc.name === "USD Fees") continue;
-    if (acc.name === "Bank" && acc.currency === "USD") totals.bank = balance;
-    else if (acc.name === "Wallet" && acc.currency === "BTC") totals.wallet = balance;
-    else if (acc.name === "Exchange USD" && acc.currency === "USD") totals.exchangeUsd = balance;
-    else if (acc.name === "Exchange BTC" && acc.currency === "BTC") totals.exchangeBtc = balance;
-    if (acc.currency === "BTC") totals.totalBtc += balance;
-  }
+  for (const { account, balance } of readable(balances)) totals[lineOf(account)] += balance;
+  totals.totalBtc = totals.wallet + totals.exchangeBtc;
   return totals;
+}
+
+/** One account listed under its kind's line: a bank, a wallet, or one exchange's dollars or bitcoin. */
+export interface LineAccount {
+  key: string;
+  name: string;
+  amount: number;
+  hidden: boolean;
+  /** What its BTC cost, the server's figure (#709); null on a dollar line. */
+  cost: number | null;
+}
+
+/** A kind's line: its total and the accounts that make it up. */
+export interface BalanceLine {
+  key: BalanceLineKey;
+  label: string;
+  currency: "USD" | "BTC";
+  total: number;
+  accounts: LineAccount[];
+}
+
+const LINES: [BalanceLineKey, string, BalanceLine["currency"]][] = [
+  ["bank", "Bank (USD)", "USD"], ["exchangeUsd", "Exchange (USD)", "USD"],
+  ["exchangeBtc", "Exchange (BTC)", "BTC"], ["wallet", "Wallet (BTC)", "BTC"],
+];
+
+/** An account as listed under its line: an exchange's by the exchange's name, its line naming the currency. */
+function lineAccount({ account, balance }: { account: AccountBalance; balance: number }): LineAccount {
+  const name = account.kind === "exchange" ? account.exchange ?? account.name : account.name;
+  return { key: `account-${account.account_id}`, name, amount: balance, hidden: account.hidden,
+    cost: account.cost_basis ?? null };
+}
+
+/** An account's gain at `price`, in cents: its BTC's value to the cent less
+ * its cost. */
+function gainCents(price: number, amount: number, cost: number): number {
+  return Math.round(price * amount * 100) - Math.round(cost * 100);
+}
+
+/** What an account's BTC would gain or lose if sold at today's price, to
+ * the cent: its value less its cost (#709); none without a price or a cost. */
+export function accountGain(price: number | null, account: LineAccount): number | null {
+  if (price === null || account.cost === null) return null;
+  return gainCents(price, account.amount, account.cost) / 100;
+}
+
+/** What all the BTC held would gain or lose at today's price: the bitcoin
+ * accounts' own gains added up in cents, so the opened lines add up to it
+ * exactly (#770); none without a price, or without an account's cost. */
+export function unrealizedGain(price: number | null, balances: AccountBalance[]): number | null {
+  if (price === null) return null;
+  let cents = 0;
+  for (const { account, balance } of readable(balances)) {
+    const line = lineOf(account);
+    if (line !== "wallet" && line !== "exchangeBtc") continue;
+    const cost = account.cost_basis ?? null; // as lineAccount reads it
+    if (cost === null) return null;
+    cents += gainCents(price, balance, cost);
+  }
+  return cents / 100;
+}
+
+/** Bank (USD), Exchange (USD), Exchange (BTC) and Wallet (BTC), each with its
+ * total and its accounts by id, the fee accounts on none; a hidden account
+ * holding nothing in its line's currency is left out of it (5.13). */
+export function balanceLines(balances: AccountBalance[]): BalanceLine[] {
+  const shown = [...readable(balances)].sort((a, b) => a.account.account_id - b.account.account_id);
+  const totals = accountTotals(balances);
+  return LINES.map(([key, label, currency]) => ({
+    key, label, currency, total: totals[key],
+    accounts: shown.filter(({ account }) => lineOf(account) === key).map(lineAccount)
+      .filter((row) => !row.hidden || row.amount !== 0),
+  }));
+}
+
+/** A line's caret: only when it has something to list, more than one
+ * account or a hidden one still holding something (#674). With one account
+ * of each kind there's none, and the card is 1.x's. */
+export function listsAccounts(line: BalanceLine): boolean {
+  return line.accounts.length > 1 || line.accounts.some((account) => account.hidden);
+}
+
+/** Where this device keeps which lines are open: alpha.1's key for its cards
+ * (#356), so a choice made there carries over (readOpenLines). */
+export const OPEN_LINES_KEY = "btctx.dashboard.openCards";
+
+// alpha.1's Exchange card showed the exchanges' dollars and bitcoin: both their lines
+const ALPHA_1_EXCHANGE: BalanceLineKey[] = ["exchangeUsd", "exchangeBtc"];
+
+/** The open lines as stored, in the card's order: only the four lines
+ * (alpha.1's cards read as theirs); none for nothing or anything else. */
+export function readOpenLines(stored: string | null): BalanceLineKey[] {
+  try {
+    const parsed: unknown = JSON.parse(stored ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    const open = parsed.flatMap((value) => (value === "exchange" ? ALPHA_1_EXCHANGE : [value]));
+    return LINES.map(([key]) => key).filter((key) => open.includes(key));
+  } catch {
+    return [];
+  }
+}
+
+/** The open lines once `key` is opened or closed. */
+export function openLinesAfter(open: BalanceLineKey[], key: BalanceLineKey): BalanceLineKey[] {
+  return open.includes(key) ? open.filter((k) => k !== key) : [...open, key];
 }
 
 /** The colour of a net figure: green for a gain, red for a loss, none at 0. */

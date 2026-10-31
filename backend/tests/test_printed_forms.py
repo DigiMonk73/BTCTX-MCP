@@ -55,6 +55,11 @@ _spec = importlib.util.spec_from_file_location("seed_ledger", ROOT / "scripts" /
 seed_ledger = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(seed_ledger)
 
+# Its setup prints every ledger's forms, about a minute on CI: with
+# `--dist loadgroup` (CI, make test) one worker runs the whole module, so the
+# forms are printed once a run, not once a worker (#814)
+pytestmark = pytest.mark.xdist_group("printed_forms")
+
 USER, PASSWORD = "forms-user", "forms-password-123"
 # The day the forms are made: inside 2026, so the shipped 2026 drafts are offered
 FORMS_DAY = date(2026, 10, 10)
@@ -73,10 +78,11 @@ TINY_LEDGER = [
          amount="0.0001", gross_proceeds_usd="5", fee_amount="0", fee_currency="USD"),
 ]
 
+# Each ledger: its rows, the accounts it adds (the reference ledger's 2.0 ones), its tax timezone
 LEDGERS = {
-    "seed": (seed_ledger.ledger_rows, "UTC"),
-    "golden": (lambda: [dict(r) for r in GOLDEN_LEDGER], "America/New_York"),
-    "tiny": (lambda: [dict(r) for r in TINY_LEDGER], "UTC"),
+    "seed": (seed_ledger.ledger_rows, seed_ledger.ledger_accounts, "UTC"),
+    "golden": (lambda: [dict(r) for r in GOLDEN_LEDGER], lambda: [], "America/New_York"),
+    "tiny": (lambda: [dict(r) for r in TINY_LEDGER], lambda: [], "UTC"),
 }
 # Every (ledger, year) with Form 8949 rows (test_cases_cover_every_year_with_rows)
 CASES = [("seed", 2024), ("seed", 2025), ("seed", 2026), ("golden", 2024), ("golden", 2025), ("tiny", 2025),
@@ -98,14 +104,15 @@ def printed(auth_client, tmp_path_factory):
             mp.setattr(draft_forms, "SHIPPED_DIR", ROOT / "backend" / "assets" / "irs_templates" / "drafts")
             mp.setattr(draft_forms, "today", lambda: FORMS_DAY)
             mp.setattr(outbound, "_current", outbound.NetworkSettings(price_source="public"))
-            for name, (rows, timezone) in LEDGERS.items():
-                out[name] = _print_on_own_database(name, rows(), timezone, tmp_path_factory)
+            for name, (rows, accounts, timezone) in LEDGERS.items():
+                out[name] = _print_on_own_database(name, rows(), accounts(), timezone, tmp_path_factory)
     finally:
         app.dependency_overrides[get_db] = previous
     return out
 
 
-def _print_on_own_database(name: str, rows: list[dict], timezone: str, tmp_path_factory) -> dict:
+def _print_on_own_database(name: str, rows: list[dict], accounts: list[dict], timezone: str,
+                           tmp_path_factory) -> dict:
     path = tmp_path_factory.mktemp(f"forms-{name}") / "btctx.db"
     engine = create_engine(f"sqlite:///{path}", connect_args={"check_same_thread": False})
     first_run.clear_code()
@@ -113,7 +120,7 @@ def _print_on_own_database(name: str, rows: list[dict], timezone: str, tmp_path_
         init_test_db(engine)
         Session = sessionmaker(bind=engine)
         app.dependency_overrides[get_db] = _sessions_of(Session)
-        return _print_ledger(rows, timezone, Session)
+        return _print_ledger(rows, accounts, timezone, Session)
     finally:
         first_run.clear_code()
         engine.dispose()
@@ -131,11 +138,11 @@ def _sessions_of(Session):
     return override
 
 
-def _print_ledger(rows: list[dict], timezone: str, Session) -> dict:
+def _print_ledger(rows: list[dict], accounts: list[dict], timezone: str, Session) -> dict:
     c = TestClient(app)
     seed_ledger.log_in(c, USER, PASSWORD, first_run.ensure_code())
     assert c.put("/api/settings/tax-timezone", json={"timezone": timezone, "chosen": True}).status_code == 200
-    assert seed_ledger.seed(c, rows) == len(rows)
+    assert seed_ledger.seed(c, rows, accounts) == len(rows)
     years = c.get("/api/reports/years").json()
     result = {"pages": {}, "reports": {}, "rows": {}}
     for year in years["ledger_years"]:
@@ -281,7 +288,8 @@ def test_the_tiny_sale_is_printed(printed):
 
 AMOUNT = re.compile(r"\(\d+\.\d{2}\)|\d+\.\d{2}")
 # The printed losses each case must show, so the format check isn't vacuous
-LOSSES = {("seed", 2026): {"G"}, ("golden", 2025): {"H"}, ("tiny", 2026): {"K"}}
+LOSSES = {("seed", 2024): {"C", "F"}, ("seed", 2025): {"H", "I", "L"}, ("seed", 2026): {"G", "I", "K"},
+          ("golden", 2025): {"H"}, ("tiny", 2026): {"K"}}
 
 
 @pytest.mark.parametrize("ledger, year", CASES)

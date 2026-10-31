@@ -1,7 +1,8 @@
 /* ============================================
    components.css - the shared building blocks
    Base type, card, buttons, inputs, checkboxes, the segmented control,
-   badges, spinner and the empty/error notes. Page stylesheets only lay
+   the chevron of a button that opens what's under it, badges, spinner and
+   the empty/error notes. Page stylesheets only lay
    these out; they don't restyle them.
 ============================================ */
 
@@ -42,11 +43,6 @@ a { transition: var(--transition-color); }
   font-weight: var(--font-semibold);
   color: var(--color-text);
   margin: 0 0 var(--space-4);
-}
-.section-title {
-  font-size: var(--text-base);
-  font-weight: var(--font-semibold);
-  margin: 0 0 var(--space-2);
 }
 
 /* ---------- Buttons: primary, secondary, quiet, destructive ---------- */
@@ -209,6 +205,22 @@ input[type="radio"] {
 .segmented > button.active,
 .segmented > button[aria-pressed="true"] { background: var(--color-raised); color: var(--color-text); }
 
+/* ---------- Chevron of a button that opens what's under it ---------- */
+/* The app's one chevron (#674, Chevron.tsx): Settings' sections and account
+   rows, the dashboard's lines, the boxes that open. The button carries
+   .chevron-toggle and aria-expanded; the chevron is muted, brighter on
+   hover, turned over while open. */
+.chevron { flex-shrink: 0; color: var(--color-text-muted); }
+.chevron-toggle:hover .chevron { color: var(--color-text-secondary); }
+.chevron-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+/* A native <details> opens the same way (#681): its summary carries
+   .chevron-toggle and the chevron after its words, and the browser's own
+   marker goes (Chromium and today's WebKit draw it for a list item, Safari
+   15's WebKit as ::-webkit-details-marker) */
+summary.chevron-toggle { display: flex; align-items: center; gap: var(--space-1); list-style: none; cursor: pointer; }
+summary.chevron-toggle::-webkit-details-marker { display: none; }
+details[open] > summary.chevron-toggle .chevron { transform: rotate(180deg); }
+
 /* ---------- Badges ---------- */
 .badge {
   display: inline-flex;
@@ -305,4 +317,15 @@ input[type="radio"] {
 .dialog-backup { display: flex; flex-wrap: wrap; gap: var(--space-2); width: 100%; }
 .dialog-backup .input { flex: 1 1 160px; }
 .dialog-backup .field-hint { flex-basis: 100%; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+/* Right-aligned, and wrapping where they don't fit on one line ("Save anyway (a copy is made first)"
+   is wider than half a phone, #769); on a phone each fills its line, a thumb's size, and its words wrap
+   on the narrowest screens, so none runs off the left edge */
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+@media (max-width: 480px) {
+  .dialog-actions .btn { flex: 1 1 auto; min-height: 44px; height: auto; white-space: normal; line-height: 1.25; }
+}
+/* A dialog's rows (the past-year warning's changes), and a choice to tick */
+.dialog-list { margin: 0; padding-left: var(--space-5); font-size: var(--text-13); color: var(--color-text-secondary); }
+.dialog-list li + li { margin-top: var(--space-1); }
+.dialog-tick { display: flex; align-items: flex-start; gap: var(--space-2); font-size: var(--text-13); cursor: pointer; }
+.dialog-tick input { flex-shrink: 0; margin-top: 2px; }

@@ -5,6 +5,32 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
+// An account is asked of the account book, never by its number (2.0 spec 5.4,
+// 5.16): 1 to 4 are only the first bank, wallet and exchange, which can be
+// renamed, hidden and joined by others. External (99) and the fee accounts
+// (5, 6) stay fixed ids. An account id is a name with "account" in it, `id`,
+// or one ending in `Id` or `_id`; Literal's `raw`, since esquery matches a
+// pattern only against text. A named constant (B7b's FIRST_OF_EACH, which
+// mirrors services/account.FIRST_OF_EACH to hide Delete) isn't a comparison:
+// it says why where it's defined.
+const ACCOUNT_ID = '/[Aa]ccount|^id$|Id$|_id$/'
+const ONE_TO_FOUR = "[raw=/^[1-4]$/]"
+const NAMED = (side) => `:matches([${side}.name=${ACCOUNT_ID}], [${side}.property.name=${ACCOUNT_ID}])`
+const BY_NUMBER = 'An account id compared with 1, 2, 3 or 4: ask the account book instead '
+  + '(src/utils/accounts.ts: accountKind, isBtcAccount, accountCurrency…), 2.0 spec 5.4.'
+const NO_ACCOUNT_BY_NUMBER = [
+  { selector: `BinaryExpression[operator=/^[!=]==?$/][right.type='Literal'][right.raw=/^[1-4]$/]${NAMED('left')}`,
+    message: BY_NUMBER },
+  { selector: `BinaryExpression[operator=/^[!=]==?$/][left.type='Literal'][left.raw=/^[1-4]$/]${NAMED('right')}`,
+    message: BY_NUMBER },
+  { selector: `SwitchStatement${NAMED('discriminant')} > SwitchCase > Literal.test${ONE_TO_FOUR}`,
+    message: BY_NUMBER },
+  // [1, 3].includes(account_id): a comparison too
+  { selector: "CallExpression[callee.property.name=/^(includes|indexOf)$/][callee.object.type='ArrayExpression']"
+      + `${NAMED('arguments.0')}:has(MemberExpression > ArrayExpression > Literal${ONE_TO_FOUR})`,
+    message: BY_NUMBER },
+]
+
 export default defineConfig(
   globalIgnores(['dist', 'playwright-report', 'test-results']),
   {
@@ -34,12 +60,14 @@ export default defineConfig(
       // Past these, divide the function or file (docs/CODE_STYLE.md)
       complexity: ['error', 15],
       'max-lines': ['error', 400],
+      'no-restricted-syntax': ['error', ...NO_ACCOUNT_BY_NUMBER],
     },
   },
   {
-    // A test scenario can be long.
-    files: ['src/**/*.test.ts'],
-    rules: { complexity: 'off', 'max-lines': 'off' },
+    // A test scenario can be long, and so can a stub that answers each of its
+    // requests; their account books are numbered.
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: { complexity: 'off', 'max-lines': 'off', 'no-restricted-syntax': 'off' },
   },
   {
     // Playwright end-to-end tests: Node, no React.

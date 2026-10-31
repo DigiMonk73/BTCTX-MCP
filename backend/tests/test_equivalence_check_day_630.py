@@ -4,12 +4,15 @@ snapshot would hold the same dates. A report prints today's date in its
 ledger's tax timezone, so the snapshot is kept by today's date in each of
 those zones. Kept by the computer's own date, a baseline was reused across
 a midnight in another of them: in Chicago (summer time), Tokyo's at 10:00,
-UTC's at 19:00 and New York's at 23:00 (#630).
+UTC's at 19:00 and New York's at 23:00 (#630). Nor may the release's
+snapshot and this checkout's straddle such a midnight: a run begun a few
+minutes before midnight in Tokyo showed the reports' "Made" date as a
+difference (#661).
 """
 
 import importlib.util
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -79,3 +82,39 @@ def test_a_baseline_is_reused_while_every_date_holds(monkeypatch, tmp_path):
 
 def test_the_baseline_is_kept_by_every_ledgers_zone():
     assert {zone for _, zone, _ in snapshot._ledgers()} == set(inputs.ZONES)
+
+
+def _run(monkeypatch, tmp_path, instant, fresh=True):
+    """Runs _both_snapshots from `instant`, each snapshot taking five
+    minutes: which snapshots it took and when, and the two it compares."""
+    taken = []
+
+    def take(root, out, bench):
+        taken.append(("here" if root == check.ROOT else "release", _Clock.instant))
+        _Clock.instant += timedelta(minutes=5)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "done").touch()
+        return out
+
+    monkeypatch.setattr(_Clock, "instant", instant)
+    monkeypatch.setattr(check, "datetime", _Clock)
+    monkeypatch.setattr(check, "STORE", tmp_path)
+    monkeypatch.setattr(check, "_git", lambda *args: "0123456789abcdef\n")
+    monkeypatch.setattr(check, "_take", take)
+    return taken, check._both_snapshots("origin/2.0", bench=False, fresh=fresh)
+
+
+def test_both_snapshots_are_taken_again_when_a_midnight_falls_between_them(monkeypatch, tmp_path):
+    # Tokyo 23:57: the release's snapshot ends after its midnight
+    taken, (base, here) = _run(monkeypatch, tmp_path, _utc(11, 14, 57))
+    assert taken == [("release", _utc(11, 14, 57)), ("here", _utc(11, 15, 2)),
+                     ("release", _utc(11, 15, 7)), ("here", _utc(11, 15, 12))]
+    assert "2020-03-12" in base.name  # the release's, under Tokyo's new date (only Tokyo's)
+    assert here == tmp_path / "working"
+
+
+def test_both_snapshots_are_taken_once_on_one_date(monkeypatch, tmp_path):
+    taken, _ = _run(monkeypatch, tmp_path, _utc(11, 14, 40))  # Tokyo 23:40 to 23:50
+    assert taken == [("release", _utc(11, 14, 40)), ("here", _utc(11, 14, 45))]
+    taken, _ = _run(monkeypatch, tmp_path, _utc(11, 14, 40), fresh=False)  # the release's kept
+    assert taken == [("here", _utc(11, 14, 40))]

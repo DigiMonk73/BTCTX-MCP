@@ -3,7 +3,7 @@
 // redesign's words for each state (with a fake internet, so the app's own
 // price code runs), and the sizes it must fit: the Mac app's 800 × 600 and
 // a phone. The browser asks nobody but BitcoinTX throughout.
-import { test, expect, claimAccount, loginViaUi, choosePriceSource, outsideRequests, type App } from "./fixtures";
+import { test, expect, claimAccount, loginViaUi, choosePriceSource, outsideRequests, type App, openSection } from "./fixtures";
 import type { Page } from "@playwright/test";
 
 test.use({ fakeInternet: true, priceSource: "unset" });
@@ -26,6 +26,7 @@ async function statusAfterAPrice(page: Page) {
   // Asked again in place with the choice just saved (choosePriceSource), no page load (#231)
   await expect(page.locator(".btc-price-value")).toHaveText(/^(\$|No answer)/);
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Privacy & Network");
   return page.getByRole("region", { name: "Privacy & network" }).getByRole("status");
 }
 
@@ -115,6 +116,7 @@ test.describe("Tor on this server, set in StartOS (#145)", () => {
   test("Settings shows Through Tor ticked and locked, with no address to type", async ({ page, app }) => {
     await logIn(page, app);
     await page.getByRole("link", { name: "Settings" }).click();
+    await openSection(page, "Privacy & Network");
     const net = page.getByRole("region", { name: "Privacy & network" });
     await expect(net.getByLabel("Through Tor")).toBeChecked();
     await expect(net.getByLabel("Through Tor")).toBeDisabled();
@@ -188,6 +190,7 @@ test.describe("confirm once after the update (#145, 2.9)", () => {
     await page.goto("/dashboard");
     await expect(page.getByRole("region", { name: /Bitcoin prices|Please confirm/ })).toHaveCount(0);
     await page.getByRole("link", { name: "Settings" }).click();
+    await openSection(page, "Privacy & Network");
     await expect(page.getByText(/^You chose this on .* at .*, in the first-run question\.$/)).toBeVisible();
     expect(browser).toEqual([]);
   });
@@ -245,6 +248,7 @@ test.describe("a server whose price settings aren't valid", () => {
     await expect(page.getByText(/^This server's price settings aren't valid, so nothing is asked/)).toBeVisible();
     await expect(page.getByText("You chose Nobody: no live price.")).toHaveCount(0);
     await page.getByRole("link", { name: "Settings" }).click();
+    await openSection(page, "Privacy & Network");
     const net = page.getByRole("region", { name: "Privacy & network" });
     await expect(net.getByText(/Set by this server's settings \(BTCTX_PRICE_SOURCE\)/)).toBeVisible();
     await expect(net.getByRole("status")).toHaveText(/This server's price settings aren't valid, so nothing is contacted\./);
@@ -292,6 +296,7 @@ test("#188: Trust this server shows the server's root first, then trusts it; For
   });
 
   await page.getByRole("link", { name: "Settings" }).click(); // no page load after a save (#231)
+  await openSection(page, "Privacy & Network");
   const card = page.getByRole("region", { name: "Privacy & network" });
   await expect(card.getByRole("status")).toContainText("use Trust this server below");
   await card.getByRole("button", { name: "Trust this server" }).click();
@@ -343,6 +348,7 @@ test("through a Tor Bitstamp refuses, the Dashboard asks once; Yes sends only it
 
   // Settings shows the answer, and changes it
   await page.getByRole("link", { name: "Settings" }).click();
+  await openSection(page, "Privacy & Network");
   const card = page.getByRole("region", { name: "Privacy & network" });
   await expect(card.getByText(/^Bitstamp's price history without Tor: yes, since .+ \(answered on the Dashboard\)\./)).toBeVisible();
   await card.getByRole("button", { name: "Keep it on Tor instead" }).click();

@@ -5,12 +5,16 @@ Report prints. From 1.2.5 it is a "GENERATED" line the old "Date:" mask
 missed, so every comparison reported a difference on that line.
 """
 
+import ast
 import importlib.util
+import inspect
 import re
 import sys
 from io import BytesIO
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+import httpx
 from pypdf import PdfReader
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -46,3 +50,70 @@ def test_the_reference_ledger_loads_from_any_folder(tmp_path, monkeypatch):
     ledgers = {name: txs for name, _, txs in snapshot._ledgers()}
     assert len(ledgers["reference"]) >= 108
     assert not any("why" in tx for tx in ledgers["reference"])
+
+
+def test_this_tax_year_is_the_tests_on_a_side_that_has_the_clock(monkeypatch):
+    """2.0's past-year warning (plan 5.8) never asks in-process: the snapshot
+    pins "this tax year" as the backend tests do (5.15), so each side's
+    writes save as before the warning."""
+    from backend.services import tax_time
+
+    monkeypatch.setattr(tax_time, "current_tax_year", lambda tz: 2026)
+    snapshot.pin_tax_year()
+    assert tax_time.current_tax_year(ZoneInfo("America/Chicago")) == 2009
+
+
+def test_each_snapshot_pins_it():
+    """Called as each side's snapshot sets up (its globals are the side's
+    own, so a test can't run that setup without changing this session's)."""
+    calls = [node.func.id for node in ast.walk(ast.parse(inspect.getsource(snapshot._shut_out_the_world)))
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)]
+    assert "pin_tax_year" in calls
+
+
+def test_a_side_without_the_clock_gets_none(monkeypatch):
+    """A release before 2.0 has no current_tax_year and no warning: nothing
+    is added that its code would never read."""
+    from backend.services import tax_time
+
+    monkeypatch.delattr(tax_time, "current_tax_year")
+    snapshot.pin_tax_year()
+    assert not hasattr(tax_time, "current_tax_year")
+
+
+def test_settings_1x_never_writes_are_left_out_of_the_database_rows(tmp_path):
+    """2.0's recalculated_by (#352) and accounts_old_rows (#348): the pin's
+    1.x side never writes them, so the comparison would count every ledger."""
+    from sqlalchemy import create_engine, text
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'db.sqlite'}")
+    with engine.begin() as con:
+        con.execute(text("CREATE TABLE app_settings (key TEXT PRIMARY KEY, value TEXT)"))
+        for key in ("tax_timezone", "recalculated_by", "accounts_old_rows"):
+            con.execute(text("INSERT INTO app_settings VALUES (:k, 'x')"), {"k": key})
+    assert [row["key"] for row in snapshot.database_rows(engine)["app_settings"]] == ["tax_timezone"]
+    engine.dispose()
+
+
+# A CSV export's moment of saving (#763): since C4 the export carries each
+# row's coins_chosen_at, the moment the snapshot seeded the choice, which
+# masked only in JSON made every comparison differ on that column.
+EXPORTED = ("id,timestamp,coins_chosen_at,amount\r\n"
+            "1,2025-03-01T12:00:00Z,2026-10-26T12:20:14Z,0.1\r\n"
+            "2,2025-03-02T12:00:00Z,,0.2\r\n")
+
+
+def test_a_csvs_moment_of_saving_is_masked_its_column_and_blanks_kept():
+    assert snapshot.masked_csv(EXPORTED) == (
+        "id,timestamp,coins_chosen_at,amount\r\n"
+        "1,2025-03-01T12:00:00Z,<volatile>,0.1\r\n"
+        "2,2025-03-02T12:00:00Z,,0.2\r\n")
+    assert snapshot.masked_csv("id,amount\n1,0.1\n") == "id,amount\n1,0.1\n"  # nothing volatile: as it was
+    # Only the first row is the header: a cell naming a volatile key further down is data
+    assert snapshot.masked_csv("id,notes,coins_chosen_at\n1,created_at,2026-10-26T12:20:14Z\n2,x,\n") == (
+        "id,notes,coins_chosen_at\n1,created_at,<volatile>\n2,x,\n")
+
+
+def test_a_csv_answer_is_kept_masked():
+    response = httpx.Response(200, headers={"content-type": "text/csv; charset=utf-8"}, text=EXPORTED)
+    assert snapshot.answer(response)["body"] == snapshot.masked_csv(EXPORTED)

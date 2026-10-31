@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import api from "../api";
-import Pagination from "../components/Pagination";
 import TransactionPanel from "../components/TransactionPanel";
-import TransactionRow from "../components/TransactionRow";
+import AccountFilter from "../components/transactions/AccountFilter";
+import TransactionsBody from "../components/transactions/TransactionsBody";
+import TransactionsStatus from "../components/transactions/TransactionsStatus";
+import { ALL_ACCOUNTS, type AccountChoice } from "../utils/accountFilter";
 import { parseTransaction } from "../utils/format";
-import { groupByDay, pageOf, sortTransactions } from "../utils/transactionList";
+import { useAccounts } from "../utils/useAccounts";
 import "../styles/transactions.css";
 
 const Transactions: React.FC = () => {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // Where focus goes as the panel closes, when the row it edited is reloaded away (#772)
+  const addButton = useRef<HTMLButtonElement>(null);
   const [transactions, setTransactions] = useState<ITransaction[] | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("TIMESTAMP_DESC");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -19,6 +23,9 @@ const Transactions: React.FC = () => {
 
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
+  const [accountChoice, setAccountChoice] = useState<AccountChoice>(ALL_ACCOUNTS);
+  // The names and currencies the rows show, and the filter's choices (2.0 spec 5.13)
+  const { book, failed: bookFailed } = useAccounts();
 
   const fetchTransactions = async () => {
     setIsLoading(true);
@@ -60,99 +67,63 @@ const Transactions: React.FC = () => {
     }
   };
 
-  const sorted = transactions ? sortTransactions(transactions, sortMode) : [];
-  const { page, totalPages, items: transactionsForPage } = pageOf(sorted, currentPage, pageSize);
-  const dateGroups = groupByDay(transactionsForPage);
-
-  const handlePrevPage = () => {
-    if (page > 1) setCurrentPage(page - 1);
-  };
-  const handleNextPage = () => {
-    if (page < totalPages) setCurrentPage(page + 1);
-  };
-
-  const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setPageSize(Number(e.target.value));
+  const handleAccountChoice = (choice: AccountChoice) => {
+    setAccountChoice(choice);
     setCurrentPage(1);
   };
+
+  const loading = isLoading || (!book && !bookFailed);
 
   return (
     <div className="transactions-page">
       <div className="transactions-header">
-        <button type="button" className="btn btn-primary" onClick={openPanel}>
+        <button ref={addButton} type="button" className="btn btn-primary" onClick={openPanel}>
           <Plus size={16} aria-hidden="true" />
           Add transaction
         </button>
 
-        <select
-          className="input select-pill"
-          aria-label="Sort transactions"
-          value={sortMode}
-          onChange={e => setSortMode(e.target.value as SortMode)}
-        >
-          <option value="TIMESTAMP_DESC">Sort by date</option>
-          <option value="CREATION_DESC">Last added</option>
-        </select>
+        <div className="transactions-filters">
+          {book && <AccountFilter book={book} value={accountChoice} onChange={handleAccountChoice} />}
+
+          <select
+            className="input select-pill"
+            aria-label="Sort transactions"
+            value={sortMode}
+            onChange={e => setSortMode(e.target.value as SortMode)}
+          >
+            <option value="TIMESTAMP_DESC">Sort by date</option>
+            <option value="CREATION_DESC">Last added</option>
+          </select>
+        </div>
       </div>
 
-      {isLoading && (
-        <div className="transactions-list">
-          <div className="loading-row transactions-status">
-            <div className="spinner" /> Loading transactions…
-          </div>
-        </div>
-      )}
-      {fetchError && (
-        <div className="transactions-list transactions-status" role="alert">
-          <p className="note note-error">{fetchError}</p>
-          <button type="button" onClick={fetchTransactions} className="btn btn-secondary">
-            Retry
-          </button>
-        </div>
-      )}
+      <TransactionsStatus
+        bookFailed={bookFailed}
+        loading={loading}
+        fetchError={fetchError}
+        empty={transactions?.length === 0}
+        onRetry={fetchTransactions}
+      />
 
-      {!isLoading && !fetchError && transactions && transactions.length === 0 && (
-        <div className="transactions-list empty-state">
-          <p>No transactions found.</p>
-          <p className="field-hint">Add one above, or import a River or CSV file in Settings.</p>
-        </div>
-      )}
-
-      {!isLoading && !fetchError && transactions && transactions.length > 0 && (
-        <>
-          <div className="transactions-list" aria-busy={isRefreshing}>
-            {isRefreshing && (
-              <div className="loading-row transactions-status">
-                <div className="spinner" /> Refreshing transactions…
-              </div>
-            )}
-
-            {dateGroups.map(([dayLabel, txArray]) => (
-              <div key={dayLabel} className="transactions-day-group" role="list" aria-label={dayLabel}>
-                <h3 className="date-heading">{dayLabel}</h3>
-                {txArray.map(tx => (
-                  <TransactionRow
-                    key={tx.id}
-                    tx={tx}
-                    onEdit={id => {
-                      setEditingTransactionId(id);
-                      setIsPanelOpen(true);
-                    }}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            onPrev={handlePrevPage}
-            onNext={handleNextPage}
-            onPageSizeChange={handlePageSizeChange}
-          />
-        </>
+      {!loading && !fetchError && book && transactions && transactions.length > 0 && (
+        <TransactionsBody
+          transactions={transactions}
+          book={book}
+          accountChoice={accountChoice}
+          sortMode={sortMode}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          refreshing={isRefreshing}
+          onPage={setCurrentPage}
+          onPageSize={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+          onEdit={(id) => {
+            setEditingTransactionId(id);
+            setIsPanelOpen(true);
+          }}
+        />
       )}
 
       <TransactionPanel
@@ -160,6 +131,7 @@ const Transactions: React.FC = () => {
         onClose={closePanel}
         onSubmitSuccess={handleSubmitSuccess}
         transactionId={editingTransactionId}
+        returnFocus={addButton}
       />
     </div>
   );

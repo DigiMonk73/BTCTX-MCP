@@ -1,54 +1,53 @@
 """
-The account API's request and response shapes; a currency is USD or BTC.
+The account API's request and response shapes (2.0 spec 5.9). An account's
+kind and currency never change: none is taken after it's added, and the
+currency comes from the kind.
 """
 
-from pydantic import BaseModel, field_validator, ConfigDict
+from typing import Literal
 
-VALID_CURRENCIES = {"USD", "BTC"}
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
-class AccountBase(BaseModel):
-    """
-    Common fields for an Account, used by create/read/update.
-    - 'name': a label like "Bank", "Wallet", "BTC Fees"
-    - 'currency': "USD" or "BTC"
-    """
+class AccountCreate(BaseModel):
+    """A bank, a wallet, or an exchange (its two accounts), with a name; an
+    exchange also with whether it sends a Form 1099-DA (left out: it does)."""
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["bank", "wallet", "exchange"]
     name: str
-    currency: str
-
-    @field_validator("currency")
-    @classmethod
-    def currency_must_be_valid(cls, v):
-        if v not in VALID_CURRENCIES:
-            raise ValueError("currency must be 'USD' or 'BTC'")
-        return v
-
-
-class AccountCreate(AccountBase):
-    """A new account, owned by `user_id`."""
-    user_id: int
+    sends_1099da: bool | None = None
 
 
 class AccountUpdate(BaseModel):
-    """The name or currency of an account, either optional."""
+    """Rename an account (an exchange's: its exchange and both of its
+    accounts), hide it from the pickers or show it again, and turn its
+    exchange's "This exchange sends me a Form 1099-DA" off or on (an
+    exchange's account only); at least one."""
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = None
-    currency: str | None = None
+    hidden: bool | None = None
+    sends_1099da: bool | None = None
 
-    @field_validator("currency")
-    @classmethod
-    def currency_must_be_valid(cls, v):
-        if v is not None and v not in VALID_CURRENCIES:
-            raise ValueError("currency must be 'USD' or 'BTC'")
-        return v
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "AccountUpdate":
+        if self.name is None and self.hidden is None and self.sends_1099da is None:
+            raise ValueError("Send name, hidden or sends_1099da (one or more).")
+        return self
 
 
-class AccountRead(AccountBase):
-    """
-    Schema returned after fetching an Account.
-    Includes the DB-generated 'id' and the 'user_id' that references
-    which user owns this account.
-    """
+class AccountRead(BaseModel):
+    """An account as the API lists it: `exchange` is its exchange's name,
+    `sends_1099da` its exchange's 1099-DA switch (None for an account that
+    isn't an exchange's), `in_use` whether a transaction or a ledger line
+    names it."""
     id: int
-    user_id: int
-
-    model_config = ConfigDict(from_attributes=True)
+    name: str
+    kind: str
+    currency: str
+    exchange_id: int | None
+    exchange: str | None
+    sends_1099da: bool | None
+    hidden: bool
+    in_use: bool

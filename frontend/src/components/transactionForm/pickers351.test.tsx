@@ -1,0 +1,233 @@
+// @vitest-environment jsdom
+// The form's account pickers on a new transaction (2.0 spec 5.13, #351): ids
+// from the book, blank and required unless exactly one fits, hidden
+// accounts and the fee accounts left out, grouped by kind once there's
+// more than one of a kind (P7), and with one of each the form 1.x showed,
+// but for a new Buy's "Paid from", which starts blank.
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { MANY, ONE_OF_EACH } from "../../test/books";
+import { offered, renderForm, shown } from "../../test/renderForm";
+import { WALLET_HINT } from "../../utils/disclaimer";
+import { ACCOUNTS_FAILED } from "../../utils/useAccounts";
+
+const WITHIN_WALLET = "Wallet: consolidate within the same wallet";
+const WITHIN_EXCHANGE = "Exchange: consolidate within the same exchange";
+
+describe("with one of each: 1.x's form, its accounts by name", () => {
+  it("a Deposit or Withdrawal's account, its currency the account's", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Deposit");
+    expect(offered("Account")).toEqual(["Bank", "Wallet", "Exchange USD", "Exchange BTC"]);
+    expect([shown("Account"), shown("Currency")]).toEqual(["Select Account", ""]);
+    await form.choose("Account", "Exchange BTC");
+    expect(shown("Currency")).toBe("BTC");
+    expect(screen.getByLabelText("Source")).toBeTruthy();
+    await form.choose("Account", "Exchange USD");
+    expect(shown("Currency")).toBe("USD");
+    expect(screen.queryByLabelText("Source")).toBeNull();
+  });
+
+  it("a Transfer: To filled when one fits, else blank", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Transfer");
+    expect(offered("From Account")).toEqual(["Bank", "Wallet", "Exchange USD", "Exchange BTC"]);
+    await form.choose("From Account", "Bank");
+    expect([shown("From Currency"), shown("To Account"), shown("To Currency")]).toEqual(["USD", "Exchange USD", "USD"]);
+    await form.choose("From Account", "Exchange USD");
+    expect(shown("To Account")).toBe("Bank");
+    await form.choose("From Account", "Wallet");
+    expect(offered("To Account")).toEqual(["Exchange BTC", WITHIN_WALLET]);
+    expect(shown("To Account")).toBe("Select To Account");
+    await form.choose("From Account", "Exchange BTC");
+    expect(offered("To Account")).toEqual(["Wallet", WITHIN_EXCHANGE]);
+    // An exchange's consolidation points a move to another exchange at that exchange's account (#357)
+    await form.choose("To Account", WITHIN_EXCHANGE);
+    expect(screen.getByText(/^Moving coins to another exchange\? Choose that exchange's BTC account/)).toBeTruthy();
+    await form.choose("To Account", "Wallet");
+    expect(screen.getByText(WALLET_HINT)).toBeTruthy();
+  });
+
+  it("a Buy: no exchange to choose, and Paid from starts blank", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Buy");
+    expect(screen.queryByLabelText("Exchange", { exact: true })).toBeNull();
+    expect(offered("Paid from")).toEqual(["Exchange USD", "Bank"]);
+    expect(shown("Paid from")).toBe("Select Account");
+  });
+
+  it("a Sell: its exchange, read-only", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Sell");
+    const account = screen.getByLabelText("Exchange", { exact: true }) as HTMLInputElement;
+    expect([account.tagName, account.value, account.readOnly]).toEqual(["INPUT", "Exchange", true]);
+  });
+});
+
+describe("with more accounts", () => {
+  it("lists the visible ones by kind, never a fee account", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Deposit");
+    expect(offered("Account")).toEqual([
+      "Banks: Checking", "Banks: Savings", "Wallets: Sparrow", "Wallets: Coldcard",
+      "Exchanges: River USD", "Exchanges: River BTC", "Exchanges: Kraken USD", "Exchanges: Kraken BTC",
+    ]);
+  });
+
+  it("sends a Transfer only within its currency, itself only as a bitcoin account's consolidation", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Coldcard");
+    expect(offered("To Account")).toEqual([
+      "Wallets: Sparrow", "Wallets: Coldcard: consolidate within the same wallet",
+      "Exchanges: River BTC", "Exchanges: Kraken BTC",
+    ]);
+    expect(shown("To Account")).toBe("Select To Account");
+    await form.choose("From Account", "Kraken USD");
+    expect(offered("To Account")).toEqual(["Banks: Checking", "Banks: Savings", "Exchanges: River USD"]);
+  });
+
+  it("forgets a To that the new From doesn't allow", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Coldcard");
+    await form.choose("To Account", "Kraken BTC");
+    await form.choose("From Account", "Checking");
+    expect(shown("To Account")).toBe("Select To Account");
+    await form.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Select To Account");
+  });
+
+  it("never turns the To chosen into a consolidation when the From changes to it", async () => {
+    const form = await renderForm({ book: ONE_OF_EACH });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Wallet");
+    await form.choose("To Account", "Exchange BTC");
+    await form.choose("From Account", "Exchange BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+    expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
+  });
+
+  // A consolidation records only its fee; the same To after another From
+  // would move coins into the old From's lots (#719)
+  it("never turns a consolidation into a transfer into the old From", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "River BTC");
+    await form.choose("To Account", "River: consolidate within the same exchange");
+    await form.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Select To Account");
+    await form.choose("To Account", "Sparrow: consolidate within the same wallet");
+    await form.choose("From Account", "River BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+    expect(screen.queryByText(/Only the network fee is recorded/)).toBeNull();
+  });
+
+  it("nor when the From is blank on the way", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Coldcard");
+    await form.choose("To Account", "Coldcard: consolidate within the same wallet");
+    await form.choose("From Account", "Select From Account");
+    await form.choose("From Account", "Kraken BTC");
+    expect(shown("To Account")).toBe("Select To Account");
+  });
+
+  it("keeps a To that still means the same move", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "River BTC");
+    await form.choose("To Account", "Coldcard");
+    await form.choose("From Account", "Sparrow");
+    expect(shown("To Account")).toBe("Coldcard");
+  });
+
+  it("never fills a consolidation, even when it's the only To that fits", async () => {
+    const exchangeHidden = ONE_OF_EACH.map((a) => (a.id === 4 ? { ...a, hidden: true } : a));
+    const form = await renderForm({ book: exchangeHidden });
+    await form.pickType("Transfer");
+    await form.choose("From Account", "Wallet");
+    expect(screen.getByLabelText("To Account").tagName).toBe("SELECT");
+    expect([shown("To Account"), ...offered("To Account")]).toEqual(["Select To Account", WITHIN_WALLET]);
+    await form.user.type(screen.getByLabelText("Amount (From)"), "0.5");
+    await form.user.type(screen.getByLabelText("Amount (To)"), "0.4999");
+    await form.save();
+    expect(form.sent()).toBeUndefined();
+    await form.choose("To Account", WITHIN_WALLET); // chosen, it is one, and stays a choice
+    expect(screen.getByLabelText("To Account").tagName).toBe("SELECT");
+    await form.save();
+    expect(form.sent()).toMatchObject({ from_account_id: 2, to_account_id: 2 });
+  });
+
+  it("buys on a chosen exchange, paid from its dollars or a bank (Q15)", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Buy");
+    expect(offered("Exchange")).toEqual(["River", "Kraken"]);
+    expect(shown("Exchange")).toBe("Select Exchange");
+    expect([shown("Paid from"), ...offered("Paid from")]).toEqual(["Choose the exchange first"]);
+    await form.choose("Exchange", "Kraken");
+    expect(offered("Paid from")).toEqual([
+      "Exchanges: Kraken USD", "Banks: Checking", "Banks: Savings",
+    ]);
+    await form.choose("Paid from", "Kraken USD");
+    await form.choose("Exchange", "River");
+    expect(shown("Paid from")).toBe("Select Account"); // Kraken's dollars don't buy on River
+  });
+
+  it("sells on a chosen exchange", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Sell");
+    expect(offered("Exchange")).toEqual(["River", "Kraken"]);
+    expect(shown("Exchange")).toBe("Select Exchange");
+  });
+
+  it("saves the ids chosen", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Buy");
+    await form.choose("Exchange", "Kraken");
+    await form.choose("Paid from", "Savings");
+    await form.user.type(screen.getByLabelText("Amount USD"), "1000");
+    await form.user.type(screen.getByLabelText("Amount BTC"), "0.01");
+    await form.save();
+    expect(form.sent()).toMatchObject({ type: "Buy", from_account_id: 101, to_account_id: 103, amount: 0.01 });
+  });
+
+  it("refuses to save until an account is chosen", async () => {
+    const form = await renderForm({ book: MANY });
+    await form.pickType("Sell");
+    await form.user.type(screen.getByLabelText("Amount BTC"), "0.01");
+    await form.user.type(screen.getByLabelText("Gross Proceeds (USD)"), "600");
+    await form.save();
+    expect(screen.getByText("Please select an exchange")).toBeTruthy();
+    expect(form.sent()).toBeUndefined();
+  });
+});
+
+it("fills To when it's the only one that fits, and the error it had goes", async () => {
+  const form = await renderForm({ book: ONE_OF_EACH });
+  await form.pickType("Transfer");
+  await form.save();
+  expect(screen.getByText("To Account is required")).toBeTruthy();
+  await form.choose("From Account", "Bank");
+  expect(shown("To Account")).toBe("Exchange USD");
+  expect(screen.queryByText("To Account is required")).toBeNull();
+});
+
+it("says so when the accounts won't load, and saves nothing", async () => {
+  const form = await renderForm({ book: ONE_OF_EACH, accountsFail: true });
+  await form.pickType("Deposit");
+  expect(screen.getByText(ACCOUNTS_FAILED)).toBeTruthy();
+  expect(screen.queryByLabelText("Account", { exact: true })).toBeNull();
+  await form.save();
+  expect(form.sent()).toBeUndefined();
+});
+
+it("says so on an edit too, when the accounts won't load", async () => {
+  const form = await renderForm({
+    book: ONE_OF_EACH, accountsFail: true,
+    transaction: { id: 7, type: "Buy", from_account_id: 1, to_account_id: 4, amount: "0.1", cost_basis_usd: "6000" },
+  });
+  expect(screen.getByText(ACCOUNTS_FAILED)).toBeTruthy();
+  await form.save();
+  expect(form.sent()).toBeUndefined();
+});

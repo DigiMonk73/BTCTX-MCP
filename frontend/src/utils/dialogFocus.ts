@@ -4,19 +4,34 @@
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** A control shown, so it can take focus (a hidden trigger can't, #772's review): its own
+ * display only, which is how the dialogs hide one (Safari 15 has no checkVisibility). */
+const shown = (item: HTMLElement) => getComputedStyle(item).display !== "none";
+
 /** On Tab: wraps focus around `container`'s controls. */
 export function keepFocusIn(container: HTMLElement | null, event: KeyboardEvent): void {
   if (!container || event.key !== "Tab") return;
-  const items = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE));
-  if (items.length === 0) return;
+  const items = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(shown);
+  if (items.length === 0) {
+    event.preventDefault(); // nothing to take it (a dialog busy): focus stays where the dialog put it
+    return;
+  }
   const first = items[0];
   const last = items[items.length - 1];
-  const inside = container.contains(document.activeElement);
+  // The dialog itself focused (a click on its text) is outside its controls
+  const inside = document.activeElement !== container && container.contains(document.activeElement);
   if (event.shiftKey && (document.activeElement === first || !inside)) {
     event.preventDefault();
     last.focus();
   } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
     event.preventDefault();
     first.focus();
+  } else {
+    // Safari tabs to text fields only by default (the Mac app's WebKit): from the last one it
+    // leaves without passing the last control this wraps from. Once it has moved, focus comes back.
+    const wrapTo = event.shiftKey ? last : first;
+    setTimeout(() => {
+      if (container.isConnected && !container.contains(document.activeElement)) wrapTo.focus();
+    });
   }
 }

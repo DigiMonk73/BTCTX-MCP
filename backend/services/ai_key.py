@@ -40,6 +40,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from backend.services.account import account_book
 from backend.services.desktop import desktop_info, is_desktop
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,8 @@ AI_KEY_ROUTES = (
     ("PUT", "/api/transactions/{transaction_id}", "update_transaction"),
     ("DELETE", "/api/transactions/{transaction_id}", "delete_transaction"),
     ("POST", "/api/transactions/recalculate", "recalculate_ledger"),
+    # A saved transaction's coins, on a scratch copy that saves nothing (#711, Q4)
+    ("POST", "/api/transactions/{transaction_id}/coins-moved", "get_coins_moved"),
     ("POST", "/api/import/entries/preview", "preview_transactions"),
     ("POST", "/api/import/entries/execute", "add_transactions"),
     ("GET", "/api/calculations/accounts/balances", "get_portfolio"),
@@ -72,6 +75,10 @@ AI_KEY_ROUTES = (
     ("GET", "/api/settings/tax-timezone", "get_portfolio, list_transactions, update_transaction"),
     ("GET", "/api/review", "review_ledger"),
     ("POST", "/api/backup/ai-copy", "backup_ledger"),
+    # The user's accounts by name (2.0 spec 5.12): read only; adding, hiding
+    # and deleting one stay the owner's (Q11)
+    ("GET", "/api/accounts/", "get_portfolio, preview_transactions, add_transactions, list_transactions, "
+                              "update_transaction, delete_transaction, get_coins_moved"),
 )
 _ALLOWED = {(method, route) for method, route, _ in AI_KEY_ROUTES}
 
@@ -81,6 +88,37 @@ def key_may_use(method: str, route: str | None) -> bool:
     request matched, never its URL: a URL's path is re-parsed from the decoded
     one, where a %3F cuts it short (#204)."""
     return (method, route) in _ALLOWED
+
+
+# A 2.0 connector says so on every request, with its version; a 1.x one
+# sends no such header (2.0 spec 5.12). It tells the server which client it
+# is talking to: it isn't a security check, since any client can send it.
+CONNECTOR_HEADER = "x-bitcointx-connector"
+OLD_CONNECTOR = ("This AI connector is older than BitcoinTX 2.0 and can't tell your wallets or exchanges apart. "
+                 "Update it (btctx-mcp 2.0 or later), then try again.")
+# The AI key's writes: an import, an edit, a delete, Recalculate Ledger
+WRITES = {
+    ("POST", "/api/import/entries/execute"),
+    ("PUT", "/api/transactions/{transaction_id}"),
+    ("DELETE", "/api/transactions/{transaction_id}"),
+    ("POST", "/api/transactions/recalculate"),
+}
+
+
+def from_an_old_connector(method: str, route: str | None, connector: str | None, db: Session) -> bool:
+    """A write a 1.x connector sent (no connector header) to a ledger with
+    more than one wallet or more than one exchange, hidden ones counted
+    (5.12): its guide puts a second wallet's coins in Wallet, which the
+    server can't tell from a real Wallet entry. Its reads, and its writes to
+    a ledger of one of each, go on as in 1.x. Any version a 2.0 connector
+    sends counts: a release's, a pre-release's (2.0.0a1), "unknown" from a
+    source tree."""
+    if connector is not None or (method, route) not in WRITES:
+        return False
+    book = account_book(db)
+    wallets = [i for i in book.yours() if book.kind(i) == "wallet"]
+    exchanges = {book.exchange_of(i) for i in book.yours() if book.kind(i) == "exchange"}
+    return len(wallets) > 1 or len(exchanges) > 1
 
 
 # Mode and storage

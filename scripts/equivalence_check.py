@@ -16,7 +16,8 @@ only the app code differs.
 
 Snapshots are kept in .equivalence/ (gitignored); the release's is reused
 while the snapshot code and today's date in each ledger's tax timezone are
-unchanged. Exit status 1 on any difference, or when recalculation is more
+unchanged, and both are taken again when one of those dates changes during
+the run. Exit status 1 on any difference, or when recalculation is more
 than 5% slower.
 """
 
@@ -49,8 +50,7 @@ def main() -> int:
     args = _arguments()
     if args.command == "snapshot":
         return _snapshot(Path(args.root), Path(args.out), args.bench)
-    base = _baseline_snapshot(args.against, args.bench, args.fresh)
-    here = _take(ROOT, STORE / "working", args.bench)
+    base, here = _both_snapshots(args.against, args.bench, args.fresh)
     return _compare(base, here, args.bench)
 
 
@@ -63,6 +63,23 @@ def _arguments():
     parser.add_argument("--root", default=str(ROOT), help=argparse.SUPPRESS)
     parser.add_argument("--out", help=argparse.SUPPRESS)
     return parser.parse_args()
+
+
+def _both_snapshots(ref: str, bench: bool, fresh: bool) -> tuple[Path, Path]:
+    """
+    The release's snapshot and this checkout's, on the same date in every
+    ledger's tax timezone. A report prints that date, and a coin choice the
+    day it was saved, so a midnight in one of those zones while the two were
+    taken showed as a difference no change made (#661): both are taken
+    again, the release's under the new date.
+    """
+    while True:
+        dates = _dates_today()
+        base = _baseline_snapshot(ref, bench, fresh)
+        here = _take(ROOT, STORE / "working", bench)
+        if _dates_today() == dates:
+            return base, here
+        print("A midnight in a ledger's tax timezone fell during the snapshots: taking both again.", flush=True)
 
 
 def _baseline_snapshot(ref: str, bench: bool, fresh: bool) -> Path:
@@ -94,7 +111,8 @@ def _dates_today() -> str:
 def _snapshot_code_digest() -> str:
     """Changes when the snapshot code or its ledger does, so an old snapshot isn't reused."""
     digest = hashlib.sha256()
-    for name in ("equivalence_check.py", "equivalence_snapshot.py", "equivalence_inputs.py"):
+    for name in ("equivalence_check.py", "equivalence_snapshot.py", "equivalence_inputs.py",
+                 "equivalence_ledgers_1x.py"):
         digest.update((ROOT / "scripts" / name).read_bytes())
     digest.update((ROOT / "testdata" / "reference_ledger.json").read_bytes())
     return digest.hexdigest()[:8]

@@ -11,10 +11,20 @@
  * into the AI app's settings. The key is never put in these texts: a prompt
  * pasted into an AI chat is sent to the AI provider, so every configuration
  * carries a placeholder the user replaces on their own computer.
+ *
+ * A 2.0 pre-release, an alpha or a beta (2.0.0-alpha.N, 2.0.0-beta.N; 2.0
+ * plan 7.4, B10a), pins its own connector (PEP 440's 2.0.0aN, 2.0.0bN),
+ * links its tag's guide, and names the server "bitcointx-preview": unpinned,
+ * the latest 1.x connector would run, whose key file is the installed Mac
+ * app's, and under "bitcointx" the AI app's entry for the tester's own
+ * BitcoinTX would be replaced.
  */
+
+import { macApp, prereleaseParts } from "./prereleaseVersion";
 
 export const REPO_URL = "https://github.com/DigiMonk73/BTCTX-MCP";
 export const SERVER_NAME = "bitcointx";
+export const PREVIEW_SERVER_NAME = "bitcointx-preview";
 export const KEY_PLACEHOLDER = "YOUR_BITCOINTX_AI_KEY";
 export const CA_BUNDLE_PLACEHOLDER = "/path/to/root-ca.crt";
 
@@ -27,18 +37,28 @@ export interface AiSetupInput {
   keyMode?: boolean;
 }
 
-/** The release tag matching this app, or main when the version is unknown. */
+const RELEASE = /^\d+\.\d+\.\d+$/;
+
+/** The release (or pre-release) tag matching this app, or main when the version is unknown. */
 export function gitRef(version?: string): string {
-  return version && /^\d+\.\d+\.\d+$/.test(version) ? `v${version}` : "main";
+  return version && (RELEASE.test(version) || prereleaseParts(version)) ? `v${version}` : "main";
+}
+
+/** The name the AI app knows this BitcoinTX by: a pre-release's apart from the tester's own. */
+export function serverName(version?: string): string {
+  return prereleaseParts(version) ? PREVIEW_SERVER_NAME : SERVER_NAME;
 }
 
 /**
- * The MCP server from PyPI, pinned to this app's release (btctx-mcp==X.Y.Z):
- * the AI app runs exactly that version and asks nothing new at each start.
- * When BitcoinTX is updated, the server's replies say which version to set.
+ * The MCP server from PyPI, pinned to this app's release (btctx-mcp==X.Y.Z,
+ * an alpha's btctx-mcp==X.Y.ZaN, a beta's X.Y.ZbN): the AI app runs exactly that version and
+ * asks nothing new at each start. When BitcoinTX is updated, the server's
+ * replies say which version to set.
  */
 export function serverPackage(version?: string): string {
-  return version && /^\d+\.\d+\.\d+$/.test(version) ? `btctx-mcp==${version}` : "btctx-mcp";
+  const pre = prereleaseParts(version);
+  if (pre) return `btctx-mcp==${pre.release}${pre.stage}${pre.n}`;
+  return version && RELEASE.test(version) ? `btctx-mcp==${version}` : "btctx-mcp";
 }
 
 export function setupGuideUrl(version?: string): string {
@@ -73,21 +93,28 @@ export function serverEnv({ url, keyMode }: AiSetupInput): Record<string, string
 export function buildAiPrompt(input: AiSetupInput): string {
   const intro = [
     "Connect yourself to my BitcoinTX ledger (a self-hosted Bitcoin portfolio and tax tracker) " +
-      `by adding its MCP server, btctx-mcp, to the AI app I'm using with you, under the name "${SERVER_NAME}".`,
+      `by adding its MCP server, btctx-mcp, to the AI app I'm using with you, under the name "${serverName(input.version)}".`,
     "",
     `Follow this setup guide: ${setupGuideUrl(input.version)}`,
     "",
   ];
   const outro = [
     "",
+    // Off in a new install: the first try failed with "AI access is turned off" (#676).
+    // A pre-release's Mac app has its own switch, never the installed app's
+    'AI access is off until I turn it on: before you check it works, ask me to turn on ' +
+      `"Let AI assistants use BitcoinTX" in ${input.keyMode ? macApp(input.version) : "BitcoinTX"} ` +
+      "Settings → Connect an AI Assistant.",
     "If you can't change your own configuration, give me the exact steps instead. " +
       "Once it's connected, call get_portfolio to confirm it works" +
-      (input.keyMode ? " (BitcoinTX must be open)." : "."),
+      (input.keyMode ? ` (${macApp(input.version)} must be open).` : "."),
   ];
   if (input.keyMode) {
     return [
       ...intro,
-      "BitcoinTX is the Mac app on this computer. The MCP server finds it by itself, so it needs no " +
+      // A pre-release's own Mac app, beside BitcoinTX: the server reads its key file
+      `BitcoinTX is the Mac app ${macApp(input.version) === "BitcoinTX" ? "" : `${macApp(input.version)} `}` +
+        "on this computer. The MCP server finds it by itself, so it needs no " +
         "URL, key or password: don't add any to the configuration, and don't ask me for my password.",
       `- Server command: uvx ${serverPackage(input.version)}`,
       ...outro,
@@ -117,7 +144,7 @@ export function claudeDesktopConfig(input: AiSetupInput): string {
   const env = serverEnv(input);
   const config = {
     mcpServers: {
-      [SERVER_NAME]: {
+      [serverName(input.version)]: {
         command: "uvx",
         args: [serverPackage(input.version)],
         ...(Object.keys(env).length ? { env } : {}),
@@ -135,7 +162,7 @@ function shellQuote(value: string): string {
 export function claudeCodeCommand(input: AiSetupInput): string {
   const env = Object.entries(serverEnv(input)).map(([k, v]) => `-e ${k}=${shellQuote(v)}`);
   return [
-    `claude mcp add --scope user ${SERVER_NAME}`,
+    `claude mcp add --scope user ${serverName(input.version)}`,
     ...env,
     `-- uvx ${shellQuote(serverPackage(input.version))}`,
   ].join(" \\\n  ");
@@ -143,5 +170,5 @@ export function claudeCodeCommand(input: AiSetupInput): string {
 
 /** Grok Build (Mac app): one command, nothing secret in it. */
 export function grokCommand(input: AiSetupInput): string {
-  return `grok mcp add ${SERVER_NAME} -- uvx ${shellQuote(serverPackage(input.version))}`;
+  return `grok mcp add ${serverName(input.version)} -- uvx ${shellQuote(serverPackage(input.version))}`;
 }
