@@ -4,7 +4,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-## [v2.0.0] - 2026-10-30 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
+## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
 **In short.** BitcoinTX 2.0 tracks each wallet, exchange and bank you use,
 each wallet and exchange with its own coins. Cost basis is Per-wallet FIFO,
