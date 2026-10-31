@@ -31,5 +31,5 @@ tzdata==2026.5  # timezone rules for the tax timezone (bundled, OS-independent)
 cryptography==50.0.2
 
 # PDF generation & manipulation
-pypdf==6.21.2
+pypdf==6.21.4
 reportlab==5.1.0
