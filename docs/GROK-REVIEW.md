@@ -36,8 +36,7 @@ routine. `docs/PRIVACY_AUDIT.md`'s first table, with the notes under it, is the 
   simple fixes.
 - After each pass, Claude records it as a comment on issue #41: the area
   or release, the date, how many findings were confirmed and how many
-  were not, and the next area. The Monday report repeats the latest. No
-  separate scorecard file.
+  were not, and the next area. No separate scorecard file.
 
 Do not name model versions or speed tiers in this file. They go stale.
 

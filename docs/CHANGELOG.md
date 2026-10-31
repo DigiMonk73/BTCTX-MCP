@@ -4,7 +4,21 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
-## [v2.0.0] - 2026-10-30 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
+### Development
+- **Routine checks run on GitHub, not on a Mac or on Claude's tokens** (the
+  owner, 2026-10-31, after 2.0.0; plan: #869). Tooling only: nothing changes in
+  the app, the connector or the package, and no figure can move.
+  `monday-report.yml` runs `scripts/monday-report.sh` on Mondays and opens one
+  issue, or edits the open one in place: open `tax-figures` issues, outside
+  reports with no answer (here, on Start9's fork and on the mirror) and open
+  `start9` issues, with no count of security advisories. `start9-watch.yml`
+  runs weekly, on Mondays, where it was written to run daily. Dependabot runs
+  monthly, not weekly, with the Dockerfile's base images in one grouped pull
+  request too. None of it takes effect until `main` carries the files, since
+  GitHub reads schedules and `dependabot.yml` only from the default branch.
+  `docs/MAINTENANCE.md` has the new "Scheduled checks".
+
+## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
 **In short.** BitcoinTX 2.0 tracks each wallet, exchange and bank you use,
 each wallet and exchange with its own coins. Cost basis is Per-wallet FIFO,
