@@ -191,5 +191,8 @@ def test_the_summary_and_this_page_still_fit_one_page_each(forms):
     """#114 and #160 add words to the summary and to this page: with all six
     boxes, the year not over (this page's longest without a rebate or an
     inherited coin) and the summary's notes, each still takes one page, as
-    before them."""
-    assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date="2025-10-01 12:00:00") == (1, 1)
+    before them; with a sale on a Form 1099-DA, one more says what to do if
+    that form differs (#158), itself one page."""
+    assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date="2025-10-01 12:00:00") == (1, 2)
+    no_broker = [b for b in SIX_BOXES if b["box"] in ("I", "L")]
+    assert section_pages(irs_forms=forms, form_8949_boxes=no_broker, report_date="2025-10-01 12:00:00") == (1, 1)

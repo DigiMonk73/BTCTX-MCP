@@ -625,7 +625,9 @@ Review, 1,200 s (`client.LONG_TIMEOUT`, from the VM's measurement;
   Sell/Withdrawal's `broker_reporting` (none/proceeds/basis) overrides those
   rules for that transaction, a spend's fee disposals included (#549).
   One sheet per box, line 2 totals that sheet's rows, Schedule D line per
-  box, column (f) blank.
+  box, column (f) blank. A broker's figures are never stored: where a Form
+  1099-DA differs, the report's page says how to correct the form by hand
+  (the owner's choice, #158).
 
 ## Key files
 
