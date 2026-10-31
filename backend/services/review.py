@@ -232,7 +232,7 @@ CHECKS: dict[str, tuple] = {
     ),
     "sale_may_differ_from_1099da": (
         "Reminder: exchange sales your exchange's Form 1099-DA may show differently",
-        "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file shows the "
+        "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file may show the "
         "exchange's figures with an adjustment (code B), which BitcoinTX's forms leave blank: ask your tax "
         "preparer.",
     ),
