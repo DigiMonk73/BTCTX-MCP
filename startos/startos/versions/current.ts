@@ -26,7 +26,7 @@ export const current = VersionInfo.of({
 - **Reload any BitcoinTX page left open in a browser**: a page from 1.x can't save ("BitcoinTX was updated: reload the page.").
 - **If you use an AI connector** (connecting an AI is optional), update it before the AI changes anything: in your AI app's configuration, change the version after btctx-mcp== to 2.0.0, then restart the AI app. Once your ledger has a second wallet or exchange, an older connector can still read it, but BitcoinTX refuses its changes, and a ledger with an extra bitcoin account made through 1.x's account API has two wallets as soon as it's updated.
 - **Every transaction keeps its account, and your tax figures don't change**, except in a ledger started before 0.9.2: a transaction saved then into an account made through BitcoinTX's old account API now counts by that account's currency, so its income, rebates and gifts can move, and once the ledger is recalculated a spend's network fee from it lowers the spend's proceeds and gain. Ledger Review lists these rows ("Transactions in an account made through BitcoinTX's old account API"): check each, then run Recalculate Ledger.
-- **Disk space:** before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so BitcoinTX's data takes about twice the space (one copy, made once); it never deletes that copy.
+- **Disk space and time:** upgrading the database takes moments; before the update BitcoinTX keeps a copy of your 1.x database, backups/btctx-pre-2.0-….db, so BitcoinTX's data takes about twice the space (one copy, made once); it never deletes that copy.
 - **Add your other wallets, exchanges and banks** in Settings (Wallets, exchanges and banks), and set each exchange's "This exchange sends me a Form 1099-DA". [The README's steps](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0/README.md#from-1x-to-20) say how to move coins into each, and what keeping multiple wallets or exchanges together in 1.x means for earlier returns.
 
 **What's new in 2.0**
@@ -37,7 +37,7 @@ export const current = VersionInfo.of({
 - **An importer for any exchange's CSV file**, and a question before a change moves an earlier tax year's figures.
 - **The dashboard's Unrealized Gains/Losses adds up your accounts' own gains**, which can be a few cents from 1.x's figure; it's on no tax form.
 - **The Dashboard's "Choose a source" and "Confirm now" links go to the price card** even when pressed before it shows (#612).
-- **Underneath:** the package is built with start-sdk 3.1.1 and start-cli 2.5.2, and the image's system certificate store drops the roots distrusted after the eMudhra compromise, which the app's own connections never used.
+- **Underneath:** the package is built with start-sdk 3.1.1 and start-cli 2.5.2, and the image's system certificate store drops the roots distrusted after the eMudhra compromise, which the app's own connections never used. pypdf, which fills the IRS forms, is updated for published security advisories: the forms come out the same.
 
 **Fixes since 1.2.10 that can change a figure**
 
@@ -75,7 +75,7 @@ Uninstall BitcoinTX (which deletes 2.0's data, the copy above included) and rest
 - **Vuelve a cargar cualquier página de BitcoinTX que haya quedado abierta en un navegador**: una página de la 1.x no puede guardar ("BitcoinTX was updated: reload the page.").
 - **Si usas un conector de IA** (conectar una IA es opcional), actualízalo antes de que la IA cambie nada: en la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 2.0.0 y reinicia la aplicación de IA. Cuando tu libro contable tenga un segundo monedero o exchange, un conector anterior aún puede leerlo, pero BitcoinTX rechaza sus cambios, y un libro contable con una cuenta de bitcoin adicional creada mediante la API de cuentas de la 1.x tiene dos monederos en cuanto se actualiza.
 - **Cada transacción conserva su cuenta, y tus cifras fiscales no cambian**, salvo en un libro contable empezado antes de la 0.9.2: una transacción guardada entonces en una cuenta creada con la antigua API de cuentas de BitcoinTX ahora se cuenta según la moneda de esa cuenta, así que sus ingresos, rebates y regalos recibidos pueden cambiar, y, una vez recalculado el libro contable, la comisión de red de un gasto desde esa cuenta reduce el importe recibido y la ganancia de ese gasto. Ledger Review muestra estas filas ("Transactions in an account made through BitcoinTX's old account API"): revisa cada una y después ejecuta Recalculate Ledger.
-- **Espacio en disco:** antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos pasan a ocupar más o menos el doble (una sola copia); nunca borra esa copia.
+- **Espacio en disco y tiempo:** actualizar la base de datos lleva unos instantes; antes de actualizar, BitcoinTX guarda una copia de tu base de datos de la 1.x, backups/btctx-pre-2.0-….db, así que sus datos pasan a ocupar más o menos el doble (una sola copia); nunca borra esa copia.
 - **Añade tus otros monederos, exchanges y bancos** en Settings (Wallets, exchanges and banks), y ajusta en cada exchange "This exchange sends me a Form 1099-DA". [Los pasos del README](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0/README.md#from-1x-to-20) dicen cómo mover monedas a cada uno y qué significa para declaraciones anteriores haber llevado juntos múltiples monederos o exchanges en la 1.x.
 
 **Novedades de la 2.0**
@@ -86,7 +86,7 @@ Uninstall BitcoinTX (which deletes 2.0's data, the copy above included) and rest
 - **Un importador para el archivo CSV de cualquier exchange**, y una pregunta antes de que un cambio mueva las cifras de un año fiscal anterior.
 - **Unrealized Gains/Losses del Dashboard suma las ganancias propias de tus cuentas**, que pueden diferir unos céntimos de la cifra de la 1.x; no aparece en ningún formulario fiscal.
 - **Los enlaces "Choose a source" y "Confirm now" del Dashboard llevan a la tarjeta de precios** aunque se pulsen antes de que aparezca (#612).
-- **Por dentro:** el paquete se construye con start-sdk 3.1.1 y start-cli 2.5.2, y el almacén de certificados del sistema de la imagen deja fuera las raíces que perdieron la confianza tras el compromiso de eMudhra, que las conexiones propias de la aplicación nunca usaron.
+- **Por dentro:** el paquete se construye con start-sdk 3.1.1 y start-cli 2.5.2, y el almacén de certificados del sistema de la imagen deja fuera las raíces que perdieron la confianza tras el compromiso de eMudhra, que las conexiones propias de la aplicación nunca usaron. pypdf, que rellena los formularios del IRS, se actualiza por avisos de seguridad publicados: los formularios salen iguales.
 
 **Correcciones desde la 1.2.10 que pueden cambiar una cifra**
 
@@ -124,7 +124,7 @@ Desinstala BitcoinTX (lo que borra los datos de la 2.0, incluida la copia de arr
 - **Lade jede in einem Browser offen gebliebene Seite von BitcoinTX neu**: Eine Seite von 1.x kann nicht speichern ("BitcoinTX was updated: reload the page.").
 - **Wenn du einen KI-Connector nutzt** (eine KI anzubinden ist optional), aktualisiere ihn, bevor die KI etwas ändert: Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 2.0.0 und starte die KI-App neu. Sobald dein Journal eine zweite Wallet oder Börse hat, kann ein älterer Connector es noch lesen, aber BitcoinTX lehnt seine Änderungen ab, und ein Journal mit einem zusätzlichen Bitcoin-Konto, das über die Konten-API von 1.x angelegt wurde, hat gleich nach dem Update zwei Wallets.
 - **Jede Transaktion behält ihr Konto, und deine Steuerzahlen ändern sich nicht**, außer in einem Journal, das vor 0.9.2 begonnen wurde: Eine Transaktion, die damals in einem über die alte Konten-API von BitcoinTX angelegten Konto gespeichert wurde, zählt jetzt nach der Währung dieses Kontos. Deren Einkünfte, Rebates und erhaltene Geschenke können sich dadurch verschieben, und nach einer Neuberechnung des Journals senkt die Netzwerkgebühr einer Ausgabe daraus deren Erlös und Gewinn. Ledger Review listet diese Zeilen auf ("Transactions in an account made through BitcoinTX's old account API"): Prüfe jede, dann führe Recalculate Ledger aus.
-- **Speicherplatz:** Vor dem Update legt BitcoinTX eine Kopie deiner 1.x-Datenbank an, backups/btctx-pre-2.0-….db, seine Daten brauchen also einmal etwa doppelt so viel Platz; diese Kopie löscht BitcoinTX nie.
+- **Speicherplatz und Zeit:** Die Datenbank ist in wenigen Augenblicken aktualisiert. Vor dem Update legt BitcoinTX eine Kopie deiner 1.x-Datenbank an, backups/btctx-pre-2.0-….db, seine Daten brauchen also einmal etwa doppelt so viel Platz; diese Kopie löscht BitcoinTX nie.
 - **Lege deine anderen Wallets, Börsen und Banken an** in Settings (Wallets, exchanges and banks), und stelle bei jeder Börse "This exchange sends me a Form 1099-DA" ein. [Die Schritte im README](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0/README.md#from-1x-to-20) sagen, wie du Coins dorthin bewegst und was es für frühere Steuererklärungen bedeutet, wenn du in 1.x mehrere Wallets oder Börsen zusammen geführt hast.
 
 **Neu in 2.0**
@@ -135,7 +135,7 @@ Desinstala BitcoinTX (lo que borra los datos de la 2.0, incluida la copia de arr
 - **Ein Import für die CSV-Datei jeder Börse**, und eine Frage, bevor eine Änderung die Zahlen eines früheren Steuerjahres verschiebt.
 - **Unrealized Gains/Losses im Dashboard zählt die eigenen Gewinne deiner Konten zusammen**, was ein paar Cent von der Zahl in 1.x abweichen kann; es steht auf keinem Steuerformular.
 - **Die Links "Choose a source" und "Confirm now" im Dashboard führen zur Preiskarte**, auch wenn sie gedrückt werden, bevor sie erscheint (#612).
-- **Unter der Haube:** Das Paket wird mit start-sdk 3.1.1 und start-cli 2.5.2 gebaut, und der Zertifikatspeicher des Images lässt die Wurzeln weg, denen nach dem eMudhra-Vorfall das Vertrauen entzogen wurde; die eigenen Verbindungen der App haben sie nie benutzt.
+- **Unter der Haube:** Das Paket wird mit start-sdk 3.1.1 und start-cli 2.5.2 gebaut, und der Zertifikatspeicher des Images lässt die Wurzeln weg, denen nach dem eMudhra-Vorfall das Vertrauen entzogen wurde; die eigenen Verbindungen der App haben sie nie benutzt. pypdf, das die IRS-Formulare ausfüllt, ist wegen veröffentlichter Sicherheitshinweise aktualisiert: Die Formulare bleiben unverändert.
 
 **Korrekturen seit 1.2.10, die eine Zahl ändern können**
 
@@ -173,7 +173,7 @@ Deinstalliere BitcoinTX (das löscht die Daten von 2.0, die Kopie oben eingeschl
 - **Odśwież każdą stronę BitcoinTX pozostawioną otwartą w przeglądarce**: strona z 1.x nie może zapisywać ("BitcoinTX was updated: reload the page.").
 - **Jeśli używasz łącznika AI** (podłączenie AI jest opcjonalne), zaktualizuj go, zanim AI cokolwiek zmieni: w konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 2.0.0 i uruchom aplikację AI ponownie. Gdy Twoja księga ma drugi portfel lub drugą giełdę, starszy łącznik nadal może ją czytać, ale BitcoinTX odrzuca jego zmiany, a księga z dodatkowym kontem bitcoinowym utworzonym przez API kont 1.x ma dwa portfele od razu po aktualizacji.
 - **Każda transakcja zachowuje swoje konto, a Twoje wyniki podatkowe się nie zmieniają**, z wyjątkiem księgi założonej przed 0.9.2: transakcja zapisana wtedy na koncie utworzonym przez dawne API kont BitcoinTX liczy się teraz według waluty tego konta, więc dochody, rebate i otrzymane prezenty z tego konta mogą się zmienić, a po przeliczeniu księgi opłata sieciowa wydatku z tego konta obniża przychód i zysk z tego wydatku. Ledger Review wymienia te wiersze ("Transactions in an account made through BitcoinTX's old account API"): sprawdź każdy, a potem uruchom Recalculate Ledger.
-- **Miejsce na dysku:** przed aktualizacją BitcoinTX zachowuje kopię bazy danych 1.x, backups/btctx-pre-2.0-….db, więc jednorazowo jego dane zajmują mniej więcej dwa razy więcej miejsca; tej kopii nigdy nie usuwa.
+- **Miejsce na dysku i czas:** aktualizacja bazy danych zajmuje tylko chwilę; przed aktualizacją BitcoinTX zachowuje kopię bazy danych 1.x, backups/btctx-pre-2.0-….db, więc jednorazowo jego dane zajmują mniej więcej dwa razy więcej miejsca; tej kopii nigdy nie usuwa.
 - **Dodaj pozostałe portfele, giełdy i banki** w Settings (Wallets, exchanges and banks) i ustaw dla każdej giełdy "This exchange sends me a Form 1099-DA". [Kroki w README](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0/README.md#from-1x-to-20) mówią, jak przenieść do nich monety i co dla wcześniejszych zeznań oznacza prowadzenie wielu portfeli lub giełd razem w 1.x.
 
 **Nowości w 2.0**
@@ -184,7 +184,7 @@ Deinstalliere BitcoinTX (das löscht die Daten von 2.0, die Kopie oben eingeschl
 - **Import pliku CSV z dowolnej giełdy** oraz pytanie, zanim zmiana przesunie wyniki wcześniejszego roku podatkowego.
 - **Unrealized Gains/Losses na Dashboard sumuje własne zyski Twoich kont**, co może różnić się o kilka centów od wyniku w 1.x; nie ma tego na żadnym formularzu podatkowym.
 - **Linki "Choose a source" i "Confirm now" na Dashboard prowadzą do karty cen**, nawet gdy kliknie się je, zanim się pojawi (#612).
-- **Pod spodem:** pakiet jest budowany za pomocą start-sdk 3.1.1 i start-cli 2.5.2, a systemowy magazyn certyfikatów obrazu pomija główne certyfikaty, którym cofnięto zaufanie po włamaniu do eMudhra; własne połączenia aplikacji nigdy z nich nie korzystały.
+- **Pod spodem:** pakiet jest budowany za pomocą start-sdk 3.1.1 i start-cli 2.5.2, a systemowy magazyn certyfikatów obrazu pomija główne certyfikaty, którym cofnięto zaufanie po włamaniu do eMudhra; własne połączenia aplikacji nigdy z nich nie korzystały. pypdf, który wypełnia formularze IRS, jest zaktualizowany w związku z opublikowanymi biuletynami bezpieczeństwa: formularze wychodzą takie same.
 
 **Poprawki od 1.2.10, które mogą zmienić wynik**
 
@@ -222,7 +222,7 @@ Odinstaluj BitcoinTX (co usuwa dane 2.0, łącznie z kopią opisaną wyżej) i p
 - **Rechargez toute page de BitcoinTX restée ouverte dans un navigateur** : une page de la 1.x ne peut pas enregistrer ("BitcoinTX was updated: reload the page.").
 - **Si vous utilisez un connecteur IA** (connecter une IA est facultatif), mettez-le à jour avant que l’IA ne change quoi que ce soit : dans la configuration de votre application d’IA, remplacez la version après btctx-mcp== par 2.0.0 et redémarrez l’application d’IA. Dès que votre registre a un deuxième portefeuille ou une deuxième plateforme, un connecteur plus ancien peut encore le lire, mais BitcoinTX refuse ses modifications, et un registre avec un compte bitcoin supplémentaire créé via l’API des comptes de la 1.x a deux portefeuilles dès la mise à jour.
 - **Chaque transaction garde son compte, et vos chiffres fiscaux ne changent pas**, sauf dans un registre commencé avant la 0.9.2 : une transaction enregistrée alors dans un compte créé par l’ancienne API des comptes de BitcoinTX compte désormais selon la devise de ce compte ; ses revenus, rebates et dons reçus peuvent changer, et une fois le registre recalculé, les frais de réseau d’une dépense faite depuis ce compte réduisent le produit et le gain de cette dépense. Ledger Review liste ces lignes ("Transactions in an account made through BitcoinTX's old account API") : vérifiez chacune, puis lancez Recalculate Ledger.
-- **Espace disque :** avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc environ deux fois plus de place (une seule copie) ; BitcoinTX ne supprime jamais cette copie.
+- **Espace disque et temps :** la mise à jour de la base de données ne prend qu’un instant ; avant la mise à jour, BitcoinTX garde une copie de votre base de données 1.x, backups/btctx-pre-2.0-….db : ses données prennent donc environ deux fois plus de place (une seule copie) ; BitcoinTX ne supprime jamais cette copie.
 - **Ajoutez vos autres portefeuilles, plateformes et banques** dans Settings (Wallets, exchanges and banks), et réglez pour chaque plateforme "This exchange sends me a Form 1099-DA". [Les étapes du README](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.0/README.md#from-1x-to-20) disent comment y déplacer des bitcoins et ce que signifie, pour les déclarations antérieures, d’avoir gardé ensemble de multiples portefeuilles ou plateformes dans la 1.x.
 
 **Nouveautés de la 2.0**
@@ -233,7 +233,7 @@ Odinstaluj BitcoinTX (co usuwa dane 2.0, łącznie z kopią opisaną wyżej) i p
 - **Un import pour le fichier CSV de n’importe quelle plateforme**, et une question avant qu’un changement ne déplace les chiffres d’une année fiscale antérieure.
 - **Unrealized Gains/Losses du Dashboard additionne les gains propres à vos comptes**, ce qui peut différer de quelques centimes du chiffre de la 1.x ; il ne figure sur aucun formulaire fiscal.
 - **Les liens "Choose a source" et "Confirm now" du Dashboard mènent à la carte des prix**, même pressés avant qu’elle n’apparaisse (#612).
-- **Sous le capot :** le paquet est construit avec start-sdk 3.1.1 et start-cli 2.5.2, et le magasin de certificats système de l’image écarte les racines qui ont perdu la confiance après la compromission d’eMudhra, que les connexions propres de l’application n’ont jamais utilisées.
+- **Sous le capot :** le paquet est construit avec start-sdk 3.1.1 et start-cli 2.5.2, et le magasin de certificats système de l’image écarte les racines qui ont perdu la confiance après la compromission d’eMudhra, que les connexions propres de l’application n’ont jamais utilisées. pypdf, qui remplit les formulaires de l’IRS, est mis à jour à la suite d’avis de sécurité publiés : les formulaires sortent identiques.
 
 **Corrections depuis la 1.2.10 qui peuvent changer un chiffre**
 

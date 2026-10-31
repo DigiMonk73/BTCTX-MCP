@@ -1211,6 +1211,11 @@ only the pre-releases. Each pre-release's own notes stay on
   that BitcoinTX Preview's icon has a red PREVIEW band (#670).
 
 ### StartOS package
+- **`instructions.md` says what to do behind a tunnel** (Start9's
+  `writing-instructions.md`, "Connections the service starts itself", published
+  2026-10-30): someone publishing BitcoinTX through a tunnel to keep their home
+  IP address private sends its outbound traffic through it too, or the public
+  price sites still see that address.
 - **StartOS asks for the backups before a 1.x install downloads 2.0** (Start9's
   `preDownloadAlert`, in five languages), from a registry only. An install on a
   2.0 pre-release isn't asked: its StartOS backup would bring back that

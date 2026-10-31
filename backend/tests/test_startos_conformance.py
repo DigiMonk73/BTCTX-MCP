@@ -161,6 +161,18 @@ def test_instructions_describe_the_service_as_it_is():
     assert update_words.findall(read("instructions.md")) == []
 
 
+def test_instructions_say_what_to_do_behind_a_tunnel():
+    # writing-instructions.md, "Connections the service starts itself": the
+    # public price sites would learn the server's address, so someone using a
+    # tunnel for privacy is told to send outbound traffic there too, and
+    # someone using it for another reason that nothing changes. It says what to
+    # do, not where: the setting's place moves between StartOS releases.
+    text = read("instructions.md")
+    assert "send its outbound traffic through that tunnel too" in text
+    assert "If you use a tunnel for another reason" in text
+    assert "Set Outbound Gateway" not in text
+
+
 def store_descriptions(name: str) -> dict[str, str]:
     """One of manifest/i18n.ts's descriptions, by locale: each a single- or
     double-quoted string (Prettier double-quotes a text holding an apostrophe)."""
