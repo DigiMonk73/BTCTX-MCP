@@ -227,7 +227,7 @@ BitcoinTX's take different coins bought there (whose basis it reports): an
 exchange without the purchase
 dates of coins moved in counts them from their arrival (Instructions for
 Form 1099-DA, lot selection). Once the two orders part, a later Sell can
-differ too. Where the form differs, the Form 8949 the owner files shows the
+differ too. Where the form differs, the Form 8949 the owner files may show the
 exchange's figures with an adjustment (code B); BitcoinTX's forms leave
 columns (f) and (g) blank, so that is for whoever files the return.
 

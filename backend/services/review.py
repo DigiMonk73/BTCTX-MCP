@@ -65,8 +65,7 @@ Checks:
   moved in counts them from their arrival and sells the coins it counts as
   oldest first; BitcoinTX sells first the coins acquired first. So the
   exchange's form may report another basis for the sale (a 2025 form
-  reports none). Nothing in the ledger is wrong, and nothing clears it: a
-  reminder.
+  reports none). Nothing clears it: a reminder.
 - inherited_without_date (#154): an Inherited deposit into a BTC account
   with no date of death. New ones must have it; a deposit saved before
   1.1.0, when the source was free text, may say "inherited" without one. Its
@@ -233,7 +232,7 @@ CHECKS: dict[str, tuple] = {
     ),
     "sale_may_differ_from_1099da": (
         "Reminder: exchange sales your exchange's Form 1099-DA may show differently",
-        "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file shows the "
+        "Compare each with your exchange's Form 1099-DA. Where they differ, the Form 8949 you file may show the "
         "exchange's figures with an adjustment (code B), which BitcoinTX's forms leave blank: ask your tax "
         "preparer.",
     ),
@@ -278,9 +277,10 @@ REMINDERS: dict[str, tuple[str, ...]] = {
         "BitcoinTX sells first the coins acquired first in each account. For these sales the two orders take "
         "different coins bought there (the coins whose cost basis its form reports). Once one sale has taken other "
         "coins, a later one can differ too.",
-        "Nothing in your ledger is wrong, and nothing needs editing: these are listed so you can check them "
-        "against the form. A sale whose Broker form you set to no form, or to proceeds without basis, isn't "
-        "listed.",
+        "These are listed so you can check them against the form. BitcoinTX's figures stay as they are unless "
+        "you change something. Whether your exchange's order of coins or BitcoinTX's applies to you can depend on "
+        "how that exchange lets you choose coins: your tax preparer can say. A sale whose Broker form you set to "
+        "no form, or to proceeds without basis, isn't listed.",
     ),
 }
 

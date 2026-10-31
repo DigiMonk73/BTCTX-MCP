@@ -242,8 +242,9 @@ chosen coins, the oldest of them first.
   as a menu, or ask whether they'd like to choose: show them only to a
   user who says they chose coins at the time, to find which purchases
   those were.
-- Never on an exchange (its coins leave oldest first, as its Form 1099-DA
-  reports them), nor on a move within one wallet (only its fee is recorded).
+- Never on an exchange (its coins leave oldest first: BitcoinTX doesn't
+  record a choice made at an exchange), nor on a move within one wallet (only
+  its fee is recorded).
 - preview_transactions shows, for a row leaving a wallet, the coins it
   takes (coins.takes) and those the wallet holds then (coins.held: each
   purchase or deposit, its date acquired, BTC, cost and the term it would

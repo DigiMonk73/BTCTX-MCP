@@ -203,7 +203,7 @@ describe("a Transfer out of a wallet", () => {
 });
 
 describe("no coins are chosen", () => {
-  it("from an exchange: they leave oldest first, as its Form 1099-DA reports them", async () => {
+  it("from an exchange: they leave oldest first, and no choice is recorded", async () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: LISTED }) });
     await form.pickType("Withdrawal");
     await form.choose("Account", "River BTC");

@@ -89,7 +89,7 @@ def test_a_transfer_from_a_wallet_lists_its_coins_with_their_acquisition_and_the
 
 
 def test_from_an_exchange_nothing_is_held_to_choose_from(owner):  # noqa: F811
-    """An exchange's coins leave oldest first, as its Form 1099-DA reports them."""
+    """An exchange's coins leave oldest first: BitcoinTX doesn't record a choice made at an exchange."""
     a4 = buy(owner, "2025-02-01T12:00:00Z", "1", "100000")
     r = owner.post(URL, json=transfer(LEAVES, "0.3", frm=EXCHANGE_BTC, to=WALLET))
     assert r.status_code == 200, r.text

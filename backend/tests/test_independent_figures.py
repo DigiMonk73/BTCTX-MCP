@@ -232,7 +232,7 @@ def test_chosen_coins_move_to_another_wallet_and_can_be_chosen_there():
 
 def test_coins_chosen_for_an_exchange_leave_it_oldest_first():
     """A wallet's choice decides which coins reach the exchange; there they
-    leave oldest first, as its 1099-DA reports them (plan call (g))."""
+    leave oldest first (plan call (g))."""
     move = _move("2025-05-01", "0.005", WALLET, EXCHANGE_BTC, _chosen(c="0.005"))
     sell = {"type": "Sell", "timestamp": "2025-06-01T12:00:00Z", "from_account_id": EXCHANGE_BTC,
             "to_account_id": EXCHANGE_USD, "amount": "0.006", "gross_proceeds_usd": "700.00", "fee_amount": "0",
