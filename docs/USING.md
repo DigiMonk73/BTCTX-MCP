@@ -387,7 +387,33 @@ Which Form 8949 box a sale goes in:
 - **Broker form** on a Sell or a Spent withdrawal overrides these for that
   transaction, when the form your broker sent says something different
   (for a spend, its network fee follows it: set it when the 1099-DA lists
-  the spend and its fee).
+  the spend and its fee). It moves only the box, never a figure.
+
+**When a Form 1099-DA differs.** From 2025, compare your sales in boxes G,
+H, J and K with your Form 1099-DA. Compare each day's total, not row by row:
+BitcoinTX gives a sale one row per lot, a broker can split a sale too, and a
+sale near midnight can show another day there.
+For box H or K, compare the proceeds (box 1f); for G or J, also the cost (box
+1g) and short or long (box 6). A "gross proceeds" label on the form (box 3a)
+is about option premiums: it doesn't mean before fees.
+
+A difference can be a mistake in the ledger: correct the transaction. A real
+difference has to show on Form 8949, with the IRS's code in column (f) and
+any correction in column (g). BitcoinTX doesn't store the broker's figures,
+and its printed forms leave those columns blank and can't be edited, so that
+is done by hand: on a blank Form 8949 page or in tax software, with the page's
+line 2 and Schedule D's line to match. Your gain stays the same. The Complete
+Tax Report's page "If your Form 1099-DA differs" says what goes in each column.
+
+Two more limits:
+
+- **A network fee on a Form 1099-DA.** BitcoinTX puts a transfer's fee, and a
+  gift's, donation's or lost coins' fee, in box I or L, and has no setting for
+  a fee alone. If your form lists one as a sale, or lists a fee without its
+  withdrawal, move that row by hand. Its gain is the same.
+- **Transaction IDs.** BitcoinTX keeps no transaction ID, so Form 8949's column
+  (a) prints only the bitcoin and its exact units. The IRS asks for the ID only
+  "if available": add it by hand if you want it.
 
 Each year's final IRS forms come in an update once the IRS publishes them;
 until then, the IRS's draft of that year is a preview, marked DRAFT — DO

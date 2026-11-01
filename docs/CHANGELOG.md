@@ -4,6 +4,26 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **When a Form 1099-DA differs from BitcoinTX** (#158): in a year with a sale
+  in box G, H, J or K, the Complete Tax Report has a new page, "If your Form
+  1099-DA differs", at the end of "Using these forms". It says what to compare
+  and what the Instructions for Form 8949 ask for (the form's figures in
+  columns (d) and (e) where they apply, codes B, E and T, the correction in
+  column (g)). BitcoinTX stores no broker's figures and its printed forms can't
+  be edited, so that correction is done by hand. The AI guide, `docs/USING.md`
+  and the README say so too. No figure or box moves.
+
+### Changed
+
+- The report no longer says flatly that a network fee is on no Form 1099-DA:
+  a broker may list one, and the IRS doesn't say. BitcoinTX still places a fee
+  on no such form by itself, and the new page says how to move its row by hand
+  if yours lists one (for #551). The report's notes and the guides also say
+  that Form 8949's column (a) prints no transaction ID (for #156). No figure or
+  box moves.
+
 ### Development
 - **Routine checks run on GitHub, not on a Mac or on Claude's tokens** (the
   owner, 2026-10-31, after 2.0.0; plan: #869). Tooling only: nothing changes in

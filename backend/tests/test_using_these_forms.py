@@ -186,10 +186,15 @@ SIX_BOXES = [box(b, line, 10.0) for b, line in (("G", "1b"), ("H", "2"), ("I", "
                                                  ("L", "10"))]
 
 
+@pytest.mark.parametrize("year", [2025, 2026])  # 2026's relief note is the longer (#158)
 @pytest.mark.parametrize("forms", ["final", "draft", "none", "newer"])
-def test_the_summary_and_this_page_still_fit_one_page_each(forms):
+def test_the_summary_and_this_page_still_fit_one_page_each(forms, year):
     """#114 and #160 add words to the summary and to this page: with all six
     boxes, the year not over (this page's longest without a rebate or an
     inherited coin) and the summary's notes, each still takes one page, as
-    before them."""
-    assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date="2025-10-01 12:00:00") == (1, 1)
+    before them; with a sale on a Form 1099-DA, one more says what to do if
+    that form differs (#158), itself one page."""
+    made = f"{year}-10-01 12:00:00"
+    assert section_pages(irs_forms=forms, form_8949_boxes=SIX_BOXES, report_date=made, tax_year=year) == (1, 2)
+    no_broker = [b for b in SIX_BOXES if b["box"] in ("I", "L")]
+    assert section_pages(irs_forms=forms, form_8949_boxes=no_broker, report_date=made, tax_year=year) == (1, 1)
