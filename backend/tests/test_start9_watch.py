@@ -1,7 +1,9 @@
 """
 The Start9 watch (startos/UPDATING.md, "Watching Start9"; the owner,
-2026-10-23): daily, and looking at everything the StartOS package must
-follow, not only the SDK and start-cli as the weekly check it replaces did.
+2026-10-23): looking at everything the StartOS package must follow, not only
+the SDK and start-cli as the weekly check it replaces did. Written to run
+daily; weekly, on Mondays, since 2026-10-31, hours before the Monday report
+(test_monday_report.py) lists the issues it opened.
 These read the files; the script itself talks to GitHub and npm, so it's run
 by hand with --dry-run, never here.
 """
@@ -14,8 +16,9 @@ WORKFLOW = (ROOT / ".github" / "workflows" / "start9-watch.yml").read_text()
 SCRIPT = ROOT / "scripts" / "start9-watch.sh"
 
 
-def test_it_runs_daily_and_runs_the_script():
-    assert "cron: '23 8 * * *'" in WORKFLOW
+def test_it_runs_weekly_and_runs_the_script():
+    assert "cron: '23 8 * * 1'" in WORKFLOW
+    assert "cron: '23 8 * * *'" not in WORKFLOW
     assert "run: scripts/start9-watch.sh" in WORKFLOW
     assert not (ROOT / ".github" / "workflows" / "startos-sdk-check.yml").exists()
 

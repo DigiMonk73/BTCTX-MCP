@@ -1,18 +1,20 @@
 name: Start9 watch
 
-# Daily: what Start9 changed that BitcoinTX's StartOS package must follow
+# Weekly, Mondays (the owner, 2026-10-31; it was written to run daily): what
+# Start9 changed that BitcoinTX's StartOS package must follow
 # (scripts/start9-watch.sh; startos/UPDATING.md, "Watching Start9"): a newer
 # start-sdk or start-cli than develop pins, a StartOS or start-registry
 # release, changes to Start9's packaging guide or shared package workflows, a
 # failed build on the mirror or on Start9's fork, and changes on the fork not
-# taken back. Each opens one issue, labelled start9. GitHub runs a schedule
+# taken back. Each opens one issue, labelled start9; the Monday report
+# (monday-report.yml) lists the open ones hours later. GitHub runs a schedule
 # only from the default branch (main), so this file starts at the release
 # that brings it there; until then each session runs scripts/start9-watch.sh
 # (AGENTS.md, "Starting a session"). It runs develop's script, so a fix to
 # the script needs no release.
 on:
   schedule:
-    - cron: '23 8 * * *'
+    - cron: '23 8 * * 1'
   workflow_dispatch:
 
 permissions:

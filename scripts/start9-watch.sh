@@ -74,13 +74,14 @@ latest() {
 }
 
 # Start of the window for "what changed": when the last issue titled $1 was
-# opened, else 7 days ago (ISO 8601, UTC)
+# opened, else 8 days ago (a week plus a day, so a late run and an early one
+# leave no gap between them; ISO 8601, UTC)
 since() {
   local last
   last="$(gh issue list -R "$REPO" --label start9 --state all --limit 1000 --json title,createdAt \
     --jq "map(select(.title | startswith(\"$1 on \")) | .createdAt) | max // empty")"
   [ -n "$last" ] && { echo "$last"; return; }
-  python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%SZ"))'
+  python3 -c 'import datetime as d; print((d.datetime.now(d.timezone.utc) - d.timedelta(days=8)).strftime("%Y-%m-%dT%H:%M:%SZ"))'
 }
 
 today() { python3 -c 'import datetime as d; print(d.datetime.now(d.timezone.utc).date())'; }

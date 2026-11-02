@@ -62,9 +62,13 @@ and **Schedule D**, including the Form 1099-DA boxes that start with tax year 20
   the boxes for no broker form; coins moved into an exchange, as
   noncovered). The complete tax report names the account of every disposal
   and lot, and its "Sales by exchange" table adds up each exchange's sales
-  to set beside its 1099-DA. When your broker's 1099-DA says something
-  different for a sale, record that on the transaction and the right Form
-  8949 box follows. Each year's final IRS forms come in an update
+  to set beside its 1099-DA, so you can compare them. When your broker's
+  1099-DA reports a sale in another box, record that on the transaction and
+  the right Form 8949 box follows. When its figures differ, the correction is
+  done by hand: BitcoinTX stores no broker's figures and leaves column (f) and
+  column (g) blank (the report says what goes in them; a network fee a Form
+  1099-DA lists is moved by hand too). Column (a) prints no transaction ID, as
+  BitcoinTX keeps none. Each year's final IRS forms come in an update
   once the IRS publishes them; until then the IRS's draft of that year is a
   preview, marked DRAFT — DO NOT FILE (2026's until January 1, 2027).
 - **Imports**: an exchange's own CSV export into a ledger in use, ready-made

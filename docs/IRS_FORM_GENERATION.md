@@ -56,6 +56,7 @@ backend/
     ├── printed_forms.py                  # reads a flattened 8949 / Schedule D back, field by field where it's drawn
     ├── test_printed_forms.py             # the printed forms: every row once in its box, totals, Schedule D lines
     ├── test_using_these_forms.py         # the Complete Tax Report's "Using these forms" page
+    ├── test_1099da_differs_158.py        # its page for a Form 1099-DA that differs, and the limits the guides tell
     └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
 .github/workflows/irs-forms-watch.yml     # weekly: an issue when new IRS drafts or final forms are out
@@ -229,7 +230,12 @@ dates of coins moved in counts them from their arrival (Instructions for
 Form 1099-DA, lot selection). Once the two orders part, a later Sell can
 differ too. Where the form differs, the Form 8949 the owner files may show the
 exchange's figures with an adjustment (code B); BitcoinTX's forms leave
-columns (f) and (g) blank, so that is for whoever files the return.
+columns (f) and (g) blank, so that is for whoever files the return. The
+report's page "If your Form 1099-DA differs" (#158, the owner's choice of a
+note over stored broker figures, 2026-10-31; only in a year with a sale in G,
+H, J or K, after "Using these forms") says what to compare and what the
+Instructions for Form 8949 ask for in each column. Column (a) has no
+transaction ID, which BitcoinTX doesn't keep (#156).
 
 **Per-transaction override.** When a real 1099-DA (or, for 2024 and earlier,
 1099-B) disagrees with these rules, the user sets `broker_reporting` on that
@@ -253,7 +259,7 @@ its fee stays C / F or I / L even with one left from an edit; so does a
 transfer's fee (only a Sell or Withdrawal can carry an override). Only the
 box moves: the fee's value and gain are the same either way. A 1099-DA
 that lists a fee but not its withdrawal, or a transfer's fee, can't be
-matched yet (#551).
+matched: its row moves by hand, as the report's page says (#551).
 
 **One box per sheet.** Each Part of a Form 8949 page can have only one box
 checked. `_chunks_by_box()` groups rows by box before cutting pages, so (for

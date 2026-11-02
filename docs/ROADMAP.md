@@ -14,11 +14,10 @@ fixes: its last release, 1.2.10, stays downloadable. No dates are promised.
 
 ## Soon
 
-- [ ] **When a broker's Form 1099-DA differs** (#158), before the 2026
-      forms are filed (early 2027): the user types the form's proceeds and
-      cost for that sale, and Form 8949 shows them with the IRS's code and
-      correction (columns (f) and (g)), BitcoinTX's own gain unchanged; the
-      report and the guide say when. Generic, not tied to one exchange.
+- [x] **When a broker's Form 1099-DA differs** (#158), before the 2026
+      forms are filed (early 2027): the report and the guides say what to
+      compare and how to correct Form 8949 by hand (the owner's choice,
+      2026-10-31). BitcoinTX stores no broker's figures.
 - [ ] Styled dialogs instead of the browser's confirm boxes (deleting a
       transaction, the CSV and exchange-file imports, Ledger Review's apply, Reset
       Username & Password, logging out, the AI key), like the one for

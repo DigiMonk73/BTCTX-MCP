@@ -492,7 +492,9 @@ Start from the `clean` snapshot.
   Mempool server's) and that the IRS approves no price source, and ends
   with "Values from the BTC price": "None of YYYY's values: each was
   entered with its transaction" (every golden value is typed). Each report has section 6,
-  "Using these forms" (before 7, "Notes"), for the preparer; under "Before
+  "Using these forms" (before 7, "Notes"), for the preparer, ending in a
+  year with a sale in box G, H, J or K with "If your Form 1099-DA differs";
+  under "Before
   filing", the bullet "From 2025, cost basis is figured wallet by wallet
   and account by account; unless you identify the coins you sell, first
   in, first out within each, by the date first acquired (Treas. Reg.
