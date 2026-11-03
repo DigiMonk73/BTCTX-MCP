@@ -157,6 +157,14 @@ or another value priced in the next 10 minutes can take the day's price, marked,
 instead of the hour's (#824, #849). Ledger Review lists a saved value like that.
 A known limitation: a Form 1099-DA that lists a transfer's or a gift's network
 fee, or a fee without its withdrawal, can't be matched on Form 8949 yet (#551).
+- **CI refuses app code after a branch's last beta** (#848). While a branch
+  is named in `.github/ship-freeze`, a pull request into it that changes
+  what ships (`backend/` outside its tests, `frontend/src`,
+  `mcp_server/btctx_mcp`, `desktop/`, `startos/`, the Dockerfile and its
+  entrypoint) fails "CI passed" unless it's labelled `version` or
+  `approved-fix`. It looks at the files, not the title: a pull request
+  titled for CI and tests once carried app code (#842). No branch is frozen
+  now.
 
 The CHANGELOG's entries mostly keep the words of the pre-release they came with, so
 a fix may name the alpha it fixes, and a fix to something new in 2.0 concerns

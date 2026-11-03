@@ -5,7 +5,8 @@ name: CI
 # test ran), MCP tests, frontend, end-to-end smoke test,
 # Playwright click-through tests (Chromium, WebKit), Docker image + container
 # smoke, StartOS package checks and an x86_64 s9pk packed from this commit's
-# image, dependency audit, and the macOS app build. A pull request's run
+# image, dependency audit, the macOS app build, and the guard against
+# app code after a branch's last beta (#848). A pull request's run
 # tests the branch merged with its base, so pushing a branch that has one
 # doesn't run the same suite twice (owner, 2026-10-13). A branch without a
 # pull request: the pre-push hook's checks, or a run on demand from the
@@ -471,10 +472,41 @@ jobs:
   # every change merged) and on every other pull request. Only those three
   # can be skipped, and only there; anything else skipped (a job whose need
   # failed) fails this check.
+  ship-freeze:
+    # After a branch's last beta (#848): a pull request into a branch named
+    # in .github/ship-freeze that changes what ships fails, unless it's
+    # labelled `version` or `approved-fix` (scripts/check_ship_freeze.py).
+    # It runs the base branch's copy of the script and freeze file, so a
+    # pull request can't lift the freeze by editing them. The labels are
+    # read when it runs: after adding one, re-run this job
+    name: Nothing that ships after the last beta, without leave
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+      - name: The pull request's files against its base branch's freeze
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+        # HEAD is the pull request merged into its base; HEAD^1, the base
+        run: |
+          git show HEAD^1:scripts/check_ship_freeze.py > "$RUNNER_TEMP/guard.py" 2>/dev/null \
+            || cp scripts/check_ship_freeze.py "$RUNNER_TEMP/guard.py"
+          git show HEAD^1:.github/ship-freeze > "$RUNNER_TEMP/freeze" 2>/dev/null || : > "$RUNNER_TEMP/freeze"
+          labels=$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json labels -q .labels)
+          git diff --name-only HEAD^1 HEAD | python3 "$RUNNER_TEMP/guard.py" "$BASE" "$labels" "$RUNNER_TEMP/freeze"
+
   ci-passed:
     name: CI passed
     if: always()
-    needs: [python, python-guard, frontend, smoke, e2e, docker, startos, startos-pack, audit]
+    needs: [python, python-guard, frontend, smoke, e2e, docker, startos, startos-pack, audit, ship-freeze]
     runs-on: ubuntu-latest
     steps:
       - name: Every required job passed

@@ -1,0 +1,7 @@
+# The branches past their last beta (#848), one per line: a pull request
+# into one that changes what ships (the app, the connector, the Mac app, the
+# image, the StartOS package) fails CI unless it's labelled `version` (the
+# release's version pull request) or `approved-fix` (a fix the owner or the
+# lead let in). scripts/check_ship_freeze.py; the lead adds a branch when
+# its last beta is published and takes it out once its release is out.
+# None now: 2.0.0 is out, and maintenance fixes go in as usual.
