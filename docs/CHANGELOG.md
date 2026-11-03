@@ -37,6 +37,16 @@ All notable changes to BitcoinTX are documented in this file.
   request too. None of it takes effect until `main` carries the files, since
   GitHub reads schedules and `dependabot.yml` only from the default branch.
   `docs/MAINTENANCE.md` has the new "Scheduled checks".
+- **The release gate's figures by script** (#848). `scripts/gate/figures.py`
+  records a test install's figures through its API (the Dashboard, every
+  report's figures, Ledger Review's counts) and compares two records, PASS
+  or FAIL per figure with both values: the gate's "every figure identical"
+  across an update, a restore or the way back to 1.x.
+  `scripts/gate/docker-update.sh` runs that comparison across an update on
+  Docker in one command, on a throwaway volume, stopping if the owner's
+  BitcoinTX or Preview ports change. The golden ledger's loader moved from
+  `docs/AGENT-TESTS.md` to `scripts/gate/golden_loader.py`. From session
+  54's scripts for 2.0.0-beta.2's gate.
 
 ## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
