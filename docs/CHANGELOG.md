@@ -25,6 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   box moves.
 
 ### Development
+- **The pre-push check runs the Python tests on every core** (#848), as
+  `make test-fast` and CI do, not one at a time: about 3 minutes instead of
+  10 to 20. The first failure still stops them. A Python without
+  pytest-xdist (a `.venv` made before #590) isn't picked.
 - **Routine checks run on GitHub, not on a Mac or on Claude's tokens** (the
   owner, 2026-10-31, after 2.0.0; plan: #869). Tooling only: nothing changes in
   the app, the connector or the package, and no figure can move.
@@ -57,6 +61,12 @@ All notable changes to BitcoinTX are documented in this file.
   `scripts/gate/figures.py` says every 30 seconds when a request is still
   unanswered, the golden loader gives up after 5 minutes, and
   `docker-update.sh` says first what it needs from you: nothing.
+- **The StartOS package's `UPDATING.md` leaves the version rules to Start9's
+  guide** (#883): Start9's guide now says how a package version is bumped,
+  migrated and given release notes belongs only to its Versions page, never
+  copied into `UPDATING.md`. "The package version" now links that page and
+  keeps only what this package adds; `test_startos_conformance.py` checks it.
+  Docs only: the package, the app and the figures don't change.
 
 ## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
