@@ -91,7 +91,7 @@ def test_startos_image_tag():
 def test_startos_package_version():
     """current.ts is <VERSION>:<package revision>, a pre-release's always 0 (a
     fix is the next pre-release). When its version changes, move the old current.ts to
-    vX.Y.Z_N.ts first if its migration does work (UPDATING.md)."""
+    vX.Y.Z_N.ts first if its migration does work (Start9's versions.md)."""
     current = read("startos/startos/versions/current.ts")
     versions = re.findall(r"version: '([^']+)'", current)
     assert len(versions) == 1
