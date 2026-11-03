@@ -11,7 +11,7 @@
 # Throwaway only: its own volume, container and login, removed at the end;
 # port $PORT (9551) on 127.0.0.1. The owner's BitcoinTX (8765) and Preview
 # (8767) are checked before and after and must answer the same: the run
-# stops if either changes. The snaps and the log stay in OUT_DIR (a new temp
+# stops if either changes. The snaps and the logs stay in OUT_DIR (a new temp
 # folder by default). Needs Docker, and the network for an image not pulled.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -44,6 +44,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
+case $PORT in 8765|8767) say "FAIL port $PORT is the owner's: choose another"; exit 1 ;; esac
+"$PY" -c 'import pypdf' 2>/dev/null || { say "FAIL $PY has no pypdf: set PY to the repository's .venv/bin/python"; exit 1; }
 if curl -s --noproxy '*' -m 2 -o /dev/null "$BTCTX_URL/api/health"; then
   say "FAIL port $PORT already answers: stop what runs there, or set PORT"; exit 1
 fi
@@ -75,6 +77,7 @@ curl -sf --noproxy '*' -o /dev/null -X POST "$BTCTX_URL/api/users/reset-account"
   || { say "FAIL the throwaway login wasn't claimed"; exit 1; }
 "$PY" scripts/gate/golden_loader.py
 "$PY" scripts/gate/figures.py snap "$OUT/before.json"
+docker logs "$RUN" 2>&1 | grep -v "$CODE" > "$OUT/old.log"   # the log prints the setup code
 
 start "$NEW"
 "$PY" scripts/gate/figures.py snap "$OUT/after.json"
@@ -85,5 +88,5 @@ say "the owner's ports after: $(owners)"
 set +e
 "$PY" scripts/gate/figures.py compare "$OUT/before.json" "$OUT/after.json" | tee "$OUT/compare.txt"
 verdict=${PIPESTATUS[0]}
-say "snaps, the candidate's log and the comparison: $OUT"
+say "snaps, both logs and the comparison: $OUT"
 exit "$verdict"

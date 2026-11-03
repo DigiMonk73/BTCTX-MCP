@@ -29,7 +29,8 @@ LEDGER = [
 URL = os.environ["BTCTX_URL"].rstrip("/")
 tls = ssl.create_default_context(cafile=os.environ.get("BTCTX_CA") or None)
 web = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
-                                  urllib.request.HTTPSHandler(context=tls))
+                                  urllib.request.HTTPSHandler(context=tls),
+                                  urllib.request.ProxyHandler({}))  # a test install, never through a proxy
 
 
 def call(method, path, body=None, confirm=None):

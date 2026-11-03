@@ -89,6 +89,37 @@ def test_a_figure_gone_from_a_report_fails(tmp_path, capsys):
     assert verdict == 1
 
 
+def test_a_gain_turned_into_a_loss_of_the_same_size_fails(tmp_path, capsys):
+    """The reports print a loss in parentheses: "($1,000.00)", Form 8949's "(9.74)"."""
+    assert figures.FIGURE.findall("($1,000.00) (9.74) $5.00 -0.01000000 0.0002 BTC") == [
+        "($1,000.00)", "(9.74)", "$5.00", "-0.01000000", "0.0002 BTC"]
+    after = copy.deepcopy(SNAP)
+    after["reports"]["irs_2024"][1] = "($11,500.00)"
+    verdict, _ = compared(tmp_path, capsys, after)
+    assert verdict == 1
+
+
+@pytest.mark.parametrize("where", ["gains", "review", "reports"])
+def test_a_figure_or_check_gone_fails(tmp_path, capsys, where):
+    after = copy.deepcopy(SNAP)
+    del after[where][next(iter(after[where]))]
+    verdict, lines = compared(tmp_path, capsys, after)
+    assert verdict == 1 and any("gone" in line for line in lines if line.startswith("FAIL "))
+
+
+def test_an_error_on_both_sides_fails(tmp_path, capsys):
+    snap = copy.deepcopy(SNAP)
+    snap["reports"]["irs_2025"] = {"_error": 500, "_body": "Internal Server Error"}
+    snap["balances"] = {"_error": 500, "_body": ""}
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    a.write_text(json.dumps(snap))
+    b.write_text(json.dumps(snap))
+    assert figures.compare(str(a), str(b)) == 1
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[-1] == "FAIL: 2 moved"
+    assert figures.errors_in(snap) == ["snap.balances", "snap.reports.irs_2025"]
+
+
 def test_the_golden_loader_holds_the_fourteen_rows():
     text = (ROOT / "scripts" / "gate" / "golden_loader.py").read_text()
     ledger = text[text.index("LEDGER = ["):text.index("\n]\n") + 2]

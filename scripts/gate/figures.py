@@ -13,9 +13,10 @@ A snap holds the health, the row count, the Dashboard's balances, gains and
 average cost, the accounts, every figure in the reports (IRS forms 2024 and
 2025, the Complete Tax Reports and the history CSVs 2023 to 2025: the golden
 ledger's years) and Ledger Review's counts. It never holds or prints the
-login. compare exits 1 when a figure both snaps have differs; a figure or a
-review check only the second has is noted, not failed (a new release may add
-one: its CHANGELOG says so).
+login. compare exits 1 when a figure differs, is gone, or either snap holds an
+error answer for it; a figure, an account or a review check only the second
+has is noted, not failed (a new release may add one: its CHANGELOG says
+so). snap exits 1 when the install answered an error.
 
 Only ever against a throwaway install: never a real ledger.
 """
@@ -33,6 +34,12 @@ import time
 import urllib.error
 import urllib.request
 
+# A figure as the reports print it: a loss in parentheses (the Complete Tax
+# Report's "($1,000.00)", Form 8949's "(9.74)") before a plain amount, so a
+# gain that turns into a loss of the same size is a different figure; BTC
+# with its sign and every decimal; a date; a value with no price
+FIGURE = re.compile(r"\(\$?\d[\d,]*\.\d\d\)|-?\d+\.\d+ BTC|-?\d+\.\d{8}|-?\$?\d[\d,]*\.\d\d\b"
+                    r"|\d\d/\d\d/\d{4}|not priced")
 YEARS = {"irs": (2024, 2025), "complete": (2023, 2024, 2025), "history": (2023, 2024, 2025)}
 # A report can take minutes on a slow VM (the Complete Tax Report's prices)
 TIMEOUT = 300
@@ -69,6 +76,7 @@ def log_in(url, web):
 
 
 def review_counts(review):
+    """Ledger Review's checks by title, each with how many rows it lists."""
     if not isinstance(review, dict) or review.get("_error"):
         return review
     return {s.get("title", s.get("key", "?")): s.get("count", len(s.get("items", [])))
@@ -91,7 +99,7 @@ def report_figures(get):
         if isinstance(body, bytes):
             text = " ".join(p.extract_text() or "" for p in PdfReader(io.BytesIO(body)).pages)
             text = re.sub(r"Date: \d{4}-\d\d-\d\d \d\d:\d\d:\d\d", "Date: X", text)
-            figures[key] = re.findall(r"-?\$?\d[\d,]*\.\d\d\b|\d+\.\d{8}(?: BTC)?|\d\d/\d\d/\d{4}|not priced", text)
+            figures[key] = FIGURE.findall(text)
             figures[key + "_sales_by_exchange"] = "Sales by exchange" in text
     return figures
 
@@ -117,6 +125,21 @@ def snap(path):
         json.dump(out, f, indent=1, sort_keys=True, default=str)
     h = out["health"]
     print(f"snap {path}: {h.get('version')} schema {h.get('schema')}, {out['rows']} rows")
+    errors = errors_in(out)
+    for where in errors:
+        print(f"FAIL {where}: the install answered an error, recorded in the snap")
+    return 1 if errors else 0
+
+
+def errors_in(value, where="snap"):
+    """Where a snap holds an error answer instead of a figure."""
+    if isinstance(value, dict):
+        if "_error" in value:
+            return [where]
+        return [e for k, v in value.items() for e in errors_in(v, f"{where}.{k}")]
+    if isinstance(value, list):
+        return [e for i, v in enumerate(value) for e in errors_in(v, f"{where}[{i}]")]
+    return []
 
 
 class Verdict:
@@ -126,7 +149,9 @@ class Verdict:
         self.failed = 0
 
     def same(self, name, before, after):
-        if before == after:
+        if errors_in(before) or errors_in(after):  # an error on both sides is no figure
+            self.fail(name, f"an error answer: {json.dumps(before)[:200]} -> {json.dumps(after)[:200]}")
+        elif before == after:
             print(f"PASS {name}: {json.dumps(before)[:200]}")
         else:
             self.fail(name, f"{json.dumps(before)[:300]} -> {json.dumps(after)[:300]}")
@@ -139,44 +164,71 @@ class Verdict:
         print(f"NOTE {text}")
 
 
-def compare_reports(v, A, B):
-    for key, before in sorted(A.items()):
-        after = B.get(key)
-        if key.endswith("_sales_by_exchange"):
-            if before != after:  # 2.0's reports add the section to a 1.x ledger's
-                v.note(f"{key}: {before} -> {after}")
-        elif isinstance(before, list) and isinstance(after, list):
-            ops = [o for o in difflib.SequenceMatcher(a=before, b=after, autojunk=False).get_opcodes()
-                   if o[0] != "equal"]
-            gone = [f"{before[o[1]:o[2]]} -> {after[o[3]:o[4]]}" for o in ops if o[0] in ("delete", "replace")]
-            if gone:
-                v.fail(f"reports.{key}", "; ".join(gone)[:600])
-            else:
-                print(f"PASS reports.{key}: its {len(before)} figures, in order")
-            added = [after[o[3]:o[4]] for o in ops if o[0] == "insert"]
-            if added:
-                v.note(f"reports.{key}: added {added}")
+def compare_keyed(v, name, before, after):
+    """Two dicts of figures: each one both hold the same, none gone; one only
+    the newer holds is noted (a new release may add a figure or a check)."""
+    if not isinstance(before, dict) or not isinstance(after, dict) or "_error" in before or "_error" in after:
+        v.same(name, before, after)
+        return
+    for key in sorted(set(before) | set(after)):
+        if key not in after:
+            v.fail(f"{name}.{key}", f"{json.dumps(before[key])[:200]} -> gone")
+        elif key not in before:
+            v.note(f"{name}.{key}: new, {json.dumps(after[key])[:200]}")
         else:
-            v.same(f"reports.{key}", before, after)
+            v.same(f"{name}.{key}", before[key], after[key])
+
+
+def by(rows, key, *fields):
+    """A list of the API's rows as a dict keyed by one field (its value the
+    other field, or a dict of them), or the error it was."""
+    if not isinstance(rows, list):
+        return rows
+    if len(fields) == 1:
+        return {str(row[key]): row.get(fields[0]) for row in rows}
+    return {str(row[key]): {f: row.get(f) for f in fields} for row in rows}
+
+
+def compare_report(v, key, before, after):
+    """One report's figures, in order: any figure changed or gone fails."""
+    if not (isinstance(before, list) and isinstance(after, list)):
+        v.same(f"reports.{key}", before, after)
+        return
+    ops = [o for o in difflib.SequenceMatcher(a=before, b=after, autojunk=False).get_opcodes() if o[0] != "equal"]
+    gone = [f"{before[o[1]:o[2]]} -> {after[o[3]:o[4]]}" for o in ops if o[0] in ("delete", "replace")]
+    if gone:
+        v.fail(f"reports.{key}", "; ".join(gone)[:600])
+    else:
+        print(f"PASS reports.{key}: its {len(before)} figures, in order")
+    added = [after[o[3]:o[4]] for o in ops if o[0] == "insert"]
+    if added:
+        v.note(f"reports.{key}: added {added}")
+
+
+def compare_reports(v, A, B):
+    for key in sorted(set(A) | set(B)):
+        if key.endswith("_sales_by_exchange"):
+            if A.get(key) != B.get(key):  # 2.0's reports add the section to a 1.x ledger's
+                v.note(f"{key}: {A.get(key)} -> {B.get(key)}")
+        elif key not in B:
+            v.fail(f"reports.{key}", "gone")
+        elif key not in A:
+            v.note(f"reports.{key}: new")
+        else:
+            compare_report(v, key, A[key], B[key])
 
 
 def compare(path_a, path_b):
     A, B = (json.load(open(p)) for p in (path_a, path_b))
-    for side, s in (("before", A), ("after", B)):
-        v_ = s["health"]
-        print(f"{side}: {path_a if side == 'before' else path_b}, {v_.get('version')} schema {v_.get('schema')}")
+    for side, path, s in (("before", path_a, A), ("after", path_b, B)):
+        print(f"{side}: {path}, {s['health'].get('version')} schema {s['health'].get('schema')}")
     v = Verdict()
     v.same("rows", A["rows"], B["rows"])
-    for k in sorted(set(A["gains"]) & set(B["gains"])):
-        v.same(f"gains.{k}", A["gains"][k], B["gains"][k])
+    compare_keyed(v, "gains", A["gains"], B["gains"])
     v.same("avg_cost", A["avg_cost"], B["avg_cost"])
-    balance = [{b["name"]: b["balance"] for b in s["balances"]} for s in (A, B)]
-    for k in sorted(set(balance[0]) | set(balance[1])):
-        v.same(f"balance.{k}", balance[0].get(k), balance[1].get(k))
-    for k in sorted(set(A["review"]) & set(B["review"])):
-        v.same(f"review.{k}", A["review"][k], B["review"][k])
-    for k in sorted(set(B["review"]) - set(A["review"])):
-        v.note(f"review.{k}: a new check, {B['review'][k]}")
+    compare_keyed(v, "balance", by(A["balances"], "name", "balance"), by(B["balances"], "name", "balance"))
+    compare_keyed(v, "account", by(A["accounts"], "id", "name", "currency"), by(B["accounts"], "id", "name", "currency"))
+    compare_keyed(v, "review", A["review"], B["review"])
     compare_reports(v, A["reports"], B["reports"])
     print("PASS: every figure the two share is the same" if not v.failed else f"FAIL: {v.failed} moved")
     return 1 if v.failed else 0
@@ -184,8 +236,7 @@ def compare(path_a, path_b):
 
 def main():
     if len(sys.argv) == 3 and sys.argv[1] == "snap":
-        snap(sys.argv[2])
-        return 0
+        return snap(sys.argv[2])
     if len(sys.argv) == 4 and sys.argv[1] == "compare":
         return compare(sys.argv[2], sys.argv[3])
     sys.exit(__doc__)
