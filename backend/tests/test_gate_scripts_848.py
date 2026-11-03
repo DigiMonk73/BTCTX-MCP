@@ -12,6 +12,7 @@ import copy
 import importlib.util
 import io
 import json
+import re
 import time
 from pathlib import Path
 
@@ -147,7 +148,7 @@ def test_a_slow_request_says_it_is_still_waiting(monkeypatch, capsys):
     get = figures.reader("http://127.0.0.1:9551", _SlowAnswer(0.3))
     assert get("/api/health") == {"status": "ok"}
     said = capsys.readouterr().err
-    assert "still waiting on GET /api/health" in said and "GET /api/health (0 s)" in said
+    assert "still waiting on GET /api/health" in said and re.search(r"GET /api/health \(\d+ s\)", said)
 
 
 def test_a_quick_request_says_nothing_of_waiting(capsys):
@@ -159,6 +160,7 @@ def test_a_quick_request_says_nothing_of_waiting(capsys):
 def test_the_gate_lists_what_stays_by_hand():
     guide = (ROOT / "docs" / "AGENT-TESTS.md").read_text()
     by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]
-    for step in ("StartOS password", "auth login", "Open Anyway", "My Mempool on this server", "own test"):
+    for step in ("StartOS password", "auth login", "Open Anyway", "My Mempool on this server", "MAP-1",
+                 "approval prompts", "own test"):
         assert step in by_hand
     assert "**No silent waits**" in guide

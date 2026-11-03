@@ -41,8 +41,8 @@ feeling.
    that need a person ([What stays by hand](#what-stays-by-hand)) and ask
    for them then, while the owner (or whoever set up the VM) is there; a
    step nobody was asked for in time is BLOCKED, never left waiting. A
-   step that takes twice what it should (the budgets above, or what a
-   script says it usually takes) is reported at once to the lead or the
+   track that takes twice its budget above, or a step twice what its
+   script says it usually takes, is reported at once to the lead or the
    owner, saying what it waits on, rather than left to sit. Beta.2's gate
    lost 12 hours to one browser step waiting on an approval nobody saw.
 
@@ -56,10 +56,12 @@ run starts:
 | What | Who | Steps |
 |---|---|---|
 | The VM's StartOS password, typed for a StartOS backup or its restore | whoever set up the VM (an agent never stores it) | BAK-5, UPG-5b, WAY-1 to WAY-5, BETA-1, CB |
-| `start-cli -H $URL auth login`, once per VM | the owner | before any `start-cli` step |
-| The Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1, and each first launch of a new build |
+| `start-cli -H $URL auth login` (the same password), once per VM | whoever set up the VM | before any `start-cli` step |
+| A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh` clears the quarantine for its own launches) |
 | Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac launch, and logging in to it again after, when the test build shares its WebKit folders | the owner | Track C, WAY-7, BETA |
 | StartOS's **My Mempool on this server** | the owner, on their own server | PRC-4 |
+| A real exchange export, tried on a test copy | a tester who has one | MAP-1 (not part of an agent's walk) |
+| The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
 | The owner's own test: the release loaded and a few basics tried on their own install | the owner | after the gate, before "merge" |
 
 Decisions aren't tests: the release's "merge", anything sent to Start9 and
