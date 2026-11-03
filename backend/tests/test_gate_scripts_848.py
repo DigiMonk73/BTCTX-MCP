@@ -1,14 +1,18 @@
 """
 The release gate's scripts (#848, scripts/gate/): figures.py's compare
 gives PASS or FAIL per figure with both values and fails on any figure that
-moved, never on one a new release only adds; the golden loader is the
-golden ledger AGENT-TESTS.md's figures are worked out from.
+moved, never on one a new release only adds; a slow request says so
+rather than waits in silence; the golden loader is the golden ledger
+AGENT-TESTS.md's figures are worked out from, and the guide lists what
+stays by hand.
 """
 
 import ast
 import copy
 import importlib.util
+import io
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -126,3 +130,35 @@ def test_the_golden_loader_holds_the_fourteen_rows():
     rows = ast.literal_eval(ledger.split("=", 1)[1])
     assert len(rows) == 14 and rows[0]["timestamp"] == "2023-01-15T17:00:00Z"
     assert "golden_loader.py" in (ROOT / "docs" / "AGENT-TESTS.md").read_text()
+
+
+class _SlowAnswer:
+    def __init__(self, seconds):
+        self.seconds = seconds
+
+    def open(self, url, timeout):
+        time.sleep(self.seconds)
+        return io.BytesIO(b'{"status": "ok"}')
+
+
+def test_a_slow_request_says_it_is_still_waiting(monkeypatch, capsys):
+    """No silent waits: an unanswered request says so, then the answer comes."""
+    monkeypatch.setattr(figures, "SAY_AFTER", 0.05)
+    get = figures.reader("http://127.0.0.1:9551", _SlowAnswer(0.3))
+    assert get("/api/health") == {"status": "ok"}
+    said = capsys.readouterr().err
+    assert "still waiting on GET /api/health" in said and "GET /api/health (0 s)" in said
+
+
+def test_a_quick_request_says_nothing_of_waiting(capsys):
+    get = figures.reader("http://127.0.0.1:9551", _SlowAnswer(0))
+    get("/api/health")
+    assert "still waiting" not in capsys.readouterr().err
+
+
+def test_the_gate_lists_what_stays_by_hand():
+    guide = (ROOT / "docs" / "AGENT-TESTS.md").read_text()
+    by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]
+    for step in ("StartOS password", "auth login", "Open Anyway", "My Mempool on this server", "own test"):
+        assert step in by_hand
+    assert "**No silent waits**" in guide

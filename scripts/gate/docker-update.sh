@@ -49,6 +49,7 @@ case $PORT in 8765|8767) say "FAIL port $PORT is the owner's: choose another"; e
 if curl -s --noproxy '*' -m 2 -o /dev/null "$BTCTX_URL/api/health"; then
   say "FAIL port $PORT already answers: stop what runs there, or set PORT"; exit 1
 fi
+say "needs from you: nothing (Docker only; about a minute, longer for an image it must pull first)"
 say "the owner's ports before: $OWNERS"
 docker volume create "$RUN" >/dev/null
 
