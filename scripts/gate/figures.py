@@ -30,6 +30,7 @@ import os
 import re
 import ssl
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -43,6 +44,9 @@ FIGURE = re.compile(r"\(\$?\d[\d,]*\.\d\d\)|-?\d+\.\d+ BTC|-?\d+\.\d{8}|-?\$?\d[
 YEARS = {"irs": (2024, 2025), "complete": (2023, 2024, 2025), "history": (2023, 2024, 2025)}
 # A report can take minutes on a slow VM (the Complete Tax Report's prices)
 TIMEOUT = 300
+# A request still unanswered after this says so, and again each time after:
+# never a silent wait (#848). Most answer in a second or two
+SAY_AFTER = 30
 
 
 def opener():
@@ -57,15 +61,26 @@ def reader(url, web):
     """GET a path: its JSON (or bytes), or the error it answered, saying how long it took."""
     def get(path, raw=False):
         began = time.monotonic()
+        done = threading.Event()
+        threading.Thread(target=say_while_waiting, args=(path, began, done), daemon=True).start()
         try:
             with web.open(url + path, timeout=TIMEOUT) as r:
                 body = r.read()
                 answer = body if raw else json.loads(body or b"null")
         except urllib.error.HTTPError as e:
             answer = {"_error": e.code, "_body": e.read().decode()[:300]}
+        finally:
+            done.set()
         print(f"  GET {path.split('?')[0]} ({time.monotonic() - began:.0f} s)", file=sys.stderr)
         return answer
     return get
+
+
+def say_while_waiting(path, began, done):
+    """Every SAY_AFTER seconds a request is unanswered, a line saying so."""
+    while not done.wait(SAY_AFTER):
+        print(f"  still waiting on GET {path.split('?')[0]}: {time.monotonic() - began:.0f} s "
+              f"(most answer in seconds; it gives up at {TIMEOUT} s)", file=sys.stderr, flush=True)
 
 
 def log_in(url, web):

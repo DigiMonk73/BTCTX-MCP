@@ -51,6 +51,16 @@ All notable changes to BitcoinTX are documented in this file.
   BitcoinTX or Preview ports change. The golden ledger's loader moved from
   `docs/AGENT-TESTS.md` to `scripts/gate/golden_loader.py`. From session
   54's scripts for 2.0.0-beta.2's gate.
+- **What stays by hand, and no silent waits** (#848). `docs/AGENT-TESTS.md`
+  lists the gate's steps that need a person (the VM's StartOS password,
+  `start-cli`'s login, a downloaded Mac app's first open, quitting the
+  installed app, the owner's own Mempool, a real exchange export, the
+  agent's own approval prompts and the owner's load-and-look test), and a
+  new rule: ask for them before a run starts, and report a track or step
+  that takes twice what it should instead of leaving it to sit.
+  `scripts/gate/figures.py` says every 30 seconds when a request is still
+  unanswered, the golden loader gives up after 5 minutes, and
+  `docker-update.sh` says first what it needs from you: nothing.
 - **The StartOS package's `UPDATING.md` leaves the version rules to Start9's
   guide** (#883): Start9's guide now says how a package version is bumped,
   migrated and given release notes belongs only to its Versions page, never

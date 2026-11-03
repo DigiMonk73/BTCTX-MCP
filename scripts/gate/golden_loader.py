@@ -38,7 +38,7 @@ def call(method, path, body=None, confirm=None):
     req = urllib.request.Request(URL + path + query, method=method, headers={"Content-Type": "application/json"},
                                  data=None if body is None else json.dumps(body).encode())
     try:
-        with web.open(req) as r:
+        with web.open(req, timeout=300) as r:  # never a silent wait without end (#848)
             return json.loads(r.read() or "null")
     except urllib.error.HTTPError as e:
         answer = e.read().decode()
