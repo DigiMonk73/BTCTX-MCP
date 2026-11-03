@@ -141,20 +141,21 @@ tag `vX.Y.Z-N`: a `## [v0.9.0-1]` CHANGELOG section and a branch
 `release/v0.9.0-1`. The image is reused; the macOS app is rebuilt unchanged.
 
 **Before the community registry serves the current version** (it is only on
-Community Beta, as while the owner tests it there), Start9's rule keeps the
-package version, so a revision isn't allowed ("The package version"), and our release
-workflow can't ship the same version again. Ship the package fix inside a
-small app release instead: a new `VERSION` with a real app fix (never a bump
-with nothing in it), its package version back at `:0`, released as in
+Community Beta, as while the owner tests it there), a revision isn't allowed
+(Start9's Versions page, "A version is released once the reference registry
+serves it"), and our release workflow can't ship the same version again.
+Ship the package fix inside a small app release instead: a new `VERSION`
+with a real app fix (never a bump with nothing in it), its package version
+back at `:0`, released as in
 "Releasing a new version" above, release tests and docs check included
-(owner's rule, 2026-10-17). Its notes cover everything since the version the
-community registry serves. If a package fix can't wait and no app fix is
+(owner's rule, 2026-10-17). If a package fix can't wait and no app fix is
 ready, ask the owner: the rules change then.
 
 **A change Start9's review asks for** on a pull request to their fork, for a
-version the community registry doesn't serve yet, is taken under that same
-version (Start9's `versions.md`; the owner, 2026-10-23, #617): byte-identical
-to their proposal when they give one, in `startos/` by a pull request from a
+version the community registry doesn't serve yet, is taken as Start9's
+Versions page says, under that same version (the owner, 2026-10-23, #617):
+byte-identical to their proposal when they give one, in `startos/` by a pull
+request from a
 branch cut from `main` (the release the mirror holds), and the mirror is synced
 from that branch so the fork's pull request carries only it.
 Our GitHub release keeps the `.s9pk` it shipped; the CHANGELOG says how
@@ -175,14 +176,13 @@ differ, follow the page. What this package adds:
   one has migrated.
 - The reference registry, `REFERENCE_REGISTRY` on the mirror and on Start9's
   fork, is `https://community-registry.start9.com`: Community Beta doesn't
-  count. Our release workflow can't release a version again, so a
-  package-only fix for a version that registry doesn't serve yet rides in a
-  small app release ("After Start9 forks the mirror", above), unless
-  Start9's review asks for it.
-- Release notes end with the CHANGELOG link. They repeat each `tax-figures`
-  fix (what was wrong, which tax years, what to do), and with every new
-  `VERSION` they give the AI connector's new version (`btctx-mcp==` in the
-  AI app's configuration).
+  count. Our release workflow can't release a version again: what that
+  means for a package-only fix is under "After Start9 forks the mirror",
+  above ("Before the community registry serves the current version").
+- Release notes end with the CHANGELOG link. Beside each `tax-figures` fix
+  ("Releasing a new version", step 2), with every new `VERSION` they give
+  the AI connector's new version (`btctx-mcp==` in the AI app's
+  configuration).
 
 Checks: `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
 (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats

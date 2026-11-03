@@ -299,6 +299,8 @@ def test_updating_md_leaves_the_version_rules_to_start9s_guide():
     assert "https://docs.start9.com/packaging/versions.html" in text
     assert "`other`" not in text  # the spin-off of a version file
     assert "only home" not in text  # what an update asks of the user
+    assert "registry package get" not in text  # which version it serves
+    assert "cover everything since" not in text  # what the notes cover
 
 
 def test_the_format_check_runs_before_the_sdks_make():
