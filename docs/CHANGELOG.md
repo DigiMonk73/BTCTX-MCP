@@ -37,6 +37,12 @@ All notable changes to BitcoinTX are documented in this file.
   request too. None of it takes effect until `main` carries the files, since
   GitHub reads schedules and `dependabot.yml` only from the default branch.
   `docs/MAINTENANCE.md` has the new "Scheduled checks".
+- **The StartOS package's `UPDATING.md` leaves the version rules to Start9's
+  guide** (#883): Start9's guide now says how a package version is bumped,
+  migrated and given release notes belongs only to its Versions page, never
+  copied into `UPDATING.md`. "The package version" now links that page and
+  keeps only what this package adds; `test_startos_conformance.py` checks it.
+  Docs only: the package, the app and the figures don't change.
 
 ## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
