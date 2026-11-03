@@ -25,6 +25,9 @@ All notable changes to BitcoinTX are documented in this file.
   box moves.
 
 ### Development
+- **The pre-push check runs the Python tests on every core** (#848), as
+  `make test-fast` and CI do, where it ran them one at a time: a push's tests
+  take minutes, not 10 to 20. The first failure still stops them.
 - **Routine checks run on GitHub, not on a Mac or on Claude's tokens** (the
   owner, 2026-10-31, after 2.0.0; plan: #869). Tooling only: nothing changes in
   the app, the connector or the package, and no figure can move.

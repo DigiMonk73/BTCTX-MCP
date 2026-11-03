@@ -45,7 +45,10 @@ step "Static compatibility checks"
 "$PY" backend/tests/pre_commit_tests.py --no-api >/dev/null || { "$PY" backend/tests/pre_commit_tests.py --no-api | grep -E "✗|FAIL"; fail "static checks"; }
 
 step "Python tests (fast set; CI also runs the slow stress tests)"
-"$PY" -m pytest -m "not slow" -q -x -p no:cacheprovider || fail "pytest"
+# One worker per core, as `make test-fast` and CI run them (each test has its
+# own temp database and data folder; loadgroup keeps an xdist_group module on
+# one worker). -x still stops the run at the first failure (#848)
+"$PY" -m pytest -m "not slow" -q -x -n auto --dist loadgroup -p no:cacheprovider || fail "pytest"
 
 step "Smoke test (real server, temp database)"
 "$PY" scripts/smoke_test.py || fail "smoke test"
