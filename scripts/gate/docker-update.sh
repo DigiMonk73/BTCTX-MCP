@@ -77,7 +77,7 @@ curl -sf --noproxy '*' -o /dev/null -X POST "$BTCTX_URL/api/users/reset-account"
   || { say "FAIL the throwaway login wasn't claimed"; exit 1; }
 "$PY" scripts/gate/golden_loader.py
 "$PY" scripts/gate/figures.py snap "$OUT/before.json"
-docker logs "$RUN" 2>&1 | grep -v "$CODE" > "$OUT/old.log"   # the log prints the setup code
+docker logs "$RUN" 2>&1 | grep -vF "$CODE" > "$OUT/old.log"   # the log prints the setup code
 
 start "$NEW"
 "$PY" scripts/gate/figures.py snap "$OUT/after.json"
