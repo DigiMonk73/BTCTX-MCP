@@ -22,7 +22,8 @@ FROZEN = {"2.1"}
 @pytest.mark.parametrize("path", [
     "backend/services/transaction.py", "backend/requirements.txt", "frontend/src/App.tsx",
     "mcp_server/btctx_mcp/server.py", "desktop/entrypoint.py", "startos/startos/manifest/index.ts",
-    "Dockerfile", "docker-entrypoint.sh",
+    "Dockerfile", "docker-entrypoint.sh", "VERSION", "frontend/index.html", "frontend/package-lock.json",
+    "mcp_server/pyproject.toml",
 ])
 def test_a_shipped_file_into_a_frozen_branch_fails_naming_it(path):
     why = guard.refusal("2.1", set(), ["docs/USING.md", path], FROZEN)
@@ -30,7 +31,8 @@ def test_a_shipped_file_into_a_frozen_branch_fails_naming_it(path):
 
 
 @pytest.mark.parametrize("path", [
-    "backend/tests/test_seed_ledger.py", "frontend/e2e/flows.spec.ts", "frontend/package.json",
+    "backend/tests/test_seed_ledger.py", "frontend/e2e/flows.spec.ts", "frontend/src/utils/accounts.test.ts",
+    "frontend/playwright.config.ts",
     "mcp_server/tests/test_server.py", "scripts/seed_ledger.py", ".github/workflows/ci.yml", "docs/CHANGELOG.md",
 ])
 def test_tests_docs_and_tooling_pass(path):

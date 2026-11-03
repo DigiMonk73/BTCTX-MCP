@@ -3,5 +3,6 @@
 # image, the StartOS package) fails CI unless it's labelled `version` (the
 # release's version pull request) or `approved-fix` (a fix the owner or the
 # lead let in). scripts/check_ship_freeze.py; the lead adds a branch when
-# its last beta is published and takes it out once its release is out.
+# its last beta is published and takes it out once its release is out,
+# creating the two labels the first time (they don't exist yet).
 # None now: 2.0.0 is out, and maintenance fixes go in as usual.

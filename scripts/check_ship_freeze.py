@@ -24,11 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 FREEZE = ROOT / ".github" / "ship-freeze"
 LETS_IN = {"version", "approved-fix"}
 
-# What ships: the app, the connector, the Mac app, the image, the package
-SHIPS = ("backend/", "frontend/src/", "mcp_server/btctx_mcp/", "desktop/", "startos/",
-         "Dockerfile", "docker-entrypoint.sh")
-# ...except the tests beside the backend's code
-NOT_SHIPPED = ("backend/tests/",)
+# What ships: the app (the image builds the frontend from all of frontend/),
+# the connector, the Mac app, the image, the package, and the version
+SHIPS = ("backend/", "frontend/", "mcp_server/btctx_mcp/", "mcp_server/pyproject.toml", "desktop/",
+         "startos/", "Dockerfile", "docker-entrypoint.sh", "VERSION")
+# ...except the tests beside the code
+NOT_SHIPPED = ("backend/tests/", "frontend/e2e/", "frontend/playwright.config.ts")
+TESTS = (".test.ts", ".test.tsx")
 
 
 def frozen_branches(text: str) -> set[str]:
@@ -37,7 +39,7 @@ def frozen_branches(text: str) -> set[str]:
 
 
 def ships(path: str) -> bool:
-    return path.startswith(SHIPS) and not path.startswith(NOT_SHIPPED)
+    return path.startswith(SHIPS) and not path.startswith(NOT_SHIPPED) and not path.endswith(TESTS)
 
 
 def refusal(base: str, labels: set[str], changed: list[str], frozen: set[str]) -> str | None:

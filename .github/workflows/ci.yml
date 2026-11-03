@@ -455,30 +455,14 @@ jobs:
             ${{ steps.package.outputs.dmg }}
           retention-days: 7
 
-  # The one check the rulesets require: every job above but the macOS build
-  # and its audit (they run, as before, without blocking a merge). A job is
-  # required by being listed here, so renaming or splitting one never needs
-  # a ruleset changed.
-  #
-  # The medium set (the owner's choice, 2026-10-22): a pull request into
-  # staging or 2.0, and only there (an allow-list: a pull request into any
-  # other branch gets the full set), runs the Python suite on both versions
-  # (every tax and figures test among them) and its guard, lint, the frontend, the smoke
-  # test, the StartOS checks and the audit, so a night's batch of pull
-  # requests clears side by side within GitHub's runner limits; the macOS
-  # build and its audit run there too, as on every pull request. Only
-  # click-through, Docker and the StartOS pack are skipped there; they run
-  # on every merge into staging or 2.0 (the full set, whose last run tests
-  # every change merged) and on every other pull request. Only those three
-  # can be skipped, and only there; anything else skipped (a job whose need
-  # failed) fails this check.
   ship-freeze:
     # After a branch's last beta (#848): a pull request into a branch named
     # in .github/ship-freeze that changes what ships fails, unless it's
     # labelled `version` or `approved-fix` (scripts/check_ship_freeze.py).
     # It runs the base branch's copy of the script and freeze file, so a
-    # pull request can't lift the freeze by editing them. The labels are
-    # read when it runs: after adding one, re-run this job
+    # pull request can't lift the freeze by editing them (short of editing
+    # this workflow, which a review sees). The labels are read when it runs:
+    # after adding one, re-run this job.
     name: Nothing that ships after the last beta, without leave
     runs-on: ubuntu-latest
     permissions:
@@ -503,6 +487,23 @@ jobs:
           labels=$(gh pr view "$PR" -R "$GITHUB_REPOSITORY" --json labels -q .labels)
           git diff --name-only HEAD^1 HEAD | python3 "$RUNNER_TEMP/guard.py" "$BASE" "$labels" "$RUNNER_TEMP/freeze"
 
+  # The one check the rulesets require: every job above but the macOS build
+  # and its audit (they run, as before, without blocking a merge). A job is
+  # required by being listed here, so renaming or splitting one never needs
+  # a ruleset changed.
+  #
+  # The medium set (the owner's choice, 2026-10-22): a pull request into
+  # staging or 2.0, and only there (an allow-list: a pull request into any
+  # other branch gets the full set), runs the Python suite on both versions
+  # (every tax and figures test among them) and its guard, lint, the frontend, the smoke
+  # test, the StartOS checks and the audit, so a night's batch of pull
+  # requests clears side by side within GitHub's runner limits; the macOS
+  # build and its audit run there too, as on every pull request. Only
+  # click-through, Docker and the StartOS pack are skipped there; they run
+  # on every merge into staging or 2.0 (the full set, whose last run tests
+  # every change merged) and on every other pull request. Only those three
+  # can be skipped, and only there; anything else skipped (a job whose need
+  # failed) fails this check.
   ci-passed:
     name: CI passed
     if: always()
