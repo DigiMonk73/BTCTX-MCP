@@ -242,8 +242,9 @@ hand, after the review (AGENTS.md, "Pull requests").
   Alerts still show on the Security tab, and the monthly PRs pick up fixed
   versions. So a fixed version of a vulnerable package waits up to a month for
   its pull request: `make audit-deps` and the CI audit (each pull request and
-  push) show it, and a security fix is taken by hand the same day, as an
-  urgent fix (AGENTS.md, "Branches"), never left for the month's run.
+  push) show it, and a security fix is taken by hand the same day, by a
+  pull request of its own into `develop` (AGENTS.md, "Branches"), never
+  left for the month's run.
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are

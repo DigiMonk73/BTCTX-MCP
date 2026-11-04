@@ -50,7 +50,10 @@ workflow keeps up to date by itself. We don't touch it.)
 - **`staging`**: retired on 2026-11-04 (the owner: "yes go ahead with
   retiring staging branch"). It let many pull requests from the 2.0
   build merge side by side, and `develop` took it once a day. With one
-  or two changes at a time, that was more work than it saved.
+  or two changes at a time, that was more work than it saved. It stays
+  until the next release, since GitHub's Dependabot reads its settings
+  from `main` and keeps sending its pull requests there until then; then
+  the owner deletes it and its safety rule.
 - **`main`**: released code only, what users get. It moves only by
   *fast-forwarding* to `develop`: at a release, or when everything new is
   only docs, tests or tooling. Never pulled from Start9.
@@ -94,6 +97,7 @@ workflow keeps up to date by itself. We don't touch it.)
      figure that moves by mistake is fixed, never put to the owner;
    - **the StartOS package, anything that goes to Start9, and releases**:
      they wait for the owner to say **"merge"**.
+
 ## 1b. Big work
 
 A big job (a release, a redesign, research then build) is split up first.

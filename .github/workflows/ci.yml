@@ -494,9 +494,10 @@ jobs:
   # required by being listed here, so renaming or splitting one never needs
   # a ruleset changed.
   #
-  # The medium set (the owner's choice, 2026-10-22, for staging, retired in
-  # #901): a pull request into 2.0, and only there (an allow-list: a pull
-  # request into any other branch, develop included, gets the full set), runs the Python suite on both versions
+  # The medium set (the owner's choice, 2026-10-22, for staging and 2.0;
+  # staging retired in #901): a pull request into 2.0, and only there (an
+  # allow-list: a pull request into any other branch, develop included,
+  # gets the full set), runs the Python suite on both versions
   # (every tax and figures test among them) and its guard, lint, the frontend, the smoke
   # test, the StartOS checks and the audit, so a night's batch of pull
   # requests clears side by side within GitHub's runner limits; the macOS

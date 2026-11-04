@@ -77,11 +77,12 @@ carry its `Co-Authored-By` line.
   the full set (`ci.yml`; the macOS build runs too, as on every pull
   request, not required) on a branch that's up to date with `develop`
   ("Protect develop", below), so a pull request's checks have run on
-  everything already merged. So pull requests touching the same files
-  merge one at a time: each is brought up to date with `gh pr
-  update-branch N` (which merges `develop` in) or `git merge
-  origin/develop` and a push, never a rebase, and merges once its checks
-  pass again (auto-merge never updates a branch by itself). Every merge
+  everything already merged. So pull requests merge one at a time, each
+  falling behind whenever another merges: each is brought up to date with
+  `gh pr update-branch N` (which merges `develop` in) or `git merge
+  origin/develop` and a push, never a rebase (Dependabot's: "@dependabot
+  rebase", "Pull requests"), and merges once its checks pass again
+  (auto-merge never updates a branch by itself). Every merge
   into it runs the full set on the result (`ci.yml`'s push trigger), and
   a red `develop` is fixed before anything else merges into it.
   Dependabot targets it. Never commit on a local `develop`: GitHub
@@ -92,8 +93,12 @@ carry its `Co-Authored-By` line.
   into staging", "staging into develop") carried them on to `develop`.
   In maintenance, with one or two changes at a time, that was overhead,
   so every change now goes straight into `develop`. The pre-push hook
-  refuses any push to it but its deletion; the owner deletes the branch
-  and its ruleset.
+  refuses any push to it but its deletion. GitHub reads `dependabot.yml`
+  only from `main`, so until `main` carries the new one (the next
+  release) Dependabot still opens its pull requests into `staging`: each
+  is moved onto `develop` ("Pull requests"), and the branch stays, or
+  Dependabot's run fails. Once `main` has it, the owner deletes the
+  "Protect staging" ruleset and the branch (#901).
 - **`main`**: released code only; it is what users get (the `:main` Docker
   image; releases are cut from it). Never commit on `main`, never
   force-push or rewind it. It moves only by fast-forwarding to GitHub's
@@ -103,6 +108,7 @@ carry its `Co-Authored-By` line.
   in the app or the connector).
 - **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
   deleted.
+
 2.0.0 is released (2026-10-31), so the next two bullets, `2.0` and its
 pre-releases, are history, kept here for now:
 
@@ -1277,10 +1283,15 @@ which merges `develop` in, or `git merge origin/develop` and a push; a
 Dependabot pull request: comment "@dependabot rebase" instead, since
 Dependabot stops maintaining a branch once anyone else commits to it, and
 it rewrites only its own branch) and merges once its checks pass again.
-Pull requests touching the same files take the order the batch planned,
-each brought up to date only after the one before has merged. A pull
-request moved onto `develop` (`gh pr edit N --base develop`, say one
-opened against the retired `staging`) gets a new commit, or is closed and
+After an update, check that auto-merge is still on (`gh pr view N --json
+autoMergeRequest`); if it isn't, turn it on again with the new head's
+sha. So a batch lands one pull request per full run (about 20 minutes
+each), in the order the batch planned: what's left when the session ends
+is brought up to date by the next session ("Starting a session"), never
+by waiting, and changes that belong together go in one pull request. A
+pull request moved onto `develop` (`gh pr edit N --base develop`, say a
+Dependabot one opened against `staging` before `main` carried the new
+`dependabot.yml`: "Branches") gets a new commit, or is closed and
 reopened, so the full set runs: changing the base starts no run. During
 big work, sessions report "ready: #N" and the lead turns on auto-merge instead
 ("Big work", "The lead runs the merges"). The owner
