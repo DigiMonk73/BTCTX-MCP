@@ -64,7 +64,8 @@ def test_the_tests_read_the_pinned_package_only():
 
 
 def test_the_mac_app_bundles_the_package():
-    """The frozen app imports `backend` like the server and needs tzdata's
-    files inside it, with no system files to fall back on."""
+    """The frozen app imports `backend` like the server, and with no system
+    files to fall back on needs tzdata inside it: named here, PyInstaller's
+    own hook for it bundles its zone files (the 2.0.0 app holds them)."""
     spec = (ROOT / "desktop" / "BitcoinTX.spec").read_text(encoding="utf-8")
     assert '"tzdata",' in spec
