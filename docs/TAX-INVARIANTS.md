@@ -237,7 +237,12 @@ map.
   The same for the hourly prices (`services/hourly_prices.py`, #144): the
   year files in fixed 1,000-hour blocks from 1 January, every year, newest
   first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
-  blocks from the hour after the files; never the hour asked.
+  blocks from the hour after the files; never the hour asked. Those blocks
+  are asked at most every 10 minutes; in between, a lookup is given the
+  hour it asks from the last answer, from memory, since the lookup that
+  asked may have kept it on a scratch copy that goes (the past-year
+  question, the coins list, a report's holdings, Ledger Review's check:
+  #824, #849); the ledger keeps only that hour then, never the block.
   **A proxy (Tor) carries every request to a public site**, with one
   exception the owner opts into (#241): Bitstamp refuses Tor's exits, so
   the price card asks once "Download the price history once without

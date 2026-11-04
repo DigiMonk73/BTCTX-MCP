@@ -397,6 +397,17 @@ def test_a_reports_year_end_value_after_a_question(world):
     assert _year_end_values(world) == {Decimal("41000.00")}
 
 
+def test_an_income_after_a_report_with_no_blank_row(world):
+    """A report values a year's end on a scratch copy: a year ending after
+    the year files asks Bitstamp there (from 1 January 2027 for 2026, with
+    2.0.0's files), with no blank row in the ledger. Before: basis $400 at the day."""
+    world.nothing_stored_yet()
+    _year_end_values(world)
+    r = world.income()
+    assert r.status_code == 200, r.text
+    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+
+
 def test_a_save_after_a_report(world):
     """A report's holdings replay on a scratch copy too. Before: $4.00 at the day."""
     blank = world.blank_fee()

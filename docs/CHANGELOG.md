@@ -24,6 +24,37 @@ All notable changes to BitcoinTX are documented in this file.
   that Form 8949's column (a) prints no transaction ID (for #156). No figure or
   box moves.
 
+### Fixed
+
+- **A tax-figures fix: a value priced in the 10 minutes after a report, Ledger
+  Review, the coins list or the past-year question took the day's price
+  where the hour's was there** (#824, #849). BitcoinTX asks Bitstamp for the
+  hours after its hourly price files at most every 10 minutes. When the
+  lookup that asked was working on a throwaway copy of your ledger, the
+  answer went with the copy: the past-year question's check (2.0.0), the
+  form's list of the coins a transaction moves (2.0.0), the Complete Tax
+  Report's holdings at a tax year's start and end, and Ledger Review's check
+  of what Recalculate Ledger would change (from 1.2.8). For the rest of those
+  10 minutes, a value dated after the files and priced then (a network fee's,
+  a Spent's proceeds, an income's, a gift's, a year-end holding) took the
+  day's price, marked as such, instead of the hour's. With the whole price
+  history already downloaded, such a save could be refused instead, for
+  having no price; and a past-year question could be asked twice, or asked
+  only because its two checks priced a row differently. Now, between two
+  asks, the hour asked for is given from the last answer, kept in memory
+  only: no request is added (fewer go out), none names a day, and the ledger
+  keeps only the hour a save uses. **Which transactions:** values priced at
+  the hour, dated after the last price file (2.0.0's end on 30 October
+  2026, 15:00 UTC), saved within 10 minutes of one of those looks, while the
+  price source allows public sites. In 2.0.0 those looks asked Bitstamp only
+  when a stored row dated after the files had a blank value (in practice
+  one blanked by hand in the database: every save fills it), or for a
+  report of a tax year ending after the files (2026's, from 1 January
+  2027). Your Mempool's prices, and a value
+  already saved, don't change. **What to do:** open Ledger Review. "Values
+  priced at the day's price that the hour would change" lists any value that
+  took the day's price where the hour's is there now; tick it and apply.
+
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word

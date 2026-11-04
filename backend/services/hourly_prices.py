@@ -18,7 +18,9 @@ Lookup order (hourly_price):
      - public sites, for hours after the year files: Bitstamp's hourly
        candles in fixed blocks of 1,000 hours from the hour after the
        manifest's last, the same requests on every install of a release;
-       every hour they give is kept.
+       every hour they give is kept. Asked at most every 10 minutes: in
+       between, the hour asked is given from the last answer, and only
+       it is kept (#824).
   4. With public sites allowed, the year files' download, waiting a little
      for the year asked, unless the caller has already written: it holds
      SQLite's write lock (#421); an import waits for a year's download once
