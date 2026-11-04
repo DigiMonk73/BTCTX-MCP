@@ -5,7 +5,8 @@ The pre-push branch rules (.githooks/branch-rules.sh, AGENTS.md "Branches"):
 main only fast-forwards to commits already on GitHub's develop
 (origin/develop) and is never deleted, rewound or force-pushed; 2.0 is
 never deleted, rewound or force-pushed, and a pin/2.0-* tag is never moved
-or deleted (a new one is fine). Other AI
+or deleted (a new one is fine); staging, retired (#901), is only ever
+deleted, never pushed to. Other AI
 assistants work in this repo too, so the rule is enforced, not just written
 down.
 
@@ -79,6 +80,7 @@ def push(repo, *lines):
         [("refs/tags/pin/2.0-step-1", "B", "0")],      # a new pin
         [("refs/tags/pin/2.0-step-1", "B", "B")],      # a pin pushed again unchanged
         [("refs/tags/v1.2.9", "B", "0")],      # other tags aren't checked here
+        [("refs/heads/staging", "0", "B")],    # the retired staging deleted
         [],                                    # make check-fast: no refs
     ],
 )
@@ -102,6 +104,8 @@ def test_allowed(repo, lines):
          "2.0 can't be rewound or force-pushed"),
         ([("refs/tags/pin/2.0-step-1", "C", "B")], "pin/2.0-step-1 can't be moved or deleted"),
         ([("refs/tags/pin/2.0-step-2a", "0", "B")], "pin/2.0-step-2a can't be moved or deleted"),
+        ([("refs/heads/staging", "B", "A")], "staging is retired"),
+        ([("refs/heads/staging", "B", "0")], "staging is retired"),
     ],
 )
 def test_refused(repo, lines, message):

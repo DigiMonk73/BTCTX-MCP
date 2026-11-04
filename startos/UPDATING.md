@@ -37,12 +37,11 @@ as a pull request from DigiMonk73/BTCTX-StartOS. By hand:
 
 ## Releasing a new version
 
-Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `staging` by
-pull request, and `develop` takes it in a daily merge; `main` holds released
-code only and moves by fast-forwarding to `develop`.
+Branches (BTCTX-MCP's `AGENTS.md`, "Branches"): work reaches `develop` by
+pull request; `main` holds released code only and moves by fast-forwarding
+to `develop`.
 
-1. In a pull request straight into `develop`, like an urgent fix, opened
-   after a daily merge so it carries what `staging` held, bump the version
+1. In a pull request of its own into `develop`, bump the version
    everywhere it is written (the tests fail until all agree; a minor bump
    when a new tax year's forms are added):
    - `VERSION` and the two `CFBundle…Version` values in `desktop/BitcoinTX.spec`
@@ -103,10 +102,10 @@ their fork is the package's upstream for the registry. They change it too:
 template updates about monthly (their `syncNext` workflow keeps a `next`
 branch), SDK bumps and review fixes, by pull requests on their fork.
 
-- **Before each sync, take their changes:** on a branch cut from `staging`,
+- **Before each sync, take their changes:** on a branch cut from `develop`,
   run `scripts/start9-pull.sh` to see what they changed since they last took
   ours, then `scripts/start9-pull.sh --apply`, review, run the checks,
-  commit and open a pull request into `staging`. If what they changed moves
+  commit and open a pull request into `develop`. If what they changed moves
   a sibling in `package-lock.json`, save the bundle's list of sibling
   modules before `--apply` and compare it after ("Bumping the SDK", step 2).
   `--apply` also records their commit in BTCTX-MCP's `scripts/start9-taken`;

@@ -25,6 +25,21 @@ All notable changes to BitcoinTX are documented in this file.
   box moves.
 
 ### Development
+- **One line of work: `staging` is retired** (#901; the owner, 2026-11-04,
+  plan: #869). Every change now goes by pull request straight into
+  `develop`, with the full set of checks, and the daily "develop into
+  staging" and "staging into develop" pull requests are gone: they let the
+  2.0 build's many pull requests merge side by side, which one or two
+  changes at a time don't need. `develop` asks each pull request to be up
+  to date, so pull requests merge one at a time. Dependabot targets
+  `develop` once `main` carries the file (the next release; until then
+  `staging` stays, and its pull requests are moved onto `develop`), CI no longer
+  names `staging`, the pre-push hook refuses a push to it (deleting it is
+  fine), and `scripts/start9-pull.sh` and `start9-watch.sh` send Start9's
+  changes through `develop`. `AGENTS.md`, `docs/HOW-CHANGES-FLOW.md`,
+  `CONTRIBUTING.md` and the other docs say the same. Tooling and docs only:
+  nothing changes in the app, the connector or the package, and no figure
+  can move.
 - **The pre-push check runs the Python tests on every core** (#848), as
   `make test-fast` and CI do, not one at a time: about 3 minutes instead of
   10 to 20. The first failure still stops them. A Python without

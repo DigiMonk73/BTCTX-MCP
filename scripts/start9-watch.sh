@@ -168,7 +168,7 @@ Start9 changed these since $from (\`$ST\`, \`$branch\`):
 
 $list
 
-Read each against the StartOS package (\`startos/\`) and its docs; Start9's reviewers hold the package to the guide. If one changes what the package must do, file the change as an issue (or a pull request into \`staging\`), and keep the local copy current (\`git -C ~/code/start-technologies pull --ff-only\`).
+Read each against the StartOS package (\`startos/\`) and its docs; Start9's reviewers hold the package to the guide. If one changes what the package must do, file the change as an issue (or a pull request into \`develop\`), and keep the local copy current (\`git -C ~/code/start-technologies pull --ff-only\`).
 EOF
   open_once "$label on $(today)" "$body"
 }
@@ -225,7 +225,7 @@ check_fork() {
 $out
 \`\`\`
 
-When it lists changes Start9 made to their fork (template updates, SDK bumps, review fixes): the next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`staging\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (startos/UPDATING.md, "After Start9 forks the mirror"). When it says something else (our pull request there still open, a failed fetch), do what it says.
+When it lists changes Start9 made to their fork (template updates, SDK bumps, review fixes): the next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`develop\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (startos/UPDATING.md, "After Start9 forks the mirror"). When it says something else (our pull request there still open, a failed fetch), do what it says.
 EOF
   open_once "Start9's fork needs a look ($fork at $head)" "$body"
 }

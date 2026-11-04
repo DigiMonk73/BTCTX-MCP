@@ -29,16 +29,15 @@ Use the **Feature request** form: the problem first, then your idea.
 
 ## How changes are made
 
-- Every change goes into `staging` by pull request, from a short-lived
-  branch: open yours against `staging`, not `develop` or `main`.
-  `develop` takes `staging` once a day, after the whole suite has run on
-  everything together; `main` holds released code only.
+- Every change goes into `develop` by pull request, from a short-lived
+  branch: open yours against `develop`, not `main`, which holds released
+  code only.
 - CI runs the full test suite, the frontend's tests, the StartOS checks
   and a dependency audit on your pull request (once the maintainer has
-  approved it: "Pull requests from outside", below), and the
-  click-through tests and the Docker and StartOS builds once it's in
-  `staging`. A pull request merges only once its checks pass, and after a
-  review.
+  approved it: "Pull requests from outside", below), the click-through
+  tests and the Docker and StartOS builds. A pull request merges only
+  once its checks pass, on a branch up to date with `develop`, and after
+  a review.
 - A bug fix comes with a test that fails without the fix.
 - A change to tax figures, the database, the StartOS package or a release
   needs the maintainer's approval, and a before-and-after comparison of

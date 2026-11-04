@@ -70,7 +70,7 @@ issue or a pull request, which the week's work starts from.
 | Start9 watch (`start9-watch.yml`) | Mondays, 08:23 UTC | an issue labelled `start9` for each new thing |
 | IRS forms watch (`irs-forms-watch.yml`) | Mondays, 14:00 UTC | an issue labelled `claude` |
 | Price history watch (`price-history-watch.yml`) | the 3rd of each month | an issue labelled `claude`, if Bitstamp changed |
-| Dependabot (`dependabot.yml`) | monthly | grouped pull requests into `staging` |
+| Dependabot (`dependabot.yml`) | monthly | grouped pull requests into `develop` |
 
 GitHub reads a schedule, and `dependabot.yml`, only from the default branch
 (`main`): a change to any of them takes effect once `main` is fast-forwarded
@@ -219,7 +219,7 @@ the `make lock` command, or when the Mac lock and the backend's disagree.
 
 ### Dependabot
 
-`.github/dependabot.yml` opens pull requests against `staging` once a month
+`.github/dependabot.yml` opens pull requests against `develop` once a month
 (the owner, 2026-10-31): one grouped PR per directory for minor and patch
 updates (`backend/`, `mcp_server/`, `desktop/`, `.github/release-tools/`, the
 dev tools in `requirements-dev.txt`, `frontend/`, `startos/`), majors one per
@@ -227,8 +227,8 @@ PR, one PR for the GitHub Actions in `.github/workflows/`, and one for the
 Dockerfile's base images when their tags get a new build (Python 3.13 and
 Node 24 themselves change only on purpose). CI runs on each. Treat them like
 a hand update: read the changelogs, follow the steps above for PDF packages,
-merge into `staging` (`develop` takes them with the daily merge,
-AGENTS.md, "Branches"). While 2.0 is built on `2.0`, they reach it only
+merge into `develop` (AGENTS.md, "Branches"; `staging`, their target
+until #901, is retired). While 2.0 is built on `2.0`, they reach it only
 with `develop` (`make catch-up-2.0`, or the lead's `develop` merge), never
 by a pull request of their own into `2.0`. Nothing reaches `main` before a
 release. Dependabot never merges one by itself: auto-merge is turned on by
@@ -236,14 +236,15 @@ hand, after the review (AGENTS.md, "Pull requests").
 
 - GitHub reads the file from the default branch (`main`): an edit takes
   effect once `main` is fast-forwarded to `develop`.
-- Every entry needs `target-branch: staging`, or its PRs target `main`.
+- Every entry needs `target-branch: develop`, or its PRs target `main`.
   Keep **Dependabot security updates** off in the repository settings:
   `target-branch` doesn't apply to them, so their PRs would target `main`.
   Alerts still show on the Security tab, and the monthly PRs pick up fixed
   versions. So a fixed version of a vulnerable package waits up to a month for
   its pull request: `make audit-deps` and the CI audit (each pull request and
-  push) show it, and a security fix is taken by hand the same day, as an
-  urgent fix (AGENTS.md, "Branches"), never left for the month's run.
+  push) show it, and a security fix is taken by hand the same day, by a
+  pull request of its own into `develop` (AGENTS.md, "Branches"), never
+  left for the month's run.
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
@@ -291,10 +292,10 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   other; if one does, it stops until the cause is found (AGENTS.md,
   "Reviews", the figures rule).
 
-A Dependabot branch behind `staging` is brought up to date only when it
-conflicts (`staging` asks no branch to be up to date), by commenting
-"@dependabot rebase" on it, never by merging `staging` into it
-(`gh pr update-branch`, or `git merge origin/staging` and a push): Dependabot
+A Dependabot branch behind `develop` (which asks every branch to be up to
+date) is brought up to date by commenting "@dependabot rebase" on it,
+never by merging `develop` into it (`gh pr update-branch`, or `git merge
+origin/develop` and a push): Dependabot
 stops maintaining a branch once anyone else commits to it. It merges only
 once its checks have passed again (AGENTS.md, "Pull requests").
 
