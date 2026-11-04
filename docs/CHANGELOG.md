@@ -51,6 +51,9 @@ All notable changes to BitcoinTX are documented in this file.
   sites. **What to do:** open Ledger Review. "Values priced at the day's
   price that the hour would change" lists such a value if it took the day's
   price; tick it and apply.
+- An edit of a transaction another save deleted while its past-year
+  question was being worked out answered with an error (500); it says the
+  transaction isn't found (404), as such an edit always did (for #824).
 
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it

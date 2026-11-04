@@ -121,7 +121,7 @@ def price_at(db: Session, when: datetime) -> Priced:
         return Priced(found[0], "hour", _utc(hour), found[1])
     given = _found_for_a_stored_value(hour)
     if given is not None:
-        _look_for_the_day_as_before(db, when)
+        _look_for_the_day_too(db, when)
         return Priced(given, "hour", _utc(hour), "bitstamp")
     usd = price_history.daily_price(db, when)
     day = price_history.utc_day(when)
@@ -180,12 +180,12 @@ def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, st
         _found_on_copies[hour] = (found[0], files_end, asked_at)
 
 
-def _note_asked_on_a_copy(db: Session, kept: dict[int, tuple[Decimal, str]], files_end: int | None) -> None:
-    """On a scratch copy, the hours after the files Bitstamp's answer to its
-    ask brought there, none it had already (_remember_for_stored_values)."""
+def _note_asked_on_a_copy(db: Session, brought: dict[int, tuple[Decimal, str]], files_end: int | None) -> None:
+    """On a scratch copy, the hours after the files its ask brought, none it
+    had kept already (_remember_for_stored_values)."""
     if db.info.get(SCRATCH) and files_end is not None:
         db.info.setdefault(ASKED_ON_COPY, {}).update(
-            {h: _state["public_at"] for h, (_, source) in kept.items() if source == "bitstamp" and h > files_end})
+            {h: _state["public_at"] for h, (_, source) in brought.items() if source == "bitstamp" and h > files_end})
 
 
 def _found_for_a_stored_value(hour: int) -> Decimal | None:
@@ -193,10 +193,10 @@ def _found_for_a_stored_value(hour: int) -> Decimal | None:
     The hour's price a scratch copy found, for a stored row's missing value
     whose lookup asked Bitstamp and was skipped by its 10-minute limit, so
     the value doesn't take the day's price where the copy had the hour's
-    (#824, #849). Only within the ask it came from, for the same year files;
-    never for another row's value, a report's or a price read, and never
-    kept in the ledger, where it would come before your Mempool's for other
-    rows: every other lookup gives what it did.
+    (#824, #849). Only within the ask it came from, for the same year files,
+    and only for a stored row's missing value at that hour: never a write's
+    own value, a report's or a price read, and never kept in the ledger,
+    where it would come before your Mempool's for other rows.
     """
     notes = _stored_value.get()
     with _copies_lock:
@@ -210,11 +210,11 @@ def _found_for_a_stored_value(hour: int) -> Decimal | None:
     return usd
 
 
-def _look_for_the_day_as_before(db: Session, when: datetime) -> None:
-    """The day's price, looked for as this lookup did before the hour was
-    given it, so it downloads and keeps what it did and later lookups of a
-    day find what they did. Its own answer isn't needed: no price is no
-    refusal."""
+def _look_for_the_day_too(db: Session, when: datetime) -> None:
+    """The day's price, looked for as a lookup with no hour does, though the
+    hour was given: the day prices downloaded and kept are those with no
+    hour given, so a later lookup of a day finds the same. Its answer isn't
+    needed: no price is no refusal."""
     try:
         price_history.daily_price(db, when)
     except HTTPException:
@@ -307,12 +307,12 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     if hour in db.info.get(price_history.LOOKUPS_FAILED, {}):
         raise db.info[price_history.LOOKUPS_FAILED][hour]
     files_end = lines[-1].last_hour if lines else None
-    found, keep = _from_sources(db, hour, files_end)
+    found, keep, kept_before = _from_sources(db, hour, files_end)
     if found is None and line is not None and start_download() and wait and _may_wait(db, line):
         prices = _wait_for_year(line)
         found = (prices[hour], "bitstamp") if prices is not None else None
     _store(db, keep)
-    _note_asked_on_a_copy(db, keep, files_end)
+    _note_asked_on_a_copy(db, {h: v for h, v in keep.items() if h not in kept_before}, files_end)
     if found is None and db.info.get(WARMING):
         db.info.setdefault(UNPRICED_HOURS, set()).add(hour)
     return found
@@ -608,9 +608,9 @@ def _file_text(line: pf.YearLine) -> str | None:
 
 
 def _from_sources(db: Session, hour: int, files_end: int | None):
-    """The chosen source's price for the hour (or None), and the hours to keep:
-    the one asked, and Bitstamp's after the files not kept already (a kept
-    price never changes; a scratch copy notes only what its ask brought:
+    """The chosen source's price for the hour (or None), the hours to keep
+    (the one asked, and Bitstamp's after the files), and those after the
+    files kept already (a scratch copy notes only what its ask brought:
     _note_asked_on_a_copy)."""
     stored = set()
     if files_end is not None:
@@ -624,9 +624,8 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
         logger.warning("Hourly BTC price lookup failed: %s", exc)
         price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         found = {}
-    keep = {h: v for h, v in found.items()
-            if h not in stored and (h == hour or (files_end is not None and h > files_end))}
-    return found.get(hour), keep
+    keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
+    return found.get(hour), keep, stored
 
 
 def _wait_for_year(line: pf.YearLine) -> dict[int, Decimal] | None:

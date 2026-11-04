@@ -914,6 +914,37 @@ def test_a_restore_after_a_copys_ask_covered_an_hour_already_kept(world, kept_fr
     assert world.fee(first) == (Decimal("4.10"), "hour")
 
 
+def test_a_busy_database_at_an_hour_bitstamp_lacks(world, monkeypatch):
+    """Not a blank row: a new income at an hour Bitstamp has no candle for,
+    every other hour of its block kept by an earlier ask, and the database
+    busy as the hours are kept. Stays: "busy", 503 (#824's sixth review:
+    the fix's first try skipped that write and saved it)."""
+    gap = world.files_end + 50 * HOUR
+    bitstamp = world.sites.handler
+
+    def without_that_hour(request):
+        answer = bitstamp(request)
+        if request.url.host != BITSTAMP or request.url.params.get("step") != str(HOUR):
+            return answer
+        data = answer.json()
+        data["data"]["ohlc"] = [row for row in data["data"]["ohlc"] if int(row["timestamp"]) != gap]
+        return httpx.Response(200, json=data)
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(without_that_hour))
+    world.nothing_stored_yet()
+    assert world.income(hours=40).status_code == 200
+    ten_minutes_later()
+    keep = price_history.keep
+
+    def busy(db, write):
+        if write.__module__ == hp.__name__:  # the hours kept, not the days
+            raise OperationalError("INSERT", {}, Exception("database is locked"))
+        return keep(db, write)
+
+    monkeypatch.setattr(price_history, "keep", busy)
+    assert world.income(hours=50).status_code == 503
+
+
 # Refused today for the blank row's price, worked out with the fix
 
 def test_ledger_review_after_a_question_with_the_history_complete(world):
