@@ -34,33 +34,39 @@ All notable changes to BitcoinTX are documented in this file.
   answer went with the copy: the past-year question's check (2.0.0), the
   form's list of the coins a transaction moves (2.0.0), the Complete Tax
   Report's holdings at a tax year's start and end, and Ledger Review's check
-  of what Recalculate Ledger would change (from 1.2.8). For the rest of those
-  10 minutes, a value dated after the files and priced then (a network fee's,
-  a Spent's proceeds, an income's, a gift's, a year-end holding) took the
-  day's price, marked as such, instead of the hour's. With the whole price
-  history already downloaded, such a save could be refused instead, for
-  having no price; and a past-year question could be asked twice, or asked
-  only because its two checks priced a row differently. The same followed a
-  lookup that found the hours but couldn't keep them, the database being
-  busy (that save answered "busy"). The price the form and the AI read for a
-  moment took the day's too. Now, between two
-  asks, the hour asked for is given from the last answer, kept in memory
-  only: no request is added (fewer go out), none names a day, and the ledger
-  keeps only the hour a lookup uses. Since such a save no longer looks for
-  the day's price, it no longer downloads the day prices either: a value
-  priced at the day later on asks for them itself, as it does when no
-  question came first, so with prices switched off or the sites down it's
-  refused, and with your Mempool alone it takes your Mempool's day. **Which transactions:** values priced at
-  the hour, dated after the last price file (2.0.0's end on 30 October
-  2026, 15:00 UTC), saved within 10 minutes of one of those looks, while the
-  price source allows public sites. In 2.0.0 those looks asked Bitstamp only
-  when a stored row dated after the files had a blank value (in practice
-  one blanked by hand in the database: every save fills it), or for a
-  report of a tax year ending after the files (2026's, from 1 January
-  2027); and a busy database could meet it any time. Your Mempool's prices, and a value
-  already saved, don't change. **What to do:** open Ledger Review. "Values
-  priced at the day's price that the hour would change" lists any value that
-  took the day's price where the hour's is there now; tick it and apply.
+  of what Recalculate Ledger would change (from 1.2.8). The answer was lost
+  the same way when a backup was restored just after a save that asked, and
+  when a save found the hours but the database was too busy to keep them.
+  For the rest of those 10 minutes, a value dated after the files and priced
+  then (a network fee's, a Spent's proceeds, an income's, a gift's, a
+  year-end holding, the price the form and the AI read for a moment) took
+  the day's price, marked as such, instead of the hour's. With the whole
+  price history already downloaded, such a save could be refused instead,
+  for having no price; and a past-year question could be asked twice, or
+  asked only because its two checks priced a row differently. Now, between
+  two asks, the hour asked for is given from the last answer, from memory:
+  no request is added (fewer go out) and none names a day. What uses that
+  hour keeps it, as anything priced at an hour does, never the rest of
+  Bitstamp's answer.
+
+  Two things follow, both as when nothing came first. An hour kept then
+  comes before your Mempool's for a later row in that hour. And a value
+  that takes the hour's price no longer downloads the day prices, so a
+  value priced at the day later on asks for them itself: with prices
+  switched off or the sites down it's refused, and with your Mempool alone
+  it takes your Mempool's day.
+
+  **Which transactions:** values priced at the hour, dated after the last
+  price file (2.0.0's end on 30 October 2026, 15:00 UTC), within 10 minutes
+  of one of those looks, while the price source allows public sites. In
+  2.0.0 the throwaway looks asked Bitstamp only when a stored row dated
+  after the files had a blank value (in practice one blanked by hand in the
+  database: every save fills it), or for a report of a tax year ending
+  after the files (2026's, from 1 January 2027); a restore or a busy
+  database could meet it any time. A value already saved doesn't change.
+  **What to do:** open Ledger Review. "Values priced at the day's price that
+  the hour would change" lists any value that took the day's price where
+  the hour's is there now; tick it and apply.
 
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it

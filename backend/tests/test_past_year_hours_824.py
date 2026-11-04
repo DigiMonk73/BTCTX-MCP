@@ -263,12 +263,11 @@ def test_the_question_stores_no_price(world):
 
 
 def test_the_confirm_keeps_only_the_hour_it_uses(world):
-    """Before: it kept the day it used, no hour. Not the block of hours
-    Bitstamp gave the question: another row ten minutes on, Bitstamp down,
-    has no hour, as before (the day's history is down too: 422)."""
-    world.blank_fee()
-    world.nothing_stored_yet()
-    assert world.question_then_confirm() == [409, 200]
+    """Not the block of hours Bitstamp gave the question, so another row's
+    hour ten minutes on, Bitstamp down, isn't there (and nor is the day's:
+    422). Before: no hour kept, and that row took $400, the day that save
+    had stored (the before-and-after's "fewer days stored")."""
+    _confirmed(world)
     assert world.kept_hours() == 1
     ten_minutes_later()
     world.sites.down = {"bitstamp"}
@@ -618,9 +617,10 @@ def test_a_question_out_of_time_names_the_years_as_before(world, monkeypatch):
 # save with no question first doesn't
 
 def _confirmed(world) -> None:
+    """The blank row's past-year question, confirmed until it saves (twice before the fix)."""
     world.blank_fee()
     world.nothing_stored_yet()
-    assert world.question_then_confirm() == [409, 200]
+    assert world.question_then_confirm()[-1] == 200
 
 
 def test_prices_switched_off_after_a_confirmed_question(world):
@@ -690,6 +690,63 @@ def test_a_lookup_that_couldnt_keep_its_hours_for_a_busy_database(world, monkeyp
     monkeypatch.setattr(hp, "_store", busy_once)
     assert world.income().status_code == 503
     r = world.income(hours=5)
+    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.sites.bitstamp_asked() == 1
+
+
+def test_a_report_then_a_save_in_the_window_then_the_sites_down(world):
+    """Any lookup that takes the hour in those 10 minutes asks for no day.
+    Before: the report's year-end value, read again later with Bitstamp
+    down, was $40,000, the day the income's save had stored; now it has none."""
+    world.nothing_stored_yet()
+    _year_end_values(world)
+    assert world.income().status_code == 200
+    ten_minutes_later()
+    world.sites.down = {"bitstamp"}
+    assert _year_end_values(world) == set()
+
+
+# An hour kept in the 10 minutes is kept for good, as any save keeps the
+# hour it used, so a later row in that hour takes it, over your Mempool's
+
+@pytest.mark.parametrize("later, basis", [
+    (MEMPOOL_ALONE, Decimal("410.00")),  # before: $405, your Mempool's
+    (dict(price_source="off"), Decimal("410.00")),  # before: $400, the day's
+])
+def test_a_later_row_in_the_hour_a_confirmed_question_kept(world, later, basis):
+    """Before: the hour wasn't kept (the save took the day), so the row
+    asked for itself, 10 minutes or more later."""
+    _confirmed(world)
+    ten_minutes_later()
+    world.source(**later)
+    r = world.income(hours=2)  # the blank row's hour
+    assert world.basis(r.json()["id"]) == (basis, "hour")
+
+
+def test_a_later_row_in_the_hour_a_price_read_kept(world):
+    """The form's or the AI's price for a moment, read in the window, keeps
+    its hour. Before: $405, your Mempool's, asked for later."""
+    world.blank_fee()
+    world.nothing_stored_yet()
+    world.a_question()
+    assert world.client.get("/api/bitcoin/price/history", params={"at": world.after_the_files(4)}).status_code == 200
+    ten_minutes_later()
+    world.source(**MEMPOOL_ALONE)
+    r = world.income(hours=4)
+    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+
+
+def test_a_save_after_the_hours_went_with_a_restore(world):
+    """A restore puts back a ledger without the hours a save kept a moment
+    ago, and Bitstamp isn't asked again for 10 minutes; no blank row needed.
+    The hours deleted here as the restore leaves them. Before: $400, the day's."""
+    world.nothing_stored_yet()
+    assert world.income(hours=5).status_code == 200
+    with world.session() as db:
+        db.query(BtcPriceHourly).delete()
+        db.query(BtcPriceDaily).delete()
+        db.commit()
+    r = world.income(hours=6)
     assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
     assert world.sites.bitstamp_asked() == 1
 

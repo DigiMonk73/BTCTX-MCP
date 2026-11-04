@@ -657,10 +657,11 @@ async def _bitstamp_after(files_end: int, stored: set[int], hour: int) -> dict[i
 
     Between two asks, a lookup is given `hour` from the last answer, from
     memory: the lookup that asked may have kept the answer where it's
-    thrown away, a scratch copy's replay (the past-year question, the coins
-    list, a report's holdings, Ledger Review's check: #824, #849), and
-    without it a save in those 10 minutes takes the day's price where the
-    hour's was found. Only the hour asked, so the ledger keeps only what a
+    gone, a scratch copy's replay (the past-year question, the coins list,
+    a report's holdings, Ledger Review's check: #824, #849), a ledger
+    restored since, or a transaction the busy database refused, and without
+    it a save in those 10 minutes takes the day's price where the hour's
+    was found. Only the hour asked, so the ledger keeps only what a
     lookup there uses, never the block (whose hours would outrank your
     Mempool's for other rows); a request names no hour either way.
     """
