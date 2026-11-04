@@ -324,7 +324,9 @@ map.
   A login fills it from the browser only while none was chosen and the
   ledger is empty (`tax_time.fill_tax_timezone`, #334); with transactions,
   only the owner's change in Settings moves it. Only the bundled `tzdata`
-  package's names are saved, the same on every machine (#407); a name saved
+  package's names are saved, the same on every machine (#407), and only its
+  rules are read: never the computer's own zone files, Debian's in the
+  image or macOS's (`backend/__init__.py`, #889); a name saved
   before 1.2.9 is still read (`tax_time.readable_zone`; one this machine
   can't open counts as none chosen, logged once), and a restore keeps this
   install's own in place of a backup's that `tzdata` doesn't name.

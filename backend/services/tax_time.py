@@ -14,9 +14,10 @@ Settings, or filled from the browser at a login while the ledger is empty)
 -> BTCTX_TIMEZONE env var -> UTC.
 
 Only the names of the tzdata package BitcoinTX ships with are accepted, the
-same list on every computer and Python (#407): a machine's own zone files
-open other names (`localtime`, case variants on macOS), which another
-machine can't after a restore.
+same list on every computer and Python (#407), and only its rules are read
+(backend/__init__.py, #889): a machine's own zone files would open other
+names (`localtime`, case variants on macOS), which another machine can't
+after a restore.
 """
 
 from __future__ import annotations
@@ -95,9 +96,10 @@ def readable_zone(name: str) -> str | None:
     The zone a stored name is read as, or None (#407). Until 1.2.9 a name
     was saved if this machine's zone files opened it: a case variant (only
     on macOS) is read as its tzdata name, the zone the Mac opened; another
-    name this machine opens (`localtime` in the Docker image) as it always
-    was, so no figure moves; None for a name it can't (one a restore
-    brought from another machine), where every report was a server error.
+    name the package opens as it always was, so no figure moves; None for a
+    name it can't, where every report was a server error: one a restore
+    brought from another machine, or `localtime`, a link in a Linux system's
+    zone files, which BitcoinTX never reads (backend/__init__.py, #889).
     """
     if name in bundled_zones():
         return name

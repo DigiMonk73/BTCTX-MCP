@@ -24,6 +24,34 @@ All notable changes to BitcoinTX are documented in this file.
   that Form 8949's column (a) prints no transaction ID (for #156). No figure or
   box moves.
 
+### Fixed
+
+- **The tax timezone's rules come from BitcoinTX's own timezone data on
+  every computer** (#889, tax figures). BitcoinTX ships a fixed release of
+  the world's timezone rules (the `tzdata` package, now IANA 2026f) so that
+  one ledger gives the same dates everywhere (#407), but Python read the
+  computer's own copy first: Debian's in the Docker image, and so on
+  StartOS (2026c in 2.0.0's image), macOS's in the Mac app. 2026c doesn't
+  have Manitoba's, the Northwest Territories' and Cuba's new rules: from
+  1 November 2026 their clocks stay on summer time, where 2026c still
+  turned them back an hour. So with the tax timezone set to
+  `America/Winnipeg`, `America/Rainy_River`, `America/Inuvik` or
+  `America/Havana`, a transaction from 1 November 2026 within an hour of
+  midnight was given the day before: on Form 8949, in its holding period
+  (a sale one day past a year could show short-term) and, at the year's
+  end, in its tax year. BitcoinTX now reads only its own data, so a
+  base-image or macOS update can't move a figure. Every other zone gives
+  the same dates as before. A tax timezone saved before 1.2.9 as
+  `localtime` (a name only the Docker image's own files had, UTC there)
+  now counts as none chosen, logged once, as a name another computer
+  can't read does: `BTCTX_TIMEZONE` if the server sets one, else UTC.
+  **Affected:** every release up to 2.0.0 in Docker and on StartOS, with
+  one of those four tax timezones and a transaction from 1 November 2026;
+  the Mac app the same on a Mac whose own timezone data is older than
+  these rules. **What to do:** after updating, Recalculate Ledger once if
+  your tax timezone is one of those four, so the holding periods are
+  worked out again; the dates and tax years follow by themselves.
+
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word
