@@ -4,8 +4,9 @@
 # Nothing here merges by itself: auto-merge is turned on by hand, after the
 # review (AGENTS.md, "Pull requests").
 #
-# Every entry targets staging, where changes gather before the daily merge
-# into develop; main holds released code only (AGENTS.md, "Branches"). GitHub
+# Every entry targets develop, where every change goes by pull request (since
+# staging retired, #901); main holds released code only (AGENTS.md,
+# "Branches"). GitHub
 # reads this file from the default branch (main), so a change here takes
 # effect once main is fast-forwarded to develop.
 # Review and merge like any dependency change: docs/MAINTENANCE.md,
@@ -20,7 +21,7 @@ version: 2
 updates:
   - package-ecosystem: uv
     directory: /backend
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -35,7 +36,7 @@ updates:
 
   - package-ecosystem: pip
     directory: /mcp_server
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -49,7 +50,7 @@ updates:
   # two share; test_pinning.py says when).
   - package-ecosystem: uv
     directory: /desktop
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -65,7 +66,7 @@ updates:
   # What release.yml builds the AI connector with
   - package-ecosystem: uv
     directory: /.github/release-tools
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -79,7 +80,7 @@ updates:
   # rules above), so only these are allowed: add a new pinned dev tool here.
   - package-ecosystem: pip
     directory: /
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -97,7 +98,7 @@ updates:
 
   - package-ecosystem: npm
     directory: /frontend
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -117,7 +118,7 @@ updates:
 
   - package-ecosystem: npm
     directory: /startos
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -137,7 +138,7 @@ updates:
   # only on purpose (MAINTENANCE.md).
   - package-ecosystem: docker
     directory: /
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:
@@ -156,7 +157,7 @@ updates:
   # startos/.github/workflows (Start9's standard files, mirrored as they are).
   - package-ecosystem: github-actions
     directory: /
-    target-branch: staging
+    target-branch: develop
     schedule:
       interval: monthly
     commit-message:

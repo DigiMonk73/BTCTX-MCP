@@ -314,7 +314,7 @@ running while the AI uses it. See [mcp_server/README.md](../mcp_server/README.md
 
 ## CI
 
-On every pull request, every push to `develop`, `main`, `staging` or `2.0`,
+On every pull request, every push to `develop`, `main` or `2.0`,
 or manually from the Actions tab, `.github/workflows/ci.yml`
 runs `./desktop/build-mac.sh` on `macos-latest` with the Python 3.13 the job
 sets up (`BTCTX_BUILD_PYTHON`, #284). The Mac app runs 3.13 on purpose, the

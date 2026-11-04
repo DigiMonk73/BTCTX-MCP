@@ -6,6 +6,8 @@
 # is never deleted, rewound or force-pushed. 2.0, the 2.0 build's branch, is
 # never deleted, rewound or force-pushed either, and a pin/2.0-* tag is never
 # moved or deleted (its ruleset is the real guard; this stops it here first).
+# staging is retired (#901): nothing is pushed to it again; deleting it is
+# fine.
 # Tested by backend/tests/test_branch_rules.py.
 set -euo pipefail
 
@@ -30,6 +32,10 @@ while read -r _ local_sha remote_ref remote_sha; do
       ;;
     refs/heads/2.0)
       never_rewound 2.0 "$local_sha" "$remote_sha"
+      ;;
+    refs/heads/staging)
+      zero "$local_sha" \
+        || fail "staging is retired: open your pull request into develop (AGENTS.md, Branches)"
       ;;
     refs/tags/pin/2.0-*)
       zero "$remote_sha" || [ "$local_sha" = "$remote_sha" ] \

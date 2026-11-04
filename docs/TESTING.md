@@ -40,20 +40,21 @@ make hooks          # installs the pre-push gate
   start-sdk 3.1.0 formats instead of checking) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
-- **On GitHub, every pull request and every push to `develop`, `main`, `staging` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
+- **On GitHub, every pull request and every push to `develop`, `main` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
   (Docker's, StartOS's and the Mac app's) full suite, each split across
   three machines with a guard that every test ran once ("The Python suite
   across machines", below), frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
   against the running container, dependency audit, StartOS package checks and
   an x86_64 `btctx.s9pk` packed from this commit's image.
-  - A pull request into `staging` or `2.0` (and only there) runs the
+  - A pull request into `2.0` (and only there) runs the
     **medium set**: all of that except the click-through tests, the
-    Docker image and the StartOS pack, so a night's batch runs side by
-    side. Every merge into `staging` or `2.0` starts the full set on the
-    result; a newer run there cancels the older, so the last run tests
-    every change merged (a cancelled run's red "CI passed" isn't a
-    failure). Every other pull request (into `develop`, `main` or any
-    other branch) runs the full set. AGENTS.md, "Branches".
+    Docker image and the StartOS pack, so a night's batch ran side by
+    side. Every merge into `2.0` starts the full set on the result; a
+    newer run there cancels the older, so the last run tests every change
+    merged (a cancelled run's red "CI passed" isn't a failure). Every
+    other pull request (into `develop`, `main` or any other branch) runs
+    the full set. `staging`, which had the medium set too, is retired
+    (#901). AGENTS.md, "Branches".
 - **Weekly, on Mondays** (from the release that brings it to `main`, since
   GitHub runs a schedule only from there; until then each session runs the
   script, AGENTS.md, "Starting a session"): `start9-watch.yml`

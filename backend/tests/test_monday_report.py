@@ -348,11 +348,11 @@ def test_the_watch_looks_back_a_week_and_a_day_when_it_has_no_earlier_issue():
     assert "timedelta(days=8)" in (ROOT / "scripts" / "start9-watch.sh").read_text()
 
 
-def test_dependabot_is_monthly_grouped_and_targets_staging():
+def test_dependabot_is_monthly_grouped_and_targets_develop():
     entries = DEPENDABOT.split("\n  - package-ecosystem:")[1:]
     assert len(entries) == 9
     for entry in entries:
         assert "interval: monthly" in entry
-        assert "target-branch: staging" in entry
+        assert "target-branch: develop" in entry  # staging retired (#901)
         assert "groups:" in entry
     assert "interval: weekly" not in DEPENDABOT and "interval: daily" not in DEPENDABOT

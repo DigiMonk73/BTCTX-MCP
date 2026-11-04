@@ -12,8 +12,7 @@ the glossary at the end.
 Our changes go **out**:
 
 ```
-this computer ──push──▶ short branch ──pull request──▶ staging
-staging ──once a day, one pull request, full tests──▶ develop
+this computer ──push──▶ short branch ──pull request, full tests──▶ develop
 develop ──main catches up──▶ main ──release──▶ GitHub release + mirror
 mirror ──pull request──▶ Start9's copy ──Start9 publishes──▶ Community Beta
 Community Beta ──owner asks Start9──▶ main store
@@ -22,7 +21,7 @@ Community Beta ──owner asks Start9──▶ main store
 Start9's changes come **back**:
 
 ```
-Start9's copy ──scripts/start9-pull.sh──▶ short branch ──pull request──▶ staging
+Start9's copy ──scripts/start9-pull.sh──▶ short branch ──pull request──▶ develop
 (then they go out again with our next release)
 ```
 
@@ -30,7 +29,7 @@ Start9's copy ──scripts/start9-pull.sh──▶ short branch ──pull requ
 
 | Repository | What it is | How it changes |
 |---|---|---|
-| **DigiMonk73/BTCTX-MCP** (this one) | The source of truth: the app, the AI connector, the Mac app, and the StartOS package in `startos/` | Changes enter by pull request into `staging`; `develop` takes them once a day; `main` catches up from `develop` |
+| **DigiMonk73/BTCTX-MCP** (this one) | The source of truth: the app, the AI connector, the Mac app, and the StartOS package in `startos/` | Changes enter by pull request into `develop`; `main` catches up from `develop` |
 | **DigiMonk73/BTCTX-StartOS** (the mirror) | A copy of `startos/` and nothing else | Only by `scripts/sync-startos-mirror.sh`: at each release, and right away for a docs-only change to `startos/`. Never edit it by hand |
 | **Start9-Community/BTCTX-StartOS** (Start9's copy) | What Start9 builds and publishes in their app store | Only Start9 changes it. We send pull requests; they merge |
 
@@ -42,20 +41,22 @@ workflow keeps up to date by itself. We don't touch it.)
 
 ## Our branches
 
-- **`staging`**: where changes gather, each by its own pull request,
-  opened together in the evening's batch: they're tested side by side
-  (the Python tests, the frontend, the quick checks), never in line, and
-  every merge into `staging` starts the full tests on the result. A newer
-  run replaces an older one, so the last run tests everything merged; a
-  replaced run shows red without anything being wrong.
-- **`develop`**: everything tested together: `staging` comes in once a
-  day by one pull request, the full tests run again, and it merges with
-  a merge commit, so each change keeps its own commit. An urgent fix (a
-  security advisory) and a release's version change come straight into
-  `develop`.
+- **`develop`**: where every change goes, each by its own pull request,
+  after the full tests have passed on it. GitHub asks each pull request to
+  be up to date with `develop` first, so its tests have run on everything
+  already merged: pull requests merge one at a time, each brought up to
+  date after the one before it merges. Every merge runs the full tests
+  again on the result.
+- **`staging`**: retired on 2026-11-04 (the owner: "yes go ahead with
+  retiring staging branch"). It let many pull requests from the 2.0
+  build merge side by side, and `develop` took it once a day. With one
+  or two changes at a time, that was more work than it saved.
 - **`main`**: released code only, what users get. It moves only by
   *fast-forwarding* to `develop`: at a release, or when everything new is
   only docs, tests or tooling. Never pulled from Start9.
+
+2.0.0 is released (2026-10-31), so the next two are history:
+
 - **`2.0`**: BitcoinTX 2.0 while it's being built, apart from 1.x, until
   it joins `develop` at its release. Each build step comes in by its own
   pull request, after a tag (a *pin*) marks where `2.0` stood, so any
@@ -76,15 +77,16 @@ workflow keeps up to date by itself. We don't touch it.)
    runs the tests.
 3. A fresh Claude reviewer reads the change on this computer, before
    anything is pushed. At the end of the day Claude pushes every finished
-   change's short branch and opens its own pull request into `staging`,
+   change's short branch and opens its own pull request into `develop`,
    all at once, with the review on it. Then the session stops: nobody
    waits on the tests; the next session reads the results first thing
    and fixes anything red before new work.
-4. GitHub runs the tests on each pull request, side by side.
+4. GitHub runs the full tests on each pull request.
 5. Once the review has nothing open:
    - **ordinary changes**: Claude turns on *auto-merge*, and GitHub
-     merges it into `staging` when the tests pass (no waiting for the
-     ones ahead of it);
+     merges it into `develop` when the tests pass. One waiting behind
+     another is brought up to date once that one has merged, and its tests
+     run again;
    - **tax figures or what the app computes, the database**: every
      figures check too. If no figure moves, Claude merges. If a figure
      moves on purpose, the owner first gets a plain-words before-and-after
@@ -92,15 +94,6 @@ workflow keeps up to date by itself. We don't touch it.)
      figure that moves by mistake is fixed, never put to the owner;
    - **the StartOS package, anything that goes to Start9, and releases**:
      they wait for the owner to say **"merge"**.
-6. Once a day, at the start of a session (or when the owner asks):
-   first, if `develop` has anything `staging` lacks (an urgent fix, the
-   last daily merge), a pull request brings it into `staging`; then, if
-   `staging` is green, one pull request from `staging` into `develop`.
-   Both have auto-merge on and merge with a merge commit, so each change
-   keeps its own commit; GitHub runs the full tests on everything
-   together before `develop` takes it. One that can't merge yet is
-   picked up next session.
-
 ## 1b. Big work
 
 A big job (a release, a redesign, research then build) is split up first.
@@ -108,7 +101,7 @@ One main session talks it through with the owner and writes the plan on
 GitHub: an issue for the whole job, an issue for each numbered session
 with its checklist, and a ready-to-paste kickoff prompt on each. The
 main session (or the owner) starts each session from a card or its prompt. Each session
-begins from the latest `staging` (never `main`, which lacks what isn't
+begins from the latest `develop` (never `main`, which lacks what isn't
 released yet) and works through its own checklist, pull request by pull
 request, stopping where the owner decides. A bug found along the way
 is filed as usual (section 5) and gets a session to fix it (bugs found
@@ -118,9 +111,9 @@ reviewing a pull request is fixed in that pull request, and a security
 problem stays private and is released at once. Sessions never merge
 their own work: each reports "ready" on the job's issue, where the main
 session keeps the queue and turns on auto-merge for each pull request,
-so GitHub merges it into `staging` when its tests pass; pull requests
-that touch the same files get it one at a time, each after the one
-before has merged. The plan also says
+so GitHub merges it into `develop` when its tests pass; pull requests
+merge one at a time, each brought up to date after the one before has
+merged. The plan also says
 which files each session will touch and the order their work merges
 in, so sessions don't trip over each other. The main session keeps a
 ready-to-paste handoff for itself on the job's issue, up to date after
@@ -129,7 +122,7 @@ grows too long. Details: `AGENTS.md`, "Big work".
 
 ## 2. A release
 
-1. A pull request straight into `develop`, after a daily merge, raises
+1. A pull request of its own into `develop` raises
    the version number everywhere, adds the newest hours to the price
    history (`make prices`), and moves
    the CHANGELOG's "Unreleased" part under the new version.
@@ -248,8 +241,8 @@ review of 2026-10-05, brought back in #48), template updates about monthly,
    copies their changes into `startos/` here, and writes down which of
    their commits it took (`scripts/start9-taken`), so later checks only
    look at what they changed after that.
-2. Claude checks and tests it, and opens a pull request into `staging`
-   (never straight into `main`); `develop` takes it with the daily merge.
+2. Claude checks and tests it, and opens a pull request into `develop`
+   (never straight into `main`).
 3. Their change then goes out with our next release (sections 2 and 3),
    so the two copies match again.
 
@@ -306,10 +299,8 @@ here that links to it.
 
 ## The rules that keep it safe
 
-1. Every change goes into `staging` by pull request (only an urgent fix
-   or a release's version change straight into `develop`), and `develop`
-   takes `staging` once a day, with the full tests on everything
-   together. Never commit on `main`.
+1. Every change goes into `develop` by pull request, with the full tests
+   on it and on everything already merged. Never commit on `main`.
 2. `main` comes only from our own `develop`, never from Start9.
 3. Never edit the mirror by hand: it's a copy, overwritten by each sync.
 4. Start9's changes come back through `develop` before our next release.
