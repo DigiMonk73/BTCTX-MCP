@@ -12,7 +12,7 @@ so everything derived must follow from the saved transactions alone.
 import logging
 import time
 import unicodedata
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from collections import defaultdict
@@ -326,6 +326,28 @@ def _mark_income_value(tx_data: dict, priced: bool, db: Session) -> None:
     )
 
 
+# On a Transaction, the values its write decides (_price_for): every value
+# of a new row, and those an edit sets, clears or changes the kind of. Any
+# other missing value is the stored row's own
+OWN_VALUES = "_btctx_values_its_write_decides"
+FEE_VALUE, PROCEEDS_VALUE = "fee", "proceeds"
+_FEE_INPUTS = {"fee_usd", "fee_amount", "fee_currency"}
+_PROCEEDS_INPUTS = {"proceeds_usd", "gross_proceeds_usd", "purpose", "type", "from_account_id"}
+
+
+def _values_the_edit_decides(tx: Transaction, tx_data: dict) -> set[str]:
+    """The values an edit decides, as the stored row is before it: a fee or
+    a Spent's proceeds stored blank stay the stored row's own unless the
+    edit sends what they're made of."""
+    own = set()
+    if tx.fee_usd is not None or tx_data.keys() & _FEE_INPUTS:
+        own.add(FEE_VALUE)
+    stored_blank = _spent_as_matched(tx) and tx.proceeds_usd is None and tx.gross_proceeds_usd is None
+    if not stored_blank or tx_data.keys() & _PROCEEDS_INPUTS:
+        own.add(PROCEEDS_VALUE)
+    return own
+
+
 def _insert(tx_data: dict, db: Session) -> Transaction:
     now_utc = datetime.now(timezone.utc)
     new_tx = Transaction(
@@ -353,6 +375,7 @@ def _insert(tx_data: dict, db: Session) -> Transaction:
         created_at=now_utc,
         updated_at=now_utc
     )
+    setattr(new_tx, OWN_VALUES, {FEE_VALUE, PROCEEDS_VALUE})
     db.add(new_tx)
     db.flush()  # new_tx.id is now available
     return new_tx
@@ -501,6 +524,7 @@ def apply_update(transaction_id: int, tx_data: dict, db: Session) -> Transaction
 
     old_rows.take_off(db, transaction_id)  # saved, even unchanged: the owner has looked at it (5.13)
     book = account_book(db)
+    setattr(tx, OWN_VALUES, _values_the_edit_decides(tx, tx_data))  # before the edit changes them
     past = [] if missing_accounts(tx, known_accounts(db)) else None
     old_timestamp = tx.timestamp
     _drop_dollar_deposit_basis(tx, tx_data, book)
@@ -1393,7 +1417,7 @@ def _withdrawal_gross_proceeds(tx: Transaction, btc_outflow: Decimal, db: Sessio
     if not spent and Decimal(tx.proceeds_usd or 0) <= 0:
         return Decimal("0")
     if tx.proceeds_usd is None:
-        priced = _price_for(tx, "it has no Proceeds (USD) value", db)
+        priced = _price_for(tx, "it has no Proceeds (USD) value", db, PROCEEDS_VALUE)
         gross = (priced.usd * amount).quantize(Decimal("0.01"))
         tx.proceeds_from_price = True
         tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
@@ -1961,20 +1985,24 @@ def _stored_fee_usd(tx: Transaction, fee_btc: Decimal, db: Session) -> Decimal:
     the value kept, so later recalculations don't price it again.
     """
     if tx.fee_usd is None:
-        priced = _price_for(tx, "its network fee has no USD value", db)
+        priced = _price_for(tx, "its network fee has no USD value", db, FEE_VALUE)
         tx.fee_usd = (priced.usd * fee_btc).quantize(Decimal("0.01"))
         tx.fee_usd_manual = False
         tx.price_moment = "day" if "day" in (tx.price_moment, priced.moment) else priced.moment
     return Decimal(tx.fee_usd)
 
 
-def _price_for(tx: Transaction, missing: str, db: Session) -> hourly_prices.Priced:
+def _price_for(tx: Transaction, missing: str, db: Session, value: str) -> hourly_prices.Priced:
     """The price for a stored transaction's missing value: at the moment its
     other priced values have (so they share one price), else at the hour;
     without one, a 422 naming the transaction (a report fails on it, and the
-    day alone doesn't say which entry to fix)."""
+    day alone doesn't say which entry to fix). One the stored row held blank,
+    not its write's (OWN_VALUES), may take the hour a scratch copy found
+    (hourly_prices.for_a_stored_value, #824)."""
+    stored = value not in getattr(tx, OWN_VALUES, ())
     try:
-        with _priced_at_the_day(db, tx.price_moment == "day"), hourly_prices.for_a_stored_value():
+        with _priced_at_the_day(db, tx.price_moment == "day"), \
+                hourly_prices.for_a_stored_value() if stored else nullcontext():
             return _price_at(tx.timestamp, db)
     except HTTPException as e:
         day = tx.timestamp.date().isoformat() if tx.timestamp else "an unknown day"

@@ -159,14 +159,17 @@ def _hourly_price_noted(db: Session, when: datetime) -> tuple[Decimal, str] | No
 
 
 def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, str]) -> None:
-    """A scratch copy's replay found a stored value's hour after the files
-    from Bitstamp: kept in memory for the stored values a replay prices
-    until Bitstamp may be asked again. The ledger itself keeps nothing."""
-    lines = pf.read_manifest(pf.MANIFEST)
-    if _stored_value.get() is None or not db.info.get(SCRATCH) or found[1] != "bitstamp" \
-            or not lines or hour <= lines[-1].last_hour:
+    """A scratch copy's replay asked Bitstamp for a stored value's hour after
+    the files and got it: kept in memory for the stored values a replay
+    prices until Bitstamp may be asked again. Never an hour the copy found
+    stored: the ledger has it too, unless a restore has taken it since. The
+    ledger itself keeps nothing."""
+    notes = _stored_value.get()
+    if notes is None or not notes.get("bitstamp_gave") or not db.info.get(SCRATCH):
         return
-    _found_on_copies[hour] = (found[0], lines[-1].last_hour, _state["public_at"])
+    for old in [h for h, kept in _found_on_copies.items() if kept[2] != _state["public_at"]]:
+        del _found_on_copies[old]  # from an earlier ask: never given again
+    _found_on_copies[hour] = (found[0], pf.read_manifest(pf.MANIFEST)[-1].last_hour, _state["public_at"])
 
 
 def _found_for_a_stored_value(hour: int) -> Decimal | None:
@@ -477,6 +480,9 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     public = outbound.current().public_allowed
     if hour not in found and files_end is not None and hour > files_end and public:
         found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
+        notes = _stored_value.get()
+        if notes is not None and hour in found:  # a stored value's hour Bitstamp gave (_remember_for_stored_values)
+            notes["bitstamp_gave"] = True
     return found
 
 

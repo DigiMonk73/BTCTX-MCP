@@ -743,6 +743,126 @@ def test_a_save_after_the_hours_went_with_a_restore(world):
     assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
+# Stays: the write's own values. A new row, or the values an edit sets or
+# clears, aren't a stored row's missing value (transaction.OWN_VALUES)
+
+def _a_new_spend(world, hours: int = 2, **more):
+    """A Spent of 0.05 BTC sent with no proceeds, in the blank row's hour by default."""
+    return world.client.post("/api/transactions", json={
+        "type": "Withdrawal", "timestamp": world.after_the_files(hours), "from_account_id": EXCHANGE_BTC,
+        "to_account_id": EXTERNAL, "amount": "0.05", "purpose": "Spent", "fee_amount": "0",
+        "fee_currency": "BTC", **more})
+
+
+def _look(world, how: str) -> None:
+    if how == "question":
+        world.a_question()
+    elif how == "review":
+        assert world.client.get("/api/review").status_code == 200
+    else:
+        assert world.coins_list().status_code == 200
+
+
+def _proceeds(world, tx_id: int) -> tuple:
+    saved = world.get(tx_id)
+    return Decimal(saved["gross_proceeds_usd"]), saved["price_moment"]
+
+
+@pytest.mark.parametrize("how", ["question", "review", "coins list"])
+def test_a_new_spend_with_no_proceeds_after_a_look(world, how):
+    """Stays: $2,000 at the day (#824's third review: it took the copy's hour)."""
+    world.blank_fee()
+    world.nothing_stored_yet()
+    _look(world, how)
+    r = _a_new_spend(world)
+    assert r.status_code == 200, r.text
+    assert _proceeds(world, r.json()["id"]) == (Decimal("2000.00"), "day")
+
+
+def test_a_new_spend_with_no_proceeds_after_a_question_with_the_history_complete(world):
+    """Stays: refused, no price."""
+    world.blank_fee()
+    world.nothing_stored_yet(history_complete=True)
+    world.a_question()
+    assert _a_new_spend(world).status_code == 422
+
+
+def test_an_edit_clearing_a_spends_typed_proceeds_after_a_question(world):
+    """Stays: $2,000 at the day."""
+    world.blank_fee()
+    spend = _a_new_spend(world, gross_proceeds_usd="1234").json()["id"]
+    world.nothing_stored_yet()
+    world.a_question()
+    r = world.save_this_year(spend, proceeds_usd=None, gross_proceeds_usd=None)
+    assert r.status_code == 200, r.text
+    assert _proceeds(world, spend) == (Decimal("2000.00"), "day")
+
+
+def test_a_gift_edited_into_a_spend_after_a_question(world):
+    """Stays: $2,000 at the day."""
+    world.blank_fee()
+    gift = _a_new_spend(world, purpose="Gift", fmv_usd="1")
+    assert gift.status_code == 200, gift.text
+    world.nothing_stored_yet()
+    world.a_question()
+    assert world.save_this_year(gift.json()["id"], purpose="Spent").status_code == 200
+    assert _proceeds(world, gift.json()["id"]) == (Decimal("2000.00"), "day")
+
+
+def test_a_restore_after_a_copy_found_the_blank_rows_hour_stored(world):
+    """A save asked and kept the hours; the question's copy found the blank
+    row's hour stored; a restore then put back a ledger without them
+    (deleted here). Stays: Recalculate prices the blank fee at $4.00, the
+    day's: a copy remembers only an hour its own lookup asked for."""
+    blank = world.blank_fee()
+    world.nothing_stored_yet()
+    assert world.income(hours=5).status_code == 200
+    world.a_question()
+    with world.session() as db:
+        db.query(BtcPriceHourly).delete()
+        db.commit()
+    assert world.client.post("/api/transactions/recalculate").status_code == 200
+    assert world.fee(blank) == (Decimal("4.00"), "day")
+
+
+# Refused today for the blank row's price, worked out with the fix
+
+def test_ledger_review_after_a_question_with_the_history_complete(world):
+    """Before: its check of Recalculate Ledger stopped, "its network fee has
+    no USD value". It lists the blank row's change at the hour's price."""
+    blank = world.blank_fee()
+    world.nothing_stored_yet(history_complete=True)
+    world.a_question()
+    review = world.client.get("/api/review").json()
+    assert review["recalc_error"] is None
+    listed = [item for check in review["checks"] for item in check.get("items", []) if item.get("id") == blank]
+    assert any("9.89 -> 4.00" in str(item.get("change")) for item in listed), listed
+
+
+def test_the_report_after_a_question_with_the_history_complete(world):
+    """The blank row's year. Before: 422, "its network fee has no USD value"."""
+    world.blank_fee()
+    world.nothing_stored_yet(history_complete=True)
+    world.a_question()
+    with world.session() as db:
+        assert generate_report_data(db, datetime.fromtimestamp(world.files_end + 2 * HOUR, tz=timezone.utc).year)
+
+
+def test_the_ais_preview_of_a_past_year_row_after_a_question_with_the_history_complete(world):
+    """Before: rejected, the blank row's fee having no USD value."""
+    world.blank_fee()
+    ai = ai_client(world)
+    world.nothing_stored_yet(history_complete=True)
+    world.a_question()
+    world.tax_year(2100)
+    r = ai.post("/api/import/entries/preview", json={"rows": [{
+        "date": "2019-02-01T10:00:00Z", "type": "Buy", "amount": "0.2", "from_account": "Bank",
+        "to_account": "Exchange BTC", "cost_basis_usd": "200.00", "fee_amount": "0", "fee_currency": "USD"}]})
+    world.tax_year(2009)
+    assert r.status_code == 200, r.text
+    assert r.json()["ok"] is True
+
+
 # What stays as it was: your Mempool, a source down or switched, a refused write
 
 def test_your_mempool_down_at_the_question_and_its_fallback_on_ten_minutes_later(world):

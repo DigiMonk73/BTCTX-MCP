@@ -37,12 +37,14 @@ All notable changes to BitcoinTX are documented in this file.
   Complete Tax Report's holdings and Ledger Review's check of what
   Recalculate Ledger would change (from 1.2.8). When one of them asked, the
   hour it found went with the copy, and in the next 10 minutes the save
-  priced that blank value at the day's price, marked as such, or was
-  refused with the whole price history downloaded; a past-year question was
-  asked twice, or asked only because its two checks priced the row
-  differently. Now that blank value takes the hour the check found. Nothing
-  else changes: the hour isn't kept in the price table, so other rows,
-  reports and the price the form reads find what they did, and no request
+  priced that blank value at the day's price, marked as such, or, with the
+  whole price history downloaded, was refused, as were the report of that
+  row's year, Ledger Review's check and the AI's preview; a past-year
+  question was asked twice, or asked only because its two checks priced
+  the row differently. Now that blank value takes the hour the check found.
+  Nothing else changes: not a new row's value, nor one an edit sets or
+  clears; the hour isn't kept in the price table, so other rows, reports
+  and the price the form reads find what they did; and no request
   is added. **Which transactions:** only such a blanked row dated after the
   last price file (2.0.0's end on 30 October 2026, 15:00 UTC), saved within
   10 minutes of one of those checks, while the price source allows public
