@@ -364,7 +364,7 @@ what to watch when it does.
 | `itsdangerous` | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
 | `python-dotenv` | Low | Only `load_dotenv` is used |
 | `python-dateutil` | Low | |
-| `tzdata` | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407): a name a new version dropped, saved before, would count as none chosen where the computer's own zone files lack it (backward links have always been kept); update yearly |
+| `tzdata` | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407), its rules the only ones read, on every machine (#889): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly |
 | `pypdf` | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | High | Complete Tax Report and transaction history PDFs. Each version is taken after the before-and-after comparison shows both reports the same, object for object, but for the time they were made (5.0.1's: #585; 5.1.0's: #760; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
 | `pytest` | Low | Test only (`requirements-dev.txt`) |

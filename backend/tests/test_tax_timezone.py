@@ -221,15 +221,17 @@ def store(name):
 
 @pytest.fixture
 def own_zone_file(tmp_path):
-    """A zone file only this machine holds, as `localtime` is in the Docker
-    image: "localzone", Chicago's rules, which ZoneInfo opens while the
-    fixture lasts."""
+    """A zone file tzdata doesn't list that ZoneInfo opens while the fixture
+    lasts: "localzone", Chicago's rules. BitcoinTX reads no machine's own
+    zone files (#889), so this stands for one saved before 1.2.9 that the
+    package itself opens. Afterwards the package alone again, as
+    backend/__init__.py leaves it."""
     (tmp_path / "localzone").write_bytes(
         resources.files("tzdata").joinpath("zoneinfo", "America", "Chicago").read_bytes())
     zoneinfo.reset_tzpath([str(tmp_path)])
     ZoneInfo.clear_cache()
     yield "localzone"
-    zoneinfo.reset_tzpath()
+    zoneinfo.reset_tzpath([])
     ZoneInfo.clear_cache()
 
 

@@ -24,6 +24,48 @@ All notable changes to BitcoinTX are documented in this file.
   that Form 8949's column (a) prints no transaction ID (for #156). No figure or
   box moves.
 
+### Fixed
+
+- **The tax timezone's rules come from BitcoinTX's own timezone data on
+  every computer** (#889, tax figures). BitcoinTX ships a fixed release of
+  the world's timezone rules (the `tzdata` package: IANA 2026e in 2.0.0,
+  2026f now, #885) so that one ledger gives the same dates everywhere
+  (#407), but Python read the computer's own copy first: Debian's in the
+  Docker image, and so on StartOS (2026c in 2.0.0's image), macOS's in the
+  Mac app. BitcoinTX now reads only its own, so a base-image or macOS
+  update can't move a figure. From 1 November 2026, Manitoba, the
+  Northwest Territories and Cuba stay on summer time; Debian's 2026c still
+  turned their clocks back an hour, and so did 2.0.0's 2026e for Cuba. So
+  in `America/Winnipeg`, `America/Rainy_River`, `America/Inuvik`,
+  `America/Havana` or its old name `Cuba`, from 1 November 2026:
+  - with that tax timezone, a transaction within an hour of midnight was
+    given the day before: on Form 8949, in its holding period (a sale one
+    day past a year could show short-term) and, at the year's end, in its
+    tax year. That's fixed by itself (the holding period after a
+    recalculation).
+  - a transaction imported from a file, or added by the AI connector, with
+    a time but no timezone, read in one of those zones (the tax timezone,
+    or the zone an exchange's own file layout names), was saved an hour
+    late: it now shows an hour after the time written (near midnight, the
+    next day), a value BitcoinTX filled in from the price (income, a fee,
+    a spend's proceeds) used the hour after, and importing the same file
+    again proposes it again, since its time no longer matches.
+
+  Every other zone gives the same dates as before. A tax timezone saved
+  before 1.2.9 as `localtime` (a name only the Docker image's own files
+  had: the container's clock zone, UTC unless the host's was mounted) now
+  counts as none chosen, logged once, as a name another computer can't
+  read does: `BTCTX_TIMEZONE` if the server sets one, else UTC.
+  **Affected:** Docker and StartOS, every release up to 2.0.0, with a
+  transaction from 1 November 2026 in one of those zones; the Mac app the
+  same on a Mac whose own timezone data is older than these rules.
+  **What to do:** after updating, correct the time of each such imported
+  or AI-added transaction (an hour earlier: a value filled in from the
+  price is then priced again, at the right hour; a typed one stays), leave
+  those rows out if you import their file again, then Recalculate Ledger
+  once. If your tax timezone was `localtime`, choose yours in Settings,
+  which recalculates.
+
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word

@@ -277,6 +277,10 @@ jobs:
           curl -sf -o /dev/null -X POST http://127.0.0.1:8080/api/login -H 'content-type: application/json' \
             -d '{"username":"ci-owner","password":"ci-password-456"}'
           docker exec -u btctx btctx python -m backend.cli recalculate
+      - name: Timezone rules from the pinned tzdata alone, never Debian's beside it (#889)
+        run: |
+          docker exec btctx test -s /usr/share/zoneinfo/America/Winnipeg
+          docker exec -u btctx btctx python -c "import backend.main, zoneinfo; assert zoneinfo.TZPATH == (), zoneinfo.TZPATH"
       - name: Upgrade a v0.7.0 database (schema migrations)
         run: |
           docker volume create btctx-upgrade

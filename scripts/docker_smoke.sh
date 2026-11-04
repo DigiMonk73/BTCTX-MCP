@@ -7,7 +7,7 @@
 # as the "Docker image + container smoke" job in .github/workflows/ci.yml:
 # claim with the setup code, the smoke test (live prices, so price steps may
 # be skipped until a price source is chosen), data on /data, the app as its
-# own user (btctx), health, CLI. The update from 1.2.8 is its own script,
+# own user (btctx), health, CLI, the timezone rules. The update from 1.2.8 is its own script,
 # scripts/docker_update_check.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -60,6 +60,9 @@ echo "local-password-456" | docker exec -i -u btctx "$NAME" python -m backend.cl
 curl -sf -o /dev/null -X POST "http://127.0.0.1:$PORT/api/login" -H 'content-type: application/json' \
   -d '{"username":"local-owner","password":"local-password-456"}'
 docker exec -u btctx "$NAME" python -m backend.cli recalculate >/dev/null
+# Timezone rules from the pinned tzdata alone, never Debian's beside it (#889)
+docker exec "$NAME" test -s /usr/share/zoneinfo/America/Winnipeg
+docker exec -u btctx "$NAME" python -c "import backend.main, zoneinfo; assert zoneinfo.TZPATH == (), zoneinfo.TZPATH"
 
 echo "✓ Docker image from this checkout passed the container checks"
 [ "$KEEP" = "--keep" ] && echo "  still running: http://127.0.0.1:$PORT (docker rm -fv $NAME to remove)"
