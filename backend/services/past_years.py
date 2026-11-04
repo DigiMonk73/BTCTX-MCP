@@ -225,12 +225,13 @@ class Write(PastYearWrite):
 
     def priced_rows(self, db: Session) -> list[dict]:
         """The rows whose values the write fills from a price, for
-        transaction.find_prices_first."""
+        transaction.find_prices_first. None for an edit of a row deleted
+        since the request came: its save answers 404 (#824's re-check: it
+        was a 500)."""
         if self.kind == ADD:
             return [dict(self.data)]
-        if self.kind == EDIT:
-            return [tx_service.edited_inputs(db.get(Transaction, self.tx_id), self.data, db)]
-        return []
+        stored = db.get(Transaction, self.tx_id) if self.kind == EDIT else None
+        return [] if stored is None else [tx_service.edited_inputs(stored, self.data, db)]
 
     def gone_item(self, db: Session, tz) -> dict[int, dict]:
         """A delete's row as Ledger Review lists it, taken before it goes;

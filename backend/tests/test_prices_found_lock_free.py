@@ -483,6 +483,98 @@ def test_an_imports_rows_find_a_price_its_warm_up_missed_with_the_lock_free(auth
     assert all(t["values_from_price"] == ["fee_usd"] for t in transfers)
 
 
+def _blank_fee_after_the_files(client, test_engine, monkeypatch, tmp_path, sites, moment=None, hours_answer=True):
+    """A Buy, and a Transfer dated after the last year file with a bitcoin fee
+    left blank, nothing stored and the real lookups' limits fresh: Bitstamp
+    gives the hour at $41,000 (the day stays at $40,000), or no hours. In a
+    closed year, so the hours after the files are always past."""
+    lines = pf.read_manifest(pf.MANIFEST)[:-1]
+    files_end = lines[-1].last_hour
+    manifest = tmp_path / "MANIFEST.csv"
+    manifest.write_text(pf.manifest_text(lines), encoding="utf-8")
+    monkeypatch.setattr(pf, "MANIFEST", manifest)
+    monkeypatch.setattr(hp, "_current_hour", lambda: files_end + 100 * 3600)
+    day_prices = sites.handler
+
+    def hours_differ(request):
+        answer = day_prices(request)
+        if int(request.url.params.get("step", 0)) != 3600:
+            return answer
+        text_ = answer.text.replace(f'"{DAY_PRICE}"', '"41000"') if hours_answer else '{"data": {"ohlc": []}}'
+        return httpx.Response(200, text=text_, headers={"content-type": "application/json"})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(hours_differ))
+    when = datetime.fromtimestamp(files_end + 2 * 3600 + 60, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    buy = post(client, **BUY)
+    transfer = post(client, type="Transfer", timestamp=when, from_account_id=EXCHANGE_BTC, to_account_id=WALLET,
+                    amount="0.5", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
+    with test_engine.begin() as con:
+        con.execute(text("UPDATE transactions SET fee_usd = NULL, fee_usd_manual = 0, price_moment = :moment "
+                         "WHERE id = :id"), {"id": transfer["id"], "moment": moment})
+    _no_price_stored(test_engine)
+    sites.requests.clear()
+    return buy["id"], transfer["id"]
+
+
+def _history_complete(test_engine) -> None:
+    """The latest days are all that's asked for, once a UTC day (price_history._latest_public_prices)."""
+    with test_engine.begin() as con:
+        con.execute(text("INSERT INTO app_settings (key, value) VALUES (:key, '1')"), {"key": price_history.HISTORY_FLAG})
+
+
+def _question_then_confirm(client, buy: int, tax_year) -> tuple[int, int]:
+    """A past-year edit of the Buy, and its confirm: the two answers."""
+    tax_year(2100)
+
+    def edit(params=None):
+        return client.put(f"/api/transactions/{buy}", json={"cost_basis_usd": "1100"}, params=params)
+
+    asked = edit()
+    assert asked.status_code == 409, asked.text
+    return asked.status_code, edit({"confirm": asked.json()["confirm"]}).status_code
+
+
+def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth_client, test_engine, sites, tax_year,
+                                                                            monkeypatch, tmp_path):
+    """#824, with the sources' own limits, which a stubbed source skips.
+    Bitstamp's hours after the files are asked for once in 10 minutes: the
+    question's replay used that ask on a scratch copy and kept the answer
+    there, so the save took the day's price ($4.00), and the changed
+    fingerprint asked again. Given again from memory, it's the hour's
+    ($4.10): one question, one request, none under the lock."""
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 200)
+    assert len(sites.requests) == 1
+    sites.all_with_the_lock_free()
+    saved = get(auth_client, transfer)
+    assert (Decimal(saved["fee_usd"]), saved["price_moment"]) == (Decimal("4.10"), "hour")
+
+
+def test_a_blank_fee_kept_at_the_day_is_still_refused_when_todays_ask_is_gone(auth_client, test_engine, sites, tax_year,
+                                                                               monkeypatch, tmp_path):
+    """The question's replay uses the day's one ask for the latest days on a
+    scratch copy, so the save has no price: a 422, as before #824. Only
+    Bitstamp's hours are given again; the latest days aren't (a refusal
+    that would become a save). The day pinned: across midnight UTC it's
+    asked again."""
+    monkeypatch.setattr(price_history, "_today", lambda today=price_history._today(): today)
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites, moment="day")
+    _history_complete(test_engine)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 422)
+    assert get(auth_client, transfer)["fee_usd"] is None
+
+
+def test_a_blank_fee_with_no_hour_is_still_refused_when_todays_ask_is_gone(auth_client, test_engine, sites, tax_year,
+                                                                            monkeypatch, tmp_path):
+    """The same with no hour to be had, so the replay takes the day's."""
+    monkeypatch.setattr(price_history, "_today", lambda today=price_history._today(): today)
+    buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites,
+                                               hours_answer=False)
+    _history_complete(test_engine)
+    assert _question_then_confirm(auth_client, buy, tax_year) == (409, 422)
+    assert get(auth_client, transfer)["fee_usd"] is None
+
+
 def test_a_confirmed_past_year_save_does_too_and_leaves_one_copy(auth_client, test_engine, sites, unvalued_fee,
                                                                  tax_year):
     """2.0's past-year warning (spec 5.8, card B6b #352): its dry run prices

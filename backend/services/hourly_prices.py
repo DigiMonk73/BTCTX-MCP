@@ -395,7 +395,7 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     # The choice as it is after the wait for the mempool server: a save may have come meanwhile (#437)
     public = outbound.current().public_allowed
     if hour not in found and files_end is not None and hour > files_end and public:
-        found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
+        found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored, hour)).items()})
     return found
 
 
@@ -441,7 +441,7 @@ def reset_state() -> None:
     with _years_lock:
         _years.clear()
     _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9,
-                  verified={}, again=False)
+                  public_hours={}, public_end=None, verified={}, again=False)
     _live.update(rows=None, hours={})
 
 
@@ -643,7 +643,7 @@ def _save_year(line: pf.YearLine, prices: dict[int, Decimal]) -> None:
 
 
 # Bitstamp after the year files
-async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal]:
+async def _bitstamp_after(files_end: int, stored: set[int], hour: int) -> dict[int, Decimal]:
     """
     Bitstamp's hours after the year files, in fixed blocks from the hour
     after them, skipping blocks whose every hour is kept already, at most
@@ -651,15 +651,26 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     then its open can change. A save that stops them (ChoiceChanged) is no
     failure (#475): the hours the blocks before it gave are kept, and the
     rest is asked again as the new choice says, not 10 minutes later.
+
+    Between two asks, a lookup is given `hour` from the last answer, from
+    memory: the lookup that asked may have kept the answer where it's
+    thrown away, a scratch copy's replay (the past-year question, the coins
+    list, a report's holdings, Ledger Review's check: #824, #849), and
+    without it a save in those 10 minutes takes the day's price where the
+    hour's was found. Only the hour asked, so the ledger keeps only what a
+    lookup there uses, never the block (whose hours would outrank your
+    Mempool's for other rows); a request names no hour either way.
     """
     if time.monotonic() - _state["public_at"] < RETRY_SECONDS:
-        return {}
+        given = _state["public_hours"].get(hour) if _state["public_end"] == files_end else None
+        return {} if given is None else {hour: given}
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
     starts = [start for start in range(files_end + HOUR, current + 1, size)
               if not all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR))]
     if starts:
         price_history.refuse_if_held()
-    _state["public_at"] = time.monotonic()
+    # Until this ask answers, the answer given again is none: a failure's too
+    _state.update(public_at=time.monotonic(), public_hours={}, public_end=files_end)
     if starts:
         _log_without_tor("the hours after the year files")
     client, out = ChoiceClient(), {}
@@ -672,6 +683,7 @@ async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal
     except outbound.ChoiceChanged:
         _state["public_at"] = -1e9
         logger.info("Hourly BTC prices after the year files: stopped (the price settings changed)")
+    _state["public_hours"] = dict(out)
     return out
 
 

@@ -11,6 +11,7 @@ The BTC price when an hour began (#144, PR 2; services/hourly_prices.py):
 Every outside service is faked.
 """
 
+import asyncio
 import logging
 import random
 import sys
@@ -288,6 +289,55 @@ def test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored(s
     assert hp.hourly_price(db, utc("2026-03-19T23:59Z"))[0] == sites.prices[at("2026-03-19T23:00Z")]
     assert hp.price_at(db, utc("2026-03-20T10:05Z")).moment == "day"
     assert sites.requests == []  # stored, and asked at most every 10 minutes
+
+
+def _thrown_away(db) -> None:
+    """What a lookup kept, gone with the scratch copy it was kept on (#824, #849)."""
+    db.query(BtcPriceHourly).delete()
+    db.commit()
+
+
+def test_bitstamps_last_answer_is_given_again_until_it_may_be_asked_again(sites, db):
+    """#824, #849: a lookup on a scratch copy kept Bitstamp's hours there, so
+    for 10 minutes every other lookup got none and took the day's price.
+    Between two asks, the hour a lookup asks is given from the last answer,
+    with no request; the ledger keeps that hour only, never the block."""
+    hp.start_download()
+    finish_download()
+    first, later = at("2026-03-18T05:00Z"), at("2026-03-19T07:00Z")
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) == (sites.prices[first], "bitstamp")
+    _thrown_away(db)
+    sites.requests.clear()
+    assert hp.hourly_price(db, utc("2026-03-19T07:10Z")) == (sites.prices[later], "bitstamp")
+    assert sites.requests == []
+    assert {row.hour for row in db.query(BtcPriceHourly)} == {later}
+    hp._state["public_at"] = -1e9  # 10 minutes later: asked again
+    _thrown_away(db)
+    assert hp.hourly_price(db, utc("2026-03-19T07:10Z")) == (sites.prices[later], "bitstamp")
+    assert sites.bitstamp_starts() == [FILES_END + HOUR]
+
+
+def test_a_failed_ask_gives_nothing_again(sites, db):
+    """An earlier answer is never given past an ask that failed: the hour has no price until the next."""
+    hp.start_download()
+    finish_download()
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is not None
+    _thrown_away(db)
+    hp._state["public_at"] = -1e9
+    sites.bitstamp_down = True
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
+    sites.bitstamp_down = False
+    sites.requests.clear()
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
+    assert sites.requests == []
+
+
+def test_an_answer_for_other_year_files_isnt_given_again(sites, db):
+    """Bitstamp's answer holds the hours after the files it was asked with only."""
+    hp.start_download()
+    finish_download()
+    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is not None
+    assert asyncio.run(hp._bitstamp_after(FILES_END - 24 * HOUR, set(), at("2026-03-18T05:00Z"))) == {}
 
 
 def test_an_hour_bitstamp_gives_at_no_price_is_never_kept(sites, db):
