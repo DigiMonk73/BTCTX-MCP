@@ -498,3 +498,49 @@ every bundled year on each test run. See docs/IRS_ANNUAL_FORM_UPDATE.md.
 `backend/tests/test_draft_forms.py` covers the draft forms (the shipped
 preview and its cut-off, a test install's) with a stand-in draft made from
 the newest bundled form, and checks the shipped draft itself.
+
+## Testing: the rules every session keeps
+
+Moved word for word from `AGENTS.md` on 2026-11-04 (#903); `AGENTS.md`
+now keeps a map of where each part lives. Where the text below says
+"this file", it means `AGENTS.md` and the files its map names, and a
+section named in quotes ("Branches", "Reviews") is found through that
+map.
+
+```bash
+make hooks       # once: pre-push gate
+make test-fast   # every hermetic test but the slow ones (backend + MCP), on every core, ~3 min
+make test        # + slow stress and property tests
+make smoke       # real server, temp DB
+make e2e         # Playwright click-through (Chromium, Chicago + Tokyo), ~20 min
+make preview     # this checkout in a browser, 127.0.0.1:8777, throwaway data (launch.json "preview")
+make site-shots  # the README's and landing page's pictures, into docs/images/ (each release)
+make reference-figures  # accept moved figures of the reference test ledger (a figure moved on purpose: the owner's OK on the before-and-after)
+make test-pack   # testdata/reference_ledger.csv and docs/HAND-TEST.md's tables, made again from the app's own answers
+make prices      # the hourly price history's new hours (each release's bump PR; online)
+make docker-smoke  # build the image here + CI's container checks
+make check       # lint + test + smoke + audit-deps (CI adds e2e, StartOS, Docker, macOS)
+```
+
+Tests never touch a real database or the network (temp SQLite, stubbed BTC
+prices). **Test data:** a check that needs a full ledger uses the reference
+test ledger (`testdata/reference_ledger.json`, loaded by
+`scripts/seed_ledger.py`), never a new one built for the occasion. When the
+app gains a kind of transaction or a report part, add a row there (its
+`why` says what for) and run `make reference-figures`. The coverage tests
+in `test_seed_ledger.py` fail by themselves for a new transaction type,
+deposit source, withdrawal purpose, broker-reporting choice or Ledger
+Review item (they take the app's own lists; each new kind needs a row in
+more than one account of each kind that holds it, #702); a new account
+route or report part goes into their `ROUTES` or report-part checks too.
+
+A bug fix gets a test that fails on the old code. Lint is ruff with
+all Pyflakes rules, modern syntax and a size limit per function (app
+code), and ESLint with zero warnings and a size limit per function and
+file; `docs/CODE_STYLE.md` has the rest.
+
+A command that waits for another command must not search for its own
+text. `pgrep -f` can match the waiter's own command line (always on Linux)
+or another waiter's, so the wait never ends and the session stalls. Wait on
+the process you started, or read the log it writes. A poll on a local
+command gives up after 20 minutes and then reads whatever log is there.

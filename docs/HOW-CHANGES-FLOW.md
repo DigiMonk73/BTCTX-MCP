@@ -3,9 +3,11 @@
 The whole path a change takes, from this computer to GitHub, to a release,
 to Start9's app store, and back. Written for the owner, who isn't a
 professional coder, and for every AI session, so both remember it the same
-way. The detailed rules are in `AGENTS.md` ("Branches", "Releasing",
-"Start9", "Bugs and security", "Pull requests", "Big work"); this page is the map. Words in *italics* are in
-the glossary at the end.
+way. The detailed rules are in its second part, "The detailed rules"
+("Branches", "Pull requests", "Bugs and security" and the rest, moved
+from `AGENTS.md`), and in `docs/RELEASING.md`, `docs/START9.md` and
+`docs/BIG-WORK.md`; this first part is the map. Words in *italics* are
+in the glossary at the end of this first part.
 
 ## The picture
 
@@ -331,3 +333,380 @@ here that links to it.
   (`@start9labs/start-sdk`).
 - **Worktree**: a separate folder with its own copy of the project, so
   several sessions can work at once without getting in each other's way.
+
+# The detailed rules
+
+The rules every session follows for how a change gets from a branch to
+`develop`, `main` and the issues, and how a session starts and ends.
+
+Moved word for word from `AGENTS.md` on 2026-11-04 (#903); `AGENTS.md`
+now keeps a map of where each part lives. Where the text below says
+"this file", it means `AGENTS.md` and the files its map names, and a
+section named in quotes ("Branches", "Reviews") is found through that
+map.
+
+## Who does what
+
+- **The owner** (DigiMonk73) decides: releases, anything sent to Start9,
+  changes in what the app does or computes (agreed before they're
+  written), and any figure moved on purpose (by its plain-words
+  before-and-after, never by reading code). The owner is not a
+  professional developer: explain in plain words, with one recommendation.
+- **Claude Code** is the developer: code, tests, dependency updates,
+  releases, docs, and a read-only report each Monday of what needs
+  attention (a scheduled task on the owner's Mac).
+- **Grok** is a second set of eyes, never the developer (its
+  roles and passes: `docs/GROK-REVIEW.md`):
+  - Grok Bot on the web brainstorms from links the owner gives it
+    ("Working through GitHub");
+  - Grok in Cursor is the finder: it reviews a pull request when the
+    owner asks, and runs the release pass and the monthly area;
+  - Grok (in Cursor or Grok Build) writes only a job the owner names,
+    outside tax figures, login and security, the database and StartOS
+    (the manual names the files), and never merges.
+
+  A Grok finding is a claim until Claude checks it, and every
+  Grok-written change gets a fresh Claude review.
+
+Everything goes through GitHub under the owner's account, so each AI ends
+what it posts there with its name ("— Claude", "— Claude (reviewer)",
+"— Grok", "— Grok (Cursor)", "— Grok (Build)"), and Claude's commits
+carry its `Co-Authored-By` line.
+
+## Branches
+
+- **`develop`**: where every change goes, each by its own pull request
+  (`gh pr create --base develop`) from a short-lived branch named for the
+  change ("Pull requests"), squash-merged once "CI passed" has passed on
+  the full set (`ci.yml`; the macOS build runs too, as on every pull
+  request, not required) on a branch that's up to date with `develop`
+  ("Protect develop", below), so a pull request's checks have run on
+  everything already merged. So pull requests merge one at a time, each
+  falling behind whenever another merges: each is brought up to date with
+  `gh pr update-branch N` (which merges `develop` in) or `git merge
+  origin/develop` and a push, never a rebase (Dependabot's: "@dependabot
+  rebase", "Pull requests"), and merges once its checks pass again
+  (auto-merge never updates a branch by itself). Every merge
+  into it runs the full set on the result (`ci.yml`'s push trigger), and
+  a red `develop` is fixed before anything else merges into it.
+  Dependabot targets it. Never commit on a local `develop`: GitHub
+  refuses the push.
+- **`staging`**: retired (#901; the owner, 2026-11-04: "yes go ahead
+  with retiring staging branch"). It let a night's pull requests merge
+  side by side on a medium set of checks, and a daily cycle ("develop
+  into staging", "staging into develop") carried them on to `develop`.
+  In maintenance, with one or two changes at a time, that was overhead,
+  so every change now goes straight into `develop`. The pre-push hook
+  refuses any push to it but its deletion. GitHub reads `dependabot.yml`
+  only from `main`, so until `main` carries the new one (the next
+  release) Dependabot still opens its pull requests into `staging`: each
+  is moved onto `develop` ("Pull requests"), and the branch stays, or
+  Dependabot's run fails. Once `main` has it, the owner deletes the
+  "Protect staging" ruleset and the branch (#901).
+- **`main`**: released code only; it is what users get (the `:main` Docker
+  image; releases are cut from it). Never commit on `main`, never
+  force-push or rewind it. It moves only by fast-forwarding to GitHub's
+  `develop` (`git fetch origin && git checkout main && git merge --ff-only
+  origin/develop && git push`), at a release, or when everything on
+  `develop` not yet on `main` is docs, tests or tooling (nothing that ships
+  in the app or the connector).
+- **`release/vX.Y.Z`**: pushed from `main` to publish (see Releasing), then
+  deleted.
+
+2.0.0 is released (2026-10-31), so the next two bullets, `2.0` and its
+pre-releases, are history, kept here for now:
+
+- **`2.0`**: BitcoinTX 2.0 being built (#251), until it merges into
+  `develop` at its release. Its steps arrive by pull request
+  (`gh pr create --base 2.0`), one per step, for which the build's
+  lead turns on auto-merge from its queue on #251 ("Big work"),
+  squashed, after the tag `pin/2.0-step-<n>` on its tip. `develop`
+  comes in before every 2.0 session by a pull request of its own,
+  merged with a merge commit (`gh pr merge --merge`), never a rebase
+  or a squash. Never commit on a local `2.0`, never force-push it,
+  never move or delete a pin. Its branches are named `2.0-…` (git
+  refuses `2.0/…`). The plan: `docs/temp/2.0-accounts.md`, section 7;
+  the steps and where they stand: #251.
+  `make catch-up-2.0` (`scripts/catch-up-2.0.sh`) does that `develop`
+  merge when it is clean (no 1.x migration, no change to the reference
+  test ledger or its figures, no conflict): GitHub makes the merge commit
+  on a branch of its own, `2.0-merge-develop-auto-…`, and its pull request
+  merges by itself once its own CI passes, with no review of its own (the
+  owner's decision 24, #251). Nothing is opened while a 2.0 step has
+  auto-merge on, and a step's pin is never taken while a catch-up has it
+  on, so each pin is `2.0`'s tip when its step lands. Anything else stops
+  for the build's lead. It also lists a new 1.x release (B1's
+  `reference_1x.db` made again from it) and `startos/` changes. The lead
+  runs it before every step and nightly at 22:30 (America/Chicago, a
+  scheduled task on the Mac mini), so 1.x's fixes reach `2.0` without
+  waiting. Never `gh pr update-branch` on a catch-up: its head is the
+  merge commit its CI tested.
+- **`prerelease/v2.0.0-alpha.N`, then `prerelease/v2.0.0-beta.N`**:
+  pushed from `2.0`'s tip to publish a 2.0 pre-release on GitHub, an
+  alpha, then a beta (B10a; #251's decision 28), then deleted. A
+  pre-release never moves Docker's `:latest` or `:main`, never reaches
+  the mirror or Start9, and is never "Latest" on GitHub. Its tag can't
+  be moved or deleted ("Protect release tags"), and its image and
+  connector may be out before the tag: a failed run's jobs are re-run on
+  the same commit, or the next try is the next pre-release (`alpha.N+1`
+  or `beta.N+1`); the branch is never pushed again from another commit.
+
+The pre-push hook refuses a push to `main` of anything not already on
+GitHub's `develop` (and one that deletes, rewinds or force-pushes `2.0`,
+moves or deletes a `pin/2.0-*` tag, or pushes to the retired `staging`),
+and `release.yml` refuses a release commit that isn't on `main` and a
+pre-release commit that isn't on `2.0`. GitHub's rulesets (Settings → Rules; only the owner changes them)
+add: `main` can't be deleted or force-pushed ("Protect main", also on the
+mirror); `develop` can't either, and takes changes only by pull request,
+squash-merged (the ruleset allows a merge commit too, which the retired
+daily cycle used), once `ci.yml`'s one required check, "CI passed", has
+passed ("Protect develop"; it needs every job except
+the macOS build and the macOS dependency audit, which run but aren't
+required; Python tests run on 3.11 and 3.13, both in it, since #546, each
+as three shards and a guard that every test ran once, since #814), on
+a branch that's up to date with `develop` ("Require branches to be up to
+date before merging", on since 2026-10-17, the owner's choice), so a pull
+request's checks have run on everything already merged. "Protect 2.0"
+guards `2.0`: pull requests only (squash, or a merge commit for a
+`develop` merge), "CI passed" required, no up-to-date rule, and no
+deletion or force push; "Protect staging", the same for the retired
+`staging`, is the owner's to delete (#901). And "Protect 2.0 pins" keeps
+each `pin/2.0-*` tag where it was made: created, never moved or deleted.
+A job is required by being in "CI passed"'s `needs` (`ci.yml`), so renaming,
+splitting or adding one changes no ruleset; only a rename of "CI passed"
+itself would. A release tag (`v*`) can't
+be moved or deleted by anyone ("Protect release tags", since 2026-10-18,
+the owner's choice), so each release's code stays at its tag to roll back
+to; the release workflow still creates new ones. If unsure, branch from
+`develop` and ask.
+
+## Pull requests
+
+Every change, Claude's included, goes into `develop` by a pull request of
+its own ("Branches"). **The nightly
+batch** (the owner, 2026-10-22): each change is written and tested on its
+own branch during the day, and its fresh review runs there, before any
+push; at the end of the day (or a good stopping point) every finished
+branch is pushed and gets its own pull request into `develop`, all at
+once, with the review posted on it and auto-merge on (one that needs the
+owner's "merge", or the figures rule's OK on a before-and-after, gets
+auto-merge only after it). Never merge changes into
+`develop` locally: each keeps its pull request (its description, checks
+and history). Each pull request is filled
+in from `.github/pull_request_template.md`: what and why, a plain-words line
+for the owner, how it was tested, the risk. Once the review has nothing
+open, Claude turns on GitHub's auto-merge (`gh pr merge N --auto --squash
+--match-head-commit <sha>`), and GitHub squashes it, one commit per change,
+when "CI passed" passes (if it already has, GitHub refuses
+`--auto`; the same command without `--auto` merges it at once). `develop`
+asks a branch to be up to date ("Branches"), and auto-merge never updates
+one by itself, so a batch's pull requests merge one at a time: once one
+has merged, the next is brought up to date (`gh pr update-branch N`,
+which merges `develop` in, or `git merge origin/develop` and a push; a
+Dependabot pull request: comment "@dependabot rebase" instead, since
+Dependabot stops maintaining a branch once anyone else commits to it, and
+it rewrites only its own branch) and merges once its checks pass again.
+After an update, check that auto-merge is still on (`gh pr view N --json
+autoMergeRequest`); if it isn't, turn it on again with the new head's
+sha. So a batch lands one pull request per full run (about 15 minutes
+each), in the order the batch planned: what's left when the session ends
+is brought up to date by the next session ("Starting a session"), never
+by waiting, and changes that belong together go in one pull request. A
+pull request moved onto `develop` (`gh pr edit N --base develop`, say a
+Dependabot one opened against `staging` before `main` carried the new
+`dependabot.yml`: "Branches") gets a new commit, or is closed and
+reopened, so the full set runs: changing the base starts no run. During
+big work, sessions report "ready: #N" and the lead turns on auto-merge instead
+("Big work", "The lead runs the merges"). The owner
+allowed `gh pr merge` in this project's local Claude settings for that.
+A change in tax figures or what the app computes, or the database, follows
+the figures rule ("Reviews"): auto-merge when no figure moves and every
+check is green; after the owner's OK on the before-and-after when a figure
+moves on purpose. The StartOS package, releases and anything sent to Start9
+get auto-merge only after the owner's "merge" in chat. A change in what the
+app does for the owner is agreed with them before it's written, not at
+merge time. Dependabot's pull requests go the same way, after Claude has
+read their changelogs; what else they need before merging, and what to do
+when one breaks something: `docs/MAINTENANCE.md`, "Before a Dependabot pull
+request merges" and the two sections after it.
+
+A branch that falls behind its base gets the base merged into it, never a
+rebase (a Dependabot branch excepted: "@dependabot rebase", above): a
+pushed branch is not rewritten, and the squash keeps `develop` clean
+anyway.
+
+**A pull request from outside** (anyone but the owner and Dependabot; the
+owner, 2026-10-29, #799; `CONTRIBUTING.md` says it to contributors): we
+take only tests or documentation, after a review that reads every line,
+merged exactly as reviewed (#626 was one test file). Anything touching
+app code, CI, dependencies, the build, StartOS or tax logic is redone by
+us, by a pull request of our own. Its CI runs only after the owner
+approves it, every time (the repository's setting
+`all_external_contributors`, since 2026-10-29: an automated account's one
+merged pull request made it no longer "first-time"). No workflow is
+triggered by `pull_request_target` or `workflow_run`, so an outside pull
+request never gets a secret: keep it so. A contribution verified as
+Start9's comes first ("Start9").
+
+## Working through GitHub
+
+One home for each kind of information, so nothing is kept twice:
+
+| What | Where |
+|---|---|
+| How we work | this file |
+| Where things stand | pinned issue #41, "Where we are": in flight, next for Claude, waiting on Start9 or the owner |
+| To-dos, work under way, questions | GitHub issues on this repo, one per task |
+| Bugs (the known issues) | public GitHub issues labelled `bug` ("Bugs and security") |
+| Security problems | private GitHub security advisories until fixed (`SECURITY.md`) |
+| A change | one branch and one pull request into `develop` |
+| What's done | `docs/CHANGELOG.md` and the merged pull requests |
+| What's next overall | `docs/ROADMAP.md`: checkboxes, ticked when done, cleared at the release that ships them |
+| The StartOS package's own to-dos | GitHub issues labelled `start9` (Start9's template keeps no `TODO.md` in the package) |
+
+- **Labels say who has an issue:** `claude` (Claude is on it), `owner`
+  (needs the owner: a decision, a test, a click), `ask-grok` (waiting for
+  Grok Bot's view), `start9` (the package, Start9's fork or registry); the
+  workflows label the issues they open. Labels for what an issue is:
+  `bug` (confirmed), `unconfirmed` (a report not yet reproduced),
+  `pre-release` (a report from a 2.0 alpha or beta, its own form: B10a),
+  `tax-figures` (a figure could be wrong), `security` (hardening, and a
+  fix's follow-up once released: never an unfixed vulnerability),
+  `enhancement`. A pull request that finishes one says `Closes #N`, and Claude closes the issue when it merges: GitHub
+  closes issues by itself only for pull requests into the default branch,
+  `main`.
+- **A closing word next to an issue number closes it.** In a commit message
+  or a pull request, never put "close", "fix" or "resolve" (any form, any
+  case, with or without a colon) right before an issue reference (`#N`,
+  `owner/repo#N` or an issue's link) unless that commit finishes it.
+  GitHub closes the issue when the commit reaches `main`, even months
+  later at a release. #165's commit put "fixes:" right before #41 and
+  closed the pinned "Where we are" when 1.2.8 fast-forwarded `main`.
+  Write "for #N", "on #N" or "(#N)" instead.
+- **A long checklist** for work under way may live in `docs/temp/<topic>.md`
+  (`docs/temp/README.md`), deleted when done. No other notes, plan or status
+  files, and no project status in an AI tool's private memory: it goes in
+  an issue, where everyone sees it (private details never do, see below).
+- **Asking Grok Bot:** Claude writes the question as a comment that stands
+  on its own (what, why, links) on an issue or pull request and adds
+  `ask-grok`; the owner gives Grok Bot the link. Grok's answer comes back as
+  a comment ending "— Grok" (the owner posts it there, or pastes it into
+  their chat with Claude, who posts it), and Claude takes the label off.
+- **This repository is public, and so is everything in it:** commits, pull
+  requests, issues, the CHANGELOG. Never put the owner's ledger figures,
+  personal data, keys, passwords or server addresses in any of them.
+
+## Bugs and security
+
+BitcoinTX is public, its StartOS package is in Start9's Community Beta,
+and its figures go on tax returns: users must be able to see every known
+bug. These are the public promises of `SECURITY.md`, `CONTRIBUTING.md`
+and the README's "Reporting problems"; keep them.
+
+- **Every bug in code on `develop` or in a release becomes a public issue
+  as soon as it's verified,** whoever finds it: Claude, Grok, the owner, a
+  user, Start9.
+  - Findings in the review of an open pull request are fixed in that pull
+    request instead.
+  - Verify it before filing: reproduce it, or quote the evidence. Say what
+    was verified and what wasn't. A report from Grok or a user is a claim
+    to check, not a finding.
+  - Label it `bug`, plus `tax-figures` when a figure could be wrong.
+  - The issue stands on its own: what happens, how to reproduce it, what
+    it affects, who found it.
+  - Never personal data or the owner's figures; use a test ledger.
+  - Fix it as fast as its risk allows. `tax-figures` bugs come first.
+- **User reports** arrive labelled `unconfirmed`.
+  - Reproduce them, or ask for steps (never for real data).
+  - Then relabel `bug`, or close with the reason.
+  - Answer within a week.
+- **Feature requests** arrive labelled `enhancement`: an idea, never a
+  promise (owner's rule, 2026-10-10).
+  - Answer within a week: thank them, say it's recorded, promise nothing.
+  - The owner decides; until then it carries `owner`. Yes: it goes on
+    `docs/ROADMAP.md`, and the issue stays open until the pull request
+    that ships it says `Closes #N`. No: close it as "not planned", with a
+    kind one-line reason. Not sure: it stays open.
+- **Reports and ideas belong in this repository.**
+  - The mirror is a copy: its Issues are off, and its description points
+    here.
+  - Issues users open on Start9's fork are reports too, and the Monday
+    report lists them. GitHub can't move an issue between accounts, so,
+    with the owner's OK (it's sent to Start9): answer it there and, when
+    the work belongs here, open an issue here that links to it.
+- **A security problem is never public before its fix.**
+  - Outsiders report it privately (Security tab, "Report a vulnerability").
+    Claude files its own as a draft advisory ("New draft security
+    advisory"), also one found while reviewing: never a pull request
+    comment.
+  - Test the fix privately with `make check`. GitHub's temporary private
+    fork runs no CI and skips the branch rules.
+  - Then send it as an ordinary pull request into `develop`, with a
+    neutral title, so CI and the review run, and release it the same day.
+    Ask Start9 to merge and promote it at once.
+  - Publish the advisory (what, which versions, what to do) only once the
+    fixed version is available, on StartOS too.
+  - Aim to acknowledge a report within 7 days.
+  - An advisory titled "Conduct:" is a code-of-conduct report: answer it,
+    then close it, never publish it.
+- **A fix:**
+  - says `Closes #N`, with a test that fails without it;
+  - gets a CHANGELOG entry naming the issue.
+  - For a `tax-figures` bug, the entry tells users what was wrong, which
+    versions and which tax years or transactions it affected, and what to
+    do (for example, Ledger Review, then Recalculate Ledger). The release
+    repeats it in the StartOS release notes ("Releasing", step 1).
+- **The Monday report** lists:
+  - open `tax-figures` issues;
+  - outside reports with no answer, here, on Start9's fork or on the
+    mirror;
+  - how many security advisories are waiting (never their details);
+  - open `start9` issues: what Start9 released or changed that the
+    StartOS package hasn't followed yet;
+  - the latest Grok pass, as Claude recorded it on #41: how many of its
+    findings Claude confirmed and how many it didn't, and the next
+    monthly area (`docs/GROK-REVIEW.md`).
+
+## Starting a session
+
+**First, what ran overnight** (the owner, 2026-10-22): the night's pull
+requests into `develop` and their checks, and the full set on each merge
+into `develop` (`gh pr list --base develop`, `gh run list --branch
+develop --limit 10`). Tell the owner in plain words what's green and
+what's red, and fix anything red first, before any new work; then bring
+up to date the next reviewed pull request waiting behind one that merged
+("Pull requests"). Then what Start9 changed: the open
+`start9` issues, and, until `main` carries the daily `start9-watch.yml`
+(its schedule runs only from `main`), `scripts/start9-watch.sh` itself
+(startos/UPDATING.md, "Watching Start9").
+
+Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
+down from GitHub and says whether anything exists only on this computer: work not
+committed in any working folder, branches or commits not on GitHub,
+stashes. Another session's unpushed branch may show up: it's theirs. Then read issue #41
+(`gh issue view 41`), the open pull requests and issues (`gh pr list`,
+`gh issue list`), and carry on from #41's "Next for Claude". Project status
+comes from there, not from an AI tool's memory.
+
+## Ending a session
+
+**Push, then stop: never wait on CI** (the owner, 2026-10-22). After the
+night's batch is pushed and its pull requests opened (auto-merge on where
+allowed), the session ends: no watching, polling or waiting on a pull
+request's checks, or the full set on `develop`.
+Waiting burns the owner's limits for nothing; the next session reads the
+results first thing ("Starting a session"). If something truly must be
+watched, say so to the owner, so a scheduled check or Silas does it.
+
+Run `make check-fast` (or push, which runs it), update `docs/CHANGELOG.md`
+and the issues worked on, rewrite #41's body for the next session (dated),
+and update this file if architecture, invariants or the way we work changed.
+Last, run `make sync-check` (or `scripts/sync-check.sh --tidy`, which also
+deletes local branches already on GitHub, safe while other sessions run:
+never a checked-out branch or a working folder), then remove old session
+folders by hand: only clean ones whose pull request merged and that no
+running session uses (`git worktree remove`; the owner's choice,
+2026-10-06). End the message to the
+owner with its answer in one line: **Git: in sync** (everything on GitHub),
+or what is only on this computer and why. The owner can't see where work
+is, so this line is how they know.

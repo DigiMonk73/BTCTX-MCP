@@ -50,8 +50,10 @@ Before writing code, read:
 - [README.md](README.md), "Development", to set up and run the tests;
 - [docs/CODE_STYLE.md](docs/CODE_STYLE.md) and
   [docs/TESTING.md](docs/TESTING.md);
-- [AGENTS.md](AGENTS.md), the project's architecture, tax rules and
-  process;
+- [AGENTS.md](AGENTS.md), the project's rules and a map of the rest:
+  [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+  [docs/TAX-INVARIANTS.md](docs/TAX-INVARIANTS.md) and
+  [docs/HOW-CHANGES-FLOW.md](docs/HOW-CHANGES-FLOW.md) among them;
 - for the StartOS package, [startos/AGENTS.md](startos/AGENTS.md):
   it follows [Start9's packaging guide](https://docs.start9.com/packaging).
 
