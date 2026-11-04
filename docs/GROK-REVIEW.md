@@ -2,8 +2,9 @@
 
 The finder's manual for BitcoinTX. A fresh Cursor chat, or a fresh Grok
 Build session, can run one pass from this file alone. The rules it points
-at live in `AGENTS.md` ("Who does what," "Reviews," "Bugs and security,"
-"Tax invariants," "Releasing"). It restates no rule in full: each area
+at live in `AGENTS.md` ("Reviews") and the files its map names
+(`docs/HOW-CHANGES-FLOW.md`'s "Who does what" and "Bugs and security,"
+`docs/TAX-INVARIANTS.md`, `docs/RELEASING.md`). It restates no rule in full: each area
 names what to check against them.
 
 `docs/archive/HARDENING_FINDINGS.md` is a record of past findings, not this
@@ -89,7 +90,7 @@ names the area (the latest pass on #41 says which is next); if not, ask.
    `backend/services/reports/form_8949.py`,
    `backend/services/reports/reporting_core.py`, and the reference ledger
    (`testdata/reference_ledger.json`, `scripts/independent_figures.py`).
-   Check the tax invariants in `AGENTS.md`. A recalculation must be
+   Check the tax invariants in `docs/TAX-INVARIANTS.md`. A recalculation must be
    rebuildable from the Transaction row and the coins it chose. Dates use the tax timezone.
    Nothing prices at $0.
 2. **Doors.** `backend/session_auth.py`,

@@ -561,8 +561,9 @@ make e2e          # click-through tests in real browsers (Playwright)
 make check        # lint, full tests, smoke test, dependency audit (CI adds the click-through tests, StartOS, Docker and macOS)
 ```
 
-Testing guide: [docs/TESTING.md](docs/TESTING.md). Architecture and
-conventions: [AGENTS.md](AGENTS.md).
+Testing guide: [docs/TESTING.md](docs/TESTING.md). Architecture:
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Conventions:
+[AGENTS.md](AGENTS.md).
 
 | Layer | Tech |
 |---|---|

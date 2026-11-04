@@ -88,13 +88,16 @@ def test_contributing_says_which_pull_requests_from_outside_are_taken():
 def test_start9s_contributions_are_looked_at_first_never_accepted_automatically():
     """The owner, 2026-10-29: verified on GitHub, never by a name; read
     the same day; its CI approved only after that first read."""
-    for path, heading in (("CONTRIBUTING.md", "Pull requests from outside"), ("AGENTS.md", "Start9")):
+    for path, heading in (("CONTRIBUTING.md", "Pull requests from outside"), ("docs/START9.md", "Start9")):
         rules = section((ROOT / path).read_text(), heading)
         for words in ("Start9Labs", "Start9-Community", "never accepted automatically", "the same day", "never by"):
             assert words in rules, f"{path}: {words}"
 
 
 def test_agents_md_keeps_the_outside_pull_request_rule():
-    rules = section((ROOT / "AGENTS.md").read_text(), "Pull requests")
-    for words in ("only tests or documentation", "every line", "approves", "CONTRIBUTING.md"):
-        assert words in rules, words
+    """Its short version in AGENTS.md, and the rule in full where it moved
+    (docs/HOW-CHANGES-FLOW.md, #903)."""
+    for path in ("AGENTS.md", "docs/HOW-CHANGES-FLOW.md"):
+        rules = section((ROOT / path).read_text(), "Pull requests")
+        for words in ("only tests or documentation", "every line", "approves", "CONTRIBUTING.md"):
+            assert words in rules, f"{path}: {words}"
