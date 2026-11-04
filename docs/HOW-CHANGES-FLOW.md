@@ -7,7 +7,7 @@ way. The detailed rules are in its second part, "The detailed rules"
 ("Branches", "Pull requests", "Bugs and security" and the rest, moved
 from `AGENTS.md`), and in `docs/RELEASING.md`, `docs/START9.md` and
 `docs/BIG-WORK.md`; this first part is the map. Words in *italics* are
-in the glossary at its end.
+in the glossary at the end of this first part.
 
 ## The picture
 

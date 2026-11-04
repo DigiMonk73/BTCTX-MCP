@@ -79,7 +79,8 @@ def test_a_path_scoped_rule_names_the_invariants_for_the_tax_paths():
     rule = (ROOT / ".claude/rules/tax-and-security.md").read_text()
     front, body = rule.split("---\n", 2)[1:]
     assert front.startswith("paths:\n")
-    for glob in ("backend/services/**", "backend/migrations/**", "testdata/**", "backend/*.py"):
+    for glob in ("backend/services/**/*", "backend/migrations/**/*", "backend/assets/**/*", "testdata/**/*",
+                 "backend/*.py", "mcp_server/btctx_mcp/**/*", "Dockerfile"):
         assert f'  - "{glob}"' in front, glob
     for words in ("docs/TAX-INVARIANTS.md", "docs/SECURITY-RULES.md", '"Reviews"'):
         assert words in body, words

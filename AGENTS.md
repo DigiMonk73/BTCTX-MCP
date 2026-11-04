@@ -8,11 +8,9 @@ and short; history belongs in `docs/CHANGELOG.md`.
 
 BitcoinTX: a self-hosted, single-user Bitcoin portfolio and tax tracker
 (double-entry ledger, per-wallet FIFO lots or the coins chosen in a
-wallet, IRS Form 8949 / Schedule D). This repo, **DigiMonk73/BTCTX-MCP**,
-is the project, including an MCP server for optional AI-assisted entry
-(off until the owner turns it on). Work goes into `develop` by pull
-request (see Branches).
-Its parts, data model and key files: `docs/ARCHITECTURE.md`.
+wallet, IRS Form 8949 / Schedule D), with an MCP server for optional
+AI-assisted entry. Its parts, data model and key files:
+`docs/ARCHITECTURE.md`.
 
 ## What's at stake
 
@@ -36,10 +34,11 @@ Its parts, data model and key files: `docs/ARCHITECTURE.md`.
 
 - **Tax figures, login, the database: read these first.** Before
   changing `backend/` (above all `backend/services/`, the reports,
-  `backend/migrations/`), `testdata/`, `scripts/` or `mcp_server/`, read
+  prices, IRS forms, `backend/migrations/`), `testdata/`, `scripts/`,
+  `mcp_server/`, Docker or the frontend's API and forms, read
   `docs/TAX-INVARIANTS.md`, `docs/SECURITY-RULES.md` and
   `docs/ARCHITECTURE.md`'s "Data model"; then "Reviews" (the figures
-  rule). `.claude/rules/` loads this reminder for those paths.
+  rule). A rule in `.claude/rules/` repeats this for those paths.
 - **Any code**: follow `docs/CODE_STYLE.md` (one job per function, comments
   say why, the same idioms everywhere).
 - **Any text**: say "multiple wallets, exchanges or accounts", never
@@ -70,19 +69,19 @@ Its parts, data model and key files: `docs/ARCHITECTURE.md`.
   a script can. When Start9's guide changes, update the package and the test.
   What else Start9's rules cover: "Start9".
 
-**Where the rest of this file went** (2026-11-04, #903), word for word,
-for the pointers that still name its sections (`AGENTS.md, "Prices"`):
+**Where the rest of this file went** (#903), word for word, for the
+pointers that still name its sections (`AGENTS.md, "Prices"`):
 
 | Section | Now in |
 |---|---|
-| "What this is" (its parts), "Data model", "Key files" | `docs/ARCHITECTURE.md` |
+| "What this is" (its parts), "Data model" ("The past-year warning"), "Key files" | `docs/ARCHITECTURE.md` |
 | "Tax invariants" and its rules ("Prices", "Lot cost", "Transfer"…) | `docs/TAX-INVARIANTS.md` |
 | "Security rules" | `docs/SECURITY-RULES.md` |
-| "Testing" | `docs/TESTING.md`, its last section |
-| "Releasing" | `docs/RELEASING.md` |
-| "Start9" | `docs/START9.md` |
+| "Testing" | `docs/TESTING.md`, at its end |
+| "Releasing" | `docs/RELEASING.md`: read it before any release step |
+| "Start9" | `docs/START9.md`: read it before any Start9 step |
 | "Big work" ("The lead runs the merges"…) | `docs/BIG-WORK.md` |
-| "Who does what", "Branches", "Pull requests", "Working through GitHub", "Bugs and security", "Starting a session", "Ending a session" | `docs/HOW-CHANGES-FLOW.md`, "The detailed rules"; short versions below |
+| "Who does what", "Branches", "Pull requests", "Working through GitHub", "Bugs and security", "Starting a session", "Ending a session" | `docs/HOW-CHANGES-FLOW.md`, "The detailed rules" |
 | "What's at stake", "Before you change…", "Reviews" | here, word for word |
 
 ## Who does what
@@ -93,16 +92,16 @@ for the pointers that still name its sections (`AGENTS.md, "Prices"`):
   before-and-after, never by reading code). The owner is not a
   professional developer: explain in plain words, with one
   recommendation.
-- **Claude Code** is the developer: code, tests, dependency updates,
-  releases, docs.
-- **Grok** is a second set of eyes, never the developer
-  (`docs/GROK-REVIEW.md`): it writes only a job the owner names, outside
-  tax figures, login and security, the database and StartOS, and never
-  merges. A Grok finding is a claim until Claude checks it, and every
-  Grok-written change gets a fresh Claude review.
+- **Claude Code** is the developer: code, tests, dependencies, releases,
+  docs.
+- **Grok** is a second set of eyes (`docs/GROK-REVIEW.md`), never the
+  developer: it writes only a job the owner names, outside tax figures,
+  login and security, the database and StartOS, and never merges. A
+  Grok finding is a claim until Claude checks it, and every Grok-written
+  change gets a fresh Claude review.
 
-Each AI ends what it posts on GitHub with its name ("— Claude",
-"— Grok"…), and Claude's commits carry its `Co-Authored-By` line.
+Each AI signs what it posts on GitHub ("— Claude", "— Grok"…); Claude's
+commits carry its `Co-Authored-By` line.
 
 ## Reviews
 
@@ -158,11 +157,17 @@ comments end "— Grok (Cursor)".
 ## Pull requests
 
 - Every change goes into `develop` by a pull request of its own from a
-  short-lived branch, filled in from `.github/pull_request_template.md`,
-  squash-merged once "CI passed" has passed on a branch up to date with
-  `develop`. A branch that falls behind gets `develop` merged in, never a
-  rebase. Never commit on `main` or a local `develop`; `main` moves only
-  by fast-forwarding to GitHub's `develop`. `staging` is retired (#901).
+  short-lived branch, filled in from its template, squash-merged once
+  "CI passed" has passed on a branch up to date with `develop`. A branch
+  that falls behind gets `develop` merged in, never a rebase
+  (Dependabot's: "@dependabot rebase"). Once the review has nothing
+  open, Claude turns on auto-merge as "Reviews" allows; in big work a
+  session posts "ready: #N" and only the lead does (`docs/BIG-WORK.md`).
+  `staging` is retired (#901).
+- Never commit on `main` or a local `develop`, never force-push or
+  rewind `main`: it moves only by fast-forwarding to GitHub's `develop`,
+  at a release or when all it lacks is docs, tests or tooling
+  (`docs/RELEASING.md`).
 - **A pull request from outside** (anyone but the owner and Dependabot):
   we take only tests or documentation, after a review that reads every
   line, merged exactly as reviewed; anything else is redone by us. Its CI
@@ -172,16 +177,17 @@ comments end "— Grok (Cursor)".
 
 ## Public, and on GitHub
 
-- This repository is public, and so is everything in it: never the
-  owner's ledger figures, personal data, keys, passwords or server
-  addresses in a commit, an issue or a pull request.
+- The repository is public: never the owner's ledger figures, personal
+  data, keys, passwords or server addresses in a commit, an issue or a
+  pull request.
 - Never put "close", "fix" or "resolve" (any form) right before an issue
   reference unless that commit finishes it: GitHub closes the issue when
   the commit reaches `main`. Write "for #N".
 - Where things stand: pinned issue #41; one issue per task, never an AI
   tool's memory. Every verified bug is a public issue (`bug`, plus
-  `tax-figures` when a figure could be wrong); a security problem never
-  is before its fix: a draft advisory (`SECURITY.md`).
+  `tax-figures` when a figure could be wrong), except one in an open
+  pull request, fixed there. A security problem is never public before
+  its fix, not even a pull request comment: a draft advisory.
 
 ## Testing
 
@@ -193,22 +199,26 @@ for its text (`pgrep -f`): wait on the process you started.
 
 ## Start9
 
-Start9's rules win for everything Start9 governs: the StartOS package
-(`startos/`; read `startos/AGENTS.md`), the mirror, and anything we send
-Start9. A contribution from Start9 is looked at first, never accepted
-automatically. Both: `docs/START9.md`.
+Start9's rules win for what Start9 governs (`startos/`: read
+`startos/AGENTS.md`; the mirror; what we send Start9), and a
+contribution from Start9 is looked at first, never accepted
+automatically: `docs/START9.md`.
 
 ## Starting a session
 
 First what ran since the last session: the pull requests into `develop`,
-their checks and CI on `develop`; fix anything red before new work. Then
-the Security tab (a private report, a Dependabot alert), the week's
-report issue and the open `start9` issues. Then `make sync-check`, #41,
-the open pull requests and issues, and carry on from #41's "Next".
+their checks and CI on `develop`. Tell the owner in plain words what's
+green and red, fix anything red before new work, then bring up to date
+the next pull request waiting behind one that merged. Then the Security
+tab, the week's report issue and the open `start9` issues. Then
+`make sync-check`, #41, the open pull requests and issues, and carry on
+from #41's "Next".
 
 ## Ending a session
 
-Push, then stop: never wait on CI. Update `docs/CHANGELOG.md`, the issues
-worked on, #41 (dated), and this file or the one its map names if a rule
-changed. Last, `make sync-check`, and end the message to the owner with
-**Git: in sync**, or what is only on this computer and why.
+Push (it runs `make check-fast`), then stop: never wait on CI. Update
+`docs/CHANGELOG.md`, the issues worked on, #41 (dated), and this file or
+the one its map names if a rule changed. Last, `make sync-check`
+(`--tidy`) and remove your clean worktrees whose pull request merged;
+end the message to the owner with **Git: in sync**, or what is only on
+this computer and why.

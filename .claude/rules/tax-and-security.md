@@ -1,18 +1,24 @@
 ---
 paths:
   - "backend/*.py"
-  - "backend/services/**"
-  - "backend/routers/**"
-  - "backend/models/**"
-  - "backend/migrations/**"
-  - "testdata/**"
+  - "backend/services/**/*"
+  - "backend/routers/**/*"
+  - "backend/models/**/*"
+  - "backend/migrations/**/*"
+  - "backend/assets/**/*"
+  - "testdata/**/*"
   - "scripts/*figures*.py"
   - "scripts/seed_ledger.py"
   - "scripts/equivalence_check.py"
-  - "mcp_server/btctx_mcp/**"
+  - "scripts/price_history.py"
+  - "scripts/irs_new_year.py"
+  - "mcp_server/btctx_mcp/**/*"
   - "desktop/*.py"
-  - "frontend/src/utils/**"
-  - "frontend/src/components/transactionForm/**"
+  - "Dockerfile"
+  - "docker-entrypoint.sh"
+  - "frontend/src/api.ts"
+  - "frontend/src/utils/**/*"
+  - "frontend/src/components/**/*"
 ---
 
 # Tax figures, login, the database: read these first

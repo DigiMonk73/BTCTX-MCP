@@ -26,7 +26,7 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Development
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
-  went from 102,575 bytes to about 11,700. Its long sections moved, word
+  went from 102,575 bytes to about 12,200. Its long sections moved, word
   for word, into `docs/`: the tax invariants to `docs/TAX-INVARIANTS.md`,
   the security rules to `docs/SECURITY-RULES.md`, releasing to
   `docs/RELEASING.md`, Start9's rules to `docs/START9.md`, big work to
@@ -38,9 +38,11 @@ All notable changes to BitcoinTX are documented in this file.
   change…" is now the map: its first line sends a change to the tax or
   security paths to the invariants first, and its table leads each old
   section to its new file, so the pointers in code (`AGENTS.md,
-  "Prices"`) still lead there. A rule file, `.claude/rules/tax-and-security.md`,
-  reminds Claude Code of the invariants whenever it reads or edits those
-  paths. `scripts/check_agents_md_move.py` proves the move byte for byte
+  "Prices"`) still lead there. Short versions of who does what, pull
+  requests, the public-repository rules, testing, Start9 and a session's
+  start and end stay, each pointing to its full text. A rule file,
+  `.claude/rules/tax-and-security.md`, reminds Claude Code of the
+  invariants whenever it reads or edits those paths. `scripts/check_agents_md_move.py` proves the move byte for byte
   against the old file, and `test_agent_rules.py` keeps the figures rule
   in `AGENTS.md`, the map's files real and `AGENTS.md` under 12 KiB.
 - **One line of work: `staging` is retired** (#901; the owner, 2026-11-04,
