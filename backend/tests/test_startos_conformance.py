@@ -291,6 +291,18 @@ def test_updating_md_has_start9s_two_sections():
     assert [h for h in headings if h in wanted] == wanted
 
 
+def test_updating_md_leaves_the_version_rules_to_start9s_guide():
+    # Start9's maintaining-a-package.md, "Chasing upstream" (2026-10-30,
+    # #883): how a package version is bumped, migrated and given release
+    # notes belongs to its Versions page, never copied into UPDATING.md.
+    text = read("UPDATING.md")
+    assert "https://docs.start9.com/packaging/versions.html" in text
+    assert "`other`" not in text  # the spin-off of a version file
+    assert "only home" not in text  # what an update asks of the user
+    assert "registry package get" not in text  # which version it serves
+    assert "cover everything since" not in text  # what the notes cover
+
+
 def test_the_format_check_runs_before_the_sdks_make():
     """From start-sdk 3.1.0 the SDK's make formats startos/ instead of
     rejecting unformatted source (its s9pk.mk), so CI and the pre-push hook

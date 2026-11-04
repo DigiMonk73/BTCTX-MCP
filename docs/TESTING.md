@@ -32,7 +32,8 @@ make hooks          # installs the pre-push gate
 
 - **Before every `git push`** (`.githooks/pre-push`): first the branch
   rules (`.githooks/branch-rules.sh`: AGENTS.md, "Branches"), then lint, static
-  Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests,
+  Docker/StartOS checks (`backend/tests/pre_commit_tests.py`), fast tests
+  (on every core, as `make test-fast`; the first failure stops them),
   smoke, frontend lint + type check + Vitest (if `frontend/node_modules`
   exists), StartOS package format check (`npm run format:check`), then type
   check, lint and bundle (the SDK's `make javascript/index.js`, which from

@@ -25,6 +25,10 @@ All notable changes to BitcoinTX are documented in this file.
   box moves.
 
 ### Development
+- **The pre-push check runs the Python tests on every core** (#848), as
+  `make test-fast` and CI do, not one at a time: about 3 minutes instead of
+  10 to 20. The first failure still stops them. A Python without
+  pytest-xdist (a `.venv` made before #590) isn't picked.
 - **Routine checks run on GitHub, not on a Mac or on Claude's tokens** (the
   owner, 2026-10-31, after 2.0.0; plan: #869). Tooling only: nothing changes in
   the app, the connector or the package, and no figure can move.
@@ -37,6 +41,40 @@ All notable changes to BitcoinTX are documented in this file.
   request too. None of it takes effect until `main` carries the files, since
   GitHub reads schedules and `dependabot.yml` only from the default branch.
   `docs/MAINTENANCE.md` has the new "Scheduled checks".
+- **CI refuses app code after a branch's last beta** (#848). While a branch
+  is named in `.github/ship-freeze`, a pull request into it that changes
+  what ships (`backend/` and `frontend/` outside their tests, the
+  connector, `desktop/`, `startos/`, the Dockerfile, its entrypoint and
+  `VERSION`) fails "CI passed" unless it's labelled `version` or
+  `approved-fix`. It looks at the files, not the title: a pull request
+  titled for CI and tests once carried app code (#842). No branch is frozen
+  now.
+- **The release gate's figures by script** (#848). `scripts/gate/figures.py`
+  records a test install's figures through its API (the Dashboard, every
+  report's figures, Ledger Review's counts) and compares two records, PASS
+  or FAIL per figure with both values: the gate's "every figure identical"
+  across an update, a restore or the way back to 1.x.
+  `scripts/gate/docker-update.sh` runs that comparison across an update on
+  Docker in one command, on a throwaway volume, stopping if the owner's
+  BitcoinTX or Preview ports change. The golden ledger's loader moved from
+  `docs/AGENT-TESTS.md` to `scripts/gate/golden_loader.py`. From session
+  54's scripts for 2.0.0-beta.2's gate.
+- **What stays by hand, and no silent waits** (#848). `docs/AGENT-TESTS.md`
+  lists the gate's steps that need a person (the VM's StartOS password,
+  `start-cli`'s login, a downloaded Mac app's first open, quitting the
+  installed app, the owner's own Mempool, a real exchange export, the
+  agent's own approval prompts and the owner's load-and-look test), and a
+  new rule: ask for them before a run starts, and report a track or step
+  that takes twice what it should instead of leaving it to sit.
+  `scripts/gate/figures.py` says every 30 seconds when a request is still
+  unanswered, the golden loader gives up after 5 minutes, and
+  `docker-update.sh` says first what it needs from you: nothing.
+- **The StartOS package's `UPDATING.md` leaves the version rules to Start9's
+  guide** (#883): Start9's guide now says how a package version is bumped,
+  migrated and given release notes belongs only to its Versions page, never
+  copied into `UPDATING.md`. "The package version" now links that page and
+  keeps only what this package adds; `test_startos_conformance.py` checks it.
+  Docs only: the package, the app and the figures don't change.
 
 ## [v2.0.0] - 2026-10-31 - Your wallets, exchanges and banks, each wallet and exchange with its own coins
 
@@ -157,6 +195,7 @@ or another value priced in the next 10 minutes can take the day's price, marked,
 instead of the hour's (#824, #849). Ledger Review lists a saved value like that.
 A known limitation: a Form 1099-DA that lists a transfer's or a gift's network
 fee, or a fee without its withdrawal, can't be matched on Form 8949 yet (#551).
+
 
 The CHANGELOG's entries mostly keep the words of the pre-release they came with, so
 a fix may name the alpha it fixes, and a fix to something new in 2.0 concerns

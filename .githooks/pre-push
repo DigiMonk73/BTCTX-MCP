@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-# The first Python with the dev tools (ruff, pytest): this checkout's .venv,
+# The first Python with the dev tools (ruff, pytest, pytest-xdist): this checkout's .venv,
 # the main checkout's (when pushing from a worktree, which has none), then
 # desktop/.venv and python3. A Mac build's desktop/.venv has no ruff, so
 # taking the first that merely exists failed the push.
@@ -13,12 +13,12 @@ PY="${BTCTX_PYTHON:-}"
 if [ -z "$PY" ]; then
   main_venv="$(git worktree list --porcelain | sed -n '1s/^worktree //p')/.venv/bin/python"
   for c in .venv/bin/python "$main_venv" desktop/.venv/bin/python python3; do
-    if { [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; } && "$c" -c "import ruff, pytest" 2>/dev/null; then
+    if { [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; } && "$c" -c "import ruff, pytest, xdist" 2>/dev/null; then
       PY="$c"; break
     fi
   done
   if [ -z "$PY" ]; then
-    printf "\n\033[31m✗ pre-push failed: no Python with ruff and pytest\033[0m\n  (install the dev tools, docs/TESTING.md; or set BTCTX_PYTHON; or bypass with: git push --no-verify)\n"
+    printf "\n\033[31m✗ pre-push failed: no Python with ruff, pytest and pytest-xdist\033[0m\n  (install the dev tools, docs/TESTING.md; or set BTCTX_PYTHON; or bypass with: git push --no-verify)\n"
     exit 1
   fi
 fi
@@ -45,7 +45,10 @@ step "Static compatibility checks"
 "$PY" backend/tests/pre_commit_tests.py --no-api >/dev/null || { "$PY" backend/tests/pre_commit_tests.py --no-api | grep -E "✗|FAIL"; fail "static checks"; }
 
 step "Python tests (fast set; CI also runs the slow stress tests)"
-"$PY" -m pytest -m "not slow" -q -x -p no:cacheprovider || fail "pytest"
+# One worker per core, as `make test-fast` and CI run them (each test has its
+# own temp database and data folder; loadgroup keeps an xdist_group module on
+# one worker). -x still stops the run at the first failure (#848).
+"$PY" -m pytest -m "not slow" -q -x -n auto --dist loadgroup -p no:cacheprovider || fail "pytest"
 
 step "Smoke test (real server, temp database)"
 "$PY" scripts/smoke_test.py || fail "smoke test"
