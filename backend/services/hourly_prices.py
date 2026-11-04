@@ -180,6 +180,18 @@ def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, st
         _found_on_copies[hour] = (found[0], files_end, asked_at)
 
 
+def _new_on_a_copy(db: Session, keep: dict[int, tuple[Decimal, str]]) -> dict[int, tuple[Decimal, str]]:
+    """On a scratch copy, the hours a lookup is about to keep that the copy
+    hasn't kept already (none elsewhere: only a copy notes them)."""
+    if not db.info.get(SCRATCH) or not keep:
+        return {}
+    hours = sorted(keep)
+    kept = set()
+    for i in range(0, len(hours), STORE_CHUNK):
+        kept |= {h for (h,) in db.query(BtcPriceHourly.hour).filter(BtcPriceHourly.hour.in_(hours[i:i + STORE_CHUNK]))}
+    return {h: v for h, v in keep.items() if h not in kept}
+
+
 def _note_asked_on_a_copy(db: Session, brought: dict[int, tuple[Decimal, str]], files_end: int | None) -> None:
     """On a scratch copy, the hours after the files its ask brought, none it
     had kept already (_remember_for_stored_values)."""
@@ -307,12 +319,13 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
     if hour in db.info.get(price_history.LOOKUPS_FAILED, {}):
         raise db.info[price_history.LOOKUPS_FAILED][hour]
     files_end = lines[-1].last_hour if lines else None
-    found, keep, kept_before = _from_sources(db, hour, files_end)
+    found, keep = _from_sources(db, hour, files_end)
     if found is None and line is not None and start_download() and wait and _may_wait(db, line):
         prices = _wait_for_year(line)
         found = (prices[hour], "bitstamp") if prices is not None else None
+    brought = _new_on_a_copy(db, keep)
     _store(db, keep)
-    _note_asked_on_a_copy(db, {h: v for h, v in keep.items() if h not in kept_before}, files_end)
+    _note_asked_on_a_copy(db, brought, files_end)
     if found is None and db.info.get(WARMING):
         db.info.setdefault(UNPRICED_HOURS, set()).add(hour)
     return found
@@ -608,10 +621,8 @@ def _file_text(line: pf.YearLine) -> str | None:
 
 
 def _from_sources(db: Session, hour: int, files_end: int | None):
-    """The chosen source's price for the hour (or None), the hours to keep
-    (the one asked, and Bitstamp's after the files), and those after the
-    files kept already (a scratch copy notes only what its ask brought:
-    _note_asked_on_a_copy)."""
+    """The chosen source's price for the hour (or None), and the hours to keep:
+    the one asked, and Bitstamp's after the files."""
     stored = set()
     if files_end is not None:
         stored = {h for (h,) in db.query(BtcPriceHourly.hour).filter(BtcPriceHourly.hour > files_end)}
@@ -625,7 +636,7 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
         price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         found = {}
     keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
-    return found.get(hour), keep, stored
+    return found.get(hour), keep
 
 
 def _wait_for_year(line: pf.YearLine) -> dict[int, Decimal] | None:
