@@ -1285,7 +1285,7 @@ Dependabot stops maintaining a branch once anyone else commits to it, and
 it rewrites only its own branch) and merges once its checks pass again.
 After an update, check that auto-merge is still on (`gh pr view N --json
 autoMergeRequest`); if it isn't, turn it on again with the new head's
-sha. So a batch lands one pull request per full run (about 20 minutes
+sha. So a batch lands one pull request per full run (about 15 minutes
 each), in the order the batch planned: what's left when the session ends
 is brought up to date by the next session ("Starting a session"), never
 by waiting, and changes that belong together go in one pull request. A
