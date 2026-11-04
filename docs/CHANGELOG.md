@@ -40,17 +40,24 @@ All notable changes to BitcoinTX are documented in this file.
   day's price, marked as such, instead of the hour's. With the whole price
   history already downloaded, such a save could be refused instead, for
   having no price; and a past-year question could be asked twice, or asked
-  only because its two checks priced a row differently. Now, between two
+  only because its two checks priced a row differently. The same followed a
+  lookup that found the hours but couldn't keep them, the database being
+  busy (that save answered "busy"). The price the form and the AI read for a
+  moment took the day's too. Now, between two
   asks, the hour asked for is given from the last answer, kept in memory
   only: no request is added (fewer go out), none names a day, and the ledger
-  keeps only the hour a save uses. **Which transactions:** values priced at
+  keeps only the hour a lookup uses. Since such a save no longer looks for
+  the day's price, it no longer downloads the day prices either: a value
+  priced at the day later on asks for them itself, as it does when no
+  question came first, so with prices switched off or the sites down it's
+  refused, and with your Mempool alone it takes your Mempool's day. **Which transactions:** values priced at
   the hour, dated after the last price file (2.0.0's end on 30 October
   2026, 15:00 UTC), saved within 10 minutes of one of those looks, while the
   price source allows public sites. In 2.0.0 those looks asked Bitstamp only
   when a stored row dated after the files had a blank value (in practice
   one blanked by hand in the database: every save fills it), or for a
   report of a tax year ending after the files (2026's, from 1 January
-  2027). Your Mempool's prices, and a value
+  2027); and a busy database could meet it any time. Your Mempool's prices, and a value
   already saved, don't change. **What to do:** open Ledger Review. "Values
   priced at the day's price that the hour would change" lists any value that
   took the day's price where the hour's is there now; tick it and apply.

@@ -225,9 +225,9 @@ class Write(PastYearWrite):
 
     def priced_rows(self, db: Session) -> list[dict]:
         """The rows whose values the write fills from a price, for
-        transaction.find_prices_first. None for an edit of a row deleted
-        since the request came: its save answers 404 (#824's re-check: it
-        was a 500)."""
+        transaction.find_prices_first: none for an edit of a row another
+        save deleted since the request came (the write answers 404, as its
+        save does)."""
         if self.kind == ADD:
             return [dict(self.data)]
         stored = db.get(Transaction, self.tx_id) if self.kind == EDIT else None

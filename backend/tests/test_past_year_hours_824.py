@@ -24,6 +24,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
 
 from backend.main import app
 from backend.models.app_setting import save_setting
@@ -612,6 +613,87 @@ def test_a_question_out_of_time_names_the_years_as_before(world, monkeypatch):
     assert world.a_question()["exact"] is False
 
 
+# Fewer days stored: today's wrong save looked for the day and stored the
+# days, which later lookups used. With the hour's price it asks no day, as a
+# save with no question first doesn't
+
+def _confirmed(world) -> None:
+    world.blank_fee()
+    world.nothing_stored_yet()
+    assert world.question_then_confirm() == [409, 200]
+
+
+def test_prices_switched_off_after_a_confirmed_question(world):
+    """Before: an income after it saved at $400, the day's price that save had stored."""
+    _confirmed(world)
+    world.source(price_source="off")
+    assert world.income().status_code == 422
+
+
+def test_your_mempool_alone_after_a_confirmed_question(world, monkeypatch):
+    """Your Mempool lacks the income's hour, and its midnight price is
+    $40,100. Before: $400, Bitstamp's day that save had stored."""
+    _confirmed(world)
+    world.sites.mempool_lacks = {hp.hour_of(datetime.strptime(world.after_the_files(3), TIME))}
+    mempool = world.sites.handler
+
+    def its_own_midnight(request):
+        answer = mempool(request)
+        if request.url.path != price_history.MEMPOOL_HISTORY_PATH:
+            return answer
+        rows = [{**row, "USD": "40100"} if row["time"] % DAY == 0 else row for row in answer.json()["prices"]]
+        return httpx.Response(200, json={"prices": rows})
+
+    monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(its_own_midnight))
+    world.source(**MEMPOOL_ALONE)
+    r = world.income()
+    assert world.basis(r.json()["id"]) == (Decimal("401.00"), "day")
+
+
+def test_a_days_price_read_with_the_sites_down_after_a_confirmed_question(world):
+    """The form's and the AI's price for a date. Before: $40,000, stored by that save."""
+    _confirmed(world)
+    ten_minutes_later()
+    world.sites.down = {"bitstamp"}
+    r = world.client.get("/api/bitcoin/price/history", params={"date": world.after_the_files(4)[:10]})
+    assert r.status_code == 422
+
+
+@pytest.mark.parametrize("look", ["question", "coins list"])
+def test_the_price_read_for_a_moment_after_a_look(world, look):
+    """The form's and the AI's price for a moment (`get_btc_price`), which
+    the AI can type into a row. Before: $40,000 at the day."""
+    world.blank_fee()
+    world.nothing_stored_yet()
+    if look == "question":
+        world.a_question()
+    else:
+        assert world.coins_list().status_code == 200
+    r = world.client.get("/api/bitcoin/price/history", params={"at": world.after_the_files(4)})
+    assert r.status_code == 200, r.text
+    assert (Decimal(str(r.json()["USD"])), r.json()["moment"]) == (Decimal("41000"), "hour")
+
+
+def test_a_lookup_that_couldnt_keep_its_hours_for_a_busy_database(world, monkeypatch):
+    """No throwaway copy at all: the hours were found, but keeping them met a
+    busy database, so the save answered 503 and the 10 minutes' ask was gone.
+    Before: the next save took $400, the day's."""
+    world.nothing_stored_yet()
+    store = hp._store
+    busy = {"once": True}
+
+    def busy_once(db, prices):
+        if busy.pop("once", False) and prices:
+            raise OperationalError("INSERT", {}, Exception("database is locked"))
+        return store(db, prices)
+
+    monkeypatch.setattr(hp, "_store", busy_once)
+    assert world.income().status_code == 503
+    r = world.income(hours=5)
+    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.sites.bitstamp_asked() == 1
+
+
 # What stays as it was: your Mempool, a source down or switched, a refused write
 
 def test_your_mempool_down_at_the_question_and_its_fallback_on_ten_minutes_later(world):
@@ -642,7 +724,7 @@ def test_your_mempool_down_at_the_question_and_its_fallback_on_within_ten_minute
 
 
 def test_your_mempool_missing_the_blank_rows_hour_with_its_fallback_on(world):
-    """C4. The blank row's hour comes from the fallback; before: $4.00 at
+    """C4. The blank row's hour comes from the fallback. Before: $4.00 at
     the day. Another row's hour your Mempool has stays its own: $405."""
     world.source(**MEMPOOL_WITH_FALLBACK)
     blank = world.blank_fee()
@@ -774,6 +856,7 @@ def test_a_row_inside_the_files_years_with_your_mempool(world):
 # What stays as it was: no question first, or a write that replays nothing
 
 def test_a_login_write_dated_this_tax_year(world):
+    """Stays."""
     blank = world.blank_fee()
     world.nothing_stored_yet()
     assert world.edit_the_buy(year=2009).status_code == 200
@@ -782,6 +865,7 @@ def test_a_login_write_dated_this_tax_year(world):
 
 
 def test_an_add_dated_last_leaves_the_blank_row_alone(world):
+    """Stays."""
     blank = world.blank_fee()
     world.nothing_stored_yet()
     world.tax_year(2100)
@@ -795,7 +879,7 @@ def test_an_add_dated_last_leaves_the_blank_row_alone(world):
 
 
 def test_the_ais_preview_keeps_what_it_did(world):
-    """Its own dry run keeps the hours it asks for, as it always has."""
+    """Stays: its own dry run keeps the hours it asks for."""
     blank = world.blank_fee()
     ai = ai_client(world)
     world.nothing_stored_yet()
@@ -810,6 +894,7 @@ def test_the_ais_preview_keeps_what_it_did(world):
 
 
 def test_an_income_with_no_question_first(world):
+    """Stays."""
     r_blank = world.blank_fee()
     world.nothing_stored_yet()
     r = world.income()

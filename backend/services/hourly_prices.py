@@ -384,10 +384,11 @@ def download_status() -> dict:
 
 async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict[int, tuple[Decimal, str]]:
     """
-    What the chosen sources give while `hour` is missing. `hour` only
-    decides whether to ask the public sites (after the year files, and
-    only when the own mempool server doesn't have it): no request names
-    it. `stored`: the hours after the files already kept.
+    What the chosen sources give while `hour` is missing. `hour` decides
+    whether to ask the public sites (after the year files, and only when
+    the own mempool server doesn't have it), and which of their last
+    answer's hours is given between two asks (_bitstamp_after): no request
+    names it. `stored`: the hours after the files already kept.
     """
     found: dict[int, tuple[Decimal, str]] = {}
     rows, _ = await price_history.own_node_rows()  # none (and none kept) without a mempool server
