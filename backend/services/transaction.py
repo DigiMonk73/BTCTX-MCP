@@ -1974,7 +1974,7 @@ def _price_for(tx: Transaction, missing: str, db: Session) -> hourly_prices.Pric
     without one, a 422 naming the transaction (a report fails on it, and the
     day alone doesn't say which entry to fix)."""
     try:
-        with _priced_at_the_day(db, tx.price_moment == "day"):
+        with _priced_at_the_day(db, tx.price_moment == "day"), hourly_prices.for_a_stored_value():
             return _price_at(tx.timestamp, db)
     except HTTPException as e:
         day = tx.timestamp.date().isoformat() if tx.timestamp else "an unknown day"

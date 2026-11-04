@@ -238,12 +238,14 @@ map.
   year files in fixed 1,000-hour blocks from 1 January, every year, newest
   first (checked against `MANIFEST.csv`), and after them Bitstamp's fixed
   blocks from the hour after the files; never the hour asked. Those blocks
-  are asked at most every 10 minutes; in between, a lookup is given the
-  hour it asks from the last answer, from memory, since the lookup that
-  asked may have kept it where it's gone (a scratch copy: the past-year
-  question, the coins list, a report's holdings, Ledger Review's check; a
-  restore; a busy database: #824, #849); the ledger keeps only that hour
-  then, as anything priced at an hour keeps it, never the block.
+  are asked at most every 10 minutes. A replay on a scratch copy (the
+  past-year question, the coins list, a report, Ledger Review's check)
+  that prices a stored row's missing value (`transaction._price_for`)
+  leaves the hour it found in memory, and in those 10 minutes only such a
+  value is given it (`hourly_prices._found_for_a_stored_value`, #824,
+  #849): never kept in the ledger, where it would come before your
+  Mempool's for other rows, and with the day's prices looked for as before,
+  so every other lookup gives what it did.
   **A proxy (Tor) carries every request to a public site**, with one
   exception the owner opts into (#241): Bitstamp refuses Tor's exits, so
   the price card asks once "Download the price history once without

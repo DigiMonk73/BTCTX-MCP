@@ -19,8 +19,8 @@ Lookup order (hourly_price):
        candles in fixed blocks of 1,000 hours from the hour after the
        manifest's last, the same requests on every install of a release;
        every hour they give is kept. Asked at most every 10 minutes: in
-       between, the hour asked is given from the last answer, and only
-       it is kept (#824).
+       between, only a stored row's missing value is given the hour a
+       scratch copy's replay found (_found_for_a_stored_value, #824).
   4. With public sites allowed, the year files' download, waiting a little
      for the year asked, unless the caller has already written: it holds
      SQLite's write lock (#421); an import waits for a year's download once
@@ -48,12 +48,14 @@ names the hour asked.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import os
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal
@@ -65,7 +67,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from backend.database import DATABASE_FILE
+from backend.database import DATABASE_FILE, SCRATCH
 from backend.models.btc_price import BtcPriceHourly
 from backend.services import outbound, price_history, price_status
 from backend.services import price_files as pf
@@ -112,13 +114,90 @@ def price_at(db: Session, when: datetime) -> Priced:
     such; a later day has none (422).
     """
     hour = hour_of(when)
-    found = hourly_price(db, when)
+    found = _hourly_price_noted(db, when)
     if found is not None:
+        _remember_for_stored_values(db, hour, found)
         return Priced(found[0], "hour", _utc(hour), found[1])
+    given = _found_for_a_stored_value(hour)
+    if given is not None:
+        _look_for_the_day_as_before(db, when)
+        return Priced(given, "hour", _utc(hour), "bitstamp")
     usd = price_history.daily_price(db, when)
     day = price_history.utc_day(when)
     return Priced(usd, "day", datetime(day.year, day.month, day.day, tzinfo=timezone.utc),
                   price_history.stored_source(db, day) or "")
+
+
+# A stored row's missing value (a BTC fee with no USD value, a Spent's blank
+# proceeds) priced by a replay (transaction._price_for, #824, #849): only it
+# takes an hour a scratch copy's replay found. Bitstamp's hours after the
+# files are asked for at most every 10 minutes, and the replays of the
+# past-year question, the coins list, a report and Ledger Review run on a
+# copy that goes, with what it kept. Holds the lookup's notes while it runs:
+# whether that limit skipped its ask (_bitstamp_after)
+_stored_value: contextvars.ContextVar[dict | None] = contextvars.ContextVar("btctx_stored_value", default=None)
+# hour -> (usd, the year files' last hour, the ask it came from: _state["public_at"])
+_found_on_copies: dict[int, tuple[Decimal, int, float]] = {}
+
+
+@contextmanager
+def for_a_stored_value() -> Iterator[None]:
+    """Around the lookup of a stored row's missing value (transaction._price_for)."""
+    token = _stored_value.set({})
+    try:
+        yield
+    finally:
+        _stored_value.reset(token)
+
+
+def _hourly_price_noted(db: Session, when: datetime) -> tuple[Decimal, str] | None:
+    """hourly_price, its notes for a stored value cleared first."""
+    notes = _stored_value.get()
+    if notes is not None:
+        notes.clear()
+    return hourly_price(db, when)
+
+
+def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, str]) -> None:
+    """A scratch copy's replay found a stored value's hour after the files
+    from Bitstamp: kept in memory for the stored values a replay prices
+    until Bitstamp may be asked again. The ledger itself keeps nothing."""
+    lines = pf.read_manifest(pf.MANIFEST)
+    if _stored_value.get() is None or not db.info.get(SCRATCH) or found[1] != "bitstamp" \
+            or not lines or hour <= lines[-1].last_hour:
+        return
+    _found_on_copies[hour] = (found[0], lines[-1].last_hour, _state["public_at"])
+
+
+def _found_for_a_stored_value(hour: int) -> Decimal | None:
+    """
+    The hour's price a scratch copy found, for a stored row's missing value
+    whose lookup asked Bitstamp and was skipped by its 10-minute limit:
+    without it that value took the day's price where the copy had the
+    hour's (#824, #849). Only within the ask it came from, for the same year
+    files; never for another row's value, a report's or a price read, and
+    never kept in the ledger, where it would come before your Mempool's for
+    other rows: every other lookup gives what it did.
+    """
+    notes, kept = _stored_value.get(), _found_on_copies.get(hour)
+    if notes is None or not notes.get("ask_skipped") or kept is None:
+        return None
+    usd, files_end, asked_at = kept
+    lines = pf.read_manifest(pf.MANIFEST)
+    if asked_at != _state["public_at"] or not lines or lines[-1].last_hour != files_end:
+        return None
+    return usd
+
+
+def _look_for_the_day_as_before(db: Session, when: datetime) -> None:
+    """The day's price, looked for as this lookup did before the hour was
+    given it, so it downloads and keeps what it did and later lookups of a
+    day find what they did. Its own answer isn't needed: no price is no
+    refusal."""
+    try:
+        price_history.daily_price(db, when)
+    except HTTPException:
+        pass
 
 
 def stored_price_at(db: Session, when: date | datetime, moment: str, years: dict | None = None) -> Priced | None:
@@ -384,11 +463,10 @@ def download_status() -> dict:
 
 async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict[int, tuple[Decimal, str]]:
     """
-    What the chosen sources give while `hour` is missing. `hour` decides
-    whether to ask the public sites (after the year files, and only when
-    the own mempool server doesn't have it), and which of their last
-    answer's hours is given between two asks (_bitstamp_after): no request
-    names it. `stored`: the hours after the files already kept.
+    What the chosen sources give while `hour` is missing. `hour` only
+    decides whether to ask the public sites (after the year files, and
+    only when the own mempool server doesn't have it): no request names
+    it. `stored`: the hours after the files already kept.
     """
     found: dict[int, tuple[Decimal, str]] = {}
     rows, _ = await price_history.own_node_rows()  # none (and none kept) without a mempool server
@@ -398,7 +476,7 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     # The choice as it is after the wait for the mempool server: a save may have come meanwhile (#437)
     public = outbound.current().public_allowed
     if hour not in found and files_end is not None and hour > files_end and public:
-        found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored, hour)).items()})
+        found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
     return found
 
 
@@ -443,8 +521,9 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
+    _found_on_copies.clear()
     _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9,
-                  public_hours={}, public_end=None, verified={}, again=False)
+                  verified={}, again=False)
     _live.update(rows=None, hours={})
 
 
@@ -646,7 +725,7 @@ def _save_year(line: pf.YearLine, prices: dict[int, Decimal]) -> None:
 
 
 # Bitstamp after the year files
-async def _bitstamp_after(files_end: int, stored: set[int], hour: int) -> dict[int, Decimal]:
+async def _bitstamp_after(files_end: int, stored: set[int]) -> dict[int, Decimal]:
     """
     Bitstamp's hours after the year files, in fixed blocks from the hour
     after them, skipping blocks whose every hour is kept already, at most
@@ -654,27 +733,18 @@ async def _bitstamp_after(files_end: int, stored: set[int], hour: int) -> dict[i
     then its open can change. A save that stops them (ChoiceChanged) is no
     failure (#475): the hours the blocks before it gave are kept, and the
     rest is asked again as the new choice says, not 10 minutes later.
-
-    Between two asks, a lookup is given `hour` from the last answer, from
-    memory: the lookup that asked may have kept the answer where it's
-    gone, a scratch copy's replay (the past-year question, the coins list,
-    a report's holdings, Ledger Review's check: #824, #849), a ledger
-    restored since, or a transaction the busy database refused, and without
-    it a save in those 10 minutes takes the day's price where the hour's
-    was found. Only the hour asked, so the ledger keeps only what a
-    lookup there uses, never the block (whose hours would outrank your
-    Mempool's for other rows); a request names no hour either way.
     """
     if time.monotonic() - _state["public_at"] < RETRY_SECONDS:
-        given = _state["public_hours"].get(hour) if _state["public_end"] == files_end else None
-        return {} if given is None else {hour: given}
+        notes = _stored_value.get()
+        if notes is not None:  # a stored value's lookup may take the hour a copy found (_found_for_a_stored_value)
+            notes["ask_skipped"] = True
+        return {}
     current, size = _current_hour(), pf.BLOCK_HOURS * HOUR
     starts = [start for start in range(files_end + HOUR, current + 1, size)
               if not all(h in stored for h in range(start, min(start + size, current + HOUR), HOUR))]
     if starts:
         price_history.refuse_if_held()
-    # Until this ask answers, the answer given again is none: a failure's too
-    _state.update(public_at=time.monotonic(), public_hours={}, public_end=files_end)
+    _state["public_at"] = time.monotonic()
     if starts:
         _log_without_tor("the hours after the year files")
     client, out = ChoiceClient(), {}
@@ -687,7 +757,6 @@ async def _bitstamp_after(files_end: int, stored: set[int], hour: int) -> dict[i
     except outbound.ChoiceChanged:
         _state["public_at"] = -1e9
         logger.info("Hourly BTC prices after the year files: stopped (the price settings changed)")
-    _state["public_hours"] = dict(out)
     return out
 
 

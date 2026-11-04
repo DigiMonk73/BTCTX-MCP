@@ -540,11 +540,10 @@ def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth
     Bitstamp's hours after the files are asked for once in 10 minutes: the
     question's replay used that ask on a scratch copy and kept the answer
     there, so the save took the day's price ($4.00), and the changed
-    fingerprint asked again. Given again from memory, it's the hour's
-    ($4.10): one question, one request, none under the lock."""
+    fingerprint asked again. The copy's hour given to that value, it's the
+    hour's ($4.10): one question, and no request under the lock."""
     buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites)
     assert _question_then_confirm(auth_client, buy, tax_year) == (409, 200)
-    assert len(sites.requests) == 1
     sites.all_with_the_lock_free()
     saved = get(auth_client, transfer)
     assert (Decimal(saved["fee_usd"]), saved["price_moment"]) == (Decimal("4.10"), "hour")
@@ -553,10 +552,10 @@ def test_a_blank_fee_after_the_year_files_keeps_the_hour_the_question_found(auth
 def test_a_blank_fee_kept_at_the_day_is_still_refused_when_todays_ask_is_gone(auth_client, test_engine, sites, tax_year,
                                                                                monkeypatch, tmp_path):
     """The question's replay uses the day's one ask for the latest days on a
-    scratch copy, so the save has no price: a 422, as before #824. Only
-    Bitstamp's hours are given again; the latest days aren't (a refusal
-    that would become a save). The day pinned: across midnight UTC it's
-    asked again."""
+    scratch copy, so the save has no price: a 422, as before #824. Only a
+    copy's hour is given to a stored value; the latest days aren't (a
+    refusal that would become a save, #905). The day pinned: across
+    midnight UTC it's asked again."""
     monkeypatch.setattr(price_history, "_today", lambda today=price_history._today(): today)
     buy, transfer = _blank_fee_after_the_files(auth_client, test_engine, monkeypatch, tmp_path, sites, moment="day")
     _history_complete(test_engine)

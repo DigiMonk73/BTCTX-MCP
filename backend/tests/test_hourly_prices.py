@@ -11,7 +11,6 @@ The BTC price when an hour began (#144, PR 2; services/hourly_prices.py):
 Every outside service is faked.
 """
 
-import asyncio
 import logging
 import random
 import sys
@@ -19,6 +18,7 @@ import threading
 import time
 import traceback
 from collections import OrderedDict
+from contextlib import nullcontext
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -27,6 +27,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import sessionmaker
 
+from backend.database import SCRATCH
 from backend.models.btc_price import BtcPriceHourly
 from backend.services import hourly_prices as hp
 from backend.services import outbound
@@ -291,53 +292,71 @@ def test_hours_after_the_files_come_from_bitstamps_fixed_blocks_and_are_stored(s
     assert sites.requests == []  # stored, and asked at most every 10 minutes
 
 
-def _thrown_away(db) -> None:
-    """What a lookup kept, gone with the scratch copy it was kept on (#824, #849)."""
-    db.query(BtcPriceHourly).delete()
-    db.commit()
+def _on_a_copy(db, stored_value: bool = True) -> hp.Priced:
+    """A replay's lookup on a scratch copy, which goes with what it kept (#824, #849)."""
+    db.info[SCRATCH] = True
+    try:
+        with hp.for_a_stored_value() if stored_value else nullcontext():
+            return hp.price_at(db, utc("2026-03-18T05:20Z"))
+    finally:
+        del db.info[SCRATCH]
+        db.query(BtcPriceHourly).delete()
+        db.commit()
 
 
-def test_bitstamps_last_answer_is_given_again_until_it_may_be_asked_again(sites, db):
-    """#824, #849: a lookup on a scratch copy kept Bitstamp's hours there, so
-    for 10 minutes every other lookup got none and took the day's price.
-    Between two asks, the hour a lookup asks is given from the last answer,
-    with no request; the ledger keeps that hour only, never the block."""
+def _in_the_ledger(db, stored_value: bool = True) -> hp.Priced:
+    with hp.for_a_stored_value() if stored_value else nullcontext():
+        return hp.price_at(db, utc("2026-03-18T05:40Z"))
+
+
+def test_a_stored_values_hour_a_copy_found_is_given_until_bitstamp_may_be_asked_again(sites, db):
+    """#824, #849: a stored row's missing value, priced on a scratch copy,
+    used up Bitstamp's ask for 10 minutes, so its save took the day's price.
+    The hour the copy found is given to such a value, with no request, and
+    never kept in the ledger."""
     hp.start_download()
     finish_download()
-    first, later = at("2026-03-18T05:00Z"), at("2026-03-19T07:00Z")
-    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) == (sites.prices[first], "bitstamp")
-    _thrown_away(db)
+    asked = at("2026-03-18T05:00Z")
+    assert _on_a_copy(db) == hp.Priced(sites.prices[asked], "hour", hp._utc(asked), "bitstamp")
     sites.requests.clear()
-    assert hp.hourly_price(db, utc("2026-03-19T07:10Z")) == (sites.prices[later], "bitstamp")
-    assert sites.requests == []
-    assert {row.hour for row in db.query(BtcPriceHourly)} == {later}
-    hp._state["public_at"] = -1e9  # 10 minutes later: asked again
-    _thrown_away(db)
-    assert hp.hourly_price(db, utc("2026-03-19T07:10Z")) == (sites.prices[later], "bitstamp")
-    assert sites.bitstamp_starts() == [FILES_END + HOUR]
+    assert _in_the_ledger(db) == hp.Priced(sites.prices[asked], "hour", hp._utc(asked), "bitstamp")
+    assert sites.bitstamp_starts() == [] and db.query(BtcPriceHourly).count() == 0
+    hp._state["public_at"] = -1e9  # 10 minutes later: asked again, and kept as any lookup keeps it
+    assert _in_the_ledger(db).usd == sites.prices[asked]
+    assert sites.bitstamp_starts() == [FILES_END + HOUR] and db.query(BtcPriceHourly).count() > 0
 
 
-def test_a_failed_ask_gives_nothing_again(sites, db):
-    """An earlier answer is never given past an ask that failed: the hour has no price until the next."""
+@pytest.mark.parametrize("found_for_a_stored_value, asked_for_one", [(True, False), (False, True)])
+def test_no_other_lookup_takes_what_a_copy_found(sites, db, found_for_a_stored_value, asked_for_one):
+    """Another row's value, a report's, a price read: the day's, as before
+    (Bitstamp's ask used up); and a copy's lookup for one of those gives
+    nothing to a stored value."""
     hp.start_download()
     finish_download()
-    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is not None
-    _thrown_away(db)
+    _on_a_copy(db, stored_value=found_for_a_stored_value)
+    assert _in_the_ledger(db, stored_value=asked_for_one).moment == "day"
+
+
+def test_a_failed_ask_since_gives_nothing(sites, db):
+    """The hour is given only within the ask it came from."""
+    hp.start_download()
+    finish_download()
+    _on_a_copy(db)
     hp._state["public_at"] = -1e9
     sites.bitstamp_down = True
-    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
+    assert _in_the_ledger(db).moment == "day"  # asked, and failed
     sites.bitstamp_down = False
-    sites.requests.clear()
-    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is None
-    assert sites.requests == []
+    assert _in_the_ledger(db).moment == "day"  # the 10 minutes of that failed ask
 
 
-def test_an_answer_for_other_year_files_isnt_given_again(sites, db):
-    """Bitstamp's answer holds the hours after the files it was asked with only."""
+def test_an_hour_found_with_other_year_files_isnt_given(sites, db):
     hp.start_download()
     finish_download()
-    assert hp.hourly_price(db, utc("2026-03-18T05:20Z")) is not None
-    assert asyncio.run(hp._bitstamp_after(FILES_END - 24 * HOUR, set(), at("2026-03-18T05:00Z"))) == {}
+    _on_a_copy(db)
+    hour = at("2026-03-18T05:00Z")
+    usd, _, asked_at = hp._found_on_copies[hour]
+    hp._found_on_copies[hour] = (usd, FILES_END - HOUR, asked_at)
+    assert _in_the_ledger(db).moment == "day"
 
 
 def test_an_hour_bitstamp_gives_at_no_price_is_never_kept(sites, db):

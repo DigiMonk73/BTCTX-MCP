@@ -2,12 +2,14 @@
 #824 and #849, with the real lookups and their limits, the sites faked at
 the HTTP layer: stubs skip the limits, which is what hid the bug. Bitstamp's
 hours after the year files are asked for at most every 10 minutes
-(hourly_prices._bitstamp_after). A lookup on a scratch copy (the past-year
-question's replays, the coins list, a report's holdings, Ledger Review's
-check) kept the answer on the copy, which goes, and every lookup in the rest
-of those 10 minutes got none and took the day's price. For those 10 minutes
-a lookup is now given that last answer again, from memory: what the ledger
-stores is still only what a lookup in it keeps.
+(hourly_prices._bitstamp_after). A replay on a scratch copy (the past-year
+question's, the coins list's, a report's, Ledger Review's) that priced a
+stored row's missing value (a BTC fee with no USD value, a Spent's blank
+proceeds) kept the hour on the copy, which goes, and a replay in the rest of
+those 10 minutes took the day's price for it. Only such a value is now given
+the hour the copy found, from memory (hourly_prices._found_for_a_stored_value):
+never kept in the ledger, and with the day's prices looked for as before, so
+every other row, report and price read gives what it gave.
 
 Each test says what it gives on the code before the fix ("Before") when
 that differs; the rest give the same on both ("Stays"). The ledger: a Buy of
@@ -241,16 +243,15 @@ def ai_client(world: World) -> TestClient:
     return TestClient(app, headers={"Authorization": f"Bearer {key}"})
 
 
-# The cases the issues name: a save after the question or the list
-
 def test_a_question_then_its_confirm(world):
     """#824. Before: $4.00 at the day, and a second question, the
-    fingerprint having changed between the two. Bitstamp is asked once."""
+    fingerprint having changed between the two. The hour isn't kept in the
+    ledger, and the day's prices are looked for as before."""
     blank = world.blank_fee()
     world.nothing_stored_yet()
     assert world.question_then_confirm() == [409, 200]
     assert world.fee(blank) == (Decimal("4.10"), "hour")
-    assert world.sites.bitstamp_asked() == 1
+    assert world.kept_hours() == 0
 
 
 def test_the_question_stores_no_price(world):
@@ -262,16 +263,15 @@ def test_the_question_stores_no_price(world):
     assert world.kept_hours() == 0
 
 
-def test_the_confirm_keeps_only_the_hour_it_uses(world):
-    """Not the block of hours Bitstamp gave the question, so another row's
-    hour ten minutes on, Bitstamp down, isn't there (and nor is the day's:
-    422). Before: no hour kept, and that row took $400, the day that save
-    had stored (the before-and-after's "fewer days stored")."""
+def test_the_confirm_keeps_no_hour_in_the_ledger(world):
+    """Stays: no hour kept, and the day's prices downloaded as before, so
+    another row ten minutes on, Bitstamp down, takes the day's: $400."""
     _confirmed(world)
-    assert world.kept_hours() == 1
+    assert world.kept_hours() == 0
     ten_minutes_later()
     world.sites.down = {"bitstamp"}
-    assert world.income().status_code == 422
+    r = world.income()
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_a_question_cancelled_then_the_same_row_saved_this_tax_year(world):
@@ -294,14 +294,14 @@ def test_ten_minutes_after_a_cancelled_question(world):
 
 
 def test_two_coins_lists_then_a_save(world):
-    """#849's table. Before: the fee at $4.00, the day's, and each list asked again."""
+    """#849's table. Before: the fee at $4.00, the day's."""
     blank = world.blank_fee()
     world.nothing_stored_yet()
     assert world.coins_list().status_code == 200
     assert world.coins_list().status_code == 200
     assert world.edit_the_buy(year=2009).status_code == 200
     assert world.fee(blank) == (Decimal("4.10"), "hour")
-    assert world.sites.bitstamp_asked() == 1
+    assert world.kept_hours() == 0
 
 
 def test_the_coins_list_stores_no_price(world):
@@ -360,26 +360,26 @@ def test_a_spends_blank_proceeds_saved_after_a_cancelled_question(world):
     assert Decimal(world.get(spend)["gross_proceeds_usd"]) == Decimal("2050.00")
 
 
-# Another row, or a report, in the 10 minutes after a question (B3, E)
+# Stays: another row, a report, a preview or a price read, after a question (B3, E)
 
 def test_another_rows_income_after_a_question(world):
-    """Before: basis $400 at the day."""
+    """Stays: another row's value isn't a stored row's missing value: $400 at the day."""
     world.blank_fee()
     world.nothing_stored_yet()
     world.a_question()
     r = world.income()
     assert r.status_code == 200, r.text
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_another_rows_income_after_a_coins_list(world):
-    """Before: basis $400 at the day."""
+    """Stays: $400 at the day."""
     world.blank_fee()
     world.nothing_stored_yet()
     assert world.coins_list().status_code == 200
     r = world.income()
     assert r.status_code == 200, r.text
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def _year_end_values(world) -> set:
@@ -390,31 +390,31 @@ def _year_end_values(world) -> set:
 
 
 def test_a_reports_year_end_value_after_a_question(world):
-    """Before: 1 BTC at $40,000, the day's price, noted as having no hourly price."""
+    """Stays: 1 BTC at $40,000, the day's price, noted as having no hourly price."""
     world.blank_fee()
     world.nothing_stored_yet()
     world.a_question()
-    assert _year_end_values(world) == {Decimal("41000.00")}
+    assert _year_end_values(world) == {Decimal("40000.0")}
 
 
 def test_an_income_after_a_report_with_no_blank_row(world):
-    """A report values a year's end on a scratch copy: a year ending after
-    the year files asks Bitstamp there (from 1 January 2027 for 2026, with
-    2.0.0's files), with no blank row in the ledger. Before: basis $400 at the day."""
+    """Stays: a report's year-end value isn't a stored row's missing value,
+    so what its copy found isn't given to anything: $400 at the day."""
     world.nothing_stored_yet()
     _year_end_values(world)
     r = world.income()
     assert r.status_code == 200, r.text
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_a_save_after_a_report(world):
-    """A report's holdings replay on a scratch copy too. Before: $4.00 at the day."""
+    """Stays: this report's replay ends with 2025, before the blank row, so
+    it priced no stored value; its year-end lookup asked. $4.00 at the day."""
     blank = world.blank_fee()
     world.nothing_stored_yet()
     _year_end_values(world)
     assert world.save_this_year(blank).status_code == 200
-    assert world.fee(blank) == (Decimal("4.10"), "hour")
+    assert world.fee(blank) == (Decimal("4.00"), "day")
 
 
 def test_a_save_after_ledger_review(world):
@@ -427,7 +427,7 @@ def test_a_save_after_ledger_review(world):
 
 
 def test_the_ais_preview_of_another_row_after_a_question(world):
-    """Before: $400 at the day."""
+    """Stays: $400 at the day."""
     world.blank_fee()
     ai = ai_client(world)
     world.nothing_stored_yet()
@@ -436,23 +436,27 @@ def test_the_ais_preview_of_another_row_after_a_question(world):
         "date": world.after_the_files(3), "type": "Deposit", "amount": "0.01", "from_account": "External",
         "to_account": "Wallet", "source": "Income", "fee_amount": "0", "fee_currency": "BTC"}]})
     assert r.status_code == 200, r.text
-    assert Decimal(r.json()["results"][0]["normalized"]["cost_basis_usd"]) == Decimal("410.00")
+    assert Decimal(r.json()["results"][0]["normalized"]["cost_basis_usd"]) == Decimal("400.00")
 
 
 def test_an_edit_pricing_a_day_priced_row_again_after_a_question(world):
-    """Before: $8.00 at the day."""
-    world.blank_fee()
+    """Stays for the edited row (its own value, not a stored one missing):
+    $8.00 at the day. The blank row its replay prices takes the hour.
+    Before: the blank row $4.00 at the day."""
+    blank = world.blank_fee()
     day_priced = world.post(type="Transfer", timestamp=world.after_the_files(4), from_account_id=EXCHANGE_BTC,
                             to_account_id=WALLET, amount="0.1", fee_amount="0.0001", fee_currency="BTC")
     world.store(day_priced, price_moment="day")
     world.nothing_stored_yet()
     world.a_question()
     assert world.save_this_year(day_priced, fee_amount="0.0002").status_code == 200
-    assert world.fee(day_priced) == (Decimal("8.20"), "hour")
+    assert world.fee(day_priced) == (Decimal("8.00"), "day")
+    assert world.fee(blank) == (Decimal("4.10"), "hour")
 
 
-def test_ledger_review_offers_the_hour_after_a_question(world):
-    """Before: a value priced at the day wasn't listed: no hour to be had in those 10 minutes."""
+def test_ledger_review_after_a_question(world):
+    """Stays: Ledger Review's hour check lists no hour change for a value
+    priced at the day, the hour having none in those 10 minutes."""
     world.blank_fee()
     day_priced = world.post(type="Transfer", timestamp=world.after_the_files(4), from_account_id=EXCHANGE_BTC,
                             to_account_id=WALLET, amount="0.1", fee_amount="0.0001", fee_currency="BTC")
@@ -461,8 +465,8 @@ def test_ledger_review_offers_the_hour_after_a_question(world):
     world.a_question()
     applied = world.client.post("/api/review/hourly-prices", json={"ids": [day_priced]})
     assert applied.status_code == 200, applied.text
-    assert [c["id"] for c in applied.json()["changed"]] == [day_priced]
-    assert world.fee(day_priced) == (Decimal("4.10"), "hour")
+    assert applied.json()["changed"] == []
+    assert world.fee(day_priced) == (Decimal("4.00"), "day")
 
 
 def test_login_recalculate_after_a_question(world):
@@ -474,7 +478,7 @@ def test_login_recalculate_after_a_question(world):
     assert world.fee(blank) == (Decimal("4.10"), "hour")
 
 
-# A question that goes away, and refusals that become saves (B4, B5, B8, D)
+# A question that goes away, and refusals that become saves (B4, B5, B8); D stays
 
 def test_a_past_year_write_that_asks_nothing_saves_the_hour(world):
     """B4: nothing pending, and the replay at the hour changes nothing
@@ -565,21 +569,19 @@ def test_an_ai_write_dated_this_tax_year_with_the_history_complete(world):
     assert world.fee(blank) == (Decimal("4.10"), "hour")
 
 
-def test_the_days_ask_isnt_used_up_by_a_question(world):
-    """D: the replay without the write took the day's price, and with it
-    the day's one ask for the latest days, on a scratch copy. With the hour
-    given again it asks for no day, so an Inherited deposit (priced at the
-    date of death's day) is priced. Before: 422."""
+def test_the_days_ask_is_used_up_as_before(world):
+    """Stays: the replay without the write still looks for the day's price
+    it looked for before, though the hour is given it, so the day's one ask
+    for the latest days goes as it did, and an Inherited deposit (priced at
+    the date of death's day) is refused as before: #905."""
     world.blank_fee()
     world.nothing_stored_yet(history_complete=True)
     world.a_question()
-    death = world.after_the_files(30)[:10]
     r = world.client.post("/api/transactions", json={
         "type": "Deposit", "timestamp": world.after_the_files(30), "from_account_id": EXTERNAL,
         "to_account_id": WALLET, "amount": "0.01", "fee_amount": "0", "fee_currency": "BTC", "source": "Inherited",
-        "acquired_at": death})
-    assert r.status_code == 200, r.text
-    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
+        "acquired_at": world.after_the_files(30)[:10]})
+    assert r.status_code == 422, r.text
 
 
 def test_the_coins_list_after_a_question_with_the_history_complete(world):
@@ -612,9 +614,8 @@ def test_a_question_out_of_time_names_the_years_as_before(world, monkeypatch):
     assert world.a_question()["exact"] is False
 
 
-# Fewer days stored: today's wrong save looked for the day and stored the
-# days, which later lookups used. With the hour's price it asks no day, as a
-# save with no question first doesn't
+# Stays: what follows the blank row's save. The day's prices are looked for
+# as before, and the hour given isn't kept, so later rows find what they did
 
 def _confirmed(world) -> None:
     """The blank row's past-year question, confirmed until it saves (twice before the fix)."""
@@ -624,15 +625,16 @@ def _confirmed(world) -> None:
 
 
 def test_prices_switched_off_after_a_confirmed_question(world):
-    """Before: an income after it saved at $400, the day's price that save had stored."""
+    """Stays: an income after it saves at $400, the day's price that save stored as before."""
     _confirmed(world)
     world.source(price_source="off")
-    assert world.income().status_code == 422
+    r = world.income()
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_your_mempool_alone_after_a_confirmed_question(world, monkeypatch):
     """Your Mempool lacks the income's hour, and its midnight price is
-    $40,100. Before: $400, Bitstamp's day that save had stored."""
+    $40,100. Stays: $400, Bitstamp's day that save stored as before."""
     _confirmed(world)
     world.sites.mempool_lacks = {hp.hour_of(datetime.strptime(world.after_the_files(3), TIME))}
     mempool = world.sites.handler
@@ -647,22 +649,21 @@ def test_your_mempool_alone_after_a_confirmed_question(world, monkeypatch):
     monkeypatch.setattr(outbound, "_transport", httpx.MockTransport(its_own_midnight))
     world.source(**MEMPOOL_ALONE)
     r = world.income()
-    assert world.basis(r.json()["id"]) == (Decimal("401.00"), "day")
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_a_days_price_read_with_the_sites_down_after_a_confirmed_question(world):
-    """The form's and the AI's price for a date. Before: $40,000, stored by that save."""
+    """The form's and the AI's price for a date. Stays: $40,000, stored by that save as before."""
     _confirmed(world)
     ten_minutes_later()
     world.sites.down = {"bitstamp"}
     r = world.client.get("/api/bitcoin/price/history", params={"date": world.after_the_files(4)[:10]})
-    assert r.status_code == 422
+    assert r.status_code == 200, r.text
 
 
 @pytest.mark.parametrize("look", ["question", "coins list"])
 def test_the_price_read_for_a_moment_after_a_look(world, look):
-    """The form's and the AI's price for a moment (`get_btc_price`), which
-    the AI can type into a row. Before: $40,000 at the day."""
+    """The form's and the AI's price for a moment (`get_btc_price`). Stays: $40,000 at the day."""
     world.blank_fee()
     world.nothing_stored_yet()
     if look == "question":
@@ -671,13 +672,12 @@ def test_the_price_read_for_a_moment_after_a_look(world, look):
         assert world.coins_list().status_code == 200
     r = world.client.get("/api/bitcoin/price/history", params={"at": world.after_the_files(4)})
     assert r.status_code == 200, r.text
-    assert (Decimal(str(r.json()["USD"])), r.json()["moment"]) == (Decimal("41000"), "hour")
+    assert (Decimal(str(r.json()["USD"])), r.json()["moment"]) == (Decimal("40000"), "day")
 
 
 def test_a_lookup_that_couldnt_keep_its_hours_for_a_busy_database(world, monkeypatch):
-    """No throwaway copy at all: the hours were found, but keeping them met a
-    busy database, so the save answered 503 and the 10 minutes' ask was gone.
-    Before: the next save took $400, the day's."""
+    """Stays: the hours found but not kept, the database being busy, aren't
+    given to the next save, whose 10 minutes' ask is gone: $400, the day's."""
     world.nothing_stored_yet()
     store = hp._store
     busy = {"once": True}
@@ -690,42 +690,36 @@ def test_a_lookup_that_couldnt_keep_its_hours_for_a_busy_database(world, monkeyp
     monkeypatch.setattr(hp, "_store", busy_once)
     assert world.income().status_code == 503
     r = world.income(hours=5)
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
-    assert world.sites.bitstamp_asked() == 1
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 def test_a_report_then_a_save_in_the_window_then_the_sites_down(world):
-    """Any lookup that takes the hour in those 10 minutes asks for no day.
-    Before: the report's year-end value, read again later with Bitstamp
-    down, was $40,000, the day the income's save had stored; now it has none."""
+    """Stays: the report's year-end value, read again later with Bitstamp
+    down, is $40,000, the day the income's save stored."""
     world.nothing_stored_yet()
     _year_end_values(world)
     assert world.income().status_code == 200
     ten_minutes_later()
     world.sites.down = {"bitstamp"}
-    assert _year_end_values(world) == set()
+    assert _year_end_values(world) == {Decimal("40000.0")}
 
-
-# An hour kept in the 10 minutes is kept for good, as any save keeps the
-# hour it used, so a later row in that hour takes it, over your Mempool's
 
 @pytest.mark.parametrize("later, basis", [
-    (MEMPOOL_ALONE, Decimal("410.00")),  # before: $405, your Mempool's
-    (dict(price_source="off"), Decimal("410.00")),  # before: $400, the day's
+    (MEMPOOL_ALONE, (Decimal("405.00"), "hour")),  # your Mempool's
+    (dict(price_source="off"), (Decimal("400.00"), "day")),
 ])
-def test_a_later_row_in_the_hour_a_confirmed_question_kept(world, later, basis):
-    """Before: the hour wasn't kept (the save took the day), so the row
-    asked for itself, 10 minutes or more later."""
+def test_a_later_row_in_the_blank_rows_hour(world, later, basis):
+    """Stays: the hour given the blank row isn't kept in the ledger, so a
+    later row in that hour, 10 minutes or more on, takes what it took."""
     _confirmed(world)
     ten_minutes_later()
     world.source(**later)
     r = world.income(hours=2)  # the blank row's hour
-    assert world.basis(r.json()["id"]) == (basis, "hour")
+    assert world.basis(r.json()["id"]) == basis
 
 
-def test_a_later_row_in_the_hour_a_price_read_kept(world):
-    """The form's or the AI's price for a moment, read in the window, keeps
-    its hour. Before: $405, your Mempool's, asked for later."""
+def test_a_later_row_in_the_hour_a_price_read_looked_up(world):
+    """Stays: $405, your Mempool's."""
     world.blank_fee()
     world.nothing_stored_yet()
     world.a_question()
@@ -733,13 +727,12 @@ def test_a_later_row_in_the_hour_a_price_read_kept(world):
     ten_minutes_later()
     world.source(**MEMPOOL_ALONE)
     r = world.income(hours=4)
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
+    assert world.basis(r.json()["id"]) == (Decimal("405.00"), "hour")
 
 
 def test_a_save_after_the_hours_went_with_a_restore(world):
     """A restore puts back a ledger without the hours a save kept a moment
-    ago, and Bitstamp isn't asked again for 10 minutes; no blank row needed.
-    The hours deleted here as the restore leaves them. Before: $400, the day's."""
+    ago (deleted here as the restore leaves them). Stays: $400, the day's."""
     world.nothing_stored_yet()
     assert world.income(hours=5).status_code == 200
     with world.session() as db:
@@ -747,8 +740,7 @@ def test_a_save_after_the_hours_went_with_a_restore(world):
         db.query(BtcPriceDaily).delete()
         db.commit()
     r = world.income(hours=6)
-    assert world.basis(r.json()["id"]) == (Decimal("410.00"), "hour")
-    assert world.sites.bitstamp_asked() == 1
+    assert world.basis(r.json()["id"]) == (Decimal("400.00"), "day")
 
 
 # What stays as it was: your Mempool, a source down or switched, a refused write
