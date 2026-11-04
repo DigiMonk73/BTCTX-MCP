@@ -219,8 +219,11 @@ def ten_minutes_later() -> None:
 
 
 @pytest.fixture
-def world(fresh_app, monkeypatch, tmp_path, tax_year) -> World:
-    lines = pf.read_manifest(pf.MANIFEST)[:-1]  # a closed year last, so the hours after it are always past
+def world(request, fresh_app, monkeypatch, tmp_path, tax_year) -> World:
+    """The year files end with a closed year, so the hours after them are
+    always past; or, `files_end_mid_year`, as this release's do."""
+    lines = pf.read_manifest(pf.MANIFEST)
+    lines = lines if getattr(request, "param", None) == "files_end_mid_year" else lines[:-1]
     files_end = lines[-1].last_hour
     manifest = tmp_path / "MANIFEST.csv"
     manifest.write_text(pf.manifest_text(lines), encoding="utf-8")
@@ -293,6 +296,57 @@ def test_ten_minutes_after_a_cancelled_question(world):
     assert world.fee(blank) == (Decimal("4.10"), "hour")
 
 
+def test_two_blank_rows_in_different_hours(world):
+    """One ask of Bitstamp gives both hours, kept on the copy for the second
+    row: both are given. Before: both at $4.00, the day's, asked twice."""
+    first = world.blank_fee()
+    second = world.post(type="Transfer", timestamp=world.after_the_files(5), from_account_id=EXCHANGE_BTC,
+                        to_account_id=WALLET, amount="0.1", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
+    world.store(second, fee_usd=None, fee_usd_manual=False, price_moment=None)
+    world.nothing_stored_yet()
+    assert world.question_then_confirm() == [409, 200]
+    assert world.fee(first) == world.fee(second) == (Decimal("4.10"), "hour")
+
+
+@pytest.mark.parametrize("world", ["files_end_mid_year"], indirect=True)
+def test_a_save_after_the_report_of_the_blank_rows_year(world):
+    """The report's year-end replay prices the blank row on its copy (the
+    year's start is inside the files, so nothing else asked first). Before:
+    $4.00, the day's."""
+    blank = world.blank_fee()
+    world.nothing_stored_yet()
+    with world.session() as db:
+        generate_report_data(db, datetime.fromtimestamp(world.files_end, tz=timezone.utc).year)
+    assert world.save_this_year(blank).status_code == 200
+    assert world.fee(blank) == (Decimal("4.10"), "hour")
+
+
+def test_another_row_deleted_after_a_question(world):
+    """The delete's save recalculates. Before: $4.00 at the day."""
+    blank = world.blank_fee()
+    other = world.income(hours=40).json()["id"]
+    world.nothing_stored_yet()
+    world.a_question()
+    assert world.client.delete(f"/api/transactions/{other}").status_code == 204
+    assert world.fee(blank) == (Decimal("4.10"), "hour")
+
+
+def test_the_ais_add_of_a_past_year_row_after_a_question(world):
+    """Before: $4.00 at the day."""
+    blank = world.blank_fee()
+    ai = ai_client(world)
+    world.nothing_stored_yet()
+    world.a_question()
+    row = {"date": "2019-02-01T10:00:00Z", "type": "Buy", "amount": "0.2", "from_account": "Bank",
+           "to_account": "Exchange BTC", "cost_basis_usd": "200.00", "fee_amount": "0", "fee_currency": "USD"}
+    world.tax_year(2100)
+    answers = world.question_then_confirm(lambda c: ai.post(
+        "/api/import/entries/execute", json={"rows": [row]}, params={"confirm": c} if c else None))
+    world.tax_year(2009)
+    assert answers[-1] == 200, answers
+    assert world.fee(blank) == (Decimal("4.10"), "hour")
+
+
 def test_two_coins_lists_then_a_save(world):
     """#849's table. Before: the fee at $4.00, the day's."""
     blank = world.blank_fee()
@@ -358,6 +412,15 @@ def test_a_spends_blank_proceeds_saved_after_a_cancelled_question(world):
     world.a_question()
     assert world.save_this_year(spend, amount="0.05").status_code == 200
     assert Decimal(world.get(spend)["gross_proceeds_usd"]) == Decimal("2050.00")
+
+
+def test_a_spends_blank_proceeds_after_an_edit_of_its_amount(world):
+    """Its proceeds stay the stored row's blank. Before: $2,400 at the day."""
+    spend = world.blank_proceeds()
+    world.nothing_stored_yet()
+    world.a_question()
+    assert world.save_this_year(spend, amount="0.06").status_code == 200
+    assert _proceeds(world, spend) == (Decimal("2460.00"), "hour")
 
 
 # Stays: another row, a report, a preview or a price read, after a question (B3, E)

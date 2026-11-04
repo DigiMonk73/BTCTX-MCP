@@ -111,7 +111,8 @@ def price_at(db: Session, when: datetime) -> Priced:
     The price that values `when`: its hour's, else its UTC day's. A time
     later today (an hour not begun: an entry dated today, which an import
     reads as noon in the tax timezone) takes the day's price, marked as
-    such; a later day has none (422).
+    such; a later day has none (422). A stored row's missing value may be
+    given the hour a scratch copy's replay found (_found_for_a_stored_value).
     """
     hour = hour_of(when)
     found = _hourly_price_noted(db, when)
@@ -136,8 +137,13 @@ def price_at(db: Session, when: datetime) -> Priced:
 # copy that goes, with what it kept. Holds the lookup's notes while it runs:
 # whether that limit skipped its ask (_bitstamp_after)
 _stored_value: contextvars.ContextVar[dict | None] = contextvars.ContextVar("btctx_stored_value", default=None)
-# hour -> (usd, the year files' last hour, the ask it came from: _state["public_at"])
+# hour -> (usd, the year files' last hour, the ask it came from: _state["public_at"]),
+# shared by the requests' threads under _copies_lock
 _found_on_copies: dict[int, tuple[Decimal, int, float]] = {}
+_copies_lock = threading.Lock()
+# Session.info key on a scratch copy: the hours after the files its own asks
+# kept there, and the ask each came from (_note_asked_on_a_copy)
+ASKED_ON_COPY = "btctx_hours_asked_on_this_copy"
 
 
 @contextmanager
@@ -159,30 +165,41 @@ def _hourly_price_noted(db: Session, when: datetime) -> tuple[Decimal, str] | No
 
 
 def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, str]) -> None:
-    """A scratch copy's replay asked Bitstamp for a stored value's hour after
-    the files and got it: kept in memory for the stored values a replay
-    prices until Bitstamp may be asked again. Never an hour the copy found
-    stored: the ledger has it too, unless a restore has taken it since. The
-    ledger itself keeps nothing."""
-    notes = _stored_value.get()
-    if notes is None or not notes.get("bitstamp_gave") or not db.info.get(SCRATCH):
+    """A scratch copy's replay priced a stored value at an hour the copy's
+    own ask brought (ASKED_ON_COPY; several blank rows share one ask): kept
+    in memory for the stored values a replay prices until Bitstamp may be
+    asked again. Never an hour the copy found stored before: the ledger has
+    it too, unless a restore has taken it since. The ledger keeps nothing."""
+    asked_at = db.info.get(ASKED_ON_COPY, {}).get(hour)
+    if _stored_value.get() is None or asked_at is None or asked_at != _state["public_at"]:
         return
-    for old in [h for h, kept in _found_on_copies.items() if kept[2] != _state["public_at"]]:
-        del _found_on_copies[old]  # from an earlier ask: never given again
-    _found_on_copies[hour] = (found[0], pf.read_manifest(pf.MANIFEST)[-1].last_hour, _state["public_at"])
+    files_end = pf.read_manifest(pf.MANIFEST)[-1].last_hour
+    with _copies_lock:
+        for old in [h for h, kept in _found_on_copies.items() if kept[2] != asked_at]:
+            del _found_on_copies[old]  # from an earlier ask: never given again
+        _found_on_copies[hour] = (found[0], files_end, asked_at)
+
+
+def _note_asked_on_a_copy(db: Session, kept: dict[int, tuple[Decimal, str]], files_end: int | None) -> None:
+    """On a scratch copy, the hours after the files Bitstamp gave its ask (_remember_for_stored_values)."""
+    if db.info.get(SCRATCH) and files_end is not None:
+        db.info.setdefault(ASKED_ON_COPY, {}).update(
+            {h: _state["public_at"] for h, (_, source) in kept.items() if source == "bitstamp" and h > files_end})
 
 
 def _found_for_a_stored_value(hour: int) -> Decimal | None:
     """
     The hour's price a scratch copy found, for a stored row's missing value
-    whose lookup asked Bitstamp and was skipped by its 10-minute limit:
-    without it that value took the day's price where the copy had the
-    hour's (#824, #849). Only within the ask it came from, for the same year
-    files; never for another row's value, a report's or a price read, and
-    never kept in the ledger, where it would come before your Mempool's for
-    other rows: every other lookup gives what it did.
+    whose lookup asked Bitstamp and was skipped by its 10-minute limit, so
+    the value doesn't take the day's price where the copy had the hour's
+    (#824, #849). Only within the ask it came from, for the same year files;
+    never for another row's value, a report's or a price read, and never
+    kept in the ledger, where it would come before your Mempool's for other
+    rows: every other lookup gives what it did.
     """
-    notes, kept = _stored_value.get(), _found_on_copies.get(hour)
+    notes = _stored_value.get()
+    with _copies_lock:
+        kept = _found_on_copies.get(hour)
     if notes is None or not notes.get("ask_skipped") or kept is None:
         return None
     usd, files_end, asked_at = kept
@@ -294,6 +311,7 @@ def hourly_price(db: Session, when: datetime, wait: bool = True) -> tuple[Decima
         prices = _wait_for_year(line)
         found = (prices[hour], "bitstamp") if prices is not None else None
     _store(db, keep)
+    _note_asked_on_a_copy(db, keep, files_end)
     if found is None and db.info.get(WARMING):
         db.info.setdefault(UNPRICED_HOURS, set()).add(hour)
     return found
@@ -480,9 +498,6 @@ async def find_hours(hour: int, files_end: int | None, stored: set[int]) -> dict
     public = outbound.current().public_allowed
     if hour not in found and files_end is not None and hour > files_end and public:
         found.update({h: (p, "bitstamp") for h, p in (await _bitstamp_after(files_end, stored)).items()})
-        notes = _stored_value.get()
-        if notes is not None and hour in found:  # a stored value's hour Bitstamp gave (_remember_for_stored_values)
-            notes["bitstamp_gave"] = True
     return found
 
 
@@ -527,7 +542,8 @@ def reset_state() -> None:
     """Forget downloads and cached years (tests)."""
     with _years_lock:
         _years.clear()
-    _found_on_copies.clear()
+    with _copies_lock:
+        _found_on_copies.clear()
     _state.update(running=False, failed_at=-1e9, failed_wall=None, refused=False, mismatched={}, public_at=-1e9,
                   verified={}, again=False)
     _live.update(rows=None, hours={})

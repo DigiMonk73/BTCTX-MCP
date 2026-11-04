@@ -240,9 +240,10 @@ map.
   blocks from the hour after the files; never the hour asked. Those blocks
   are asked at most every 10 minutes. A replay on a scratch copy (the
   past-year question, the coins list, a report, Ledger Review's check)
-  that asks Bitstamp for a stored row's missing value (`transaction._price_for`,
-  one the stored row held blank, never its write's: `OWN_VALUES`) leaves
-  the hour in memory, and in those 10 minutes only such a value is given it (`hourly_prices._found_for_a_stored_value`, #824,
+  that prices a stored row's missing value (`transaction._price_for`; one
+  the stored row held blank, never its write's: `OWN_VALUES`) at an hour
+  its own ask brought leaves that hour in memory, and in those 10 minutes
+  only such a value is given it (`hourly_prices._found_for_a_stored_value`, #824,
   #849): never kept in the ledger, where it would come before your
   Mempool's for other rows, and with the day's prices looked for as before,
   so every other lookup gives what it did.
