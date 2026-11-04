@@ -181,7 +181,8 @@ def _remember_for_stored_values(db: Session, hour: int, found: tuple[Decimal, st
 
 
 def _note_asked_on_a_copy(db: Session, kept: dict[int, tuple[Decimal, str]], files_end: int | None) -> None:
-    """On a scratch copy, the hours after the files Bitstamp gave its ask (_remember_for_stored_values)."""
+    """On a scratch copy, the hours after the files Bitstamp's answer to its
+    ask brought there, none it had already (_remember_for_stored_values)."""
     if db.info.get(SCRATCH) and files_end is not None:
         db.info.setdefault(ASKED_ON_COPY, {}).update(
             {h: _state["public_at"] for h, (_, source) in kept.items() if source == "bitstamp" and h > files_end})
@@ -608,7 +609,9 @@ def _file_text(line: pf.YearLine) -> str | None:
 
 def _from_sources(db: Session, hour: int, files_end: int | None):
     """The chosen source's price for the hour (or None), and the hours to keep:
-    the one asked, and Bitstamp's after the files."""
+    the one asked, and Bitstamp's after the files not kept already (a kept
+    price never changes; a scratch copy notes only what its ask brought:
+    _note_asked_on_a_copy)."""
     stored = set()
     if files_end is not None:
         stored = {h for (h,) in db.query(BtcPriceHourly.hour).filter(BtcPriceHourly.hour > files_end)}
@@ -621,7 +624,8 @@ def _from_sources(db: Session, hour: int, files_end: int | None):
         logger.warning("Hourly BTC price lookup failed: %s", exc)
         price_status.record_refusal(exc)  # through Tor: the card asks (#241)
         found = {}
-    keep = {h: v for h, v in found.items() if h == hour or (files_end is not None and h > files_end)}
+    keep = {h: v for h, v in found.items()
+            if h not in stored and (h == hour or (files_end is not None and h > files_end))}
     return found.get(hour), keep
 
 

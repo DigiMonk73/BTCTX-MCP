@@ -34,7 +34,7 @@ All notable changes to BitcoinTX are documented in this file.
   after its hourly price files at most every 10 minutes, and some checks
   recalculate on a throwaway copy of your ledger: the past-year question
   (2.0.0), the form's list of the coins a transaction moves (2.0.0), the
-  Complete Tax Report's holdings and Ledger Review's check of what
+  Complete Tax Report's year-end holdings and Ledger Review's check of what
   Recalculate Ledger would change (from 1.2.8). When one of them asked, the
   hour it found went with the copy, and in the next 10 minutes the save
   priced that blank value at the day's price, marked as such, or, with the

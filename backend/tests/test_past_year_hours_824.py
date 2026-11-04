@@ -888,6 +888,32 @@ def test_a_restore_after_a_copy_found_the_blank_rows_hour_stored(world):
     assert world.fee(blank) == (Decimal("4.00"), "day")
 
 
+@pytest.mark.parametrize("kept_from", [("40500", "mempool"), ("41000", "bitstamp")])
+def test_a_restore_after_a_copys_ask_covered_an_hour_already_kept(world, kept_from):
+    """The ledger kept the second blank row's hour (from your Mempool once,
+    or Bitstamp); the question's copy asks for the first row's, and
+    Bitstamp's block covers the second's, found kept. A restore then puts
+    back a ledger without the hours (deleted here). Stays: Recalculate prices
+    the second at $4.00, the day's (#824's fifth review: $4.05 or $4.10).
+    Before: the first, whose hour the copy's ask brought, $4.00 too."""
+    first = world.blank_fee()
+    second = world.post(type="Transfer", timestamp=world.after_the_files(5), from_account_id=EXCHANGE_BTC,
+                        to_account_id=WALLET, amount="0.1", fee_amount="0.0001", fee_currency="BTC", fee_usd="9.99")
+    world.store(second, fee_usd=None, fee_usd_manual=False, price_moment=None)
+    world.nothing_stored_yet()
+    usd, source = kept_from
+    with world.session() as db:
+        db.add(BtcPriceHourly(hour=world.files_end + 5 * HOUR, usd=Decimal(usd), source=source))
+        db.commit()
+    world.a_question()
+    with world.session() as db:
+        db.query(BtcPriceHourly).delete()
+        db.commit()
+    assert world.client.post("/api/transactions/recalculate").status_code == 200
+    assert world.fee(second) == (Decimal("4.00"), "day")
+    assert world.fee(first) == (Decimal("4.10"), "hour")
+
+
 # Refused today for the blank row's price, worked out with the fix
 
 def test_ledger_review_after_a_question_with_the_history_complete(world):
