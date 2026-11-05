@@ -29,7 +29,9 @@ lives where it points. If anything here seems to differ from
 
 | What | Where |
 |---|---|
-| The maintenance plan, the owner's decisions, the merge queue, "ready: #N" | #869 and its comments |
+| The maintenance plan, the owner's decisions | #869 and its comments |
+| A release's plan, its sessions, the merge queue, "ready: #N" | the release's umbrella issue (2.0.1's is #869 itself) |
+| A release's steps at a glance | the board ("The board", below) |
 | The lead's kickoff, kept current | #869's comment "Kickoff prompt for the lead session" |
 | Where things stand, what's next | pinned #41, "Where we are" |
 | What waits on the owner | issues labelled `owner`, and #41 |
@@ -62,7 +64,46 @@ The rest of "one home for each kind of information":
      for-claude`;
    - the sessions still running, from the app's session list and their
      issues: sessions an earlier lead started send it no end notices.
-4. Carry on from the kickoff's "Next" and #869's queue.
+4. Carry on from the kickoff's "Next" and the queue on the release's
+   umbrella issue. A lead that has just taken over begins the release
+   cycle, below, at its first step.
+
+## The release cycle
+
+The same steps every release, so the work stays safe, consistent and
+repeatable (the owner, 2026-11-04):
+
+1. **Choose the next release's scope.** The new lead goes through the
+   open issues: bugs, `tax-figures`, `security` (hardening only: an
+   unfixed vulnerability is a draft advisory, never an issue), `start9`,
+   Dependabot's pull requests, outside reports and the `owner` items.
+   It decides what goes into the next maintenance release (2.0.2 after
+   2.0.1, and so on), in "What maintenance means"'s order, and brings
+   that scope to the owner in plain words, with one recommendation. The
+   owner agrees it; then the release gets its milestone and its umbrella
+   issue, with the scope and the owner's words, dated.
+2. **Plan it in detail.** The lead starts a planning session that writes
+   the release's plan on its umbrella issue, broken into steps, each
+   step into micro-steps. For each step: what "done" means, its
+   footprint, its owner points, its review ("Reviews") and its tests,
+   written first and seen to fail. The plan follows `docs/BIG-WORK.md`'s
+   (the footprint and merge plan, the kickoff per session, the index),
+   and after each merge the lead re-plans the next one or two steps
+   against what merged ("Planned ahead, detailed just in time").
+3. **Run it.** The steps run through numbered sub-sessions (below); the
+   lead merges from the queue, then releases (`docs/RELEASING.md`).
+4. **Hand over.** The release ends with the handoff (below), and the new
+   lead starts again at step 1.
+
+### The board
+
+The owner follows the work on GitHub Projects. Each release's issues go
+on the board with a status for each step: planned, in progress, ready,
+merged. The lead keeps it current as steps start, report ready and
+merge. Like the 2.0 board (project 2), it is a view, never the source:
+the issues and their pull requests hold the plan and the state, and a
+card changes only to follow them. Which board it is, the owner decides;
+the lead doesn't create or change one without the owner's go.
 
 ## Working through numbered sub-sessions
 
@@ -88,9 +129,10 @@ with the lead. How a session is set up, started and run is
   at once").
 - **All code work on Opus 5.5 or a later Opus release**, never a Sonnet
   (the owner, 2026-11-01, #869).
-- **Sessions report "ready: #N"** on #869 and to the lead, and never turn
+- **Sessions report "ready: #N"** on the release's umbrella issue and to
+  the lead, and never turn
   on auto-merge.
-- **The lead merges from one queue** on #869, one pull request at a time
+- **The lead merges from one queue** on that issue, one pull request at a time
   where files overlap: it checks the review is posted with nothing open,
   and the owner's words quoted where they're needed, then turns on
   auto-merge; once one merges, it brings the next up to date
@@ -156,8 +198,8 @@ the outgoing lead:
    exist yet, the first handoff writes it). It is the new lead's brief:
    read `docs/MAINTENANCE-LEAD.md`; the current state as pointers (the
    release just made, the sessions still running with their issues and
-   pull requests, #869's queue, what waits on the owner); and what's
-   next.
+   pull requests, the queue, the board, what waits on the owner); and
+   what's next: the release cycle's step 1.
 3. **Proposes the new lead** as a session card, named by its release:
    "Lead · maintenance after 2.0.1". The app starts a session only on
    the owner's own words, so the owner clicks the card or says "start

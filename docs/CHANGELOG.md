@@ -71,7 +71,9 @@ All notable changes to BitcoinTX are documented in this file.
   owner, 2026-11-04, plan: #869). A new `docs/MAINTENANCE-LEAD.md` says
   what the lead session does while BitcoinTX is maintained, so a fresh
   lead can start from it and one kickoff comment on #869 alone: what
-  maintenance means, where things live, how a lead starts, how it runs
+  maintenance means, where things live, how a lead starts, the release
+  cycle it repeats (the next release's scope agreed with the owner, a
+  detailed plan, the steps, the handoff) and the board that shows it, how it runs
   its work through numbered sub-sessions and merges from one queue, what
   always needs the owner, and when to stop a fix whose reviews keep
   finding new edges (#824, #849). `docs/RELEASING.md` gets a last step:
