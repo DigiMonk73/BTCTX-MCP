@@ -93,8 +93,9 @@ LEAD = "docs/MAINTENANCE-LEAD.md"
 
 
 def test_the_maintenance_leads_job_has_its_own_doc():
-    text = (ROOT / LEAD).read_text()
-    for words in ("## Starting as lead", "## The release cycle", "Start every session at once", "### The board",
+    text = " ".join((ROOT / LEAD).read_text().split())
+    for words in ("## Starting as lead", "## The release cycle", "Start every session at once", "### Who talks to whom",
+                  "### Pacing", "### The board", "three rounds in a row",
                   "## Working through numbered sub-sessions", "## What always needs the owner",
                   "## The handoff at each release", "Kickoff prompt for the lead session", "Opus 5.5",
                   '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
@@ -111,6 +112,7 @@ def test_releasing_ends_with_the_lead_handoff():
     numbered = [line for line in steps.splitlines() if line[:1].isdigit() and ". " in line[:4]]
     last = steps.split(numbered[-1], 1)[1].split("\n\n", 1)[0]
     assert "Hand over to a new lead" in numbered[-1], numbered[-1]
+    step = " ".join((numbered[-1] + last).split())  # the words, whatever the line breaks
     for words in ("#41", "Kickoff prompt for the lead session", "session card", f"`{LEAD}`",
                   '"The handoff at each release"'):
-        assert words in numbered[-1] + last, words
+        assert words in step, words

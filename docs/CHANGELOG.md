@@ -67,22 +67,27 @@ All notable changes to BitcoinTX are documented in this file.
   which recalculates.
 
 ### Development
-- **The maintenance lead's job, and its handoff at each release** (the
-  owner, 2026-11-04, plan: #869). A new `docs/MAINTENANCE-LEAD.md` says
-  what the lead session does while BitcoinTX is maintained, so a fresh
-  lead can start from it and one kickoff comment on #869 alone: what
-  maintenance means, where things live, how a lead starts, the release
-  cycle it repeats (the next release's scope agreed with the owner, a
-  detailed plan, every session started at once while the owner is at the Mac and
-  each waiting for the lead's "go", the steps, the handoff) and the board that shows it, how it runs
-  its work through numbered sub-sessions and merges from one queue, what
-  always needs the owner, and when to stop a fix whose reviews keep
-  finding new edges (#824, #849). `docs/RELEASING.md` gets a last step:
-  once a release is out and sent to Start9, the outgoing lead brings #41
-  and the kickoff up to date, offers the new lead as a card for the owner
-  to start ("Lead · maintenance after 2.0.1"), and archives itself.
+- **The maintenance lead's job: the owner's workflow** (the owner,
+  2026-11-04, plan: #869). A new `docs/MAINTENANCE-LEAD.md` says what the
+  lead session does while BitcoinTX is maintained, so a fresh lead can
+  start from it and one kickoff comment on #869 alone: what maintenance
+  means, where things live, how a lead starts, and the release cycle it
+  repeats. The cycle: the next release's scope agreed with the owner; a
+  detailed plan on the release's umbrella issue; every session started
+  at once while the owner is in the desktop app, each waiting for the
+  lead's "go"; the steps run and merged from one queue, paced by
+  conflicts and the usage left; then the handoff. Sessions report to the
+  lead, and the owner talks mainly to the lead. A step whose reviews find
+  a new edge three rounds in a row stops, and the owner gets the simpler
+  choice (#824, #849). `docs/RELEASING.md` gets a last step: once a
+  release is out and sent to Start9, the outgoing lead brings #41 and the
+  kickoff up to date, offers the new lead ("Lead · maintenance after
+  2.0.1") as a card for the owner to start, and archives itself.
   `AGENTS.md`'s map names the new file, and `test_agent_rules.py` checks
-  all three. No rule changes, and no figure can move.
+  all three. It replaces #869's earlier "no numbered sessions", and asks
+  for each release's micro-steps in its plan, where `docs/BIG-WORK.md`
+  writes them when a session starts; no other rule changes, and no
+  figure can move.
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word
   for word, into `docs/`: the tax invariants to `docs/TAX-INVARIANTS.md`,

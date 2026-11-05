@@ -90,14 +90,15 @@ the rules.
    ones in `docs/images/` by pull request (the README's) and in btctx-site's
    `img/`, then fast-forward `main` to `develop` (docs only, see Branches),
    since GitHub shows the README from `main`: so the two always match.
-6. **Hand over to a new lead** (the owner, 2026-11-04; added after the
-   move above). Once the release is out and sent to Start9, the
-   outgoing maintenance lead rewrites #41 for the next lead (dated),
-   edits #869's comment "Kickoff prompt for the lead session" in place,
-   proposes the new lead as a session card named by its release ("Lead
-   · maintenance after 2.0.1") for the owner to start, and archives
-   itself once the new lead has said on #869 that it read the kickoff:
-   `docs/MAINTENANCE-LEAD.md`, "The handoff at each release".
+6. **Hand over to a new lead** (the owner, 2026-11-04; this step is new
+   since the move from `AGENTS.md`). Once the release is out and sent to
+   Start9, the outgoing maintenance lead rewrites #41 for the next lead
+   (dated), edits #869's comment "Kickoff prompt for the lead session"
+   in place, proposes the new lead as a session card named by its
+   release ("Lead · maintenance after <release>", for example after
+   2.0.1) for the owner to start, and archives itself once the new lead
+   says it has read the kickoff: `docs/MAINTENANCE-LEAD.md`, "The
+   handoff at each release".
 
 The mirror (DigiMonk73/BTCTX-StartOS) is the repo Start9 forks into
 Start9-Community; their fork is then the package's upstream for the
