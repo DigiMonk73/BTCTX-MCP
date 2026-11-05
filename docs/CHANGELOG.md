@@ -84,10 +84,12 @@ All notable changes to BitcoinTX are documented in this file.
   kickoff up to date, offers the new lead ("Lead · maintenance after
   2.0.1") as a card for the owner to start, and archives itself.
   `AGENTS.md`'s map names the new file, and `test_agent_rules.py` checks
-  all three. It replaces #869's earlier "no numbered sessions", and asks
-  for each release's micro-steps in its plan, where `docs/BIG-WORK.md`
-  writes them when a session starts; no other rule changes, and no
-  figure can move.
+  all three. It replaces #869's earlier "no numbered sessions", and
+  differs from `docs/BIG-WORK.md` in two places, as the owner asked: each
+  release's micro-steps are drafted in its plan (BIG-WORK writes them
+  when a session starts), and its sessions are all started at once, each
+  waiting for its "go" (BIG-WORK starts each when what it waits for is
+  done). No other rule changes, and no figure can move.
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word
   for word, into `docs/`: the tax invariants to `docs/TAX-INVARIANTS.md`,

@@ -103,8 +103,8 @@ repeatable (the owner, 2026-11-04):
    "go", and writes its tests and sees them fail there. After each merge
    the lead re-plans the next one or two steps against what merged.
 3. **Start every session at once, while the owner is in the desktop
-   app.** Once the plan's steps are on the umbrella issue and the board,
-   the lead asks the owner, typing in the desktop app's own window, to
+   app.** Once the plan's steps are on the umbrella issue (and the
+   board, once the owner has chosen one), the lead asks the owner, typing in the desktop app's own window, to
    say "start them", then starts every session the release needs in one
    go, one per issue or step. The app starts a session only on the
    owner's own words, and a start asked for over Remote Control was
@@ -112,7 +112,10 @@ repeatable (the owner, 2026-11-04):
    them from anywhere. **Waiting is the default:** each brief says to
    post its checklist from its issue, then wait for the lead's "go"
    before reading code or writing any. A waiting session costs nothing;
-   what it read before waiting may be paid for again.
+   what it read before waiting may be paid for again. Starting them all
+   at once differs from `docs/BIG-WORK.md`, where the lead starts each
+   when what it waits for is done: the owner asked for it (2026-11-04),
+   and the "go" keeps that order.
 4. **Run it.** The lead sends "go" in the plan's order ("Pacing"). On
    its "go", a session brings its folder up to `develop` again (`git
    fetch origin`, then `git merge origin/develop`) and refreshes its
@@ -123,7 +126,7 @@ repeatable (the owner, 2026-11-04):
 
 ### Who talks to whom
 
-Every session reports to the lead: its questions, its "ready" and its
+The owner, 2026-11-04, to the maintenance lead. Every session reports to the lead: its questions, its "ready" and its
 results. The owner talks mainly to the lead. A session talks to the
 owner only when the owner talks to it, or when only the owner can
 answer, and then it tells the lead too. The lead relays what needs the
@@ -131,8 +134,8 @@ owner in plain words, with one recommendation.
 
 ### Pacing
 
-The lead decides when the next session gets its "go", and whether more
-than one works at once: never more than two (#869). It weighs:
+The lead decides (the owner, 2026-11-04) when the next session gets its
+"go", and whether more than one works at once: never more than two (#869). It weighs:
 
 - **conflicts:** footprints, hot spots and the merge queue
   (`docs/BIG-WORK.md`, "The footprint and merge plan" and "Running
@@ -141,8 +144,8 @@ than one works at once: never more than two (#869). It weighs:
 - **how much usage is left:** before each "go" it checks the plan's
   usage (the desktop app's usage tool where it has one; otherwise it
   asks the owner). When usage runs low it runs fewer at once, or pauses,
-  and tells the owner in a line. It never starts work it can't finish
-  before a limit resets.
+  and tells the owner in a line. It never starts work that the usage
+  left can't finish before the limit resets.
 
 ### The board
 
