@@ -74,6 +74,29 @@ All notable changes to BitcoinTX are documented in this file.
   which recalculates.
 
 ### Development
+- **The maintenance lead's job: the owner's workflow** (the owner,
+  2026-11-04, plan: #869). A new `docs/MAINTENANCE-LEAD.md` says what the
+  lead session does while BitcoinTX is maintained, so a fresh lead can
+  start from it and one kickoff comment on #869 alone: what maintenance
+  means, where things live, how a lead starts, and the release cycle it
+  repeats. The cycle: the next release's scope agreed with the owner; a
+  detailed plan on the release's umbrella issue; every session started
+  at once while the owner is in the desktop app, each waiting for the
+  lead's "go"; the steps run and merged from one queue, paced by
+  conflicts and the usage left; then the handoff. Sessions report to the
+  lead, and the owner talks mainly to the lead. A step whose reviews find
+  a new edge three rounds in a row stops, and the owner gets the simpler
+  choice (#824, #849). `docs/RELEASING.md` gets a last step: once a
+  release is out and sent to Start9, the outgoing lead brings #41 and the
+  kickoff up to date, offers the new lead ("Lead · maintenance after
+  2.0.1") as a card for the owner to start, and archives itself.
+  `AGENTS.md`'s map names the new file, and `test_agent_rules.py` checks
+  all three. It replaces #869's earlier "no numbered sessions", and
+  differs from `docs/BIG-WORK.md` in two places, as the owner asked: each
+  release's micro-steps are drafted in its plan (BIG-WORK writes them
+  when a session starts), and its sessions are all started at once, each
+  waiting for its "go" (BIG-WORK starts each when what it waits for is
+  done). No other rule changes, and no figure can move.
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word
   for word, into `docs/`: the tax invariants to `docs/TAX-INVARIANTS.md`,
