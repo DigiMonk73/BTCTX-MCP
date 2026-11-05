@@ -81,6 +81,7 @@ pointers that still name its sections (`AGENTS.md, "Prices"`):
 | "Releasing" | `docs/RELEASING.md`: read it before any release step |
 | "Start9" | `docs/START9.md`: read it before any Start9 step |
 | "Big work" ("The lead runs the merges"…) | `docs/BIG-WORK.md` |
+| The maintenance lead's job, and its handoff at each release (new) | `docs/MAINTENANCE-LEAD.md` |
 | "Who does what", "Branches", "Pull requests", "Working through GitHub", "Bugs and security", "Starting a session", "Ending a session" | `docs/HOW-CHANGES-FLOW.md`, "The detailed rules" |
 | "What's at stake", "Before you change…", "Reviews" | here, word for word |
 

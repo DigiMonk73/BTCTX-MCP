@@ -84,3 +84,35 @@ def test_a_path_scoped_rule_names_the_invariants_for_the_tax_paths():
         assert f'  - "{glob}"' in front, glob
     for words in ("docs/TAX-INVARIANTS.md", "docs/SECURITY-RULES.md", '"Reviews"'):
         assert words in body, words
+
+
+# The maintenance lead (the owner, 2026-11-04, #869): a fresh lead starts from
+# docs/MAINTENANCE-LEAD.md and #869's kickoff, and each release ends with the
+# handoff to the next one.
+LEAD = "docs/MAINTENANCE-LEAD.md"
+
+
+def test_the_maintenance_leads_job_has_its_own_doc():
+    text = " ".join((ROOT / LEAD).read_text().split())
+    for words in ("## Starting as lead", "## The release cycle", "Start every session at once", "### Who talks to whom",
+                  "### Pacing", "### The board", "three rounds in a row",
+                  "## Working through numbered sub-sessions", "## What always needs the owner",
+                  "## The handoff at each release", "Kickoff prompt for the lead session", "Opus 5.5",
+                  '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
+        assert words in text, words
+
+
+def test_the_map_names_the_maintenance_lead():
+    table = agents_md().split("**Where the rest of this file went**", 1)[1].split("\n## ", 1)[0]
+    assert f"`{LEAD}`" in table
+
+
+def test_releasing_ends_with_the_lead_handoff():
+    steps = (ROOT / "docs/RELEASING.md").read_text().split("\n## Releasing\n", 1)[1]
+    numbered = [line for line in steps.splitlines() if line[:1].isdigit() and ". " in line[:4]]
+    last = steps.split(numbered[-1], 1)[1].split("\n\n", 1)[0]
+    assert "Hand over to a new lead" in numbered[-1], numbered[-1]
+    step = " ".join((numbered[-1] + last).split())  # the words, whatever the line breaks
+    for words in ("#41", "Kickoff prompt for the lead session", "session card", f"`{LEAD}`",
+                  '"The handoff at each release"'):
+        assert words in step, words
