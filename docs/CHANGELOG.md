@@ -73,7 +73,8 @@ All notable changes to BitcoinTX are documented in this file.
   lead can start from it and one kickoff comment on #869 alone: what
   maintenance means, where things live, how a lead starts, the release
   cycle it repeats (the next release's scope agreed with the owner, a
-  detailed plan, the steps, the handoff) and the board that shows it, how it runs
+  detailed plan, every session started at once while the owner is at the Mac and
+  each waiting for the lead's "go", the steps, the handoff) and the board that shows it, how it runs
   its work through numbered sub-sessions and merges from one queue, what
   always needs the owner, and when to stop a fix whose reviews keep
   finding new edges (#824, #849). `docs/RELEASING.md` gets a last step:

@@ -90,9 +90,21 @@ repeatable (the owner, 2026-11-04):
    (the footprint and merge plan, the kickoff per session, the index),
    and after each merge the lead re-plans the next one or two steps
    against what merged ("Planned ahead, detailed just in time").
-3. **Run it.** The steps run through numbered sub-sessions (below); the
-   lead merges from the queue, then releases (`docs/RELEASING.md`).
-4. **Hand over.** The release ends with the handoff (below), and the new
+3. **Start every session at once, while the owner is at the Mac.** Once
+   the plan's steps are on the umbrella issue and the board, the lead
+   asks the owner, at the Mac, to say "start them", then starts every
+   session the release needs in one go, one per issue or step. The app
+   starts a session only on the owner's own words, and a start over
+   Remote Control was refused (2026-11-02); once they all exist, the
+   owner can work with them remotely. Waiting is the default: each
+   brief says to post its checklist, read what it needs, then wait for
+   the lead's "go" message before writing code. An idle session costs
+   nothing.
+4. **Run it.** The lead sends "go" in the plan's order, to the one or
+   two the merge plan allows (below), merges from the queue, then
+   releases (`docs/RELEASING.md`). Before the handoff it archives every
+   session and removes their clean folders.
+5. **Hand over.** The release ends with the handoff (below), and the new
    lead starts again at step 1.
 
 ### The board
@@ -112,21 +124,25 @@ work itself runs in sub-sessions. A question, a read or a comment stays
 with the lead. How a session is set up, started and run is
 `docs/BIG-WORK.md`, which the points below follow.
 
-- **Number and name each one** by its piece of the plan: "M5 · #859 and
-  #878". Its issue holds its checklist, "Done when" and the points where
-  it stops for the owner.
+- **Name each one** by its release, its step number and its issue, so
+  the owner can find it from a phone: "2.0.2 · 3 · Fix #NNN". Its issue
+  holds its checklist, "Done when" and the points where it stops for
+  the owner.
 - **Start it with the app's start tool, from `develop`:** run `make
   sync-check` first, and name `develop` as the base of its own working
   folder (`docs/BIG-WORK.md`, "Every session starts from `develop`").
-  The app starts a session only on the owner's own words; otherwise the
-  lead offers it as a card the owner clicks.
+  The app starts a session only on the owner's own words, so a
+  release's sessions are started together (the release cycle, step 3);
+  one added later is offered as a card the owner clicks, or started on
+  their words.
 - **A brief that stands on its own:** the issue, the goal, "Done when",
   the files it may touch, what not to touch, the review its change
-  needs ("Reviews"), the owner's points, and the first commands (`git
-  fetch origin`, then `git merge --ff-only origin/develop`).
-- **At most two at once**, and two run together only when they share no
-  file but `docs/CHANGELOG.md` (`docs/BIG-WORK.md`, "Running sessions
-  at once").
+  needs ("Reviews"), the owner's points, the first commands (`git
+  fetch origin`, then `git merge --ff-only origin/develop`), and "wait
+  for the lead's go before writing code".
+- **At most two working at once**, the rest waiting for their "go", and
+  two work together only when they share no file or hot spot but
+  `docs/CHANGELOG.md` (`docs/BIG-WORK.md`, "Running sessions at once").
 - **All code work on Opus 5.5 or a later Opus release**, never a Sonnet
   (the owner, 2026-11-01, #869).
 - **Sessions report "ready: #N"** on the release's umbrella issue and to
@@ -139,8 +155,9 @@ with the lead. How a session is set up, started and run is
   (`docs/BIG-WORK.md`, "The lead runs the merges").
 - **A session's report is a claim:** the lead checks the pull request
   and its diff before telling the owner it's done.
-- **A bug found on the way** gets its own issue and, as the plan allows,
-  its own session (`docs/BIG-WORK.md`).
+- **A bug found on the way** is reported to the lead, which files it
+  and, on the owner's words, adds a session for it, as the plan allows
+  (`docs/BIG-WORK.md`, "A bug found on the way").
 - **When a session is done** (its pull request merged, or closed), the
   lead archives it and removes its folder, if clean, with `git worktree
   remove` (never another session's, never one in use), then runs `make

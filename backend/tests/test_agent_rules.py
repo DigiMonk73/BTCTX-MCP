@@ -94,7 +94,7 @@ LEAD = "docs/MAINTENANCE-LEAD.md"
 
 def test_the_maintenance_leads_job_has_its_own_doc():
     text = (ROOT / LEAD).read_text()
-    for words in ("## Starting as lead", "## The release cycle", "### The board",
+    for words in ("## Starting as lead", "## The release cycle", "Start every session at once", "### The board",
                   "## Working through numbered sub-sessions", "## What always needs the owner",
                   "## The handoff at each release", "Kickoff prompt for the lead session", "Opus 5.5",
                   '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
