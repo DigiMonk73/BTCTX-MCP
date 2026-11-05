@@ -67,6 +67,19 @@ All notable changes to BitcoinTX are documented in this file.
   which recalculates.
 
 ### Development
+- **The maintenance lead's job, and its handoff at each release** (the
+  owner, 2026-11-04, plan: #869). A new `docs/MAINTENANCE-LEAD.md` says
+  what the lead session does while BitcoinTX is maintained, so a fresh
+  lead can start from it and one kickoff comment on #869 alone: what
+  maintenance means, where things live, how a lead starts, how it runs
+  its work through numbered sub-sessions and merges from one queue, what
+  always needs the owner, and when to stop a fix whose reviews keep
+  finding new edges (#824, #849). `docs/RELEASING.md` gets a last step:
+  once a release is out and sent to Start9, the outgoing lead brings #41
+  and the kickoff up to date, offers the new lead as a card for the owner
+  to start ("Lead · maintenance after 2.0.1"), and archives itself.
+  `AGENTS.md`'s map names the new file, and `test_agent_rules.py` checks
+  all three. No rule changes, and no figure can move.
 - **A short `AGENTS.md`** (#903, plan: #869). Every session loads it, so it
   went from 102,575 bytes to about 12,200. Its long sections moved, word
   for word, into `docs/`: the tax invariants to `docs/TAX-INVARIANTS.md`,
