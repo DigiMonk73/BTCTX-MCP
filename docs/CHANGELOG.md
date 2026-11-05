@@ -17,13 +17,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Changed
 
-- **Schedule D's filled lines are bitcoin only** (#859): the Complete Tax
-  Report's "Using these forms" now says that lines 1b, 2, 3, 8b, 9 and 10
-  hold the bitcoin alone, though stock sales go on the same lines, so
-  someone who also sold stocks has their preparer or tax software make the
-  Schedule D they file from all their Form 8949s. To keep that page to one
-  page, its note on lines 4, 5, 11, 12 and 13 is a few words shorter. No
-  figure or box moves.
+- **Schedule D's filled lines are bitcoin only** (#859): in the Complete Tax
+  Report's "Using these forms", the note on the Schedule D lines BitcoinTX
+  fills (of 1b, 2, 3, 8b, 9 and 10, the year's own) now says they hold the
+  bitcoin only, and that stock sales share them, so someone who also sold
+  stocks has a preparer or tax software make Schedule D from all their Form
+  8949s. To keep that page to one page, its note on lines 4, 5, 11, 12 and
+  13 is a few words shorter. No figure or box moves.
 - The report no longer says flatly that a network fee is on no Form 1099-DA:
   a broker may list one, and the IRS doesn't say. BitcoinTX still places a fee
   on no such form by itself, and the new page says how to move its row by hand
