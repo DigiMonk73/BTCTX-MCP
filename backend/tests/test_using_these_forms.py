@@ -41,7 +41,8 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     assert "Schedule D: lines 2 and 10, each the total of its box's Form 8949 pages" in text
     assert "a page or more per box" in text
     for blank in ("lines 1a and 8a: every sale goes on Form 8949", "lines 6 and 14, the loss carryovers",
-                  "Lines 4, 5, 11, 12 and 13", "Lines 7, 15, 16 and 21, and the rest of Part III",
+                  "Lines 4, 5, 11, 12 and 13 (installment sales, casualties, K-1s, capital gain distributions): "
+                  "BitcoinTX tracks only bitcoin.", "Lines 7, 15, 16 and 21, and the rest of Part III",
                   "The qualified opportunity fund question at the top of Schedule D: answer it."):
         assert blank in text
     assert "Write the name and social security number on every Form 8949 page and on Schedule D" in text
@@ -53,6 +54,27 @@ def test_it_says_what_is_filled_and_what_is_left_blank():
     assert "one exchange account" not in text and "pooled here" not in text
     assert "(IRC §1015)" in text and "adjusted by hand (its basis and holding period)" in text
     assert "BitcoinTX is software, not tax, legal or financial advice." in text
+
+
+SHARED = ("They hold bitcoin only, but stock sales share them: with stocks, a preparer or tax software makes "
+          "Schedule D from all Form 8949s.")
+
+
+@pytest.mark.parametrize("forms, filled", [
+    ("final", "Columns (f) and (g) are blank: BitcoinTX records no adjustments."),
+    ("draft", "Columns (f) and (g) are blank: BitcoinTX records no adjustments."),
+    ("none", "each the total of its box's Form 8949 entries, as in the Summary."),
+    ("newer", "each the total of its box's Form 8949 entries, as in the Summary."),
+])
+def test_it_says_schedule_ds_lines_are_shared_with_stocks(forms, filled):
+    """#859: lines 1b, 2, 3, 8b, 9 and 10 each take a box of stock sales too
+    (line 3 is "Box C or Box I"), and BitcoinTX's Schedule D, printed flat,
+    holds only the bitcoin: whoever also sold stocks files one made from
+    every Form 8949. The sentence follows the Schedule D note, in every
+    year with a disposal; a year without one has no Schedule D lines."""
+    text = report_text(irs_forms=forms, form_8949_boxes=[box("H", "2", -1000.0), box("L", "10", 7472.70)])
+    assert "Schedule D: lines 2 and 10, " in text and f"{filled} {SHARED}" in text
+    assert "stock sales share them" not in report_text(irs_forms=forms)
 
 
 def test_the_notes_say_other_coins_can_give_other_figures():
