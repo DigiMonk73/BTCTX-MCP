@@ -660,16 +660,16 @@ and the README's "Reporting problems"; keep them.
     versions and which tax years or transactions it affected, and what to
     do (for example, Ledger Review, then Recalculate Ledger). The release
     repeats it in the StartOS release notes ("Releasing", step 1).
-- **The Monday report** lists:
+- **The Monday report** (`monday-report.yml`; `docs/MAINTENANCE.md`,
+  "Scheduled checks") lists:
   - open `tax-figures` issues;
   - outside reports with no answer, here, on Start9's fork or on the
     mirror;
-  - how many security advisories are waiting (never their details);
   - open `start9` issues: what Start9 released or changed that the
-    StartOS package hasn't followed yet;
-  - the latest Grok pass, as Claude recorded it on #41: how many of its
-    findings Claude confirmed and how many it didn't, and the next
-    monthly area (`docs/GROK-REVIEW.md`).
+    StartOS package hasn't followed yet.
+
+  It says nothing about security advisories, not even how many: look at
+  the Security tab. The latest Grok pass is on #41.
 
 ## Starting a session
 
@@ -679,9 +679,10 @@ into `develop` (`gh pr list --base develop`, `gh run list --branch
 develop --limit 10`). Tell the owner in plain words what's green and
 what's red, and fix anything red first, before any new work; then bring
 up to date the next reviewed pull request waiting behind one that merged
-("Pull requests"). Then what Start9 changed: the open
-`start9` issues, and, until `main` carries the daily `start9-watch.yml`
-(its schedule runs only from `main`), `scripts/start9-watch.sh` itself
+("Pull requests"). Then the Security tab (draft advisories, Dependabot's
+alerts), the week's Monday report issue and the open `start9` issues.
+Until `main` carries the weekly `start9-watch.yml` (GitHub runs a
+schedule only from `main`), run `scripts/start9-watch.sh` yourself
 (startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`

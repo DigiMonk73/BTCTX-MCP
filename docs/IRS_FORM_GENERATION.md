@@ -153,8 +153,10 @@ Timestamps are stored in UTC. The tax timezone decides:
 Where the timezone comes from: **Settings → Account → Tax Timezone** (the
 `tax_timezone` row in `app_settings`), then the `BTCTX_TIMEZONE` env var,
 then UTC. Only the names of the `tzdata` package BitcoinTX ships with are
-saved (#407), the same list on every machine: a restore elsewhere reads the
-same zone, and a backup holding another name keeps this install's own.
+saved (#407), the same list on every machine, and only its rules are read,
+never the computer's own zone files (`backend/__init__.py`, #889): a restore
+elsewhere reads the same zone and the same dates, and a backup holding
+another name keeps this install's own.
 API: `GET/PUT /api/settings/tax-timezone`. Changing it recalculates
 the whole ledger, because stored holding periods can change; a change that
 moves an earlier tax year's figures first asks the past-year question (409,

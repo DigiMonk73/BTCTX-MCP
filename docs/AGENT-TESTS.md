@@ -2265,4 +2265,17 @@ Open bugs a run may meet (the release's CHANGELOG lists them under Known
 issues). Report these as KNOWN. Delete a line when its fix is merged into
 `develop`, since release candidates are built from it.
 
-None known for 1.2.10 or 2.0.
+- **#824, #849** (closed with no code change, the owner, 2026-11-04):
+  only on a ledger holding a row whose value is blank in the database
+  (blanked by hand, or left by an old version in a ledger not
+  recalculated since). The past-year question, or the form's list of the
+  coins a transaction moves, looks up that row's price and loses the
+  answer, so a save can need a second try. If the row is dated after the
+  price history's last hour, it or another value priced in the next 10
+  minutes can take the day's price, marked, instead of the hour's. Ledger
+  Review lists such a value and can apply the hour's price. The golden
+  ledger has no such row.
+- **#551** (a limitation): BitcoinTX can't by itself match a Form 1099-DA
+  that lists a transfer's or a gift's network fee, or a fee without its
+  withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
+  page "If your Form 1099-DA differs" says how to move its row by hand.
