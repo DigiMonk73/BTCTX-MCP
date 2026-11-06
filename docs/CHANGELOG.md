@@ -30,6 +30,13 @@ All notable changes to BitcoinTX are documented in this file.
   if yours lists one (for #551). The report's notes and the guides also say
   that Form 8949's column (a) prints no transaction ID (for #156). No figure or
   box moves.
+- **StartOS Instructions: a Form 1099-DA that differs** (#878): the
+  Instructions tab now says what the README, `docs/USING.md` and the AI guide
+  say since #158: set **Broker form** when the 1099-DA reports a sale in
+  another box, and make the correction by hand on Form 8949 when its figures
+  differ (the Complete Tax Report's page says how). Before, it said to set
+  Broker form for any difference, though it moves only the box. No figure
+  moves.
 
 ### Fixed
 
