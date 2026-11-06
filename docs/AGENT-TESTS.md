@@ -103,6 +103,14 @@ the published files are the ones you tested.
 GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 1.2.10 when 2.0.0 comes out.
 
+**A 2.0.x maintenance release** (2.0.1 on; the maintenance lead,
+2026-11-06) runs Tracks A, B, C and REF. Its Track B starts from the
+previous 2.0 release (GitHub's "Latest"), and runs UPG-1, UPG-2 and
+UPG-2b once more from the last 1.x (1.2.10), since a 1.x install updates
+straight to the new version. WAY, BETA, CB and MAP don't apply: WAY and
+BETA are for a release that comes from 1.x or a pre-release, CB was
+2.0.0's, and MAP is a tester's walk at 2.0.
+
 To walk a published pre-release (or any build that isn't the tip), use
 this file as it is at that build's tag or commit (`git show
 v2.0.0-alpha.N:docs/AGENT-TESTS.md`, or `git show
