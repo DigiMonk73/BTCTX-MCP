@@ -4,6 +4,40 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
+
+**In short.** 2.0.1 is the first maintenance update of 2.0.0. It fixes one
+bug that could make a tax figure wrong (the entry marked "tax figures"
+below: the tax timezone's rules came from the computer's own timezone data,
+so from 1 November 2026 the times of Manitoba, the Northwest Territories
+and Cuba were an hour off on Docker and StartOS, and on a Mac whose own
+timezone data is older, #889). That entry says who
+could be affected and what to do; most ledgers need nothing more. The
+Complete Tax Report also gets a page for when a Form 1099-DA differs from
+BitcoinTX (#158).
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself).
+2. **Update the AI connector** to `btctx-mcp==2.0.1` in your AI app's
+   configuration, then restart the AI app.
+3. Then read the entry marked "tax figures" below: it says whether
+   there's anything to do.
+
+**Known issues:** the one 2.0.0 listed stays. Only on a ledger holding a
+row whose value is blank in the database (in practice, blanked by hand, or
+left by an old version in a ledger not recalculated since): the question
+before an earlier tax year's figures move, or the form's list of the coins
+a transaction moves, looks up that row's price and loses the answer, so a
+save can need a second try; if the row is dated after the price history's
+last hour, it or another value priced in the next 10 minutes can take the
+day's price, marked, instead of the hour's (#824, #849, closed with no code
+change: Ledger Review lists a value saved like that). A known limitation:
+BitcoinTX can't match, by itself, a Form 1099-DA that lists a transfer's or
+a gift's network fee, or a fee without its withdrawal, on Form 8949; the
+new page says how to correct it by hand (#551).
+
 ### Added
 
 - **When a Form 1099-DA differs from BitcoinTX** (#158): in a year with a sale
@@ -37,6 +71,17 @@ All notable changes to BitcoinTX are documented in this file.
   differ (the Complete Tax Report's page says how). Before, it said to set
   Broker form for any difference, though it moves only the box. No figure
   moves.
+
+- **BitcoinTX's libraries are current** (Dependabot's #873, #874, #884 and
+  #885): python-dateutil 3.0.0 (from 2.9.0.post0), which counts a holding
+  period's year; FastAPI 0.162.0, Starlette 1.10.0 and Pydantic 2.14.2; the
+  world's timezone rules, tzdata 2026.6 (IANA 2026f, from 2026e: the #889
+  entry below); and, in the web app, axios 1.21.0, lucide-react 1.65.0,
+  react-hook-form 7.91.0 and react-router-dom 7.18.5. The Docker image's
+  web-app build stage takes Node 24.22.2; nothing from that stage ships but
+  the built web app. Each was reviewed for what it can reach (dateutil 3's
+  holding period run on about 2.5 million dates in both versions), and
+  none moves a figure. Nothing changes on screen or in any figure.
 
 ### Fixed
 
@@ -79,6 +124,14 @@ All notable changes to BitcoinTX are documented in this file.
   those rows out if you import their file again, then Recalculate Ledger
   once. If your tax timezone was `localtime`, choose yours in Settings,
   which recalculates.
+
+### StartOS package
+- **Package 2.0.1:0** (Start9's `versions.md`). 2.0.0:0's migration was
+  empty, so `current.ts` is bumped in place, with no migration of its own.
+  Its release notes, in five languages, cover everything since 2.0.0:0,
+  which the community registry serves: what to do after updating (the AI
+  connector's `btctx-mcp==2.0.1`), the tax-figures fix #889 with who could
+  be affected and what to do, the other changes and the known issues.
 
 ### Development
 - **The maintenance lead's job: the owner's workflow** (the owner,
