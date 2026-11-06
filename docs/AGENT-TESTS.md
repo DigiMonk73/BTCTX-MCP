@@ -92,7 +92,7 @@ isn't ready for this walk.
 | Previous release's `btctx.s9pk` | the latest release on https://github.com/DigiMonk73/BTCTX-MCP/releases (Track B) |
 | Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Preview-macOS`, holding `BitcoinTX Preview.app` |
 | MCP connector | not on PyPI until the release, so run it from the commit: `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP@$SHA#subdirectory=mcp_server" btctx-mcp` |
-| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, AI-16, MAC-UPG, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
+| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, AI-16, MAC-UPG, WAY; a 2.0.x release's pass from 1.x, below) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
 | A pre-release (BETA) | the GitHub pre-release `v2.0.0-alpha.N` or `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Preview-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` (or `-alpha.N`) and the connector `uvx btctx-mcp==2.0.0bN` (an alpha's `2.0.0aN`); for BETA-2 also the pre-release before it |
 
 After the release is published, repeat INS-1 to INS-7 and AI-7 to AI-8
@@ -105,11 +105,14 @@ GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 
 **A 2.0.x maintenance release** (2.0.1 on; the maintenance lead,
 2026-11-06) runs Tracks A, B, C and REF. Its Track B starts from the
-previous 2.0 release (GitHub's "Latest"), and runs UPG-1, UPG-2 and
-UPG-2b once more from the last 1.x (1.2.10), since a 1.x install updates
-straight to the new version. WAY, BETA, CB and MAP don't apply: WAY and
-BETA are for a release that comes from 1.x or a pre-release, CB was
-2.0.0's, and MAP is a tester's walk at 2.0.
+previous 2.0 release (GitHub's "Latest"). Since a 1.x install updates
+straight to the new version, a second pass then starts from the last 1.x
+(1.2.10): UPG-1 (with a tab left logged in on Transactions, for UPG-2b;
+no `golden-1x.btx` or StartOS backup), UPG-2, UPG-2b and UPG-3's 1.x
+checks; and Track C runs MAC-UPG. WAY runs only when the release adds a
+migration or changes the backup format: otherwise its ways back are
+2.0.0's. CB was 2.0.0's (Start9's first merge of 2.0), BETA is for
+pre-releases, and MAP is a tester's walk, not an agent's.
 
 To walk a published pre-release (or any build that isn't the tip), use
 this file as it is at that build's tag or commit (`git show
@@ -2286,4 +2289,5 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
 - **#551** (a limitation): BitcoinTX can't by itself match a Form 1099-DA
   that lists a transfer's or a gift's network fee, or a fee without its
   withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
-  page "If your Form 1099-DA differs" says how to move its row by hand.
+  page "If your Form 1099-DA differs" (in a year with no sale in box G,
+  H, J or K, its note on fees) says how to move its row by hand.

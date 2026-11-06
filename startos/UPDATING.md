@@ -193,13 +193,12 @@ Start9 moves fast (on 2026-10-23 alone: StartOS 0.4.0.3, start-cli 2.5.0 and
 start-registry 1.2.0), and their reviewers hold the
 package to their current guide and SDK. So BTCTX-MCP watches them weekly, on
 Mondays (BTCTX-MCP's `.github/workflows/start9-watch.yml` and `scripts/start9-watch.sh`; the owner,
-2026-10-23, weekly since 2026-10-31; GitHub runs the schedule only from `main`, so until `main`
-carries the workflow, the script is run by hand when a session starts:
-BTCTX-MCP's `AGENTS.md`, "Starting a session"): one issue, labelled `start9`, for each newer start-sdk or
+2026-10-23, weekly since 2026-10-31. GitHub runs the schedule only from `main`, which ran the
+daily one until 2.0.1's release brought the weekly one there): one issue, labelled `start9`, for each newer start-sdk or
 start-cli than `develop` pins, each StartOS release (test the package on it,
 the lab VM first), each start-registry release (check our start-cli still
-reads the registries), each change to Start9's packaging guide or shared package
-workflows, a failed build on the mirror or their fork, and changes on
+reads the registries), the changes to Start9's packaging guide or shared package
+workflows since the last such issue (one issue listing them), a failed build on the mirror or their fork, and changes on
 their fork not taken back. In BTCTX-MCP, `scripts/start9-watch.sh --dry-run` shows the
 same without opening anything. Each issue says what to do; the Monday report
 lists the open ones.

@@ -681,8 +681,9 @@ what's red, and fix anything red first, before any new work; then bring
 up to date the next reviewed pull request waiting behind one that merged
 ("Pull requests"). Then the Security tab (draft advisories, Dependabot's
 alerts), the week's Monday report issue and the open `start9` issues.
-Until `main` carries the weekly `start9-watch.yml` (GitHub runs a
-schedule only from `main`), run `scripts/start9-watch.sh` yourself
+GitHub runs a schedule only from `main`: until `main` carries
+`monday-report.yml` (from 2.0.1's release), run `scripts/monday-report.sh
+--dry-run` instead. `start9-watch.yml` already runs from `main`
 (startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
