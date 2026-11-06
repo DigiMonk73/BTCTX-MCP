@@ -137,6 +137,17 @@ def fmt_value(value) -> str:
     return "not priced" if value is None else fmt_usd(value)
 
 
+def _shared_with_stocks(boxes: list) -> str:
+    """The sentence after the Schedule D lines BitcoinTX fills (#859).
+    Each of them takes a box of stock sales too (line 3 is "Box C or Box
+    I"), and the printed Schedule D can't be edited, so whoever also sold
+    stocks files one made from every Form 8949. Its words are few: with all
+    six boxes, "Using these forms" fills its page to the last line."""
+    these = "these lines" if len(boxes) > 1 else "this line"
+    return (f"Bitcoin only: if stocks were sold too, they share {these}, and a preparer or tax software makes "
+            "Schedule D from all Form 8949s.")
+
+
 def _and_list(items: list[str]) -> str:
     """"2", "2 and 10", "1b, 2 and 10"."""
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
@@ -748,8 +759,8 @@ class _TaxReport:
         story += self.bullets((
             "Schedule D lines 1a and 8a: every sale goes on Form 8949, as Schedule D allows, so they stay blank.",
             "Schedule D lines 6 and 14, the loss carryovers: they come from last year's return.",
-            "Lines 4, 5, 11, 12 and 13, other sources (installment sales, casualties, K-1s, capital gain "
-            "distributions and the like): BitcoinTX tracks only bitcoin.",
+            "Lines 4, 5, 11, 12 and 13 (installment sales, casualties, K-1s, capital gain distributions…): "
+            "BitcoinTX tracks only bitcoin.",
             "Lines 7, 15, 16 and 21, and the rest of Part III: they combine the Bitcoin lines with everything "
             "else on the return.",
             "The qualified opportunity fund question at the top of Schedule D: answer it.",
@@ -799,14 +810,14 @@ class _TaxReport:
                 f"attached statement\"{_broker_first(boxes)}; (b) and (c) blank; (f) code M; (g) -0-. This year's "
                 f"boxes: {listed}.",
                 f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 entries, as in the "
-                "Summary.",
+                f"Summary. {_shared_with_stocks(boxes)}",
             ]
         else:
             notes = [
                 f"Form 8949: every Bitcoin disposal of {self.year}, a page or more per box, each page's line 2 "
                 f"adding up its rows. This year's boxes: {listed}.",
-                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 pages. Columns "
-                "(f) and (g) are blank: BitcoinTX records no adjustments.",
+                f"Schedule D: line{'s' if len(boxes) > 1 else ''} {lines}, {each} Form 8949 pages. "
+                f"{_shared_with_stocks(boxes)} Columns (f) and (g) are blank: BitcoinTX records no adjustments.",
             ]
         if forms == "draft":
             notes.append(f"The {self.year} forms are the IRS's drafts, marked DRAFT — DO NOT FILE: file on the "

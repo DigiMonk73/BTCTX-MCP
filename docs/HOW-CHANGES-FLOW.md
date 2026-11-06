@@ -163,6 +163,10 @@ grows too long. Details: `AGENTS.md`, "Big work".
    README's `docs/images/` (then `main` is fast-forwarded, docs only, as
    GitHub shows the README from `main`) and the landing page together. The owner sees the
    landing page before it goes live, since it's public.
+8. Once the release is out and sent to Start9, the maintenance lead hands
+   over to a new lead: it brings #41 and its kickoff on #869 up to date,
+   offers the new lead as a card for the owner to start, and then archives
+   itself (`docs/MAINTENANCE-LEAD.md`, "The handoff at each release").
 
 ## 2b. A 2.0 alpha or beta (a pre-release)
 
