@@ -4,20 +4,19 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Now: 2.0.0
+## Now: 2.0.1
 
-BitcoinTX 2.0.0 is the current version: each wallet, exchange and bank is an
-account of its own, each wallet and exchange with its own cost-basis lots. It
-reaches StartOS through Start9's Community Beta, then, when the owner asks
-Start9 to promote it, its Community Registry. BitcoinTX 1.x gets no more
-fixes: its last release, 1.2.10, stays downloadable. No dates are promised.
+BitcoinTX 2.0.1 is the current version, the first maintenance update of
+2.0: each wallet, exchange and bank is an account of its own, each wallet
+and exchange with its own cost-basis lots. 2.0 is the final stable
+release: what comes next is updates, bug fixes and security fixes, about
+every three months. It reaches StartOS through Start9's Community Beta,
+then, when the owner asks Start9 to promote it, its Community Registry.
+BitcoinTX 1.x gets no more fixes: its last release, 1.2.10, stays
+downloadable. No dates are promised.
 
 ## Soon
 
-- [x] **When a broker's Form 1099-DA differs** (#158), before the 2026
-      forms are filed (early 2027): the report and the guides say what to
-      compare and how to correct Form 8949 by hand (the owner's choice,
-      2026-10-31). BitcoinTX stores no broker's figures.
 - [ ] Styled dialogs instead of the browser's confirm boxes (deleting a
       transaction, the CSV and exchange-file imports, Ledger Review's apply, Reset
       Username & Password, logging out, the AI key), like the one for
