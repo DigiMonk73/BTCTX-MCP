@@ -9,8 +9,10 @@ and larger work coming next; specific to-dos and checks are GitHub issues
 BitcoinTX 2.0.1 is the current version, the first maintenance update of
 2.0: each wallet, exchange and bank is an account of its own, each wallet
 and exchange with its own cost-basis lots. 2.0 is the final stable
-release: what comes next is updates, bug fixes and security fixes, about
-every three months. It reaches StartOS through Start9's Community Beta,
+release, with no new features planned: what comes next is updates, bug
+fixes and security fixes, a release about every three months, and a
+tax-figures or security fix as soon as it's ready. The lists below are
+ideas, not promises. It reaches StartOS through Start9's Community Beta,
 then, when the owner asks Start9 to promote it, its Community Registry.
 BitcoinTX 1.x gets no more fixes: its last release, 1.2.10, stays
 downloadable. No dates are promised.

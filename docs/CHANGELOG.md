@@ -16,6 +16,10 @@ could be affected and what to do; most ledgers need nothing more. The
 Complete Tax Report also gets a page for when a Form 1099-DA differs from
 BitcoinTX (#158).
 
+**Coming from 1.x?** Read 2.0.0's "Before you update", below, first: on
+StartOS, make a StartOS backup of BitcoinTX and keep it, as it's your way
+back to 1.x.
+
 **What to do after updating**
 
 1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
@@ -33,7 +37,8 @@ a transaction moves, looks up that row's price and loses the answer, so a
 save can need a second try; if the row is dated after the price history's
 last hour, it or another value priced in the next 10 minutes can take the
 day's price, marked, instead of the hour's (#824, #849, closed with no code
-change: Ledger Review lists a value saved like that). A known limitation:
+change: Ledger Review lists a value saved like that, and can apply the
+hour's price to it). A known limitation:
 BitcoinTX can't match, by itself, a Form 1099-DA that lists a transfer's or
 a gift's network fee, or a fee without its withdrawal, on Form 8949; the
 new page says how to correct it by hand (#551).
@@ -80,8 +85,9 @@ new page says how to correct it by hand (#551).
   react-hook-form 7.91.0 and react-router-dom 7.18.5. The Docker image's
   web-app build stage takes Node 24.22.2; nothing from that stage ships but
   the built web app. Each was reviewed for what it can reach (dateutil 3's
-  holding period run on about 2.5 million dates in both versions), and
-  none moves a figure. Nothing changes on screen or in any figure.
+  holding period run on about 2.5 million dates in both versions). Apart
+  from the timezone rules, whose change is the #889 entry below, none moves
+  a figure or changes anything on screen.
 
 ### Fixed
 
@@ -129,8 +135,10 @@ new page says how to correct it by hand (#551).
 - **Package 2.0.1:0** (Start9's `versions.md`). 2.0.0:0's migration was
   empty, so `current.ts` is bumped in place, with no migration of its own.
   Its release notes, in five languages, cover everything since 2.0.0:0,
-  which the community registry serves: what to do after updating (the AI
-  connector's `btctx-mcp==2.0.1`), the tax-figures fix #889 with who could
+  which the community registry serves: a 1.x user's backup first (with a
+  link to 2.0.0's notes, which a 1.x install updating to 2.0.1 skips),
+  what to do after updating (the AI connector's `btctx-mcp==2.0.1`), the
+  tax-figures fix #889 with who could
   be affected and what to do, the other changes and the known issues.
 
 ### Development
