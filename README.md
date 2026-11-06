@@ -188,12 +188,12 @@ of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
-BitcoinTX 2.0.0 is the current version. It adds multiple wallets, exchanges
-and bank accounts, each wallet and exchange with its own cost-basis lots
-([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). It reaches
-StartOS through Start9's Community Beta first, then its Community Registry,
-which offers 1.2.10 until then. What's next is on the
-[roadmap](docs/ROADMAP.md).
+BitcoinTX 2.0.1 is the current version, a maintenance update of 2.0.0.
+2.0 added multiple wallets, exchanges and bank accounts, each wallet and
+exchange with its own cost-basis lots
+([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). A release
+reaches StartOS through Start9's Community Beta first, then its Community
+Registry. What's next is on the [roadmap](docs/ROADMAP.md).
 
 BitcoinTX 1.x gets no more fixes. Its last release,
 [1.2.10](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v1.2.10), stays
@@ -203,18 +203,18 @@ downloadable. To move to 2.0, see [From 1.x to 2.0](#from-1x-to-20).
 
 2.0 was tested first on GitHub pre-releases, alphas and then betas. They stay
 on the [releases page](https://github.com/DigiMonk73/BTCTX-MCP/releases),
-marked **Pre-release**, and 2.0.0 replaces them:
+marked **Pre-release**, and 2.0 replaces them:
 
 - **Mac:** BitcoinTX Preview stays a separate app, with its own ledger, folder
-  and port, and 2.0.0 never reads it. To keep a Preview ledger instead of the
+  and port, and BitcoinTX 2.0 never reads it. To keep a Preview ledger instead of the
   one BitcoinTX holds, download a backup in BitcoinTX Preview and restore it in
-  BitcoinTX 2.0.0 (Settings, Backup & Restore): a restore replaces the ledger
+  BitcoinTX 2.0 (Settings, Backup & Restore): a restore replaces the ledger
   there, after a copy into `backups/`. Then delete BitcoinTX Preview, and remove
   its `bitcointx-preview` entry from your AI app.
-- **StartOS:** 2.0.0 updates a pre-release in place. The StartOS backup you
+- **StartOS:** 2.0 updates a pre-release in place. The StartOS backup you
   made under 1.x still takes you back to 1.x.
-- **Docker:** start `:v2.0.0` on the same volume.
-- **An AI:** set your AI app to `btctx-mcp==2.0.0`, and replace a
+- **Docker:** start `:v2.0.1` on the same volume.
+- **An AI:** set your AI app to `btctx-mcp==2.0.1`, and replace a
   `bitcointx-preview` entry for a server you've updated with what Settings →
   Connect an AI Assistant gives now.
 
