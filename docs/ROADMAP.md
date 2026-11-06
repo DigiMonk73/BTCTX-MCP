@@ -12,7 +12,7 @@ and exchange with its own cost-basis lots. 2.0 is the final stable
 release, with no new features planned: what comes next is updates, bug
 fixes and security fixes, a release about every three months, and a
 tax-figures or security fix as soon as it's ready. The lists below are
-ideas, not promises. It reaches StartOS through Start9's Community Beta,
+ideas, not promises. Each release reaches StartOS through Start9's Community Beta,
 then, when the owner asks Start9 to promote it, its Community Registry.
 BitcoinTX 1.x gets no more fixes: its last release, 1.2.10, stays
 downloadable. No dates are promised.

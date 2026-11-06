@@ -103,16 +103,16 @@ new page says how to correct it by hand (#551).
   turned their clocks back an hour, and so did 2.0.0's 2026e for Cuba. So
   in `America/Winnipeg`, `America/Rainy_River`, `America/Inuvik`,
   `America/Havana` or its old name `Cuba`, from 1 November 2026:
-  - with that tax timezone, a transaction within an hour of midnight was
-    given the day before: on Form 8949, in its holding period (a sale one
+  - with that tax timezone, a transaction in the first hour after midnight
+    was given the previous day's date: on Form 8949, in its holding period (a sale one
     day past a year could show short-term) and, at the year's end, in its
     tax year. That's fixed by itself (the holding period after a
     recalculation).
   - a transaction imported from a file, or added by the AI connector, with
     a time but no timezone, read in one of those zones (the tax timezone,
     or the zone an exchange's own file layout names), was saved an hour
-    late: it now shows an hour after the time written (near midnight, the
-    next day), a value BitcoinTX filled in from the price (income, a fee,
+    late: it now shows an hour after the time written (one written in the
+    last hour before midnight, on the next day), a value BitcoinTX filled in from the price (income, a fee,
     a spend's proceeds) used the hour after, and importing the same file
     again proposes it again, since its time no longer matches.
 
