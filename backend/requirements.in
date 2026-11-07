@@ -9,7 +9,7 @@ starlette==1.10.0
 uvicorn==0.54.0
 
 # Database
-sqlalchemy==2.0.55
+sqlalchemy==2.0.57
 alembic==1.20.1  # schema migrations (backend/migrations/, run at startup)
 
 # Authentication
@@ -19,7 +19,7 @@ bcrypt==5.0.0
 httpx==0.28.1
 socksio==1.0.0  # httpx SOCKS proxy support (Settings → Privacy & network, e.g. Tor)
 requests==2.34.2
-python-multipart==0.0.32
+python-multipart==0.0.33
 
 # Utilities
 python-dotenv==1.2.4
