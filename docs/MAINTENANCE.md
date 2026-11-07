@@ -285,7 +285,7 @@ first (AGENTS.md, "Pull requests"). Two cases need more than that:
   on auto-merge only once it is green.
 - **Figures and forms.** An update to a package marked High in "Current
   versions and risk" (`pypdf`, `reportlab`), or one that could move a figure
-  (`sqlalchemy`, `alembic`, `tzdata`), gets the before-and-after comparison
+  (`sqlalchemy`, `alembic`, `tzdata`, `python-dateutil`), gets the before-and-after comparison
   in two environments (step 4 of "Updating a dependency":
   `scripts/equivalence_check.py` can't see a package change). An update
   is never meant to move a figure: if none moves, it merges like any
@@ -363,8 +363,8 @@ what to watch when it does.
 | `cryptography` | Low | Encrypted backups; after a major bump, verify an old `.btx` backup still restores |
 | `itsdangerous` | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
 | `python-dotenv` | Low | Only `load_dotenv` is used |
-| `python-dateutil` | Low | |
-| `tzdata` | Low | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407), its rules the only ones read, on every machine (#889): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly |
+| `python-dateutil` | Caution | Counts a holding period's year (`relativedelta` in `services/transaction.py`, `holding_period`): an update gets the before-and-after comparison and a check of the holding period across many dates, as 3.0.0's did (#873) |
+| `tzdata` | Caution | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407), its rules the only ones read, on every machine (#889): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly. A release that changes a zone's offsets for a date already past moves that zone's dates on every install: compare every zone hour by hour between the two versions, as #907 did, and treat a difference as a figure moved on purpose (the figures rule, a `tax-figures` entry) |
 | `pypdf` | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | High | Complete Tax Report and transaction history PDFs. Each version is taken after the before-and-after comparison shows both reports the same, object for object, but for the time they were made (5.0.1's: #585; 5.1.0's: #760; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
 | `pytest` | Low | Test only (`requirements-dev.txt`) |

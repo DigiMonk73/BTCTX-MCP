@@ -92,7 +92,7 @@ isn't ready for this walk.
 | Previous release's `btctx.s9pk` | the latest release on https://github.com/DigiMonk73/BTCTX-MCP/releases (Track B) |
 | Mac app | the same CI run, artifact `BitcoinTX-macOS` (Track C); for a pre-release `BitcoinTX-Preview-macOS`, holding `BitcoinTX Preview.app` |
 | MCP connector | not on PyPI until the release, so run it from the commit: `uvx --from "git+https://github.com/DigiMonk73/BTCTX-MCP@$SHA#subdirectory=mcp_server" btctx-mcp` |
-| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, AI-16, MAC-UPG, WAY) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
+| The last 1.x release (2.0 and its pre-releases: Track B, AI-15, AI-16, MAC-UPG, WAY; a 2.0.x release's pass from 1.x, below) | v1.2.10 (or a later 1.x, if one comes out first; the steps name 1.2.10) on https://github.com/DigiMonk73/BTCTX-MCP/releases: its `btctx.s9pk` and `BitcoinTX-macOS.zip`; its Docker image `ghcr.io/digimonk73/btctx-mcp:v1.2.10`; its connector `uvx btctx-mcp==1.2.10` |
 | A pre-release (BETA) | the GitHub pre-release `v2.0.0-alpha.N` or `v2.0.0-beta.N` (never "Latest"): its `btctx.s9pk`, `BitcoinTX-Preview-macOS.zip`, the image `ghcr.io/digimonk73/btctx-mcp:v2.0.0-beta.N` (or `-alpha.N`) and the connector `uvx btctx-mcp==2.0.0bN` (an alpha's `2.0.0aN`); for BETA-2 also the pre-release before it |
 
 After the release is published, repeat INS-1 to INS-7 and AI-7 to AI-8
@@ -102,6 +102,17 @@ the published files are the ones you tested.
 2.0's Track B starts from the last 1.x release: the previous release
 GitHub marks "Latest" is still a 1.x while 2.0 is in pre-releases, and is
 1.2.10 when 2.0.0 comes out.
+
+**A 2.0.x maintenance release** (2.0.1 on; the maintenance lead,
+2026-11-06) runs Tracks A, B, C and REF. Its Track B starts from the
+previous 2.0 release (GitHub's "Latest"). Since a 1.x install updates
+straight to the new version, a second pass then starts from the last 1.x
+(1.2.10): UPG-1 (with a tab left logged in on Transactions, for UPG-2b;
+no `golden-1x.btx` or StartOS backup), UPG-2, UPG-2b and UPG-3's 1.x
+checks; and Track C runs MAC-UPG. WAY runs only when the release adds a
+migration or changes the backup format: otherwise its ways back are
+2.0.0's. CB was 2.0.0's (Start9's first merge of 2.0), BETA is for
+pre-releases, and MAP is a tester's walk, not an agent's.
 
 To walk a published pre-release (or any build that isn't the tip), use
 this file as it is at that build's tag or commit (`git show
@@ -1165,7 +1176,7 @@ Set `KEY` to the key from AI-3, and use
 
 - **BAK-1** Settings, open **Backup & Restore**, **Export CSV**. Expect:
   the file `btctx_transactions_<date>.csv`, the header
-  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment,fmv_typed`
+  `date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes,fee_usd,fmv_usd,broker_reporting,fee_usd_typed,cost_basis_typed,acquired_at,proceeds_typed,price_moment,fmv_typed,id,chosen_coins,coins_chosen_at`
   and 14 rows. #4's `fee_usd` is `10.00` and #14's is `5.00`. Settings'
   message line says "CSV export downloaded."
 - **BAK-2** Download Encrypted Backup: type `backup-pass-123` in both
@@ -2265,4 +2276,18 @@ Open bugs a run may meet (the release's CHANGELOG lists them under Known
 issues). Report these as KNOWN. Delete a line when its fix is merged into
 `develop`, since release candidates are built from it.
 
-None known for 1.2.10 or 2.0.
+- **#824, #849** (closed with no code change, the owner, 2026-11-04):
+  only on a ledger holding a row whose value is blank in the database
+  (blanked by hand, or left by an old version in a ledger not
+  recalculated since). The past-year question, or the form's list of the
+  coins a transaction moves, looks up that row's price and loses the
+  answer, so a save can need a second try. If the row is dated after the
+  price history's last hour, it or another value priced in the next 10
+  minutes can take the day's price, marked, instead of the hour's. Ledger
+  Review lists such a value and can apply the hour's price. The golden
+  ledger has no such row.
+- **#551** (a limitation): BitcoinTX can't by itself match a Form 1099-DA
+  that lists a transfer's or a gift's network fee, or a fee without its
+  withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
+  page "If your Form 1099-DA differs" (in a year with no sale in box G,
+  H, J or K, its note on fees) says how to move its row by hand.

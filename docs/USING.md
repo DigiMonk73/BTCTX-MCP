@@ -368,7 +368,11 @@ records are enough.
   exchange sends; income, and rebates apart (they aren't income); gifts,
   donations and lost coins; the bitcoin held
   at the end of the year, by account and lot by lot; "Using these forms",
-  for whoever files the return; and notes on how the figures are made.
+  for whoever files the return (the Schedule D lines BitcoinTX fills hold
+  the bitcoin only: if you also sold stocks, they share those lines, so
+  have your preparer or tax software make Schedule D from all your Forms
+  8949; and, in a year with a sale in box G, H, J or K, the page "If your
+  Form 1099-DA differs", below); and notes on how the figures are made.
 - **IRS Reports (Form 8949, Schedule D, etc.)** (PDF): the filled,
   flattened IRS forms, one Form 8949 sheet for each box.
 - **Transaction History**: every transaction of the year, as a **CSV

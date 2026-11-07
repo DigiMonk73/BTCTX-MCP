@@ -17,7 +17,7 @@ Use one of these, and nothing else:
   only if you have it and it holds nothing you want to keep.
 - **A throwaway Docker install**, which you remove at the end. In a Terminal
   window, with `VERSION` being the version you're testing (for example
-  `v2.0.0`):
+  `v2.0.1`):
 
   ```bash
   docker run -d --name btctx-handtest -p 127.0.0.1:8090:80 -v btctx-handtest:/data ghcr.io/digimonk73/btctx-mcp:VERSION
@@ -35,9 +35,8 @@ server's copy.
 
 ### Getting a file
 
-Open this guide on GitHub. While 2.0 is in beta, that's
-<https://github.com/DigiMonk73/BTCTX-MCP/blob/2.0/docs/HAND-TEST.md>; once 2.0 is
-out, the same file on `main`. Click a file's name, then the **Download raw
+Open this guide on GitHub:
+<https://github.com/DigiMonk73/BTCTX-MCP/blob/main/docs/HAND-TEST.md>. Click a file's name, then the **Download raw
 file** button (a down arrow, top right of the file).
 
 ### Start empty, with the tax timezone on UTC
