@@ -259,6 +259,49 @@ def test_one_exact_sdk_and_siblings_at_next():
     assert sdks == ["node_modules/@start9labs/start-sdk"]
 
 
+# The pinned SDK and the oldest StartOS a package it builds installs on, from
+# its release notes: "Packages built with SDK 4.0.0 require StartOS 0.4.1 or
+# later" (#913). An SDK bump moves both, after reading its notes (UPDATING.md,
+# "Bumping the SDK", step 1), and the docs that tell users follow.
+SDK, MIN_STARTOS = "4.0.0", "0.4.1"
+# Where the docs name them: the README's StartOS section tells users, the other
+# two tell us. A version is digits and dots, never ending in one.
+SDK_DOCS = {
+    "README.md": re.compile(r"needs StartOS (\d[\d.]*\d) or later"),
+    "docs/STARTOS_COMPATIBILITY.md": re.compile(
+        r"start-sdk (\d[\d.]*\d), StartOS (\d[\d.]*\d) or later"
+    ),
+    "docs/ARCHITECTURE.md": re.compile(r"start-sdk (\d[\d.]*\d) \(StartOS (\d[\d.]*\d) or later\)"),
+}
+
+
+def test_the_package_pins_the_sdk_named_here():
+    assert json.loads(read("package.json"))["dependencies"]["@start9labs/start-sdk"] == SDK
+
+
+def test_min_startos_is_the_sdks_own():
+    """MIN_STARTOS is typed in above, so a later SDK that raises its minimum,
+    with only SDK moved, would leave the docs stale. The SDK states its own
+    minimum (its OSVersion, the manifest's osVersion): where startos/ has it
+    installed, as the pre-push hook's package checks need, it's read from
+    there. CI's Python jobs have no node_modules and skip this."""
+    sdk = PKG / "node_modules" / "@start9labs" / "start-sdk"
+    if not (sdk / "package.json").is_file():
+        pytest.skip("startos/node_modules isn't installed (npm ci in startos/)")
+    if json.loads((sdk / "package.json").read_text())["version"] != SDK:
+        pytest.skip("startos/node_modules holds another SDK than the pinned one (npm ci in startos/)")
+    declared = re.findall(r'OSVersion: "([^"]+)"', (sdk / "lib" / "StartSdk.d.ts").read_text())
+    assert declared == [MIN_STARTOS], f"start-sdk {SDK} needs StartOS {declared}"
+
+
+@pytest.mark.parametrize("name", SDK_DOCS)
+def test_the_docs_name_the_pinned_sdk_and_its_oldest_startos(name):
+    found = SDK_DOCS[name].findall((ROOT / name).read_text())
+    assert found, f"{name} no longer names the SDK's oldest StartOS where this test looks"
+    want = MIN_STARTOS if SDK_DOCS[name].groups == 1 else (SDK, MIN_STARTOS)
+    assert set(found) == {want}, f"{name}: {found}"
+
+
 def test_no_work_record_files():
     # The package template: "no TODO.md, no NOTES.md, no PLAN.md"; pending
     # work is a GitHub issue (labelled start9 in BTCTX-MCP).
