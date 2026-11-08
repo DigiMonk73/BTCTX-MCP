@@ -26,12 +26,14 @@ All notable changes to BitcoinTX are documented in this file.
     saved an hour late;
   - from 20 September 2026, Morocco stays at UTC+0 (`Africa/Casablanca`,
     `Africa/El_Aaiun`): such a time was saved an hour early;
-  - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) changes its clocks at
-    03:00, not 02:00: only a time in that hour, on those two days a year.
+  - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) has changed its clocks
+    at 03:00, not 02:00, since 2022: only a time in that hour, on those
+    two days a year (its date never moves).
 
   A copy from 2024 or earlier also misses Paraguay's change
-  (`America/Asuncion`, on summer time for good from 23 March 2025), and
-  an older copy, older changes. An hour off moves the date of a time in
+  (`America/Asuncion`: on summer time for good since October 2024, so
+  from 23 March 2025 such a time was saved an hour late), and an older
+  copy, older changes. An hour off moves the date of a time in
   the hour before midnight (an hour late) or after it (an hour early).
   That date is the one on Form 8949, in the holding period (a sale near a
   year after its purchase could show the wrong term; a date originally
@@ -49,13 +51,17 @@ All notable changes to BitcoinTX are documented in this file.
   stored figure.
   **Affected:** the AI connector up to 2.0.1, on a computer with older
   timezone data, for a time the AI changed without a timezone, in one of
-  those zones from the date its rules changed. A row the AI added isn't
-  affected: BitcoinTX reads its time itself (#889).
+  those zones from the date its rules changed. A row the AI added keeps
+  its time, since BitcoinTX reads it itself (#889), but a USD value the
+  AI typed in from `get_btc_price`'s answer for such a time may be
+  another hour's price.
   **What to do:** update the connector to `btctx-mcp==2.0.2` and restart
   the AI app. If your tax timezone is one of those zones, ask the AI to
   set again, as you first gave it, the time of each transaction whose
-  time it changed from that date. The updated connector saves the right
-  moment, and one already right stays as it is. A value filled in from
+  time it changed from that date, and each date originally acquired (or
+  of death) it gave with a time, and to value again a USD value it typed
+  in from `get_btc_price` for such a time. The updated connector saves
+  the right moment, and one already right stays as it is. A value filled in from
   the price is then priced again; a typed one stays. Don't go by the time
   on screen: your device works it out with its own timezone data, the
   same old copy on that computer. Form 8949's dates are BitcoinTX's own.
