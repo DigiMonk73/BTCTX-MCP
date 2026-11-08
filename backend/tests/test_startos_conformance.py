@@ -275,7 +275,6 @@ SDK_DOCS = {
 }
 
 
-@pytest.mark.xfail(strict=True, reason="the SDK bump follows (#913)")
 def test_the_package_pins_the_sdk_named_here():
     assert json.loads(read("package.json"))["dependencies"]["@start9labs/start-sdk"] == SDK
 
