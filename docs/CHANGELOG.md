@@ -76,7 +76,9 @@ All notable changes to BitcoinTX are documented in this file.
   filter closes a link trick. The image's pip also moves, from 26.2.1 to
   26.2.2. From Debian, `liblzma5` moves to deb13u2, `apt` to 3.0.4, and
   Debian's own timezone files to 2026f. The image already took
-  `ca-certificates` deb13u1 (#638); now it comes with the base. The app reads none
+  `ca-certificates` deb13u1 (#638); now it comes with the base. The base
+  sets `LANG=C.UTF-8` again on 3.13 (docker-library/python#1145): text
+  and file names stay UTF-8, and the app uses no locale. The app reads none
   of these timezone files: its rules come only from its pinned `tzdata`
   package (#889). Its Python packages are unchanged. No figure moves: the
   release gate's figures, the reference test ledger's IRS forms and CSVs
