@@ -172,7 +172,6 @@ def test_connector_ranges_are_capped():
     assert uncapped == [], f"cap each connector dependency below its next major version: {uncapped}"
 
 
-@pytest.mark.xfail(strict=True, reason="#908: the connector's tzdata has no floor yet")
 def test_connector_zone_rules_are_at_least_the_apps():
     """The connector reads the tax timezone by the tzdata package's rules
     alone, as the app does (#908): a floor below the app's pin would let an

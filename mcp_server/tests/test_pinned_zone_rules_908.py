@@ -74,7 +74,6 @@ def old_zone_files(tmp_path) -> Path:
     return tmp_path
 
 
-@pytest.mark.xfail(strict=True, reason="#908: the connector still reads the computer's own zone files first")
 def test_every_zone_read_takes_the_packages_rules(old_zone_files):
     env = {**os.environ, "PYTHONTZPATH": str(old_zone_files), "PYTHONPATH": str(ROOT / "mcp_server")}
     done = subprocess.run([sys.executable, "-c", CHECK], cwd=ROOT, env=env,

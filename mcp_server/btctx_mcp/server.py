@@ -373,7 +373,7 @@ async def _tax_zone() -> tzinfo:
     # one (#407): a folder of zones fails with an OS error, and a part naming
     # a module of tzdata with a TypeError on Python 3.10 and 3.11
     except (ZoneInfoNotFoundError, ValueError, OSError, TypeError) as exc:
-        raise ToolError(f"This computer's timezone data doesn't know the tax timezone {name}; "
+        raise ToolError(f"The connector's timezone data (tzdata) doesn't know the tax timezone {name}; "
                         "update the connector (btctx-mcp) or its tzdata package.") from exc
 
 
