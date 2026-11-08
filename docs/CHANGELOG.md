@@ -66,6 +66,23 @@ All notable changes to BitcoinTX are documented in this file.
   on screen: your device works it out with its own timezone data, the
   same old copy on that computer. Form 8949's dates are BitcoinTX's own.
 
+### Security
+- **The Docker image moves to Python 3.13.18** (#934, for #871), on
+  Docker Hub's 2026-11-05 build of `python:3.13-slim`; 2.0.1's was from
+  2026-10-06, with Python 3.13.16. Docker and StartOS run this image.
+  Python 3.13.17 and 3.13.18 are security releases: the `ssl` module now
+  refuses the compromised eMudhra intermediate keys (the incident behind
+  #638), the bundled Expat moves to 2.9.0, and `tarfile`'s extraction
+  filter closes a link trick. The image's pip also moves, from 26.2.1 to
+  26.2.2. From Debian, `liblzma5` moves to deb13u2, `apt` to 3.0.4, and
+  Debian's own timezone files to 2026f. The image already took
+  `ca-certificates` deb13u1 (#638); now it comes with the base. The app reads none
+  of these timezone files: its rules come only from its pinned `tzdata`
+  package (#889). Its Python packages are unchanged. No figure moves: the
+  release gate's figures, the reference test ledger's IRS forms and CSVs
+  (byte for byte) and its Complete Tax Reports (by text) are the same
+  from the old image and the new.
+
 ### StartOS package
 - **BitcoinTX on StartOS needs StartOS 0.4.1 or later**, because the
   package is built with **start-sdk 4.0.0** (from 3.1.1, #913): Start9's
