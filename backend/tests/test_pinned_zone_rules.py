@@ -74,7 +74,6 @@ print(zoneinfo.TZPATH, datetime(2025, 1, 1, tzinfo=chicago).utcoffset().total_se
 """
 
 
-@pytest.mark.xfail(strict=True, reason="#908: the second calculation still reads the computer's own zone files first")
 def test_the_second_calculation_reads_the_pinned_package_only(planted_zone_files):
     env = {**os.environ, "PYTHONTZPATH": str(planted_zone_files)}
     done = subprocess.run([sys.executable, "-c", SECOND_CALCULATION, str(ROOT / "scripts" / "independent_figures.py")],

@@ -71,7 +71,7 @@ def test_a_date_originally_acquired_is_noon_in_the_tax_timezone():
 def test_a_time_zone_it_doesnt_know_stops_it():
     with pytest.raises(ValueError) as found:
         independent.replay([], tax_timezone="Mars/Olympus_Mons")
-    assert str(found.value) == "The tax timezone 'Mars/Olympus_Mons' isn't a time zone this computer knows."
+    assert str(found.value) == "The tax timezone 'Mars/Olympus_Mons' isn't a time zone the tzdata package knows."
 
 
 def test_a_time_without_a_time_zone_stops_it():
