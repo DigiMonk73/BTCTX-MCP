@@ -374,7 +374,8 @@ async def _tax_zone() -> tzinfo:
     # a module of tzdata with a TypeError on Python 3.10 and 3.11
     except (ZoneInfoNotFoundError, ValueError, OSError, TypeError) as exc:
         raise ToolError(f"The connector's timezone data (tzdata) doesn't know the tax timezone {name}; "
-                        "update the connector (btctx-mcp) or its tzdata package.") from exc
+                        "update the connector (btctx-mcp) or its tzdata package, or choose the tax timezone "
+                        "again in BitcoinTX's Settings.") from exc
 
 
 def _in_utc(parsed: tuple[datetime, bool], zone: tzinfo, bare_date_at: time) -> datetime:

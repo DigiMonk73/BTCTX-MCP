@@ -13,33 +13,52 @@ All notable changes to BitcoinTX are documented in this file.
   first. When the AI changes a transaction's time without a timezone, the
   connector works out that moment itself, in the tax timezone, and saves
   it. That covers `update_transaction`'s date, and a date originally
-  acquired given with a time. So in `America/Winnipeg`,
-  `America/Rainy_River`, `America/Inuvik`, `America/Havana` or `Cuba`,
-  from 1 November 2026, on a computer whose own timezone data (on Windows,
-  the connector's `tzdata`) is older than IANA 2026f, such a time was
-  saved an hour late:
-  - one written in the last hour before midnight landed on the next day:
-    on Form 8949, in its holding period (a sale one year to the day could
-    show long-term) and, on 31 December, in the next tax year;
-  - a value BitcoinTX fills in from the price (income, a fee, a spend's
-    proceeds) used the next hour's price;
-  - `get_btc_price` gave the next hour's price for such a time, and
-    `list_transactions`' date filters could take in or leave out a row
-    within an hour of midnight.
+  acquired given with a time. So on a computer whose own copy (on Windows,
+  the connector's `tzdata`) is older than BitcoinTX's (IANA 2026f), a time
+  in a zone whose rules have changed since was saved an hour off. A copy
+  from 2025 or earlier misses 2026's changes:
+  - from 1 November 2026, British Columbia, Alberta, Manitoba, the
+    Northwest Territories and Cuba stay on summer time
+    (`America/Vancouver`, `America/Edmonton`, `America/Yellowknife`,
+    `America/Winnipeg`, `America/Rainy_River`, `America/Inuvik`,
+    `America/Havana`, and the old names `Canada/Pacific`,
+    `Canada/Mountain`, `Canada/Central` and `Cuba`): such a time was
+    saved an hour late;
+  - from 20 September 2026, Morocco stays at UTC+0 (`Africa/Casablanca`,
+    `Africa/El_Aaiun`): such a time was saved an hour early;
+  - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) changes its clocks at
+    03:00, not 02:00: only a time in that hour, on those two days a year.
+
+  A copy from 2024 or earlier also misses Paraguay's change
+  (`America/Asuncion`, on summer time for good from 23 March 2025), and
+  an older copy, older changes. An hour off moves the date of a time in
+  the hour before midnight (an hour late) or after it (an hour early).
+  That date is the one on Form 8949, in the holding period (a sale near a
+  year after its purchase could show the wrong term; a date originally
+  acquired a day off, the same) and, at the year's end, in the tax year.
+  A value BitcoinTX fills in from the price (income, a fee, a spend's
+  proceeds) used another hour's price (an inheritance's value, another
+  day's), and a gain could change where the hour moved a sale past
+  another transaction. `get_btc_price` gave another hour's price for such
+  a time (so did a value the AI typed from it), and `list_transactions`'
+  date filters could take in or leave out a row near midnight.
 
   The connector now reads only its own `tzdata`, at least BitcoinTX's
   (2026.6, IANA 2026f), and so does the second calculation behind the
-  figures checks (`scripts/independent_figures.py`). Every other zone
-  gives the same times as before, and updating moves no stored figure.
-  **Affected:** the AI connector up to 2.0.1, with one of those tax
-  timezones, on a computer with older timezone data, for a time the AI
-  changed without a timezone, dated from 1 November 2026. A row the AI
-  added isn't affected: BitcoinTX reads its time itself (#889).
+  figures checks (`scripts/independent_figures.py`). Updating moves no
+  stored figure.
+  **Affected:** the AI connector up to 2.0.1, on a computer with older
+  timezone data, for a time the AI changed without a timezone, in one of
+  those zones from the date its rules changed. A row the AI added isn't
+  affected: BitcoinTX reads its time itself (#889).
   **What to do:** update the connector to `btctx-mcp==2.0.2` and restart
-  the AI app. If your tax timezone is one of those zones, look at each
-  transaction whose time the AI changed since 1 November 2026. If it
-  shows an hour after the time you gave, correct it an hour earlier. A
-  value filled in from the price is then priced again; a typed one stays.
+  the AI app. If your tax timezone is one of those zones, ask the AI to
+  set again, as you first gave it, the time of each transaction whose
+  time it changed from that date. The updated connector saves the right
+  moment, and one already right stays as it is. A value filled in from
+  the price is then priced again; a typed one stays. Don't go by the time
+  on screen: your device works it out with its own timezone data, the
+  same old copy on that computer. Form 8949's dates are BitcoinTX's own.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 

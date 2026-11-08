@@ -2,9 +2,11 @@
 The connector reads a time given with no timezone in the tax timezone by the
 tzdata package's rules alone, as BitcoinTX itself does since #889 (#908):
 never the AI computer's own zone files, which Python's zoneinfo reads first.
-On a computer whose files predate IANA 2026f (Winnipeg keeps summer time
-from 1 November 2026), a sale the AI moved to 23:30 on 15 November 2026 was
-saved an hour late, on the 16th.
+On a computer whose files are older than the package's (Winnipeg keeps
+summer time from 1 November 2026, since IANA's 2026 releases), a sale the AI
+moved to 23:30 on 15 November 2026 was saved an hour late, on the 16th. The
+other zones whose rules changed in 2026 (British Columbia, Alberta, Cuba,
+Morocco: docs/CHANGELOG.md) go through the same read.
 """
 
 import json
