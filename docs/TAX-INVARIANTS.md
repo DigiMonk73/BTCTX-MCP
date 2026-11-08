@@ -330,6 +330,10 @@ map.
   before 1.2.9 is still read (`tax_time.readable_zone`; one this machine
   can't open counts as none chosen, logged once), and a restore keeps this
   install's own in place of a backup's that `tzdata` doesn't name.
+  The AI connector (`mcp_server/btctx_mcp/__init__.py`, its `tzdata` at
+  least the app's pin) and the second calculation
+  (`scripts/independent_figures.py`) also read zone rules only from the
+  `tzdata` package, never the computer's (#908).
   Times on screen are the device's clock (#260), except Ledger Review's
   and the past-year question's (the tax timezone, as `cli review` and the
   AI see them, labelled: #737) and a price's hour (UTC, labelled).
