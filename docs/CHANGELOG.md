@@ -66,6 +66,30 @@ All notable changes to BitcoinTX are documented in this file.
   on screen: your device works it out with its own timezone data, the
   same old copy on that computer. Form 8949's dates are BitcoinTX's own.
 
+### StartOS package
+- **BitcoinTX on StartOS needs StartOS 0.4.1 or later**, because the
+  package is built with **start-sdk 4.0.0** (from 3.1.1, #913): Start9's
+  current SDK, which their Pre-Publish Checklist asks for before any pull
+  request to their fork. Its release notes: "Packages built with SDK 4.0.0
+  require StartOS 0.4.1 or later". A server still on StartOS 0.4.0.x keeps
+  BitcoinTX 2.0.1 until StartOS is updated. The README,
+  `docs/STARTOS_COMPATIBILITY.md` and `docs/ARCHITECTURE.md` say so, and
+  `test_startos_conformance.py` checks them against the pinned SDK. In the
+  package, the web interface's health check takes 4.0.0's type (what it
+  reports is the same), and the bundled sibling packages (Mempool's and
+  Tor's, and the Bitcoin Core and LND code they bring) move to Start9's
+  newest, all on 4.0.0: the bundle holds the same modules, and the
+  dependency constants BitcoinTX reads from them are unchanged. Under
+  4.0.0, StartOS's HTTP proxy also carries plain-HTTP connections (a LAN
+  `http://` address, Tor): it adds forwarded headers and strips any a
+  client sent. #914 checks it on StartOS 0.4.1.
+
+### Development
+- **start-cli 2.7.0** (from 2.6.0) packs `btctx.s9pk` in CI and the
+  release (#896). It adds commands that sign and endorse packages; its
+  release notes name no change to packing. The SHA-256 is the release
+  notes' and GitHub's own digest of `start-cli_x86_64-linux`.
+
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 
 **In short.** 2.0.1 is the first maintenance update of 2.0.0. It fixes one

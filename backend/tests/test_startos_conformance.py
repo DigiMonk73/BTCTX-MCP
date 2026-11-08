@@ -279,7 +279,6 @@ def test_the_package_pins_the_sdk_named_here():
     assert json.loads(read("package.json"))["dependencies"]["@start9labs/start-sdk"] == SDK
 
 
-@pytest.mark.xfail(strict=True, reason="the docs follow the SDK bump (#913)")
 @pytest.mark.parametrize("name", SDK_DOCS)
 def test_the_docs_name_the_pinned_sdk_and_its_oldest_startos(name):
     found = SDK_DOCS[name].findall((ROOT / name).read_text())

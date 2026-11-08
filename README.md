@@ -274,7 +274,9 @@ and leaves `/data` as it is, so it must be that user's.
 
 ### StartOS
 
-BitcoinTX needs StartOS 0.4.0.2 or later. Start9 builds the package from
+BitcoinTX needs StartOS 0.4.1 or later: on an older StartOS,
+[update StartOS](https://docs.start9.com/start-os/updating-startos.html)
+first. Start9 builds the package from
 [Start9-Community/BTCTX-StartOS](https://github.com/Start9-Community/BTCTX-StartOS)
 and publishes each release first to its **Community Beta** registry, then,
 once tested there, to its **Community Registry**:
