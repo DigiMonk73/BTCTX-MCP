@@ -80,9 +80,9 @@ All notable changes to BitcoinTX are documented in this file.
   (#889). The image already took `ca-certificates` deb13u1 (#638); now it
   comes with the base. The base sets `LANG=C.UTF-8` again on 3.13
   (docker-library/python#1145): text and file names stay UTF-8, and the
-  app uses no locale. Its Python packages are unchanged. No figure moves: the
-  release gate's figures, the reference test ledger's IRS forms and CSVs
-  (byte for byte) and its Complete Tax Reports (by text) are the same
+  app uses no locale. Its Python packages are unchanged. No figure moves:
+  the release gate's figures, the reference test ledger's IRS forms and
+  CSVs (byte for byte) and its Complete Tax Reports (by text) are the same
   from the old image and the new.
 
 ### StartOS package
