@@ -11,8 +11,6 @@ installed for the tests.
 import re
 from pathlib import Path
 
-import pytest
-
 WORKFLOWS = sorted((Path(__file__).resolve().parents[2] / ".github/workflows").glob("*.y*ml"))
 # The oldest start-cli that packs the package the way Start9's builds do: their
 # newest when the SDK moved to 4.0.0 (#896; 4.0.0's packages keep multiline
@@ -43,7 +41,6 @@ def test_ci_and_the_release_pack_with_the_same_start_cli():
         assert {value for values in pins.values() for value in values} == set(pins["ci.yml"])
 
 
-@pytest.mark.xfail(strict=True, reason="the start-cli bump follows (#896)")
 def test_the_pinned_start_cli_builds_the_image_as_start9_does():
     version = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", pinned(PIN)["ci.yml"][0])
     assert version, "START_CLI_VERSION is an exact release, vX.Y.Z"
