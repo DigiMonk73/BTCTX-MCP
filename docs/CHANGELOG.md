@@ -80,9 +80,9 @@ All notable changes to BitcoinTX are documented in this file.
   Tor's, and the Bitcoin Core and LND code they bring) move to Start9's
   newest, all on 4.0.0: the bundle holds the same modules, and the
   dependency constants BitcoinTX reads from them are unchanged. Under
-  4.0.0, StartOS's HTTP proxy also carries plain-HTTP connections (a LAN
-  `http://` address, Tor): it adds forwarded headers and strips any a
-  client sent. #914 checks it on StartOS 0.4.1.
+  4.0.0, StartOS's HTTP proxy also carries plain-HTTP connections (an
+  `http://` address), not only HTTPS ones: it adds forwarded headers and
+  strips any a client sent. #914 checks it on StartOS 0.4.1.
 
 ### Development
 - **start-cli 2.7.0** (from 2.6.0) packs `btctx.s9pk` in CI and the
