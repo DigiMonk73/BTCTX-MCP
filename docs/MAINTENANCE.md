@@ -165,9 +165,13 @@ it changes only by pull request:
 - The exception is the AI connector (`mcp_server/pyproject.toml`): it is
   installed next to other software, so its dependencies take ranges, each
   capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,
-  timezone data numbered by year, which is meant to float. Its build
-  backend takes a capped range too (`setuptools>=77,<85`); the release
-  builds with the locked setuptools, which must stay inside it.
+  timezone data numbered by year, which is meant to float. Its floor is
+  the app's own pin (`tzdata>=2026.6`): the connector reads the tax
+  timezone by the package's rules alone, as the app does (#908), so a
+  `tzdata` update in `backend/` raises it too (`test_pinning.py`
+  checks). Its build backend takes a capped range too
+  (`setuptools>=77,<85`); the release builds with the locked
+  setuptools, which must stay inside it.
 
 The CI runtimes and GitHub's runner images follow their release line: the
 Python tests run on 3.11 (the oldest supported, from source and the AI
@@ -364,7 +368,7 @@ what to watch when it does.
 | `itsdangerous` | Low | Signs the session cookie and the login's device cookie (`services/login_throttle.py`) |
 | `python-dotenv` | Low | Only `load_dotenv` is used |
 | `python-dateutil` | Caution | Counts a holding period's year (`relativedelta` in `services/transaction.py`, `holding_period`): an update gets the before-and-after comparison and a check of the holding period across many dates, as 3.0.0's did (#873) |
-| `tzdata` | Caution | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407), its rules the only ones read, on every machine (#889): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly. A release that changes a zone's offsets for a date already past moves that zone's dates on every install: compare every zone hour by hour between the two versions, as #907 did, and treat a difference as a figure moved on purpose (the figures rule, a `tax-figures` entry) |
+| `tzdata` | Caution | Timezone rules for the tax timezone, and its `zones` list is the names BitcoinTX accepts (#407), its rules the only ones read, on every machine (#889): a name a new version dropped, saved before, would count as none chosen (backward links have always been kept); update yearly. A release that changes a zone's offsets for a date already past moves that zone's dates on every install: compare every zone hour by hour between the two versions, as #907 did, and treat a difference as a figure moved on purpose (the figures rule, a `tax-figures` entry). The AI connector's floor (`mcp_server/pyproject.toml`) goes up with it, and the second calculation reads the same package (#908) |
 | `pypdf` | High | Fills and flattens the IRS forms (`backend/services/reports/pdf_form_filler.py`) and merges sheets. Majors can change fill behavior |
 | `reportlab` | High | Complete Tax Report and transaction history PDFs. Each version is taken after the before-and-after comparison shows both reports the same, object for object, but for the time they were made (5.0.1's: #585; 5.1.0's: #760; 4.5's: #425); a newer one gets the same comparison, and `test_report_safety.py` and `test_hardening_edges.py` with it. ReportLab 5 trusts no host its settings don't name, but still opens any file path it is given: what keeps ledger text from opening or fetching anything is `reports/safe_text.py`, which replaces its two readers in `reportlab.lib.utils` (`open_for_read_by_name`, `rlUrlRead`), so a release that renames them or reads around them fails those tests |
 | `pytest` | Low | Test only (`requirements-dev.txt`) |
@@ -494,5 +498,5 @@ and record anything you can't fix yet in the deferred table above.
 - [ ] Revisit the deferred table
 - [ ] `make check`
 - [ ] Schema changed? A migration exists and `test_migrations.py` passes
-- [ ] Yearly: `python scripts/irs_new_year.py YYYY`, bump `tzdata`
+- [ ] Yearly: `python scripts/irs_new_year.py YYYY`, bump `tzdata` (and the connector's floor)
 - [ ] Update "Last reviewed" above

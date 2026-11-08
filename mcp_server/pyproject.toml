@@ -20,7 +20,9 @@ dependencies = [
     "mcp>=2.2,<3",
     "httpx>=0.27,<1",
     "pydantic>=2.7,<3",
-    "tzdata",  # the tax timezone's rules where the system has none (Windows)
+    # The tax timezone's rules, read from this package alone (btctx_mcp/__init__.py,
+    # #908): at least BitcoinTX's own pin (backend/requirements.in), uncapped
+    "tzdata>=2026.6",
 ]
 
 [project.scripts]

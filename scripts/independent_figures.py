@@ -74,8 +74,10 @@ A test tool: it lives in scripts/, which no build ships.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import sys
+import zoneinfo
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
@@ -88,6 +90,15 @@ ROOT = Path(__file__).resolve().parent.parent
 LEDGER = ROOT / "testdata" / "reference_ledger.json"
 FIGURES = ROOT / "testdata" / "reference_figures.json"
 PRICES = ROOT / "testdata" / "reference_prices.json"
+
+# Timezone rules from the tzdata package alone, as the app reads them
+# (backend/__init__.py, #889), never this computer's own zone files, which
+# zoneinfo reads first: older ones would read a zone whose rules have changed
+# by the old rules, and the two calculations would differ by an hour where
+# the app is right (#908). The package is the app's pinned one: the script
+# runs where backend/requirements.txt is installed. Copied, not imported.
+zoneinfo.reset_tzpath([])
+zoneinfo.ZoneInfo.clear_cache()
 
 # Copied, not imported: this script shares no code with the app. Every
 # ledger has these, a 1.x ledger's; an `accounts` list adds to them.
@@ -665,7 +676,9 @@ def _tax_zone(name: str) -> ZoneInfo:
     try:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError):
-        raise ValueError(f"The tax timezone {name!r} isn't a time zone this computer knows.") from None
+        if importlib.util.find_spec("tzdata") is None:  # the only rules read (#908), UTC's included
+            raise ValueError("The tzdata package isn't installed: run this where backend/requirements.txt is.") from None
+        raise ValueError(f"The tax timezone {name!r} isn't a time zone the tzdata package knows.") from None
 
 
 def _moment(text: str) -> datetime:
