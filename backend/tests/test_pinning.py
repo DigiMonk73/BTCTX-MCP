@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = sorted((ROOT / ".github/workflows").glob("*.y*ml"))
@@ -169,3 +170,19 @@ def test_connector_ranges_are_capped():
         and not any(spec.operator in ("<", "<=", "==", "~=") for spec in dep.specifier)
     ]
     assert uncapped == [], f"cap each connector dependency below its next major version: {uncapped}"
+
+
+@pytest.mark.xfail(strict=True, reason="#908: the connector's tzdata has no floor yet")
+def test_connector_zone_rules_are_at_least_the_apps():
+    """The connector reads the tax timezone by the tzdata package's rules
+    alone, as the app does (#908): a floor below the app's pin would let an
+    older package already installed beside it read a zone whose rules
+    changed since by the old ones. It still floats upward, uncapped."""
+    project = tomllib.loads((ROOT / "mcp_server/pyproject.toml").read_text())["project"]
+    (tzdata,) = [dep for dep in map(Requirement, project["dependencies"]) if dep.name == "tzdata"]
+    (pinned,) = locked_versions("backend")["tzdata"]
+    floors = [Version(spec.version) for spec in tzdata.specifier if spec.operator == ">="]
+    assert floors and max(floors) >= Version(pinned), (
+        f"raise mcp_server/pyproject.toml's tzdata to >={pinned}, the app's pin (backend/requirements.in)"
+    )
+    assert not any(spec.operator in ("<", "<=", "==", "~=") for spec in tzdata.specifier), "leave tzdata uncapped"

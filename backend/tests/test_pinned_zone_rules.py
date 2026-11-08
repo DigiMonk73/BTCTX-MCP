@@ -58,6 +58,31 @@ def test_every_entry_point_reads_the_pinned_package_only(planted_zone_files, ent
     assert done.stdout.split() == ["()", "-6.0", "2025-01-01T06:00:00+00:00", "None"]
 
 
+# The second calculation (scripts/independent_figures.py) imports nothing of
+# the backend's, so it switches on its own (#908). Loaded as its test loads
+# it, in a process the backend's import hasn't switched: Chicago's offset on
+# 1 January 2025 by its tax timezone's reading.
+SECOND_CALCULATION = """
+import importlib.util, sys, zoneinfo
+from datetime import datetime
+spec = importlib.util.spec_from_file_location("independent_figures", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = module
+spec.loader.exec_module(module)
+chicago = module._tax_zone("America/Chicago")
+print(zoneinfo.TZPATH, datetime(2025, 1, 1, tzinfo=chicago).utcoffset().total_seconds() / 3600)
+"""
+
+
+@pytest.mark.xfail(strict=True, reason="#908: the second calculation still reads the computer's own zone files first")
+def test_the_second_calculation_reads_the_pinned_package_only(planted_zone_files):
+    env = {**os.environ, "PYTHONTZPATH": str(planted_zone_files)}
+    done = subprocess.run([sys.executable, "-c", SECOND_CALCULATION, str(ROOT / "scripts" / "independent_figures.py")],
+                          cwd=ROOT, env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stderr[-2000:]
+    assert done.stdout.split() == ["()", "-6.0"]
+
+
 def test_the_tests_read_the_pinned_package_only():
     """The suite's own process (conftest imports the server first)."""
     assert zoneinfo.TZPATH == ()
