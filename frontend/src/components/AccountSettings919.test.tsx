@@ -19,7 +19,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it.fails("goes to the sign-in page, never saying no user was found", async () => {
+it("goes to the sign-in page, never saying no user was found", async () => {
   const sentTo = pageAt("/settings");
   // The section loads while the session is open; it ends before Update
   let ended = false;
