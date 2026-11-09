@@ -230,10 +230,11 @@ goes into `2.0` (AGENTS.md, "Releasing").
    (`https://community-beta-registry.start9.com`).
 4. The owner tests the beta on their own server, using a checklist
    Claude writes for that release on the issue that plans its promotion
-   (1.2.9's: #143, section 5). On StartOS 0.4.1 or later that needs
-   Community Beta's build key, **Github Actions**, on for **Packages**
-   under **System → Trusted Keys** (StartOS 0.4.1.2): only that key signs
-   Community Beta's packages.
+   (1.2.9's: #143, section 5). BitcoinTX's Community Beta builds are
+   signed only by that registry's build key, **Github Actions**. On
+   StartOS 0.4.1.2 or later, turning it on for **Packages** under
+   **System → Trusted Keys** installs them without a warning; on an
+   earlier 0.4.1, update StartOS first.
 5. When satisfied, the owner asks Start9, in an issue on their copy, to
    **promote** it to the main store (`https://community-registry.start9.com`).
    Claude drafts that request. Promotion is the owner's call.

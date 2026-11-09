@@ -167,12 +167,13 @@ names the release walk's corrections.
   with the input as JSON on stdin (`null` for none).
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no key trusted for packages signed: our own
-  packages, and anything from Community Beta, which only its build key,
-  **Github Actions**, signs. Without it: "Signer(s) not accepted". On
-  StartOS's own web page, such an install asks you to confirm the risks
-  first, until that key is on for **Packages** under **System → Trusted
-  Keys** (StartOS 0.4.1.2). The Community Registry's packages need
-  neither.
+  packages, and BitcoinTX's Community Beta builds, which only that
+  registry's build key, **Github Actions**, signs. Without it: "Signer(s)
+  not accepted". On StartOS's own web page, 0.4.1.2 or later asks you to
+  confirm the risks first, until that key is on for **Packages** under
+  **System → Trusted Keys**. 0.4.1 and 0.4.1.1 refuse such a package from
+  a registry, and ask only for a sideloaded file. The Community Registry's
+  packages need neither.
 
 ### Settings, one section at a time (2.0)
 
@@ -2084,10 +2085,11 @@ Community Registry (`https://community-registry.start9.com`). These are
 the updates users make from there, on the VM from `clean`, with the second
 disk and the VM's StartOS password. Installing from a registry goes
 through StartOS's own Marketplace page if `start-cli` can't read the
-registries (with `start-cli`: `-r` the address). On StartOS 0.4.1 or later,
-Community Beta's packages are signed only by its build key, **Github
-Actions**: record what StartOS shows for one, then turn that key on for
-**Packages** under **System → Trusted Keys**, or use `--trust`.
+registries (with `start-cli`: `-r` the address). BitcoinTX's Community
+Beta builds are signed only by that registry's build key, **Github
+Actions**: record what StartOS shows for one. Then, on StartOS 0.4.1.2 or
+later, turn that key on for **Packages** under **System → Trusted Keys**;
+on an earlier 0.4.1, or with `start-cli`, use `--trust`.
 
 - **CB-1** 1.2.10 from the Community Registry (Start9's own build),
   updated from Community Beta. Install BitcoinTX from the Community
