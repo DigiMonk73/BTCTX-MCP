@@ -23,14 +23,14 @@ const ENDED = answers(() => NOT_AUTHENTICATED);
 const AS_401 = { response: { status: 401 } };
 
 describe("a 401 on a signed-in page: its session ended", () => {
-  it.fails("goes to the sign-in page, and still reaches the page that asked", async () => {
+  it("goes to the sign-in page, and still reaches the page that asked", async () => {
     const sentTo = pageAt("/transactions");
     api.defaults.adapter = ENDED;
     await expect(api.get("/accounts/")).rejects.toMatchObject(AS_401);
     expect(sentTo).toEqual(["/login"]);
   });
 
-  it.fails("from a PDF download too, which goes through the bare axios", async () => {
+  it("from a PDF download too, which goes through the bare axios", async () => {
     const sentTo = pageAt("/reports");
     axios.defaults.adapter = ENDED;
     await expect(downloadPdfWithAxios("/api/reports/complete_tax_report?year=2025")).rejects.toMatchObject(AS_401);

@@ -12,20 +12,54 @@ const api = axios.create({
   headers: PAGE_HEADERS,
 });
 
+const SIGN_IN_PAGE = "/login";
+// The pages anyone may open: a 401 there is the page's own to show, and the
+// sign-in page sent to itself would only load again
+const SIGNED_OUT_PAGES = [SIGN_IN_PAGE, "/logout", "/register"];
+// Requests whose 401 is their caller's answer, not an ended session: the
+// sign-in's wrong password, and PrivateRoute's question whether anyone is
+// signed in (it goes to the sign-in page itself)
+const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
+
+/**
+ * A signed-in page whose session ended (logged out in another browser, a
+ * password change: SECURITY-RULES.md, "Sessions") goes to the sign-in page
+ * at its next request's 401, rather than show load errors (#919). It's
+ * loaded afresh, so nothing of the ended page stays: its figures, a toast
+ * its failed request raised. The error still reaches the page that asked:
+ * if the owner stays (the browser asks first while a form has unsaved
+ * changes), the page says what failed.
+ */
+function toSignInWhenEnded(error: unknown): Promise<never> {
+  if (sessionEnded(error)) window.location.replace(SIGN_IN_PAGE);
+  return Promise.reject(error);
+}
+
+/** Whether a failed request says this signed-in page's session ended. */
+function sessionEnded(error: unknown): boolean {
+  if (!axios.isAxiosError(error) || error.response?.status !== 401 || !error.config) return false;
+  const path = new URL(axios.getUri(error.config), window.location.origin).pathname;
+  return !OWN_401.includes(path) && !SIGNED_OUT_PAGES.includes(window.location.pathname);
+}
+
+api.interceptors.response.use(undefined, toSignInWhenEnded);
+
 export async function downloadPdfWithAxios(
   url: string,
   onProgress?: (percent: number) => void
 ): Promise<Blob> {
-  const response = await axios.get(url, {
-    responseType: "blob",
-    headers: PAGE_HEADERS,
-    onDownloadProgress: (evt) => {
-      if (evt.total && onProgress) {
-        const percent = Math.floor((evt.loaded / evt.total) * 100);
-        onProgress(percent);
-      }
-    },
-  });
+  const response = await axios
+    .get(url, {
+      responseType: "blob",
+      headers: PAGE_HEADERS,
+      onDownloadProgress: (evt) => {
+        if (evt.total && onProgress) {
+          const percent = Math.floor((evt.loaded / evt.total) * 100);
+          onProgress(percent);
+        }
+      },
+    })
+    .catch(toSignInWhenEnded);
   return response.data; // This is your PDF blob
 }
 
