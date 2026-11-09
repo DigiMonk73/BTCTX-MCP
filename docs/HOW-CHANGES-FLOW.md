@@ -522,7 +522,8 @@ pull request moved onto `develop` (`gh pr edit N --base develop`, say a
 Dependabot one opened against `staging` before `main` carried the new
 `dependabot.yml`: "Branches") gets a new commit, or is closed and
 reopened, so the full set runs: changing the base starts no run. During
-big work, sessions report "ready: #N" and the lead turns on auto-merge instead
+big work, and in a maintenance cycle's lanes (`docs/MAINTENANCE-LEAD.md`),
+sessions report "ready: #N" and the lead turns on auto-merge instead
 ("Big work", "The lead runs the merges"). The owner
 allowed `gh pr merge` in this project's local Claude settings for that.
 A change in tax figures or what the app computes, or the database, follows

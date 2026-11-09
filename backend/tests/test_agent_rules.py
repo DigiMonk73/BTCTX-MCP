@@ -98,7 +98,10 @@ def test_the_maintenance_leads_job_has_its_own_doc():
     text = " ".join((ROOT / LEAD).read_text().split())
     for words in ("## Starting as lead", "## The cycle: three lanes", "| **Updates** |", "| **StartOS** |", "| **Fix** |",
                   'The owner says "start the cycle"', "### The lane brief", "### Which model",
-                  "The lead runs on Fable 5.2 at high effort", "runs on Opus 5.5 unless there is a reason",
+                  "The lead runs on Fable 5.2 at high effort", "runs on Opus 5.5 (or a later Opus release) unless there is a reason",
+                  "In force from 2.0.2's handoff", "Never a lane item", "Waiting is the default", "Between cycles",
+                  "before anything is pushed", "Never turn on auto-merge", "never to more than two at once",
+                  "nothing here loosens them",
                   "Any session may use Fable 5.2 where its own judgement says", "says why in one line",
                   "Never a Sonnet or a Haiku", "### Who talks to whom", "### The board", "## Releases",
                   "nothing is released but a `tax-figures` or security fix", "three rounds in a row",
