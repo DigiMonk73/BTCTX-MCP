@@ -19,7 +19,6 @@ ROOT = Path(__file__).resolve().parents[2]
 GATE = ROOT / "scripts" / "gate"
 GUIDE = ROOT / "docs" / "AGENT-TESTS.md"
 PAGE_STEPS = ("AUTH-1", "AUTH-2", "AUTH-3", "BAK-2", "BAK-3", "SEC-8", "END-2")
-NOT_YET = "for #935: the page checks aren't a script yet"
 
 
 def _pages():
@@ -81,7 +80,6 @@ def _step_text(guide, step):
     return guide[begin:end]
 
 
-@pytest.mark.xfail(strict=True, reason=NOT_YET)
 def test_the_page_steps_are_the_scripts_not_a_persons():
     guide = GUIDE.read_text()
     by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]

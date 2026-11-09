@@ -90,7 +90,8 @@ async function shown(where = page.locator("body")) {
   return (await where.innerText().catch(() => "")).replace(/\s+/g, " ").trim().slice(0, 400);
 }
 
-/** `text` appears in `where`; noted as seen. */
+/** `text` appears in `where`; noted as seen. Settings says what a form did
+ * in its message line, below the sections: look for that in the page. */
 async function sees(where, text, saw, timeout = WAIT) {
   try {
     await where.getByText(text).first().waitFor({ state: "visible", timeout });
@@ -234,7 +235,7 @@ await step("BAK-2", "the encrypted backup's password", async (saw) => {
     await first.fill(one);
     await repeat.fill(two);
     await section.getByRole("button", { name: "Download" }).click();
-    await sees(section, refusal, saw);
+    await sees(page, refusal, saw);
   }
   page.off("download", counted);
   check(downloads === 0, `a refused password downloaded ${downloads} file(s)`);
@@ -271,7 +272,7 @@ await step("BAK-3", "the restore: a wrong password, then the right one", async (
   await section.getByLabel("Backup file").setInputFiles(backupFile);
   await section.getByLabel("Backup password").fill("wrong-pass");
   await section.getByRole("button", { name: "Restore", exact: true }).click();
-  await sees(section, "Restore failed: ❌ Failed to decrypt backup. Wrong password, or the file is damaged or isn't a BitcoinTX backup.", saw);
+  await sees(page, "Restore failed: ❌ Failed to decrypt backup. Wrong password, or the file is damaged or isn't a BitcoinTX backup.", saw);
   check((await rows()) === before, "a refused restore changed the ledger");
   saw.push(`the ledger unchanged (${before} rows)`);
 
@@ -320,11 +321,11 @@ await step("SEC-8", "the password rules, and another browser's session", async (
   await account.getByLabel("New password").fill("elevenchars");
   await account.getByLabel("Current password").fill(ADMIN);
   await submit();
-  await sees(account, "The new password is too short. At least 12 characters.", saw);
+  await sees(page, "The new password is too short. At least 12 characters.", saw);
   await account.getByLabel("New password").fill(TESTER[1]);
   await account.getByLabel("Current password").fill("");
   await submit();
-  await sees(account, "Enter your current password to change your username or password.", saw);
+  await sees(page, "Enter your current password to change your username or password.", saw);
   await account.getByLabel("Current password").fill(ADMIN);
   await submit();
   await sees(page, "Credentials updated successfully.", saw);

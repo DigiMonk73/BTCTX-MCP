@@ -27,6 +27,7 @@ make hooks          # installs the pre-push gate
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
 | Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~7 min |
 | Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
+| The gate's sign-in and password pages | `scripts/gate/pages.py <candidate image>` | The release gate's AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2 (#935), by Playwright against the candidate's own Docker image on `127.0.0.1`, set up as StartOS sets it up, with test logins: PASS or FAIL per step with what it saw. Refuses any other host; checks the owner's ports (8765, 8767) before and after; removes its container and volume. Not in CI: it needs the candidate's image | ~2 min |
 
 ## When they run
 
