@@ -27,7 +27,9 @@ install chromium`). Only ever a throwaway install: never a real ledger.
 import json
 import os
 import secrets
+import signal
 import socket
+import string
 import subprocess
 import sys
 import tempfile
@@ -46,6 +48,8 @@ THIS_COMPUTER = ("127.0.0.1", "localhost")
 # with no price settings: INS-4 leaves the choice to the app
 STARTOS_ENV = {"DATABASE_FILE": "/data/btctx.db", "LOG_LEVEL": "INFO", "BTCTX_HOST": "startos"}
 WAIT_LIMIT = 300  # seconds for the server to answer; it usually takes under 30
+# Set Login Credentials' passwords: 24 of a-z, A-Z and 0-9 (startos/startos/utils.ts)
+PASSWORD_LETTERS, PASSWORD_LENGTH = string.ascii_letters + string.digits, 24
 
 
 def say(text):
@@ -63,17 +67,27 @@ def local_url(url):
 
 
 def health(port):
-    """What /api/health answers on 127.0.0.1:port, or "none"."""
+    """What /api/health answers on 127.0.0.1:port: its body, an error's code and
+    body (as docker-update.sh's curl records it), or "none"."""
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=2) as answer:
             return answer.read().decode()
+    except urllib.error.HTTPError as error:
+        return f"{error.code} {error.read().decode(errors='replace')}"
     except (urllib.error.URLError, OSError):
         return "none"
 
 
 def owners():
     return " ".join(f"{port}={health(port)}" for port in OWNER_PORTS)
+
+
+def guard(before):
+    """Stops the run if the owner's apps answer differently than at its start."""
+    now = owners()
+    if now != before:
+        raise SystemExit(f"FAIL the owner's ports changed: {before} -> {now}")
 
 
 def port_taken(port):
@@ -99,9 +113,9 @@ def app_command(image, volume, *command, stdin=None):
     docker("run", "--rm", "-i", "-v", f"{volume}:/data", *env_args(STARTOS_ENV), image, *command, stdin=stdin)
 
 
-def wait_for(url):
+def wait_for(port):
     began, report = time.monotonic(), 30
-    while health_at(url) == "none":
+    while health(port) == "none":
         waited = time.monotonic() - began
         if waited >= WAIT_LIMIT:
             raise SystemExit(f"FAIL the candidate didn't answer in {WAIT_LIMIT // 60} minutes")
@@ -111,17 +125,17 @@ def wait_for(url):
         time.sleep(1)
 
 
-def health_at(url):
-    return health(urllib.parse.urlsplit(url).port)
-
-
-def start(image, run, port, password):
-    """The volume and the running candidate, set up as StartOS sets it up."""
+def prepare(image, run, password):
+    """The volume, set up as StartOS sets it up before the service starts."""
     docker("volume", "create", run)
     say("Set Login Credentials' own command, while the app is stopped (INS-3)")
     app_command(image, run, "python", "-m", "backend.cli", "set-password", "--username", "admin",
                 "--password-stdin", stdin=password + "\n")
     app_command(image, run, "python", "-m", "backend.cli", "migrate")
+
+
+def serve(image, run, port):
+    """The candidate's server on the volume, on this computer only."""
     docker("run", "-d", "--name", run, "-p", f"127.0.0.1:{port}:80", "-v", f"{run}:/data",
            *env_args(STARTOS_ENV), image)
 
@@ -136,13 +150,15 @@ def browser_steps(url, out, run, password):
     python = ROOT / ".venv" / "bin" / "python"
     env = {**os.environ, "GATE_PASSWORD": password, "GATE_CONTAINER": run,
            "GATE_PY": str(python if python.exists() else sys.executable)}
-    code = subprocess.run(["node", str(ROOT / "scripts" / "gate" / "pages.mjs"), url, str(out)], env=env).returncode
     results = out / "results.json"
+    results.unlink(missing_ok=True)  # never an earlier run's, in a folder used again
+    code = subprocess.run(["node", str(ROOT / "scripts" / "gate" / "pages.mjs"), url, str(out)], env=env).returncode
     return code, json.loads(results.read_text()) if results.exists() else []
 
 
-def verdict(reported):
-    """PASS only when every step ran once and passed; a missing step fails."""
+def verdict(reported, code, ports_kept):
+    """The run's last line, PASS only when every step ran once and passed, the
+    browser script ended well and the owner's ports answered the same."""
     seen = [r["id"] for r in reported]
     failed = [r["id"] for r in reported if r["verdict"] != "PASS"]
     missing = [step for step in STEPS if step not in seen]
@@ -151,8 +167,12 @@ def verdict(reported):
         say(f"FAIL {step}: never reported")
     for step in unknown:
         say(f"FAIL {step}: not one of this script's steps")
-    ok = not (failed or missing or unknown) and len(seen) == len(STEPS)
-    say(f"{'PASS' if ok else 'FAIL'} {len(STEPS) - len(set(failed + missing))} of {len(STEPS)} steps passed")
+    if code and not failed:
+        say(f"FAIL pages.mjs stopped with exit code {code}")
+    ok = not (failed or missing or unknown or code) and len(seen) == len(STEPS) and ports_kept
+    passed = len(STEPS) - len(set(failed + missing))
+    say(f"{'PASS' if ok else 'FAIL'} {passed} of {len(STEPS)} steps passed"
+        + ("" if ports_kept else "; the owner's ports changed"))
     return ok
 
 
@@ -173,11 +193,16 @@ def main(argv):
     say("needs from you: nothing (Docker and a browser on this computer; under a minute)")
     say(f"the owner's ports before: {before}")
     run = f"btctx-pages-{os.getpid()}"
-    password = secrets.token_urlsafe(18)  # 24 characters, as Set Login Credentials makes
+    password = "".join(secrets.choice(PASSWORD_LETTERS) for _ in range(PASSWORD_LENGTH))
+    # A stopped run removes its container too: `finally` runs on these, not on SIGTERM's default
+    for stop in (signal.SIGTERM, signal.SIGHUP):
+        signal.signal(stop, lambda number, _frame: sys.exit(128 + number))
     try:
-        start(image, run, port, password)
-        wait_for(url)
-        say(f"{image} answers on {url}: {health_at(url)} (container and volume {run})")
+        prepare(image, run, password)
+        guard(before)
+        serve(image, run, port)
+        wait_for(port)
+        say(f"{image} answers on {url}: {health(port)} (container and volume {run})")
         code, reported = browser_steps(url, out, run, password)
         log = docker("logs", run, check=False)
         (out / "server.log").write_text((log.stdout + log.stderr).replace(password, "<the test login>"))
@@ -187,9 +212,8 @@ def main(argv):
     say(f"the owner's ports after: {after}")
     if after != before:
         say(f"FAIL the owner's ports changed: {before} -> {after}")
-        return 1
     say(f"what each step saw, the screenshots and the server's log: {out}")
-    return 0 if code == 0 and verdict(reported) else 1
+    return 0 if verdict(reported, code, after == before) else 1
 
 
 if __name__ == "__main__":

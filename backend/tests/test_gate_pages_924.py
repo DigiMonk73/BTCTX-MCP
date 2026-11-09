@@ -55,13 +55,16 @@ def test_this_computer_is_taken(url):
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
-def test_the_browser_script_refuses_another_host_itself():
-    # The script that types the logins checks on its own, before it loads
-    # Playwright, for whoever runs it without pages.py
-    run = subprocess.run(["node", str(GATE / "pages.mjs"), "https://adjective-noun.local"],
+@pytest.mark.parametrize("url", ELSEWHERE)
+def test_the_browser_script_refuses_another_host_itself(url, tmp_path):
+    # The script that types the logins takes its URL from whoever runs it:
+    # it checks on its own, before it loads Playwright or writes anything
+    out = tmp_path / "out"
+    run = subprocess.run(["node", str(GATE / "pages.mjs"), url, str(out)],
                          capture_output=True, text=True, timeout=60)
     assert run.returncode == 2
-    assert "127.0.0.1" in run.stderr and "adjective-noun.local" in run.stderr
+    assert f"refused: {url}" in run.stderr and "127.0.0.1" in run.stderr
+    assert not out.exists()
 
 
 def test_every_step_reported_is_the_guides_and_both_scripts_agree():
@@ -85,7 +88,30 @@ def test_the_page_steps_are_the_scripts_not_a_persons():
     by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]
     rows = [line for line in by_hand.splitlines() if line.startswith("|")]
     for row in rows:
-        assert not re.search(r"\b(AUTH-\d|BAK-[23]|SEC-8|END-2)\b", row), row
+        assert not re.search(r"\b(AUTH-[123]|BAK-[23]|SEC-8|END-2)\b", row), row
     assert "scripts/gate/pages.py" in by_hand
     for step in PAGE_STEPS:
         assert "scripts/gate/pages.py" in _step_text(guide, step), step
+
+
+def _last_line(pages, reported, code, ports_kept, capsys):
+    ok = pages.verdict(reported, code, ports_kept)
+    return ok, capsys.readouterr().out.splitlines()[-1].split(" ", 1)[1]
+
+
+def _reported(failing=()):
+    return [{"id": step, "verdict": "FAIL" if step in failing else "PASS"} for step in PAGE_STEPS]
+
+
+@pytest.mark.parametrize("reported, code, ports_kept, last", [
+    (_reported(), 0, True, "PASS 7 of 7 steps passed"),
+    # The browser script exits 1 on any FAIL: the run still ends on its FAIL line
+    (_reported({"BAK-2"}), 1, True, "FAIL 6 of 7 steps passed"),
+    ([], 1, True, "FAIL 0 of 7 steps passed"),  # it stopped before writing anything
+    (_reported(), 3, True, "FAIL 7 of 7 steps passed"),  # it crashed after the last step
+    (_reported()[:-1], 0, True, "FAIL 6 of 7 steps passed"),  # a step never reported
+    (_reported(), 0, False, "FAIL 7 of 7 steps passed; the owner's ports changed"),
+])
+def test_the_run_ends_on_one_pass_or_fail_line(reported, code, ports_kept, last, capsys):
+    ok, line = _last_line(_pages(), reported, code, ports_kept, capsys)
+    assert line == last and ok == last.startswith("PASS")

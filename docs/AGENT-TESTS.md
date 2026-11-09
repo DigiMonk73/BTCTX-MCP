@@ -57,6 +57,7 @@ run starts:
 |---|---|---|
 | The VM's StartOS password, typed for a StartOS backup or its restore | whoever set up the VM (an agent never stores it) | BAK-5, UPG-5b, WAY-1 to WAY-5, BETA-1, CB |
 | `start-cli -H $URL auth login` (the same password), once per VM | whoever set up the VM | before any `start-cli` step |
+| Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (#924) |
 | A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh` clears the quarantine for its own launches) |
 | Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac launch, and logging in to it again after, when the test build shares its WebKit folders | the owner | Track C, WAY-7, BETA |
 | StartOS's **My Mempool on this server** | the owner, on their own server | PRC-4 |
@@ -302,13 +303,35 @@ repository's `.venv` and the frontend's Playwright (`cd frontend && npm ci
   an AI key, as the walk's earlier steps leave them.
 - It prints PASS or FAIL per step with what it saw, and a last line PASS or
   FAIL. In the folder: `results.json`, a screenshot of each FAIL,
-  BAK-3's figures before and after, and the server's log.
+  BAK-2's `bitcoin_backup.btx`, BAK-3's figures before and after
+  (`before-backup.json`, `after-restore.json`, `BAK-3-figures.txt`), the
+  browser's own confirms (`dialogs.json`) and the server's log.
 - Its container and volume are removed at the end.
 
 Build the image at `$SHA` (`git archive $SHA | docker build -t
-btctx:candidate -`) and paste the summary into the report. On the VM, these
-steps' API checks (SEC-1 to SEC-9's curl, the golden loader) still run
-there.
+btctx:candidate -`) and paste the summary into the report.
+
+**On the VM**, these steps aren't walked: their pages are the script's,
+and the API checks (the golden loader, IMP-3's and SEC-1 to SEC-9's curl)
+still run there. The later steps that use what these steps leave take it
+from the VM's own walk instead:
+- **The login stays INS-3's** `admin`, since no SEC-8 or END-2 ran there.
+  SEC-9's fresh jar logs in with it, LCK-2 expects INS-3's password (not
+  `tester`) to stop working, and END-3 checks `admin` alone (there is no
+  `fresh`).
+- **BAK-2's file is made through the API**, at BAK-2's place in the walk.
+  Log in with curl as in SEC-4 (`-c jar`), then send
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -o bitcoin_backup.btx $API/backup/download`.
+  BAK-4 restores it the same way:
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -F file=@bitcoin_backup.btx $API/backup/restore`
+  (expect its `message` to be BAK-3's "✅ Database successfully restored. …"),
+  then checks what BAK-4 expects.
+- **BAK-5's AI key** is the one AI-12 made last, not BAK-3's.
+
+The VM's browser still has to be signed in for its other pages (after
+INS-5, after AUTH-5's and LCK-2's changes, and after BAK-4's restore),
+which types the INS-3 login (or LCK-2's) into the VM's page: a person's
+until #924 settles it (What stays by hand).
 
 ---
 

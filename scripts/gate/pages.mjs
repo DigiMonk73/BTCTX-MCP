@@ -21,7 +21,8 @@ import { fileURLToPath } from "node:url";
 
 const THIS_COMPUTER = ["127.0.0.1", "localhost"];
 
-/** The URL without its last slash, if it's a page on this computer; else exit 2. */
+/** The URL's origin, if it's on this computer; else exit 2. The origin, not the
+ * text given, so every request goes where the check looked. */
 function localUrl(raw) {
   let url;
   try {
@@ -34,7 +35,7 @@ function localUrl(raw) {
     console.error(`refused: ${raw}: test logins go only to a page on this computer, ${THIS_COMPUTER.join(" or ")}`);
     process.exit(2);
   }
-  return raw.replace(/\/+$/, "");
+  return url.origin;
 }
 
 const BASE = localUrl(process.argv[2] ?? "");
@@ -51,8 +52,15 @@ const BACKUP_PASSWORD = "backup-pass-123";
 const TESTER = ["tester", "tester-password-1"];
 const FRESH = ["fresh", "fresh-password-12"];
 const WAIT = 15_000;
+const HIDDEN = "<the test login>";
 
 class Fail extends Error {}
+
+/** Evidence without admin's random password: Playwright's errors quote what
+ * a fill typed, and the evidence goes into the gate's report. */
+function scrubbed(text) {
+  return ADMIN ? String(text).replaceAll(ADMIN, HIDDEN) : String(text);
+}
 const results = [];
 const dialogs = [];
 
@@ -75,7 +83,7 @@ async function step(id, title, body) {
     await body(saw);
   } catch (error) {
     verdict = "FAIL";
-    saw.push(error instanceof Fail ? error.message : `error: ${error.message ?? error}`);
+    saw.push(scrubbed(error instanceof Fail ? error.message : `error: ${error.message ?? error}`));
     await page.screenshot({ path: path.join(OUT, `${id}.png`), fullPage: true }).catch(() => {});
   }
   results.push({ id, title, verdict, saw });
@@ -151,7 +159,7 @@ function gatePython(script, args, [user, password]) {
     env: { ...process.env, BTCTX_URL: BASE, BTCTX_USER: user, BTCTX_PASSWORD: password },
     encoding: "utf8",
   });
-  return { code: run.status, out: `${run.stdout ?? ""}${run.stderr ?? ""}${run.error ?? ""}`.trim() };
+  return { code: run.status, out: scrubbed(`${run.stdout ?? ""}${run.stderr ?? ""}${run.error ?? ""}`.trim()) };
 }
 
 /** The same, failing the step when it fails. */
@@ -179,7 +187,10 @@ let backupFile = null;
 let olderKey = null;
 
 await step("AUTH-1", "the sign-in page", async (saw) => {
+  // The Setup Code field shows only once the server has said it's needed
+  const status = page.waitForResponse((answer) => answer.url().endsWith("/api/users/setup-status"));
   await page.goto("/");
+  await status;
   await sees(page, "Welcome to BitcoinTX", saw);
   await sees(page, "Sign in", saw);
   check((await page.getByLabel("Setup Code").count()) === 0, "a Setup Code field is shown");
@@ -219,7 +230,7 @@ try {
   gateScript("figures.py", ["snap", path.join(OUT, "before-backup.json")], ["admin", ADMIN]);
   console.log(`ready for BAK: ${loaded}; Coldcard and Kraken added; AI access on, with a key`);
 } catch (error) {
-  console.log(`not ready for BAK: ${error.message}`);
+  console.log(`not ready for BAK: ${scrubbed(error.message)}`);
 }
 
 await step("BAK-2", "the encrypted backup's password", async (saw) => {
@@ -244,11 +255,12 @@ await step("BAK-2", "the encrypted backup's password", async (saw) => {
   page.off("download", counted);
   check(downloads === 0, `a refused password downloaded ${downloads} file(s)`);
   saw.push("nothing downloaded");
-  const download = page.waitForEvent("download");
   await first.fill(BACKUP_PASSWORD);
   await repeat.fill(BACKUP_PASSWORD);
-  await section.getByRole("button", { name: "Download" }).click();
-  const file = await download;
+  // Waited for with the click: a wait begun earlier would outlive a fill that failed
+  const [file] = await Promise.all([
+    page.waitForEvent("download"), section.getByRole("button", { name: "Download" }).click(),
+  ]);
   check(file.suggestedFilename() === "bitcoin_backup.btx", `the file is ${file.suggestedFilename()}`);
   backupFile = path.join(OUT, "bitcoin_backup.btx");
   await file.saveAs(backupFile);
@@ -360,6 +372,7 @@ await step("END-2", "the reset from the register page", async (saw) => {
   check((await page.getByLabel("Setup Code").count()) === 0, "a Setup Code field is shown");
   saw.push("a Current Password field, no Setup Code");
 
+  const asked = dialogs.length; // the browser's own confirm counts too (#256)
   await page.getByLabel("New Username").fill(FRESH[0]);
   await page.getByLabel("New Password").fill(FRESH[1]);
   await current.fill("not-the-current-password");
@@ -367,7 +380,8 @@ await step("END-2", "the reset from the register page", async (saw) => {
   const refusal = page.getByRole("alert");
   await refusal.first().waitFor({ timeout: WAIT }).catch(() => {});
   check((await refusal.count()) > 0, `a wrong current password wasn't refused: ${await shown()}`);
-  check((await page.getByRole("dialog").count()) === 0, "a dialog came with a wrong current password");
+  check((await page.getByRole("dialog").count()) === 0 && dialogs.length === asked,
+    "a dialog came with a wrong current password");
   saw.push(`a wrong current password refused, no dialog ("${await shown(refusal.first())}")`);
 
   await current.fill(TESTER[1]);
@@ -385,8 +399,10 @@ await step("END-2", "the reset from the register page", async (saw) => {
   saw.push("Delete 14 transactions enabled only once DELETE is typed");
   await go.click();
   await at(/\/login$/, "the login page after the reset");
-  await sees(page, "Registration successful! Your credentials have been updated.", saw);
-  await sees(page, "A copy of the database from before is kept in BitcoinTX", saw);
+  await sees(page, "Registration successful! Your credentials have been updated. A copy of the database from before "
+    + "is kept in BitcoinTX's data folder (in backups, unencrypted).", saw);
+  check(dialogs.length === asked, `the browser's own confirm came: ${dialogs.slice(asked).join(" / ")}`);
+  saw.push("no browser confirm");
   const now = deleteAllCopies().length;
   check(now === copies + 1, `the data folder's backups went from ${copies} to ${now} copies`);
   saw.push(`one more btctx-before-delete-all-….db (${copies} → ${now})`);
