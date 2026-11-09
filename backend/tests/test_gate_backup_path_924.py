@@ -73,7 +73,6 @@ NOT_NEEDED = {
 }
 
 
-@pytest.mark.xfail(strict=True, reason="for #924: the backup-path rule isn't written yet")
 @pytest.mark.parametrize("case", sorted(NEEDED))
 def test_a_change_to_the_backup_path_makes_bak5_needed(case):
     path, before, after = NEEDED[case]
@@ -83,7 +82,6 @@ def test_a_change_to_the_backup_path_makes_bak5_needed(case):
     assert not [line for line in lines if "App.tsx" in line]  # only what makes them needed
 
 
-@pytest.mark.xfail(strict=True, reason="for #924: the backup-path rule isn't written yet")
 @pytest.mark.parametrize("case", sorted(NOT_NEEDED))
 def test_a_change_off_the_backup_path_records_bak5_as_not_needed(case):
     changes = NOT_NEEDED[case]
@@ -94,7 +92,6 @@ def test_a_change_off_the_backup_path_records_bak5_as_not_needed(case):
     assert [line.strip() for line in lines[1:-1]] == [path for path, _, _ in changes]
 
 
-@pytest.mark.xfail(strict=True, reason="for #924: the backup-path rule isn't written yet")
 def test_a_file_moved_off_the_backup_path_still_counts():
     """git compares without renames, so the old path shows as gone."""
     lines = _report(("backend/services/backup.py", "a", None), ("backend/services/old_backup.py", None, "a"))
