@@ -7,7 +7,7 @@
 // signed-out browser on a page of errors.
 import "../test/setup";
 import React, { useState } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import api from "../api";
@@ -89,6 +89,16 @@ describe("a restore's notice", () => {
     view.unmount(); // the owner left Settings
     await pricePoll();
     expect(sentTo).toEqual(["/login"]);
+  });
+
+  it.fails("ends at the owner's next action with Settings' message line: its 401 goes to the sign-in page", async () => {
+    // Every such action (Recalculate, Export CSV…) starts by clearing the
+    // line, the notice with it, and shares the sections' `loading`
+    const sentTo = pageAt("/settings");
+    serverRestoring([200, { message: "Backup restored.", notice: NOTICE }]);
+    await restore();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Export CSV" }));
+    await waitFor(() => expect(sentTo).toEqual(["/login"]));
   });
 
   it("holds nothing after a restore that failed", async () => {
