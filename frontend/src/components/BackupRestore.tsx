@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import api from "../api";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import api, { holdSignIn } from "../api";
 import { csvExportName } from "../utils/csvExport";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
@@ -10,6 +10,30 @@ import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup, r
 const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
   // A restore with a notice waits here for the owner to read it (#407)
   const [loginAgain, setLoginAgain] = useState(false);
+  // The restore signed this browser out, so while its notice waits an ended
+  // session's 401 (the price card asks every 30 s) leaves the page here
+  // (#919). The wait ends at Log in again, on leaving Settings, or at the
+  // owner's next action with Settings' message line: each starts by clearing
+  // the line, the notice with it, and shares the sections' `loading`.
+  const noticeHold = useRef<(() => void) | null>(null);
+  const endNoticeWait = useCallback(() => {
+    noticeHold.current?.();
+    noticeHold.current = null;
+  }, []);
+  // Whether this section is still mounted (Settings keeps a closed section
+  // mounted, its notice still on the message line): a restore that answers
+  // after the owner left Settings takes no hold, since nothing would release it
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      endNoticeWait();
+    };
+  }, [endNoticeWait]);
+  useEffect(() => {
+    if (loading) endNoticeWait();
+  }, [loading, endNoticeWait]);
 
   const handleExportCsv = async () => {
     setLoading(true);
@@ -74,6 +98,9 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
       // The restored database may have other user ids: log in again (the
       // login in use stays; the backup's doesn't come back).
       if (outcome.waits) {
+        // Held at once, before the notice renders: the session ended at the swap
+        endNoticeWait();
+        if (mounted.current) noticeHold.current = holdSignIn();
         setLoginAgain(true);
       } else {
         setTimeout(goToLogin, 2000);
