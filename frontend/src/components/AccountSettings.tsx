@@ -4,15 +4,12 @@ import { extractErrorMessage } from "../utils/apiError";
 import { PASSWORD_RULE, passwordTooShort, setupCodeHint, type SetupStatus } from "../utils/credentials";
 import TaxTimezoneSetting from "./TaxTimezoneSetting";
 
-/** The first (and only) user's id, or null. */
+/** The first (and only) user's id, or null when there's none. A request
+ * that fails is its caller's to say: an ended session's goes to the sign-in
+ * page (api.ts), never "No user found" while the user is there (#919). */
 async function getUserId(): Promise<number | null> {
-  try {
-    const res = await api.get("/users/");
-    const users = res.data as { id: number; username: string }[];
-    return users.length > 0 ? users[0].id : null;
-  } catch {
-    return null;
-  }
+  const res = await api.get<{ id: number; username: string }[]>("/users/");
+  return res.data.length > 0 ? res.data[0].id : null;
 }
 
 interface AccountSettingsProps extends SettingsSectionProps {
