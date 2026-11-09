@@ -72,7 +72,7 @@ async function restore() {
 const pricePoll = () => expect(api.get("/bitcoin/price/status")).rejects.toMatchObject({ response: { status: 401 } });
 
 describe("a restore's notice", () => {
-  it.fails("keeps the page on Settings with it while it shows", async () => {
+  it("keeps the page on Settings with it while it shows", async () => {
     const sentTo = pageAt("/settings");
     serverRestoring([200, { message: "Backup restored.", notice: NOTICE }]);
     await restore();

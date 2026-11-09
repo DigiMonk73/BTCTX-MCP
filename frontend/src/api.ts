@@ -20,6 +20,24 @@ const SIGNED_OUT_PAGES = [SIGN_IN_PAGE, "/logout", "/register"];
 // sign-in's wrong password, and PrivateRoute's question whether anyone is
 // signed in (it goes to the sign-in page itself)
 const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
+// How many pages hold the sign-in page off for now (holdSignIn)
+let holds = 0;
+
+/**
+ * Keep this page where it is at an ended session's 401 while it shows what
+ * the owner must read first: a restore signs this browser out and waits for
+ * its notice to be read (BackupRestore, #407). Returns the release, for an
+ * effect's cleanup, so a hold never outlives what it was for: one that stuck
+ * would leave a signed-out page showing only errors (#919).
+ */
+export function holdSignIn(): () => void {
+  holds += 1;
+  let held = true;
+  return () => {
+    if (held) holds -= 1;
+    held = false;
+  };
+}
 
 /**
  * A signed-in page whose session ended (logged out in another browser, a
@@ -31,7 +49,7 @@ const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
  * changes), the page says what failed.
  */
 function toSignInWhenEnded(error: unknown): Promise<never> {
-  if (sessionEnded(error)) window.location.replace(SIGN_IN_PAGE);
+  if (holds === 0 && sessionEnded(error)) window.location.replace(SIGN_IN_PAGE);
   return Promise.reject(error);
 }
 

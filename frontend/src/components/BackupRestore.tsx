@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import api from "../api";
+import React, { useEffect, useState } from "react";
+import api, { holdSignIn } from "../api";
 import { csvExportName } from "../utils/csvExport";
 import { downloadMessage } from "../utils/desktopDownload";
 import { extractErrorMessage } from "../utils/apiError";
@@ -10,6 +10,10 @@ import { BACKUP_PASSWORD_HINT, backupPasswordProblem, downloadEncryptedBackup, r
 const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, setMessage }) => {
   // A restore with a notice waits here for the owner to read it (#407)
   const [loginAgain, setLoginAgain] = useState(false);
+  // The restore signed this browser out: until the owner goes on (Log in
+  // again, or leaving Settings), an ended session's 401, the price card's
+  // every 30 s, leaves the notice on screen (#919)
+  useEffect(() => (loginAgain ? holdSignIn() : undefined), [loginAgain]);
 
   const handleExportCsv = async () => {
     setLoading(true);

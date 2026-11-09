@@ -7,7 +7,7 @@
 import "./test/setup";
 import axios from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import api, { downloadPdfWithAxios } from "./api";
+import api, { downloadPdfWithAxios, holdSignIn } from "./api";
 import { NOT_AUTHENTICATED, answers, pageAt } from "./test/endedSession";
 
 const instanceAdapter = api.defaults.adapter;
@@ -71,5 +71,24 @@ describe("answers that stay with the page that asked", () => {
     await expect(api.patch("/users/1", { password: "a-new-password-1234", current_password: "wrong" }))
       .rejects.toMatchObject({ response: { status: 403 } });
     expect(sentTo).toEqual([]);
+  });
+});
+
+describe("a hold on the sign-in page, while a restore's notice shows", () => {
+  const poll = () => expect(api.get("/bitcoin/price/status")).rejects.toMatchObject(AS_401);
+
+  it("keeps the page while held, and nothing once released, however often released", async () => {
+    const sentTo = pageAt("/settings");
+    api.defaults.adapter = ENDED;
+    const release = holdSignIn();
+    const another = holdSignIn();
+    await poll();
+    release();
+    release(); // a second release changes nothing: `another` still holds
+    await poll();
+    expect(sentTo).toEqual([]);
+    another();
+    await poll();
+    expect(sentTo).toEqual(["/login"]);
   });
 });
