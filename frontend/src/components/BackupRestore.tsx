@@ -20,7 +20,16 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
     noticeHold.current?.();
     noticeHold.current = null;
   }, []);
-  useEffect(() => endNoticeWait, [endNoticeWait]);
+  // Whether Settings still shows this section: a restore that answers after
+  // the owner left takes no hold, since nothing would release it
+  const shown = useRef(false);
+  useEffect(() => {
+    shown.current = true;
+    return () => {
+      shown.current = false;
+      endNoticeWait();
+    };
+  }, [endNoticeWait]);
   useEffect(() => {
     if (loading) endNoticeWait();
   }, [loading, endNoticeWait]);
@@ -90,7 +99,7 @@ const BackupRestore: React.FC<SettingsSectionProps> = ({ loading, setLoading, se
       if (outcome.waits) {
         // Held at once, before the notice renders: the session ended at the swap
         endNoticeWait();
-        noticeHold.current = holdSignIn();
+        if (shown.current) noticeHold.current = holdSignIn();
         setLoginAgain(true);
       } else {
         setTimeout(goToLogin, 2000);

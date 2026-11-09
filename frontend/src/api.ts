@@ -21,8 +21,9 @@ const SIGNED_OUT_PAGES = [SIGN_IN_PAGE, "/logout", "/register"];
 // signed in (it goes to the sign-in page itself). Every other 401 a browser
 // gets says its session ended (the backend's login check: get_current_user,
 // require_login; a wrong current password is 403). A route that answered
-// 401 for anything else would send its page to the sign-in page, and the
-// sign-in page, finding the session open, back to it.
+// 401 for anything else would send its page to the sign-in page, which,
+// finding the session open, goes on to the Dashboard: round and round if
+// the Dashboard asked that route.
 const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
 // How many holds keep the sign-in page off for now (holdSignIn)
 let holds = 0;
@@ -47,12 +48,11 @@ export function holdSignIn(): () => void {
 /**
  * A signed-in page whose session ended (a password change in another
  * browser, a logout in another tab: SECURITY-RULES.md, "Sessions") goes to
- * the sign-in page
- * at its next request's 401, rather than show load errors (#919). It's
- * loaded afresh, so nothing of the ended page stays: its figures, a toast
- * its failed request raised. The error still reaches the page that asked:
- * if the owner stays (the browser asks first while a form has unsaved
- * changes), the page says what failed.
+ * the sign-in page at its next request's 401, rather than show load errors
+ * (#919). It's loaded afresh, so nothing of the ended page stays: its
+ * figures, a toast its failed request raised. The error still reaches the
+ * page that asked: if the owner stays (the browser asks first while a form
+ * has unsaved changes), the page says what failed.
  */
 function toSignInWhenEnded(error: unknown): Promise<never> {
   if (holds === 0 && sessionEnded(error)) window.location.replace(SIGN_IN_PAGE);

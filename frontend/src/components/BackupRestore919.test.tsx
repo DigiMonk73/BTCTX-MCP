@@ -121,7 +121,7 @@ describe("a restore's notice", () => {
     expect(sentTo).toEqual(["/login"]);
   });
 
-  it.fails("holds nothing when the owner left Settings before the restore answered", async () => {
+  it("holds nothing when the owner left Settings before the restore answered", async () => {
     // Nothing would release a hold taken after Settings is gone: every 401
     // would stay where it is until the page was loaded again
     const sentTo = pageAt("/settings");
