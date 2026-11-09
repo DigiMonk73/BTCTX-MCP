@@ -61,6 +61,7 @@ const browser = await chromium.launch();
 // AUTH-3: a login adopts the browser's timezone while the ledger is empty
 const context = await browser.newContext({ baseURL: BASE, timezoneId: "America/New_York", locale: "en-US" });
 const page = await context.newPage();
+page.setDefaultTimeout(WAIT);
 page.on("dialog", (dialog) => {
   dialogs.push(dialog.message());
   void dialog.accept();
@@ -116,15 +117,18 @@ async function logIn(user, password, where = page) {
   await where.getByRole("button", { name: "Log in" }).click();
 }
 
+/** The header's Logout (a link), confirmed. */
 async function logOut(saw) {
-  await page.getByRole("button", { name: "Logout" }).click();
+  await page.getByRole("link", { name: "Logout", exact: true }).click();
   await at(/\/login$/, "the login page after Logout");
   saw.push("logged out");
 }
 
-/** One of Settings' sections, opened: its region. */
+/** One of Settings' sections, opened: its region. Settings is loaded again,
+ * since a page left open keeps what it read then, not what the steps'
+ * setup (the API) changed since. */
 async function settings(title) {
-  await page.getByRole("link", { name: "Settings" }).click();
+  await page.goto("/settings");
   const button = page.getByRole("button", { name: title, exact: true });
   if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
   return page.getByRole("region", { name: title });

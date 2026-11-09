@@ -291,7 +291,7 @@ page on its own computer (`127.0.0.1` or `localhost`), never on the VM's
 image on this computer, the image the StartOS package runs:
 `scripts/gate/pages.py <candidate image> [<folder>]`. It needs Docker, the
 repository's `.venv` and the frontend's Playwright (`cd frontend && npm ci
-&& npx playwright install chromium`), and takes about two minutes.
+&& npx playwright install chromium`), and takes under a minute.
 - It refuses any host but `127.0.0.1` and `localhost`.
 - It checks the owner's ports (8765, 8767) before and after, and stops if
   either answers differently.

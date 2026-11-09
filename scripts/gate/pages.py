@@ -170,7 +170,7 @@ def main(argv):
     if port_taken(port):
         raise SystemExit(f"FAIL port {port} is in use: stop what runs there, or set PORT")
     before = owners()
-    say("needs from you: nothing (Docker and a browser on this computer; about two minutes)")
+    say("needs from you: nothing (Docker and a browser on this computer; under a minute)")
     say(f"the owner's ports before: {before}")
     run = f"btctx-pages-{os.getpid()}"
     password = secrets.token_urlsafe(18)  # 24 characters, as Set Login Credentials makes
