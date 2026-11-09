@@ -138,9 +138,8 @@ All notable changes to BitcoinTX are documented in this file.
   for each issue, each from one fixed brief in that file, with no plan
   or kickoff prompt of its own. Cycles collect work on `develop`; a
   release goes out about every three months, at once for a
-  `tax-figures` or security fix, and each January with the new IRS
-  forms, and from that release until after the April filing deadline
-  nothing else is released unless it has to be. The lead runs on Fable 5.2 at high effort
+  `tax-figures` or security fix, and a new tax year's IRS forms as soon
+  as the IRS publishes them. The lead runs on Fable 5.2 at high effort
   and a lane on Opus 5.5; any session may use Fable 5.2 where its
   judgement says the work needs it, and says why in one line. The
   reviews, the figures rule, the release tests and the handoff at each

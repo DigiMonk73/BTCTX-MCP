@@ -34,9 +34,11 @@ by pull request.
   new features. The work is updates, bug fixes and security fixes. A
   feature request is an idea, never a promise
   (`docs/HOW-CHANGES-FLOW.md`, "Bugs and security").
-- **Stable through the tax season** (the owner, 2026-11-09: "I want
-  this 2.0 to run stable for a while. Probably this entire tax
-  season"): see "Releases".
+- **Stable, in maintenance mode for the most part** (the owner,
+  2026-11-09: "I want this 2.0 to run stable for a while. Probably
+  this entire tax season"; and "I don't necessarily want to claim a
+  freeze"). No release is forbidden: a small improvement the owner has
+  agreed goes out with the next one.
 - **The order of work:** a security problem or a `tax-figures` bug
   first, then outside reports (each answered within a week), then
   updates, then other bugs.
@@ -222,14 +224,18 @@ with one release session: the version pull request, the release tests
 on the StartOS test machine and the fresh docs read, then the owner's
 "merge".
 
-- **When:** about every three months; a `tax-figures` or security fix
-  as soon as it's ready; and each January, the new tax year's final IRS
-  forms (the shipped draft of a year stops on January 1 after it:
-  `backend/services/reports/draft_forms.py`).
-- **The tax season:** from the January forms release until after the
-  April filing deadline, nothing is released but a `tax-figures` or
-  security fix, or what a StartOS update or a corrected IRS form makes
-  necessary. Cycles go on, so nothing piles up.
+- **When:** about every three months, and sooner for a `tax-figures`
+  or security fix, which goes out as soon as it's ready.
+- **A new tax year's IRS forms go out as soon as the IRS publishes
+  them** (the owner, 2026-11-09: "I want to get the new 2026 tax form
+  as soon as it comes out"). The IRS forms watch opens an issue when
+  the final Form 8949 and Schedule D are out (`docs/MAINTENANCE.md`,
+  "Yearly: IRS forms"): the lead starts that release the same week,
+  without waiting for a cycle or the quarter. The shipped draft of a
+  year stops on January 1 after it
+  (`backend/services/reports/draft_forms.py`), so if the final forms
+  aren't out by mid-December, the lead tells the owner and proposes
+  what to ship meanwhile.
 - **The StartOS test machine** runs for a release, as
   `docs/RELEASING.md` says, and in the StartOS lane where its item asks
   for it: a start-cli bump and a new StartOS are tried there first

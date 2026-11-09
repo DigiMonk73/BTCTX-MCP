@@ -104,7 +104,7 @@ def test_the_maintenance_leads_job_has_its_own_doc():
                   "nothing here loosens them",
                   "Any session may use Fable 5.2 where its own judgement says", "says why in one line",
                   "Never a Sonnet or a Haiku", "### Who talks to whom", "### The board", "## Releases",
-                  "nothing is released but a `tax-figures` or security fix", "three rounds in a row",
+                  "go out as soon as the IRS publishes", "I don't necessarily want to claim a freeze", "three rounds in a row",
                   "## What always needs the owner", "## The handoff at each release",
                   "Kickoff prompt for the lead session", '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
         assert words in text, words
