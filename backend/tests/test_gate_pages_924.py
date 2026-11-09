@@ -44,20 +44,17 @@ ELSEWHERE = [
 HERE = ["http://127.0.0.1:9553", "http://localhost:9553", "https://127.0.0.1:9553/"]
 
 
-@pytest.mark.xfail(strict=True, reason=NOT_YET)
 @pytest.mark.parametrize("url", ELSEWHERE)
 def test_a_host_other_than_this_computer_is_refused(url):
     with pytest.raises(SystemExit):
         _pages().local_url(url)
 
 
-@pytest.mark.xfail(strict=True, reason=NOT_YET)
 @pytest.mark.parametrize("url", HERE)
 def test_this_computer_is_taken(url):
     assert _pages().local_url(url) == url.rstrip("/")
 
 
-@pytest.mark.xfail(strict=True, reason=NOT_YET)
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
 def test_the_browser_script_refuses_another_host_itself():
     # The script that types the logins checks on its own, before it loads
@@ -68,7 +65,6 @@ def test_the_browser_script_refuses_another_host_itself():
     assert "127.0.0.1" in run.stderr and "adjective-noun.local" in run.stderr
 
 
-@pytest.mark.xfail(strict=True, reason=NOT_YET)
 def test_every_step_reported_is_the_guides_and_both_scripts_agree():
     steps = _pages().STEPS
     assert tuple(steps) == PAGE_STEPS
