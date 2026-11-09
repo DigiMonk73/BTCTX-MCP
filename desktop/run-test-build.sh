@@ -3,7 +3,8 @@
 # on the installed app's real ledger (~/Library/Application Support/BitcoinTX).
 # Every launch uses the same folder, from any shell, so a reopen or a second
 # launch finds the same data: run this script for each one, never the app's
-# binary by itself (that opens the real ledger).
+# binary by itself (that opens the real ledger). It runs a copy of the build,
+# in the folder, with a bundle id of its own: <the build's id>.test-build.
 #
 #   desktop/run-test-build.sh [--app PATH] [--fresh] [--background]
 #   desktop/run-test-build.sh --where       # print the folder (mcp.json is in it)
@@ -29,6 +30,8 @@ TEMP="${TMPDIR:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo /tmp)}"
 DATA="${BTCTX_TEST_DATA_DIR:-$TEMP/btctx-test-build}"
 PORT=8766
 MARKER=".btctx-test-folder"
+COPY=""
+PLISTBUDDY=/usr/libexec/PlistBuddy
 # What the app keeps in its data folder (desktop/desktop_paths.py), for --fresh
 APP_FILES=(btctx.db btctx.db-journal btctx.db-wal btctx.db-shm .btctx_secret_key mcp.json setup-code.txt
            backups logs irs-draft-forms home)
@@ -77,6 +80,33 @@ in_folder() {
   return 1
 }
 
+# Never through a proxy set for the whole machine (#474): its answer isn't BitcoinTX's
+answers() { curl -s --noproxy '*' -m 2 -o /dev/null "http://127.0.0.1:$PORT/api/health"; }
+
+bundle_id() { "$PLISTBUDDY" -c "Print :CFBundleIdentifier" "$1/Contents/Info.plist" 2>/dev/null; }
+
+# The build's copy, made anew for each launch nothing answers for: an
+# unpacked build can be replaced at the same path. .source is written last,
+# so a copy cut short is never taken for a whole one.
+make_copy() {
+  command -v ditto >/dev/null && command -v codesign >/dev/null && [ -x "$PLISTBUDDY" ] \
+    || fail "a copy with its own bundle id needs macOS's ditto, PlistBuddy and codesign"
+  local id
+  id="$(bundle_id "$APP")" || id=""
+  rm -rf "${COPIES:?}"
+  mkdir -p "$COPIES"
+  ditto --noqtn "$APP" "$COPY" || fail "can't copy $APP"
+  if [ -n "$id" ]; then
+    "$PLISTBUDDY" -c "Set :CFBundleIdentifier $id.test-build" "$COPY/Contents/Info.plist"
+  else
+    "$PLISTBUDDY" -c "Add :CFBundleIdentifier string org.bitcointx.desktop.test-build" "$COPY/Contents/Info.plist"
+  fi || fail "can't give the copy its own bundle id"
+  # The build's own nested code stays signed as it was; --deep only if it isn't
+  { codesign --force --sign - "$COPY" && codesign --verify --deep --strict "$COPY"; } 2>/dev/null \
+    || codesign --force --deep --sign - "$COPY" 2>/dev/null || fail "can't sign the copy of $APP"
+  printf '%s\n' "$SOURCE" >"$COPIES/.source"
+}
+
 fresh=0
 background=0
 where=0
@@ -86,7 +116,7 @@ while [ $# -gt 0 ]; do
     --fresh) fresh=1; shift ;;
     --background) background=1; shift ;;
     --where) where=1; shift ;;
-    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "run-test-build.sh: unknown option $1 (--help)" >&2; exit 2 ;;
   esac
 done
@@ -116,6 +146,7 @@ mkdir -p "$DATA"
 [ "$(physical "$DATA")" = "$DATA" ] || fail "refusing $DATA: it resolves to $(physical "$DATA")"
 check_folder "$DATA"
 touch "$DATA/$MARKER"
+COPIES="$DATA/test-app"
 if [ "$where" = 1 ]; then
   echo "$DATA"
   exit 0
@@ -140,11 +171,30 @@ esac
 BIN="$APP/Contents/MacOS/$EXE"
 [ -x "$BIN" ] || fail "no app at $APP (build one with desktop/build-mac.sh, or give --app)"
 if [ "$fresh" = 1 ]; then
-  # Never through a proxy set for the whole machine (#474): its answer isn't BitcoinTX's
-  if curl -s --noproxy '*' -m 2 -o /dev/null "http://127.0.0.1:$PORT/api/health"; then
+  if answers; then
     fail "a BitcoinTX still answers on port $PORT: quit it before --fresh"
   fi
   for name in "${APP_FILES[@]}"; do rm -rf "${DATA:?}/$name"; done
+fi
+
+# WebKit keeps an app's cookies by bundle id, and a cookie ignores the port: a
+# build run under the installed app's id (org.bitcointx.desktop, or BitcoinTX
+# Preview's) shares its sign-in, so a test login logged the installed app out
+# (#924). So the build runs as a copy with an id of its own, re-signed ad hoc,
+# since the signature seals the id. A bundle with no Info.plist names no id.
+if [ -f "$APP/Contents/Info.plist" ]; then
+  SOURCE="$(physical "$APP")"
+  in_folder "$SOURCE" "$COPIES" && fail "refusing $APP: it is this script's own copy (give the build it was made from)"
+  COPY="$COPIES/$(basename "$SOURCE")"
+  if answers; then
+    # The test run that answers is this build's copy (a second launch, MAC-5):
+    # it is in use, so it stays as it is
+    [ "$(cat "$COPIES/.source" 2>/dev/null)" = "$SOURCE" ] && [ -x "$COPY/Contents/MacOS/$EXE" ] \
+      || fail "a BitcoinTX that isn't this build's test copy answers on port $PORT: quit it first"
+  else
+    make_copy
+  fi
+  BIN="$COPY/Contents/MacOS/$EXE"
 fi
 
 # A build older than BTCTX_DESKTOP_DATA_DIR (every release up to 1.2.5, the
@@ -152,7 +202,7 @@ fi
 # this test home, that is inside the test folder too.
 mkdir -p "$DATA/home"
 export BTCTX_DESKTOP_DATA_DIR="$DATA" BTCTX_DESKTOP_PORT="$PORT" HOME="$DATA/home"
-echo "BitcoinTX test run: data $DATA, http://127.0.0.1:$PORT"
+echo "BitcoinTX test run: data $DATA, http://127.0.0.1:$PORT${COPY:+, bundle id $(bundle_id "$COPY")}"
 if [ "$background" = 1 ]; then
   mkdir -p "$DATA/logs"
   nohup "$BIN" >>"$DATA/logs/run-test-build.out" 2>&1 &

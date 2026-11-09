@@ -274,7 +274,6 @@ def _app_with_id(tmp_path, bundle_id) -> Path:
 
 
 @on_a_mac
-@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
 @pytest.mark.parametrize("installed_id", INSTALLED_IDS)
 def test_a_build_runs_as_a_copy_with_its_own_bundle_id(tmp_path, installed_id):
     """WebKit keeps an app's cookies by bundle id: a build run under the
@@ -298,7 +297,6 @@ def test_a_build_runs_as_a_copy_with_its_own_bundle_id(tmp_path, installed_id):
 
 
 @on_a_mac
-@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
 def test_a_second_launch_goes_to_the_copy_that_is_open(tmp_path):
     """MAC-5's second launch, while the first answers: the copy in use stays
     as it is, and the launch is its (which says it's already open). A test
@@ -318,7 +316,6 @@ def test_a_second_launch_goes_to_the_copy_that_is_open(tmp_path):
 
 
 @on_a_mac
-@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
 def test_the_copy_itself_is_refused_as_the_build(tmp_path):
     """Making the copy anew deletes the old one: given as --app, it would be
     deleted before it was copied."""
