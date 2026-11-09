@@ -135,6 +135,17 @@ All notable changes to BitcoinTX are documented in this file.
   release (#896). It adds commands that sign and endorse packages; its
   release notes name no change to packing. The SHA-256 is the release
   notes' and GitHub's own digest of `start-cli_x86_64-linux`.
+- **The release gate's sign-in and password page checks run by script**
+  (#935, for #924). These are AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8's form
+  and END-2's form and dialog. An agent types a test login only into a
+  page on its own computer, so 2.0.1's gate left these steps to the owner.
+  Now `scripts/gate/pages.py <candidate image>` runs them with Playwright
+  against the candidate's own Docker image on `127.0.0.1`, set up as StartOS
+  sets it up, with throwaway test logins, PASS or FAIL per step with what
+  it saw. It refuses any other host, checks the owner's ports before and
+  after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
+  steps point to it; `test_gate_pages_924.py` checks the host rule, the
+  steps and the guide.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 

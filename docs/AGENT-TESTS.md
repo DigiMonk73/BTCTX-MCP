@@ -57,12 +57,18 @@ run starts:
 |---|---|---|
 | The VM's StartOS password, typed for a StartOS backup or its restore | whoever set up the VM (an agent never stores it) | BAK-5, UPG-5b, WAY-1 to WAY-5, BETA-1, CB |
 | `start-cli -H $URL auth login` (the same password), once per VM | whoever set up the VM | before any `start-cli` step |
+| Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (#924) |
 | A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh` clears the quarantine for its own launches) |
 | Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac launch, and logging in to it again after, when the test build shares its WebKit folders | the owner | Track C, WAY-7, BETA |
 | StartOS's **My Mempool on this server** | the owner, on their own server | PRC-4 |
 | A real exchange export, tried on a test copy | a tester who has one | MAP-1 (not part of an agent's walk) |
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
 | The owner's own test: the release loaded and a few basics tried on their own install | the owner | after the gate, before "merge" |
+
+AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2, once a person's (they type
+test logins into the app's own pages), need no one: `scripts/gate/pages.py`
+runs them on `127.0.0.1` with the candidate's own image ([The golden
+ledger](#the-golden-ledger), "The sign-in and password pages, by script").
 
 Decisions aren't tests: the release's "merge", anything sent to Start9 and
 a promotion stay the owner's (AGENTS.md).
@@ -278,6 +284,55 @@ a last line PASS or FAIL. It needs `pypdf` (the repository's `.venv`). On
 Docker, `scripts/gate/docker-update.sh <previous image> <candidate image>`
 runs the whole comparison across an update by itself.
 
+**The sign-in and password pages, by script** (#935, for #924). AUTH-1 to
+AUTH-3, BAK-2, BAK-3, SEC-8's form and END-2's form and dialog type test
+logins into BitcoinTX's own pages. An agent types a test login only into a
+page on its own computer (`127.0.0.1` or `localhost`), never on the VM's
+`.local` address. So these steps run against the candidate's own Docker
+image on this computer, the image the StartOS package runs:
+`scripts/gate/pages.py <candidate image> [<folder>]`. It needs Docker, the
+repository's `.venv` and the frontend's Playwright (`cd frontend && npm ci
+&& npx playwright install chromium`), and takes under a minute.
+- It refuses any host but `127.0.0.1` and `localhost`.
+- It checks the owner's ports (8765, 8767) before and after, and stops if
+  either answers differently.
+- It sets the image up as StartOS does: Set Login Credentials' own command
+  while the app is stopped (INS-3), the schema step, then the server with
+  the package's settings and no price source (INS-4).
+- Before BAK-2 it loads the golden ledger and adds Coldcard and Kraken and
+  an AI key, as the walk's earlier steps leave them.
+- It prints PASS or FAIL per step with what it saw, and a last line PASS or
+  FAIL. In the folder: `results.json`, a screenshot of each FAIL,
+  BAK-2's `bitcoin_backup.btx`, BAK-3's figures before and after
+  (`before-backup.json`, `after-restore.json`, `BAK-3-figures.txt`), the
+  browser's own confirms (`dialogs.json`) and the server's log.
+- Its container and volume are removed at the end.
+
+Build the image at `$SHA` (`git archive $SHA | docker build -t
+btctx:candidate -`) and paste the summary into the report.
+
+**On the VM**, these steps aren't walked: their pages are the script's,
+and the API checks (the golden loader, IMP-3's and SEC-1 to SEC-9's curl)
+still run there. The later steps that use what these steps leave take it
+from the VM's own walk instead:
+- **The login stays INS-3's** `admin`, since no SEC-8 or END-2 ran there.
+  SEC-9's fresh jar logs in with it, LCK-2 expects INS-3's password (not
+  `tester`) to stop working, and END-3 checks `admin` alone (there is no
+  `fresh`).
+- **BAK-2's file is made through the API**, at BAK-2's place in the walk.
+  Log in with curl as in SEC-4 (`-c jar`), then send
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -o bitcoin_backup.btx $API/backup/download`.
+  BAK-4 restores it the same way:
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -F file=@bitcoin_backup.btx $API/backup/restore`
+  (expect its `message` to be BAK-3's "✅ Database successfully restored. …"),
+  then checks what BAK-4 expects.
+- **BAK-5's AI key** is the one AI-12 made last, not BAK-3's.
+
+The VM's browser still has to be signed in for its other pages (after
+INS-5, after AUTH-5's and LCK-2's changes, and after BAK-4's restore),
+which types the INS-3 login (or LCK-2's) into the VM's page: a person's
+until #924 settles it (What stays by hand).
+
 ---
 
 ## Track A: fresh install of the release candidate
@@ -316,12 +371,15 @@ Start from the `clean` snapshot.
 - **AUTH-1** Open the Web UI. Expect: "Welcome to BitcoinTX" and "Sign in",
   with no **Setup Code** field (StartOS never keeps the default login). The
   **Show password** toggle reveals the typed password.
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-2** Log in with the wrong password, then with `admin` /
   `password`. Expect both times: "Invalid username or password."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
   Settings, open **Account**: Tax Timezone reads "Current:
   America/New_York": a login adopts the browser's timezone while the
   ledger is empty (#334).
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
   other pages), nothing chosen, its status line "Not chosen yet: nothing is
   contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
@@ -1187,6 +1245,7 @@ Set `KEY` to the key from AI-3, and use
   nothing; so does `backup-pass` in both (11 characters: "The password is
   too short. At least 12 characters.", #204). Expect: the file
   `bitcoin_backup.btx` and "Backup downloaded."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **IMP-1** Settings, open **Data Management**: **Template** and
   **Instructions**. Expect: `btctx_import_template.csv`, whose header is the
   same as BAK-1's, and `BitcoinTX_CSV_Import_Guide.pdf`, which opens.
@@ -1241,6 +1300,7 @@ Set `KEY` to the key from AI-3, and use
   Expect: every golden figure, Coldcard and Kraken in **Wallets, exchanges
   and banks** (the backup's accounts), and the key made just before the
   restore still works (a restore never brings back an older key).
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **IMP-4** River import. Save this file as `river.csv`:
 
   ```csv
@@ -1500,6 +1560,7 @@ Set `KEY` to the key from AI-3, and use
   The second session's next action lands on the login page. Log in as
   `tester`. Nothing in StartOS shows a password again: Set Login
   Credentials only makes a new one.
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **SEC-9** Last in Track A's security checks, because it makes you wait.
   First log in with the current login (SEC-8's `tester` /
   `tester-password-1`) into a fresh jar (`-c jar9`): SEC-8's password
@@ -1581,6 +1642,7 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   transactions, never accounts), each now with **Delete**; Bank's row
   offers none: "Your first bank, wallet and exchange can't be deleted.
   Hide one you don't use."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **END-3** Uninstall BitcoinTX, then sideload the same `btctx_x86_64.s9pk`
   again (Start9's `publishing.md`: "Uninstall and reinstall to confirm
   teardown works"). Expect a fresh install, as INS-1 and INS-2: the two
