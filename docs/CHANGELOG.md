@@ -131,6 +131,23 @@ All notable changes to BitcoinTX are documented in this file.
   menu or the removed Alpha keys.
 
 ### Development
+- **Maintenance runs in lanes, not numbered sessions** (the owner,
+  2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
+  once a month the lead runs a cycle of at most three lanes (Updates,
+  StartOS, Fix), one sub-session for each kind of work instead of one
+  for each issue, each from one fixed brief in that file, with no plan
+  or kickoff prompt of its own. Cycles collect work on `develop`; a
+  release goes out about every three months, at once for a
+  `tax-figures` or security fix, and each January with the new IRS
+  forms, and from that release until after the April filing deadline
+  nothing else is released. The lead runs on Fable 5.2 at high effort
+  and a lane on Opus 5.5; any session may use Fable 5.2 where its
+  judgement says the work needs it, and says why in one line. The
+  reviews, the figures rule, the release tests and the handoff at each
+  release are unchanged. It takes effect after 2.0.2, which finishes
+  as planned. Why: 2.0.2 had taken 15 sessions and about 54,000 words
+  of plans, prompts and reviews for 173 shipped lines by its fifth
+  merged step, where 2.0.1 took two sessions.
 - **start-cli 2.7.0** (from 2.6.0) packs `btctx.s9pk` in CI and the
   release (#896). It adds commands that sign and endorse packages; its
   release notes name no change to packing. The SHA-256 is the release
