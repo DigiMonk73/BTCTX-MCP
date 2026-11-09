@@ -30,7 +30,6 @@ async function changePassword(page: Page) {
 
 for (const to of ["Transactions", "Dashboard", "Settings"]) {
   test(`after a password change in another browser, ${to} goes to the sign-in page`, async ({ authedPage: page, browser, app }) => {
-    test.fail(); // #919: load errors until its fix
     const other = await otherBrowser(browser, app, "Reports");
     try {
       await changePassword(page);
@@ -44,7 +43,6 @@ for (const to of ["Transactions", "Dashboard", "Settings"]) {
 }
 
 test("Settings' reset form in another browser goes to the sign-in page", async ({ authedPage: page, browser, app }) => {
-  test.fail(); // #919: "No user found to reset credentials." until its fix
   const other = await otherBrowser(browser, app, "Settings");
   try {
     const form = await openSection(other, "Account");

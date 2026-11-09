@@ -66,6 +66,20 @@ All notable changes to BitcoinTX are documented in this file.
   on screen: your device works it out with its own timezone data, the
   same old copy on that computer. Form 8949's dates are BitcoinTX's own.
 
+- **After a password change, another browser's next click goes to the
+  sign-in page** (#919). Changing the password in Settings ends every
+  other browser's session, as it should, but those browsers stayed where
+  they were. Their next click showed load errors: "Couldn't load your
+  accounts: reload the page." on Transactions, "Couldn't load your
+  dashboard" on the Dashboard, "Request failed with status code 401" in
+  Settings. Settings' Reset Username & Password said "No user found to
+  reset credentials." and saved nothing. Now a signed-in page whose session
+  has ended (a password change or a logout in another browser) goes to the
+  sign-in page at its next request, as a reload did, and a PDF download
+  does the same. After a restore, Settings keeps its notice on screen
+  until you choose Log in again or leave Settings (#407). No figure or
+  data was affected.
+
 ### Security
 - **The Docker image moves to Python 3.13.18** (#934, for #871), on
   Docker Hub's 2026-11-05 build of `python:3.13-slim`; 2.0.1's was from
