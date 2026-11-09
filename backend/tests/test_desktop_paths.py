@@ -252,6 +252,85 @@ def test_an_unknown_option_is_refused(tmp_path):
     assert r.returncode == 2 and "unknown option" in r.stderr
 
 
+INSTALLED_IDS = (desktop_paths.APP_ID, desktop_paths.PREVIEW_APP_ID)
+on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="the copy needs macOS's PlistBuddy and codesign")
+
+
+def _app_with_id(tmp_path, bundle_id) -> Path:
+    """A build as CI makes it, an Info.plist naming its id: its binary writes
+    down the id of the bundle it runs from, and that bundle's Contents."""
+    import plistlib
+
+    app = tmp_path / "unpacked" / "BitcoinTX.app"
+    binary = app / "Contents" / "MacOS" / "BitcoinTX"
+    binary.parent.mkdir(parents=True)
+    binary.write_text('#!/bin/sh\nhere="$(cd "$(dirname "$0")/.." && pwd -P)"\n'
+                      '/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$here/Info.plist" > "$RAN"\n'
+                      'echo "$here" >> "$RAN"\n')
+    binary.chmod(0o755)
+    (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps(
+        {"CFBundleIdentifier": bundle_id, "CFBundleExecutable": "BitcoinTX", "CFBundlePackageType": "APPL"}))
+    return app
+
+
+@on_a_mac
+@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
+@pytest.mark.parametrize("installed_id", INSTALLED_IDS)
+def test_a_build_runs_as_a_copy_with_its_own_bundle_id(tmp_path, installed_id):
+    """WebKit keeps an app's cookies by bundle id: a build run under the
+    installed app's id logged the installed app out (#924). It runs as a
+    copy in the test folder, with an id of its own, re-signed ad hoc, and the
+    build itself is left as it was."""
+    import plistlib
+    import subprocess
+
+    app = _app_with_id(tmp_path, installed_id)
+    data = tmp_path / "test-data"
+    r = _run_script(tmp_path, "--app", str(app), data=data)
+    assert r.returncode == 0, r.stderr
+    ran_id, ran_from = (tmp_path / "ran").read_text().split("\n")[:2]
+    assert ran_id == f"{installed_id}.test-build" and ran_id not in INSTALLED_IDS
+    copy = (data / "test-app" / "BitcoinTX.app").resolve()
+    assert Path(ran_from) == copy / "Contents"
+    assert f"bundle id {ran_id}" in r.stdout
+    assert plistlib.loads((app / "Contents" / "Info.plist").read_bytes())["CFBundleIdentifier"] == installed_id
+    assert subprocess.run(["codesign", "--verify", "--strict", str(copy)], capture_output=True).returncode == 0
+
+
+@on_a_mac
+@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
+def test_a_second_launch_goes_to_the_copy_that_is_open(tmp_path):
+    """MAC-5's second launch, while the first answers: the copy in use stays
+    as it is, and the launch is its (which says it's already open). A test
+    run from another build that answers is refused."""
+    app = _app_with_id(tmp_path, desktop_paths.APP_ID)
+    data = tmp_path / "test-data"
+    assert _run_script(tmp_path, "--app", str(app), data=data).returncode == 0
+    copy = data / "test-app" / "BitcoinTX.app"
+    (copy / "Contents" / "in-use").write_text("")
+    r = _run_script(tmp_path, "--app", str(app), data=data, build_answers=True)
+    assert r.returncode == 0 and (copy / "Contents" / "in-use").exists(), r.stderr
+    other = _app_with_id(tmp_path / "other", desktop_paths.APP_ID)
+    (tmp_path / "ran").unlink()
+    r = _run_script(tmp_path, "--app", str(other), data=data, build_answers=True)
+    assert r.returncode == 1 and "isn't this build's test copy" in r.stderr, r.stderr
+    assert not (tmp_path / "ran").exists() and (copy / "Contents" / "in-use").exists()
+
+
+@on_a_mac
+@pytest.mark.xfail(strict=True, reason="for #924: the test build still runs under the installed app's id")
+def test_the_copy_itself_is_refused_as_the_build(tmp_path):
+    """Making the copy anew deletes the old one: given as --app, it would be
+    deleted before it was copied."""
+    app = _app_with_id(tmp_path, desktop_paths.APP_ID)
+    data = tmp_path / "test-data"
+    assert _run_script(tmp_path, "--app", str(app), data=data).returncode == 0
+    copy = data / "test-app" / "BitcoinTX.app"
+    r = _run_script(tmp_path, "--app", str(copy), data=data)
+    assert r.returncode == 1 and "this script's own copy" in r.stderr, r.stderr
+    assert (copy / "Contents" / "Info.plist").exists()
+
+
 def test_no_doc_runs_a_build_s_binary_by_itself():
     """Run on a Mac with BitcoinTX installed, a build's binary opens the real
     ledger: the docs launch builds only through run-test-build.sh (the
