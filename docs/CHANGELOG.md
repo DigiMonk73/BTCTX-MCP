@@ -104,6 +104,16 @@ All notable changes to BitcoinTX are documented in this file.
   same, so what the app receives is unchanged from 2.0.1. #914 checks it on
   StartOS 0.4.1.
 
+### Documentation
+- **Where StartOS 0.4.1.2 asks whose packages to trust** (#914). StartOS
+  0.4.1.2 renamed the setting **System → Trusted Keys**, and its update
+  removes the Alpha build keys that earlier 0.4.1 versions came with.
+  Community Beta's packages are signed by its own build key, which the
+  registry offers as **Github Actions**. The README, `docs/AGENT-TESTS.md`
+  and `docs/HOW-CHANGES-FLOW.md` now send a user or a tester there, to turn
+  that key on for **Packages** (or use start-cli's `--trust`), and
+  `test_trusted_keys_914.py` checks that no doc names the old menu.
+
 ### Development
 - **start-cli 2.7.0** (from 2.6.0) packs `btctx.s9pk` in CI and the
   release (#896). It adds commands that sign and endorse packages; its

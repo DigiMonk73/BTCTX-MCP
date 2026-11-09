@@ -22,7 +22,6 @@ SEND_THERE = ("README.md", "docs/AGENT-TESTS.md", "docs/HOW-CHANGES-FLOW.md")
 
 
 @needs_a_checkout
-@pytest.mark.xfail(strict=True, reason="for #914: the docs still use 0.4.1's name")
 def test_no_doc_uses_the_old_name():
     tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
     old = [path for path in tracked.splitlines()
@@ -31,7 +30,6 @@ def test_no_doc_uses_the_old_name():
     assert not old, old
 
 
-@pytest.mark.xfail(strict=True, reason="for #914: the docs still use 0.4.1's name")
 @pytest.mark.parametrize("name", SEND_THERE)
 def test_the_docs_name_trusted_keys(name):
     assert "Trusted Keys" in " ".join((ROOT / name).read_text().split()), name
