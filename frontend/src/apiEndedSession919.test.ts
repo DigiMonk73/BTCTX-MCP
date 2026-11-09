@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
-// A signed-in page whose session ended (another browser changed the password
-// or logged it out: SECURITY-RULES.md, "Sessions") goes to the sign-in page
-// at its next request, rather than show load errors (#919). The answers that
-// are a page's own stay with it: the sign-in's wrong password,
-// PrivateRoute's own check, the signed-out pages', a 403.
+// A signed-in page whose session ended (a password change in another
+// browser, a logout in another tab: SECURITY-RULES.md, "Sessions") goes to
+// the sign-in page at its next request, rather than show load errors (#919).
+// The answers that are a page's own stay with it: the sign-in's wrong
+// password, PrivateRoute's own check, the signed-out pages', a 403.
 import "./test/setup";
 import axios from "axios";
 import { afterEach, describe, expect, it, vi } from "vitest";

@@ -91,7 +91,7 @@ describe("a restore's notice", () => {
     expect(sentTo).toEqual(["/login"]);
   });
 
-  it.fails("ends at the owner's next action with Settings' message line: its 401 goes to the sign-in page", async () => {
+  it("ends at the owner's next action with Settings' message line: its 401 goes to the sign-in page", async () => {
     // Every such action (Recalculate, Export CSV…) starts by clearing the
     // line, the notice with it, and shares the sections' `loading`
     const sentTo = pageAt("/settings");

@@ -74,11 +74,10 @@ All notable changes to BitcoinTX are documented in this file.
   dashboard" on the Dashboard, "Request failed with status code 401" in
   Settings. Settings' Reset Username & Password said "No user found to
   reset credentials." and saved nothing. Now a signed-in page whose session
-  has ended (a password change or a logout in another browser) goes to the
-  sign-in page at its next request, as a reload did, and a PDF download
-  does the same. After a restore, Settings keeps its notice on screen
-  until you choose Log in again or leave Settings (#407). No figure or
-  data was affected.
+  has ended (a password change in another browser, a logout in another
+  tab) goes to the sign-in page at its next request, as a reload did, and
+  a PDF download does the same. A restore's notice still waits on screen
+  to be read (#407). No figure or data was affected.
 
 ### Security
 - **The Docker image moves to Python 3.13.18** (#934, for #871), on

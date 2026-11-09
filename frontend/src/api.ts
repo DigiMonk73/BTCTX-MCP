@@ -18,17 +18,22 @@ const SIGN_IN_PAGE = "/login";
 const SIGNED_OUT_PAGES = [SIGN_IN_PAGE, "/logout", "/register"];
 // Requests whose 401 is their caller's answer, not an ended session: the
 // sign-in's wrong password, and PrivateRoute's question whether anyone is
-// signed in (it goes to the sign-in page itself)
+// signed in (it goes to the sign-in page itself). Every other 401 a browser
+// gets says its session ended (the backend's login check: get_current_user,
+// require_login; a wrong current password is 403). A route that answered
+// 401 for anything else would send its page to the sign-in page, and the
+// sign-in page, finding the session open, back to it.
 const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
-// How many pages hold the sign-in page off for now (holdSignIn)
+// How many holds keep the sign-in page off for now (holdSignIn)
 let holds = 0;
 
 /**
  * Keep this page where it is at an ended session's 401 while it shows what
  * the owner must read first: a restore signs this browser out and waits for
  * its notice to be read (BackupRestore, #407). Returns the release, for an
- * effect's cleanup, so a hold never outlives what it was for: one that stuck
- * would leave a signed-out page showing only errors (#919).
+ * effect's cleanup or the end of what it waits for, so a hold never outlives
+ * what it was for: one that stuck would leave a signed-out page showing only
+ * errors (#919).
  */
 export function holdSignIn(): () => void {
   holds += 1;
@@ -40,8 +45,9 @@ export function holdSignIn(): () => void {
 }
 
 /**
- * A signed-in page whose session ended (logged out in another browser, a
- * password change: SECURITY-RULES.md, "Sessions") goes to the sign-in page
+ * A signed-in page whose session ended (a password change in another
+ * browser, a logout in another tab: SECURITY-RULES.md, "Sessions") goes to
+ * the sign-in page
  * at its next request's 401, rather than show load errors (#919). It's
  * loaded afresh, so nothing of the ended page stays: its figures, a toast
  * its failed request raised. The error still reaches the page that asked:
