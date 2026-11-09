@@ -23,16 +23,21 @@ afterEach(() => {
 
 const NOTICE = "The backup's AI access was off: turn it on again in Settings if you use it.";
 
-/** The restore answered with `restore` (a status and its body); every
- * request after it 401, its session ended (a restore signs this browser
- * out; after one that failed, another browser's password change). */
-function serverRestoring(restore: [number, unknown]) {
+/** The restore answered with `restore` (a status and its body), once
+ * `answering` settles; every request after it 401, its session ended (a
+ * restore signs this browser out; after one that failed, another browser's
+ * password change). */
+function serverRestoring(restore: [number, unknown], answering: Promise<void> = Promise.resolve()) {
   let answered = false;
-  api.defaults.adapter = answers(() => {
+  const reply = answers(() => {
     if (answered) return NOT_AUTHENTICATED;
     answered = true;
     return restore;
   });
+  api.defaults.adapter = async (config) => {
+    if (!answered) await answering;
+    return reply(config);
+  };
 }
 
 /** Settings' Backup & Restore and its message line, in React's strict mode
@@ -58,12 +63,18 @@ class WithBackupFile extends FormData {
   }
 }
 
-/** A backup restored through the form; its answer's message is on the page. */
-async function restore() {
+/** A backup's restore sent through the form. */
+async function startRestore() {
   vi.stubGlobal("FormData", WithBackupFile);
   const view = render(<React.StrictMode><Settings /></React.StrictMode>);
   await userEvent.setup().type(screen.getByLabelText("Backup password"), "the-backup-password");
   fireEvent.submit(screen.getByRole("button", { name: "Restore" }).closest("form")!);
+  return view;
+}
+
+/** A backup restored through the form; its answer's message is on the page. */
+async function restore() {
+  const view = await startRestore();
   await screen.findByRole("status");
   return view;
 }
@@ -106,6 +117,20 @@ describe("a restore's notice", () => {
     serverRestoring([400, { detail: "Wrong password, or not a BitcoinTX backup." }]);
     await restore();
     expect(screen.getByRole("status").textContent).toContain("Wrong password");
+    await pricePoll();
+    expect(sentTo).toEqual(["/login"]);
+  });
+
+  it.fails("holds nothing when the owner left Settings before the restore answered", async () => {
+    // Nothing would release a hold taken after Settings is gone: every 401
+    // would stay where it is until the page was loaded again
+    const sentTo = pageAt("/settings");
+    let answer = () => {};
+    serverRestoring([200, { message: "Backup restored.", notice: NOTICE }], new Promise((done) => { answer = done; }));
+    const view = await startRestore();
+    view.unmount(); // the owner clicked Dashboard while the restore ran
+    answer();
+    await new Promise((settled) => setTimeout(settled, 0)); // the restore's answer handled
     await pricePoll();
     expect(sentTo).toEqual(["/login"]);
   });
