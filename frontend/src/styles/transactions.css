@@ -96,9 +96,9 @@
 .tx-main { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
 .tx-title { font-weight: var(--font-medium); }
 .tx-account { color: var(--color-text-secondary); font-weight: 400; }
-/* Wraps where it doesn't fit, a phone's width above all, rather than cut its fee off (#922);
-   a long account name breaks too. The fee's amount moves to the next line whole, with its
-   unit, and breaks only where even a line of its own is too narrow (320 px). */
+/* Wraps where it doesn't fit, a phone's width above all, rather than cut its fee off (#922).
+   The fee's amount moves to the next line whole, with its unit, and breaks only where even
+   a line of its own is too narrow (320 px). */
 .tx-sub {
   font-size: var(--text-13);
   color: var(--color-text-muted);

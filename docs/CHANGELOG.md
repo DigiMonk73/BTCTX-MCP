@@ -181,8 +181,8 @@ All notable changes to BitcoinTX are documented in this file.
 - **A click-through test for Settings' price choice right after the
   Dashboard's** (#920). The 2.0.1 release gate saw Settings › Privacy &
   Network with Nobody highlighted but not ticked, right after Nobody was
-  chosen on the Dashboard. That couldn't be reproduced, neither in the
-  click-through tests nor in the in-app browser on the gate's own path.
+  chosen on the Dashboard. That couldn't be reproduced, either in the
+  click-through tests or in the in-app browser on the gate's own path.
   The new test keeps that path checked.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
