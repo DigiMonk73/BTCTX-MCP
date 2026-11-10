@@ -149,12 +149,17 @@ All notable changes to BitcoinTX are documented in this file.
 - **The StartOS backup's gate steps run only when a release changes the
   backup path** (#924, for #848). BAK-5 and UPG-5b need the VM's StartOS
   password, a person's. `scripts/gate/backup_path_changed.py FROM TO`
-  says when they're needed. That's when the release changes the
-  package's backup settings or start-sdk version, its own migrations,
-  `backup.py`, `migrate.py`, the migrations, `database.py`, the data
-  folder's layout or the image's entrypoint. Otherwise it says "not
-  needed" and lists every file the release changes, which the report
-  records with the steps as NOT NEEDED. For 2.0.1 → 2.0.2 they're needed
+  says when they're needed. That's when the release changes any of:
+  - the package's backup settings or start-sdk version;
+  - what the package runs on a restore and keeps in its volumes;
+  - its own migrations;
+  - `backup.py`, `migrate.py`, the migrations or `database.py`;
+  - the data folder's layout;
+  - the image's entrypoint.
+
+  It compares from the last release whose BAK-5 passed. Otherwise it says
+  "not needed" and lists every file the release changes, and the report
+  records the steps as NOT NEEDED with that list. For 2.0.2 they're needed
   (start-sdk 4.0.0, #940). `test_gate_backup_path_924.py` holds the rule.
 - **A Mac test build no longer logs the installed BitcoinTX out** (#924).
   WebKit keeps an app's cookies by bundle id, and a test build ran under
