@@ -61,9 +61,10 @@ planned for 2.0.3:
 - on a device whose timezone data is older than BitcoinTX's, a time typed
   in the transaction form, in the zones and periods of #908's entry in the
   CHANGELOG (under Fixed), can be saved an hour off, and the device shows
-  it back as typed. Keep the device's system and browser up to date, and
-  check such times against the receipt or record you typed them from, not
-  against the screen (#964).
+  it back as typed. Keep the device's system and browser up to date. Once
+  it is, open each such transaction and compare its time with the receipt
+  or record you typed it from. Where it's an hour off, type the receipt's
+  time again (#964).
 
 ### Fixed
 
