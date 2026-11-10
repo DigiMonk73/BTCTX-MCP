@@ -146,21 +146,24 @@ All notable changes to BitcoinTX are documented in this file.
   after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
   steps point to it; `test_gate_pages_924.py` checks the host rule, the
   steps and the guide.
-- **The StartOS backup's gate steps run only when a release changes the
-  backup path** (#924, for #848). BAK-5 and UPG-5b need the VM's StartOS
+- **A script says when the StartOS backup's gate steps are needed: when a
+  release changes the backup path, so for now at every release** (#924,
+  for #848). BAK-5 and UPG-5b need the VM's StartOS
   password, a person's. `scripts/gate/backup_path_changed.py FROM TO`
   says when they're needed. That's when the release changes any of:
   - the package's backup settings or start-sdk version;
-  - what the package runs on a restore and keeps in its volumes;
+  - the rest of the package's code (`startos/startos/`), including what it
+    runs on a restore and keeps in its volumes;
   - its own migrations (any change under `startos/startos/versions/`);
-  - `backup.py`, `migrate.py`, the migrations or `database.py`;
+  - `backup.py`, `migrate.py`, the migrations, `database.py` or
+    `backend/cli.py`;
   - the data folder's layout;
-  - the image's entrypoint.
+  - the image (the Dockerfile, whole) and its entrypoint.
 
   It compares from the last release whose BAK-5 passed. Otherwise it says
   "not needed" and lists every file the release changes, and the report
-  records the steps as NOT NEEDED with that list. **Until #962, BAK-5 runs
-  at every release:** each release changes `current.ts` (its version and
+  records the steps as NOT NEEDED with that list. **Until #962, BAK-5 and
+  UPG-5b run at every release:** each release changes `current.ts` (its version and
   notes), and telling that apart safely from a change to what a restore
   runs is #962's job (the owner's choice, 2026-11-10). For 2.0.2 they're
   needed anyway (start-sdk 4.0.0, #940). `test_gate_backup_path_924.py`

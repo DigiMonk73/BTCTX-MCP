@@ -15,27 +15,28 @@ untested. TO is the release candidate.
 The backup path is what a StartOS backup and its restore go through:
 - the package's backup settings: startos/startos/backups.ts, and the
   start-sdk version that runs them (startos/package.json);
-- what the package runs on a restore and holds in its volumes: init/
-  (restoreInit, and the tasks a restore raises or not), actions/ (the
-  actions those tasks name), fileModels/ (the startos volume's store.json),
-  main.ts (the migrate step, the entrypoint and the mounts), utils.ts (the
-  volume's mount, DATABASE_FILE, the app's commands and the migrations'
-  helpers), priceSource.ts (the price source init and main.ts set) and the
-  manifest's volumes;
+- everything else in startos/startos/, whole: what the package runs on a
+  restore and holds in its volumes (init/ and every file its steps use:
+  the actions it registers and its tasks name, dependencies.ts,
+  interfaces.ts, sdk.ts, priceSource.ts; fileModels/, the startos volume's
+  store.json; main.ts, the migrate step, the entrypoint and the mounts;
+  utils.ts; the manifest's volumes; its entry point, index.ts);
 - the package's own migrations (versions/, each file whole), which a
-  restore below the current version runs, the version graph that chains
-  them, and its entry point (startos/startos/index.ts). Every release
-  changes current.ts (its version and its notes), so for now every release
-  reads "needed" (the owner's choice, 2026-11-10, #957): a release that
-  changes only its version and notes is told apart safely only by #962;
-- backup.py (the service and the router), migrate.py, the migrations and
-  database.py;
-- the data folder's layout: the Dockerfile's /data, DATABASE_FILE and its
-  user, and the session key kept beside the database (backend/secret_key.py).
-  A StartOS backup holds the whole volume, so a file the app keeps there (a
-  price cache, the draft forms) comes back with a restore whatever its name;
-- the image's entrypoint: docker-entrypoint.sh, and the Dockerfile's
-  ENTRYPOINT, CMD and the line that copies the script in.
+  restore below the current version runs, and the version graph that
+  chains them. Every release changes current.ts (its version and its
+  notes), so for now every release reads "needed" (the owner's choice,
+  2026-11-10, #957), until #962 tells a release that changes only those
+  apart safely;
+- backup.py (the service and the router), migrate.py, the migrations,
+  database.py, and backend/cli.py, the commands the package runs (migrate,
+  set-password);
+- the data folder's layout: the session key kept beside the database
+  (backend/secret_key.py), and the Dockerfile, whole, which sets /data, the
+  user, the environment the database reads (DATABASE_FILE, DATABASE_URL)
+  and the base image with its SQLite. A StartOS backup holds the whole
+  volume, so a file the app keeps there (a price cache, the draft forms)
+  comes back with a restore whatever its name;
+- the image's entrypoint: docker-entrypoint.sh, and the Dockerfile.
 
 A file a rule covers counts whenever the part that matters differs: a
 false "needed" costs a person's few minutes, a false "not needed" an
@@ -67,8 +68,7 @@ class Change:
 @dataclass(frozen=True)
 class Rule:
     """Files on the backup path. For a file that also holds other things,
-    `keep` keeps only what matches (the Dockerfile's build steps, package.json's
-    other tools, the manifest's other fields)."""
+    `keep` keeps only what matches (package.json's other tools)."""
 
     path: str
     why: str
@@ -87,30 +87,34 @@ RULES = (
     Rule("startos/startos/backups.ts", "the package's backup settings"),
     Rule("startos/package.json", "the start-sdk version", keep=r"^.*@start9labs/start-sdk.*$"),
     Rule("startos/startos/init/", "what the package runs on a restore (init)"),
-    Rule("startos/startos/actions/", "the actions a restore's tasks name"),
+    Rule("startos/startos/actions/", "the actions init registers and a restore's tasks name"),
     Rule("startos/startos/priceSource.ts", "the price source init and the service set"),
     Rule("startos/startos/fileModels/", "what the startos volume holds (store.json)"),
     Rule("startos/startos/main.ts", "how the service starts (its migrate step, entrypoint and mounts)"),
     Rule("startos/startos/utils.ts", "the data folder's mount, the app's commands or the migrations' helpers"),
-    Rule("startos/startos/manifest/index.ts", "the package's volumes", keep=r"volumes:\s*\[[^\]]*\]"),
+    Rule("startos/startos/manifest/", "the package's manifest (its volumes, its image)"),
     Rule("startos/startos/index.ts", "the package's entry point (its backups and init)"),
     Rule("startos/startos/versions/index.ts", "the package's own migrations (the version graph)"),
     Rule("startos/startos/versions/", "the package's own migrations (every change, until #962)"),
+    # Last of the package's: what the rules above don't name (an init step's
+    # own file, the interfaces, the sdk) counts too
+    Rule("startos/startos/", "the package's code init and the service use"),
     Rule("backend/services/backup.py", "backup.py (the service)"),
     Rule("backend/routers/backup.py", "backup.py (the router)"),
     Rule("backend/migrate.py", "migrate.py"),
     Rule("backend/migrations/", "the migrations"),
     Rule("backend/database.py", "database.py"),
+    Rule("backend/cli.py", "the commands the package runs (migrate, set-password)"),
     Rule("backend/secret_key.py", "the data folder's layout (the session key kept beside the database)"),
-    Rule("Dockerfile", "the data folder's layout or the image's entrypoint",
-         keep=r"^\s*(?:ENTRYPOINT|CMD|USER|VOLUME)\b.*$|^.*(?:DATABASE_FILE|/data|useradd|groupadd|docker-entrypoint).*$"),
+    Rule("Dockerfile", "the image: its data folder, user, environment, entrypoint and base"),
     Rule("docker-entrypoint.sh", "the image's entrypoint"),
 )
 
 
 def reasons(changes: list[Change]) -> list[str]:
     """Each changed file on the backup path, with why: empty when none is.
-    A file's first rule decides it (versions/index.ts's before the versions/ one)."""
+    A file's first rule decides it, and so names why: the narrower rules come
+    before startos/startos/'s own."""
     found = []
     for change in changes:
         rule = next((rule for rule in RULES if rule.covers(change.path)), None)
@@ -134,7 +138,9 @@ def changes_between(before: str, after: str) -> list[Change]:
     when a rule covers it. No rename detection: a moved file is its old path
     gone and its new one added, so a file moved off the backup path still
     counts."""
-    names = [name for name in git("diff", "--name-only", "--no-renames", before, after).split("\n") if name]
+    # -z: git quotes a name with other than plain ASCII in its list, which no
+    # rule's path would match
+    names = [name for name in git("diff", "--name-only", "-z", "--no-renames", before, after).split("\0") if name]
     return [Change(name, text_at(before, name), text_at(after, name))
             if any(rule.covers(name) for rule in RULES) else Change(name, None, None) for name in names]
 

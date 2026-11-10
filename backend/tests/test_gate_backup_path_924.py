@@ -141,6 +141,26 @@ NEEDED = {
     # What init raises on a restore, and the price source it sets (option A's review, #957)
     "an action init raises on a restore": ("startos/startos/actions/setCredentials.ts", "a", "b"),
     "the price source's settings": ("startos/startos/priceSource.ts", "a", "b"),
+    # Option 1's review (#957): the rest of the package, and files whole
+    "an init step's own file": ("startos/startos/dependencies.ts", "enabled: false", "enabled: true"),
+    "the interfaces": ("startos/startos/interfaces.ts", "hostId: 'ui'", "hostId: 'web'"),
+    "the sdk the package builds": ("startos/startos/sdk.ts", "build(true)", "build(false)"),
+    "the commands the package runs": ("backend/cli.py", "def migrate(): ...", "def migrate(): return 1"),
+    "an ENV the database reads": ("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
+                                  DOCKERFILE.format("a1", "/data/btctx.db")
+                                  + "ENV DATABASE_URL=sqlite:////var/lib/btctx/btctx.db\n"),
+    "a lowercase cmd": ("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
+                        DOCKERFILE.format("a1", "/data/btctx.db") + "cmd [\"python\", \"-m\", \"other\"]\n"),
+    "a continued CMD": ("Dockerfile", "CMD [\"uvicorn\", \\\n     \"backend.main:app\"]\n",
+                        "CMD [\"uvicorn\", \\\n     \"other:app\"]\n"),
+    "the Dockerfile's base image": ("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
+                                    DOCKERFILE.format("b2", "/data/btctx.db")),
+    "a volume after a comment holding ]": (
+        "startos/startos/manifest/index.ts", MANIFEST.format("A ledger", "    // the [main] one\n    'main',\n    'startos',\n"),
+        MANIFEST.format("A ledger", "    // the [main] one\n    'main',\n")),
+    "the manifest's other fields": ("startos/startos/manifest/index.ts",
+                                    MANIFEST.format("A ledger", "    'main',\n    'startos',\n"),
+                                    MANIFEST.format("A tax ledger", "    'main',\n    'startos',\n")),
     "current.ts's migration no longer empty": ("startos/startos/versions/current.ts", _current(),
                                                _current(v="2.0.2", up=RUNS)),
     "current.ts bumped in place with a migration that runs": (
@@ -176,11 +196,6 @@ NOT_NEEDED = {
     "docs only": (("docs/AGENT-TESTS.md", "a", "b"), ("README.md", "a", "b"), ("docs/CHANGELOG.md", "a", "b")),
     "another tool in the package": (("startos/package.json", SDK.format("4.0.0", "5.9.3"),
                                      SDK.format("4.0.0", "5.9.4")),),
-    "the Dockerfile's base image": (("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
-                                     DOCKERFILE.format("b2", "/data/btctx.db")),),
-    "the manifest's other fields": (("startos/startos/manifest/index.ts",
-                                     MANIFEST.format("A ledger", "    'main',\n    'startos',\n"),
-                                     MANIFEST.format("A tax ledger", "    'main',\n    'startos',\n")),),
     "app code off the backup path": (("backend/services/calculation.py", "a", "b"),
                                      ("backend/routers/transaction.py", "a", "b")),
 }
@@ -255,3 +270,10 @@ def test_the_script_compares_two_commits_through_git(tmp_path):
                                         "BAK-5 and UPG-5b: not needed"]
     unknown = run("nowhere", "HEAD")
     assert unknown.returncode == 2 and "nowhere" in unknown.stderr
+
+    # A name git quotes in its list (non-ASCII): read whole, it still counts
+    (repo / "startos" / "startos" / "init").mkdir(parents=True)
+    (repo / "startos" / "startos" / "init" / "r\u00e9store.ts").write_text("a\n")
+    assert _git(repo, "add", ".").returncode == 0 and _git(repo, "commit", "-qm", "init").returncode == 0
+    quoted = run("HEAD~1", "HEAD")
+    assert quoted.stdout.splitlines()[-1] == "BAK-5 and UPG-5b: needed", quoted.stdout

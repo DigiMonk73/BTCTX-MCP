@@ -66,10 +66,12 @@ changes the StartOS backup path:
 - the package's backup settings or start-sdk version;
 - what it runs on a restore and keeps in its volumes;
 - its own migrations: every change under `startos/startos/versions/`;
+- the rest of the package's code (`startos/startos/`) and the commands it
+  runs (`backend/cli.py`);
 - `backup.py` (the service or the router), `migrate.py`, the migrations
   or `database.py`;
 - the data folder's layout;
-- the image's entrypoint.
+- the image: the Dockerfile, whole, and its entrypoint.
 
 The script's docstring names each file. Before the run,
 `scripts/gate/backup_path_changed.py FROM $SHA` says which: "needed" with
@@ -86,7 +88,8 @@ one for the password for them.
 `startos/startos/versions/current.ts`, its version and its notes, and no
 check yet tells a change that only does that from one that changes what a
 restore runs (the owner's choice, 2026-11-10, after #957's reviews). So
-ask for the StartOS password for BAK-5 at every release. #962 will make
+ask for the StartOS password for BAK-5 (and UPG-5b, where its track
+runs) at every release. #962 will make
 such a release read "not needed" safely.
 
 No longer a person's:
