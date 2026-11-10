@@ -256,17 +256,20 @@ INSTALLED_IDS = (desktop_paths.APP_ID, desktop_paths.PREVIEW_APP_ID)
 on_a_mac = pytest.mark.skipif(sys.platform != "darwin", reason="the copy needs macOS's PlistBuddy and codesign")
 
 
-def _app_with_id(tmp_path, bundle_id) -> Path:
+def _app_with_id(tmp_path, bundle_id, runs_until=None) -> Path:
     """A build as CI makes it, an Info.plist naming its id: its binary writes
-    down the id of the bundle it runs from, and that bundle's Contents."""
+    down the id of the bundle it runs from, and that bundle's Contents.
+    runs_until: it keeps running until that file exists, as an app still
+    starting does."""
     import plistlib
 
     app = tmp_path / "unpacked" / "BitcoinTX.app"
     binary = app / "Contents" / "MacOS" / "BitcoinTX"
     binary.parent.mkdir(parents=True)
+    wait = f'while [ ! -e "{runs_until}" ]; do sleep 0.1; done\n' if runs_until else ""
     binary.write_text('#!/bin/sh\nhere="$(cd "$(dirname "$0")/.." && pwd -P)"\n'
                       '/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$here/Info.plist" > "$RAN"\n'
-                      'echo "$here" >> "$RAN"\n')
+                      'echo "$here" >> "$RAN"\n' + wait)
     binary.chmod(0o755)
     (app / "Contents" / "Info.plist").write_bytes(plistlib.dumps(
         {"CFBundleIdentifier": bundle_id, "CFBundleExecutable": "BitcoinTX", "CFBundlePackageType": "APPL"}))
@@ -306,13 +309,45 @@ def test_a_second_launch_goes_to_the_copy_that_is_open(tmp_path):
     assert _run_script(tmp_path, "--app", str(app), data=data).returncode == 0
     copy = data / "test-app" / "BitcoinTX.app"
     (copy / "Contents" / "in-use").write_text("")
+    (tmp_path / "ran").unlink()
     r = _run_script(tmp_path, "--app", str(app), data=data, build_answers=True)
     assert r.returncode == 0 and (copy / "Contents" / "in-use").exists(), r.stderr
+    # The launch was the copy's, under its own id: never the build's (#924)
+    assert (tmp_path / "ran").read_text().split("\n")[:2] == [f"{desktop_paths.APP_ID}.test-build",
+                                                             str(copy.resolve() / "Contents")]
     other = _app_with_id(tmp_path / "other", desktop_paths.APP_ID)
     (tmp_path / "ran").unlink()
     r = _run_script(tmp_path, "--app", str(other), data=data, build_answers=True)
     assert r.returncode == 1 and "isn't this build's test copy" in r.stderr, r.stderr
     assert not (tmp_path / "ran").exists() and (copy / "Contents" / "in-use").exists()
+
+
+@on_a_mac
+def test_a_copy_still_starting_is_never_made_again(tmp_path):
+    """A second launch while the first copy runs but doesn't answer yet
+    (still starting, or slower than curl's 2 seconds): making the copy anew
+    would delete the bundle the app runs from. It is refused, and the copy
+    stays (the review, #957)."""
+    import time
+
+    stop = tmp_path / "stop"
+    app = _app_with_id(tmp_path, desktop_paths.APP_ID, runs_until=stop)
+    data = tmp_path / "test-data"
+    try:
+        first = _run_script(tmp_path, "--app", str(app), "--background", data=data)
+        assert first.returncode == 0, first.stderr
+        copy = data / "test-app" / "BitcoinTX.app"
+        for _ in range(50):
+            if (tmp_path / "ran").exists():
+                break
+            time.sleep(0.1)
+        (copy / "Contents" / "in-use").write_text("")
+        # In the background, so a launch that wrongly goes ahead can't hang the test
+        r = _run_script(tmp_path, "--app", str(app), "--background", data=data)
+        assert r.returncode == 1 and "is still running but doesn't answer on port 8766" in r.stderr, r.stderr
+        assert (copy / "Contents" / "in-use").exists()
+    finally:
+        stop.write_text("")
 
 
 @on_a_mac

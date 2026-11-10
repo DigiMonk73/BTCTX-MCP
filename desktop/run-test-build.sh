@@ -85,6 +85,14 @@ answers() { curl -s --noproxy '*' -m 2 -o /dev/null "http://127.0.0.1:$PORT/api/
 
 bundle_id() { "$PLISTBUDDY" -c "Print :CFBundleIdentifier" "$1/Contents/Info.plist" 2>/dev/null; }
 
+# Whether a process runs from the test copies: one still starting doesn't
+# answer yet, and making the copy anew would delete the bundle it runs from.
+# The path goes to awk through its environment, so awk's own command line
+# never holds it.
+copy_runs() {
+  ps -axo command= | RUNNING="$COPIES/" awk 'index($0, ENVIRON["RUNNING"]) > 0 { found = 1 } END { exit !found }'
+}
+
 # The build's copy, made anew for each launch nothing answers for: an
 # unpacked build can be replaced at the same path. .source is written last,
 # so a copy cut short is never taken for a whole one.
@@ -191,6 +199,8 @@ if [ -f "$APP/Contents/Info.plist" ]; then
     # it is in use, so it stays as it is
     [ "$(cat "$COPIES/.source" 2>/dev/null)" = "$SOURCE" ] && [ -x "$COPY/Contents/MacOS/$EXE" ] \
       || fail "a BitcoinTX that isn't this build's test copy answers on port $PORT: quit it first"
+  elif copy_runs; then
+    fail "a test copy in $COPIES is still running but doesn't answer on port $PORT: wait for it to open, or quit it"
   else
     make_copy
   fi

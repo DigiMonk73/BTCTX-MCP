@@ -6,22 +6,35 @@ StartOS password, a person's (#924; docs/AGENT-TESTS.md, "What stays by
 hand"). When they aren't needed, they're recorded as not needed with this
 script's output, the diff that shows it.
 
-    scripts/gate/backup_path_changed.py FROM TO     # e.g. v2.0.1 origin/develop
+    scripts/gate/backup_path_changed.py FROM TO
+
+FROM is the last release whose BAK-5 and UPG-5b passed, not just the last
+release: one that shipped with them deferred or BLOCKED left its changes
+untested. TO is the release candidate.
 
 The backup path is what a StartOS backup and its restore go through:
 - the package's backup settings: startos/startos/backups.ts, and the
   start-sdk version that runs them (startos/package.json);
-- the package's own migrations (startos/startos/versions/: a version's
-  migrations, never its release notes), which a restore below the current
-  version runs;
+- what the package runs on a restore and holds in its volumes: init/
+  (restoreInit, and the tasks a restore raises or not), fileModels/ (the
+  startos volume's store.json), main.ts (the migrate step, the entrypoint
+  and the mounts), utils.ts (the volume's mount, DATABASE_FILE, the app's
+  commands and the migrations' helpers) and the manifest's volumes;
+- the package's own migrations (versions/: everything but a version's
+  release notes, its comments and its links), which a restore below the
+  current version runs, and the version graph that chains them;
 - backup.py (the service and the router), migrate.py, the migrations and
   database.py;
-- the data folder's layout: the volume, where it's mounted and what the app
-  keeps in it (startos/startos/utils.ts's mount and DATABASE_FILE, the
-  manifest's volumes, the Dockerfile's /data, DATABASE_FILE and its user,
-  backend/secret_key.py);
-- the image's entrypoint: docker-entrypoint.sh, the Dockerfile's ENTRYPOINT
-  and CMD.
+- the data folder's layout: the Dockerfile's /data, DATABASE_FILE and its
+  user, and the session key kept beside the database (backend/secret_key.py).
+  A StartOS backup holds the whole volume, so a file the app keeps there (a
+  price cache, the draft forms) comes back with a restore whatever its name;
+- the image's entrypoint: docker-entrypoint.sh, and the Dockerfile's
+  ENTRYPOINT, CMD and the line that copies the script in.
+
+A file a rule covers counts whenever the part that matters differs: a
+false "needed" costs a person's few minutes, a false "not needed" an
+untested restore.
 
 Prints each file that changes it, and why, or every file the release changes;
 then a last line "needed" or "not needed". Exits 0 either way, 2 when git
@@ -48,43 +61,59 @@ class Change:
 
 @dataclass(frozen=True)
 class Rule:
-    """Files on the backup path. `lines` keeps only the lines that matter, for
-    a file that also holds other things (the Dockerfile's build steps,
-    package.json's other tools); `from_text` keeps the file from that text on
-    (a StartOS version's migrations, after its release notes)."""
+    """Files on the backup path. For a file that also holds other things,
+    `keep` keeps only what matches (the Dockerfile's build steps, package.json's
+    other tools, the manifest's other fields), or `drop` leaves out what
+    doesn't matter (a StartOS version's release notes)."""
 
     path: str
     why: str
-    lines: str | None = None
-    from_text: str | None = None
+    keep: str | None = None
+    drop: str | None = None
 
     def covers(self, path: str) -> bool:
         return path.startswith(self.path) if self.path.endswith("/") else path == self.path
 
     def part(self, text: str | None) -> str | None:
-        if text is None or (self.lines is None and self.from_text is None):
-            return text
-        if self.lines is not None:
-            return "\n".join(line for line in text.splitlines() if re.search(self.lines, line))
-        start = text.find(self.from_text)
-        return text[start:] if start >= 0 else ""
+        if text is None:
+            return None
+        if self.keep is not None:
+            return "\n".join(re.findall(self.keep, text, re.MULTILINE))
+        if self.drop is not None:
+            # What's left keeps its lines, blank ones aside: a note added or
+            # dropped leaves a blank line where it was
+            kept = re.sub(self.drop, "", text, flags=re.MULTILINE)
+            return "\n".join(line for line in kept.splitlines() if line.strip())
+        return text
 
+
+# What changes in a StartOS version file at every release without changing
+# what it runs: the notes (a template string per language), the comments,
+# its version and the links to the repository the notes name (the
+# CHANGELOG, a release)
+RELEASE_TEXT = (r"^\s*[a-z]{2}_[A-Z]{2}:\s*`(?:\\.|[^`\\])*`,?[ \t]*$"
+                r"|`(?:\\.|[^`\\])*`|/\*[\s\S]*?\*/|^\s*//.*$|version: '[^']*'"
+                r"|^const [A-Z0-9_]+ =\s*'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'$"
+                r"|'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'")
 
 RULES = (
     Rule("startos/startos/backups.ts", "the package's backup settings"),
-    Rule("startos/package.json", "the start-sdk version", lines=r"@start9labs/start-sdk"),
-    Rule("startos/startos/versions/", "the package's own migrations", from_text="migrations:"),
+    Rule("startos/package.json", "the start-sdk version", keep=r"^.*@start9labs/start-sdk.*$"),
+    Rule("startos/startos/init/", "what the package runs on a restore (init)"),
+    Rule("startos/startos/fileModels/", "what the startos volume holds (store.json)"),
+    Rule("startos/startos/main.ts", "how the service starts (its migrate step, entrypoint and mounts)"),
+    Rule("startos/startos/utils.ts", "the data folder's mount, the app's commands or the migrations' helpers"),
+    Rule("startos/startos/manifest/index.ts", "the package's volumes", keep=r"volumes:\s*\[[^\]]*\]"),
+    Rule("startos/startos/versions/index.ts", "the package's own migrations (the version graph)"),
+    Rule("startos/startos/versions/", "the package's own migrations", drop=RELEASE_TEXT),
     Rule("backend/services/backup.py", "backup.py (the service)"),
     Rule("backend/routers/backup.py", "backup.py (the router)"),
     Rule("backend/migrate.py", "migrate.py"),
     Rule("backend/migrations/", "the migrations"),
     Rule("backend/database.py", "database.py"),
     Rule("backend/secret_key.py", "the data folder's layout (the session key kept beside the database)"),
-    Rule("startos/startos/utils.ts", "the data folder's layout (the volume's mount, DATABASE_FILE)",
-         lines=r"DATABASE_FILE|volumeId|mountpoint|subpath|readonly|/data"),
-    Rule("startos/startos/manifest/index.ts", "the data folder's layout (the volumes)", lines=r"volumes"),
     Rule("Dockerfile", "the data folder's layout or the image's entrypoint",
-         lines=r"^\s*(ENTRYPOINT|CMD|USER|VOLUME)\b|DATABASE_FILE|/data|useradd|groupadd"),
+         keep=r"^\s*(?:ENTRYPOINT|CMD|USER|VOLUME)\b.*$|^.*(?:DATABASE_FILE|/data|useradd|groupadd|docker-entrypoint).*$"),
     Rule("docker-entrypoint.sh", "the image's entrypoint"),
 )
 

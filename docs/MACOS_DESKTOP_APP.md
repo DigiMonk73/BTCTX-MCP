@@ -233,6 +233,16 @@ release up to 1.2.5) ignores the variable and keeps its data under
 `~/Library/Application Support`, which is then inside the test folder
 too.
 
+It runs a copy of the build, made in that folder (`test-app/`), with a
+bundle id of its own: the build's with `.test-build` after it
+(`org.bitcointx.desktop.test-build`), re-signed ad hoc. WebKit keeps a
+window's storage by bundle id, and the app opens its window in pywebview's
+private mode, which clears that store at each open. So a build run under
+the installed app's id logged the installed app out (#924). The copy is
+made again at each launch while no test run answers. While one answers,
+or its copy is still starting, the copy is kept, and only that copy may
+answer: a test run from another build is refused.
+
 - **MCP server:** it looks for the installed app's `mcp.json` unless
   `BTCTX_MCP_FILE=<folder>/mcp.json` (`desktop/run-test-build.sh --where`
   prints the folder) is in **the MCP server's own environment**: the MCP
@@ -247,7 +257,9 @@ too.
   test run, act only on the test copy, and leave the installed app alone.
 - **A second launch** on the same port says "BitcoinTX Test is already
   open" but doesn't bring a window forward: AppleScript finds the app by
-  its bundle id, which a test build shares with the installed app.
+  its bundle id, which a build run by itself shares with the installed
+  app. The script's copy has an id of its own, but the app can't tell how
+  it was started.
 
 ### Manual build
 

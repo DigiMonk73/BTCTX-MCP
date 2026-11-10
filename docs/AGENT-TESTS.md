@@ -61,15 +61,25 @@ run starts:
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
 | The owner's own test: the release loaded and a few basics tried on their own install, with StartOS's **My Mempool on this server** (PRC-4, which needs their synced node) | the owner | after the gate, before "merge" |
 
-**When BAK-5 and UPG-5b run** (#924). Only when the release changes the
-StartOS backup path: the package's backup settings or start-sdk version,
-its own migrations, `backup.py` (the service or the router), `migrate.py`,
-the migrations, `database.py`, the data folder's layout or the image's
-entrypoint (the script's docstring names each file). Before the run,
-`scripts/gate/backup_path_changed.py <the previous release's tag> $SHA`
-says which: "needed" with the files that make it so, or "not needed" with
-every file the release changes. Not needed: record BAK-5 and UPG-5b as
-NOT NEEDED, with the script's output, the diff that shows it, and ask no
+**When BAK-5 and UPG-5b run** (#924). They run only when the release
+changes the StartOS backup path:
+- the package's backup settings or start-sdk version;
+- what it runs on a restore and keeps in its volumes;
+- its own migrations;
+- `backup.py` (the service or the router), `migrate.py`, the migrations
+  or `database.py`;
+- the data folder's layout;
+- the image's entrypoint.
+
+The script's docstring names each file. Before the run,
+`scripts/gate/backup_path_changed.py FROM $SHA` says which: "needed" with
+the files that make it so, or "not needed" with every file the release
+changes. FROM is the tag of the last release whose BAK-5 and UPG-5b
+passed, not just the previous release. A release that shipped with them
+deferred or BLOCKED left its changes untested (2.0.1's were deferred, so
+2.0.2's FROM is the release before it whose BAK-5 passed). The report
+names FROM. When the answer is not needed, record BAK-5 and UPG-5b as
+NOT NEEDED with the script's output, the diff that shows it, and ask no
 one for the password for them.
 
 No longer a person's:
@@ -1955,19 +1965,28 @@ read a 2.0 database back. So, on any Mac where that app is installed:
 - The script runs a copy of the build (in DATA, `test-app/`) with a bundle
   id of its own, the build's with `.test-build` after it
   (`org.bitcointx.desktop.test-build`), re-signed ad hoc, and prints it.
-  WebKit keeps a window's cookies by bundle id, and a cookie ignores the
-  port, so a build run under the installed app's id would share its web
-  view storage: a test login on 127.0.0.1 could replace the installed
-  app's session or device cookie and log it out (#924). Check once that
-  it doesn't: before the first launch, record each file's modification
-  time and size under `~/Library/WebKit/<installed id>`,
-  `~/Library/HTTPStorages/<installed id>*` and `~/Library/Caches/<installed
-  id>` (where they exist, for `org.bitcointx.desktop` and
-  `org.bitcointx.desktop.preview`); launch, log in, quit, and compare.
-  Expect them all unchanged, and the test build's own under
-  `<installed id>.test-build`. One that moved is a blocker FAIL; STOP.
-  The installed app stays as it is: no one quits it or logs in to it
-  again.
+  WebKit keeps a window's web view storage by bundle id, so a build run
+  under the installed app's id would share it (#924). The app opens its
+  window in pywebview's private mode, which clears that whole store at
+  each open, so even a launch without a login logged a running installed
+  app out; and a cookie ignores the port, so a test login could replace
+  its session cookie. The installed app stays as it is: no one quits it
+  or logs in to it again.
+- Check once that the storage isn't shared. If neither installed app is
+  running (nothing answers on 8765 or 8767):
+  - before the first launch, record each file's modification time and
+    size under `~/Library/WebKit/<installed id>`,
+    `~/Library/HTTPStorages/<installed id>*` and
+    `~/Library/Caches/<installed id>`, where they exist, for
+    `org.bitcointx.desktop` and `org.bitcointx.desktop.preview`;
+  - launch, log in, quit, and compare;
+  - expect them all unchanged, and the test build's own storage under
+    `<installed id>.test-build`. One that moved is a blocker FAIL; STOP.
+
+  If one of them is running, it writes its own folders too, so the check
+  would fail falsely. Record it as not run, and instead expect
+  `~/Library/WebKit/<installed id>.test-build` to appear at the first
+  launch: the store is the copy's own.
 - A step that can't keep these rules is BLOCKED, never run another way.
 
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
