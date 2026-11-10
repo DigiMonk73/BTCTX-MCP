@@ -58,12 +58,10 @@ planned for 2.0.3:
 - BitcoinTX's own CSV import, and River's, read a bitcoin amount written
   "1,234" as 1234 BTC: check the preview's amounts if your spreadsheet
   writes decimals with a comma (#953);
-- a time typed in the transaction form, on a device whose timezone data
-  misses 2026's changes, is saved an hour off: an hour late in British
-  Columbia, Alberta, Manitoba, the Northwest Territories and Cuba from 1
-  November 2026, an hour early in Morocco from 20 September 2026, and the
-  device shows it back as typed. Keep the device's system and browser up
-  to date, and check such times (#964).
+- on a device whose timezone data is older than BitcoinTX's, a time typed
+  in the transaction form, in the zones and periods of #908's entry (under
+  Fixed), can be saved an hour off, and the device shows it back as
+  typed. Keep the device's system and browser up to date (#964).
 
 ### Fixed
 
@@ -251,8 +249,8 @@ planned for 2.0.3:
   updating (the AI connector's `btctx-mcp==2.0.2`), the
   tax-figures fix #908 with who could be affected and what to do, the other
   changes and the known issues. They don't carry #939: it concerns the Mac
-  app, and on StartOS only `Canada/Central` up to 1.2.6, which the pointer
-  to 2.0.1's notes (Manitoba) covers.
+  app, and on StartOS only `Canada/Central` up to 1.2.6, and the pointer
+  to 2.0.1's notes points such a user to Manitoba's fix.
 - **BitcoinTX on StartOS needs StartOS 0.4.1 or later**, because the
   package is built with **start-sdk 4.0.0** (from 3.1.1, #913): Start9's
   current SDK, which their Pre-Publish Checklist asks for before any pull
