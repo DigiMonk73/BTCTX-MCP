@@ -95,6 +95,18 @@ describe("buildAiPrompt", () => {
     // The Preview's own switch: the installed app's would open the real ledger to its own connector
     expect(buildAiPrompt({ ...server, version: "2.0.0-beta.1", keyMode: true })).toContain(ask("BitcoinTX Preview"));
   });
+
+  // #923: the AI asked to turn on a switch that was already on
+  it.fails("doesn't ask for AI access once it's on, on every edition", () => {
+    for (const input of [server, { ...server, keyMode: true }, { ...server, version: "2.0.0-beta.1", keyMode: true }]) {
+      const on = { ...input, aiAccessOn: true };
+      expect(buildAiPrompt(on)).not.toContain("AI access is off");
+      expect(buildAiPrompt(on)).not.toContain("Let AI assistants use BitcoinTX");
+      expect(buildAiPrompt(on)).toContain("Once it's connected, call get_portfolio to confirm it works");
+      const off = { ...input, aiAccessOn: false };
+      expect(buildAiPrompt(off)).toContain("AI access is off until I turn it on");
+    }
+  });
 });
 
 describe("claudeDesktopConfig", () => {
