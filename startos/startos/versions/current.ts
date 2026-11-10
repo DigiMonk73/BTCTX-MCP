@@ -1,7 +1,7 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const CHANGELOG =
-  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.1/docs/CHANGELOG.md'
+  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.2/docs/CHANGELOG.md'
 
 /**
  * 2.0.1:0, the first maintenance update of 2.0. 2.0.0:0's migration was empty,
@@ -11,7 +11,7 @@ const CHANGELOG =
  * affected and what to do, the other changes and the known issues.
  */
 export const current = VersionInfo.of({
-  version: '2.0.1:0',
+  version: '2.0.2:0',
   releaseNotes: {
     en_US: `BitcoinTX 2.0.1 is a maintenance update of 2.0.0. It fixes one bug that could make a tax figure wrong, for the tax timezones of Manitoba, the Northwest Territories and Cuba from 1 November 2026 (below, with who could be affected and what to do), and adds a page to the Complete Tax Report for when a Form 1099-DA differs from BitcoinTX.
 
