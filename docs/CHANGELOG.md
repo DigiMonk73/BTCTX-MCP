@@ -146,6 +146,29 @@ All notable changes to BitcoinTX are documented in this file.
   after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
   steps point to it; `test_gate_pages_924.py` checks the host rule, the
   steps and the guide.
+- **The StartOS backup's gate steps run only when a release changes the
+  backup path** (#924, for #848). BAK-5 and UPG-5b need the VM's StartOS
+  password, a person's. `scripts/gate/backup_path_changed.py FROM TO`
+  says when they're needed. That's when the release changes the
+  package's backup settings or start-sdk version, its own migrations,
+  `backup.py`, `migrate.py`, the migrations, `database.py`, the data
+  folder's layout or the image's entrypoint. Otherwise it says "not
+  needed" and lists every file the release changes, which the report
+  records with the steps as NOT NEEDED. For 2.0.1 → 2.0.2 they're needed
+  (start-sdk 4.0.0, #940). `test_gate_backup_path_924.py` holds the rule.
+- **A Mac test build no longer logs the installed BitcoinTX out** (#924).
+  WebKit keeps an app's cookies by bundle id, and a test build ran under
+  the installed app's id. `desktop/run-test-build.sh` now runs a copy of
+  the build in its test folder, as `<the build's id>.test-build`,
+  re-signed ad hoc, and Track C checks that the installed app's WebKit
+  folders stay untouched. Nothing that ships changes. So
+  `docs/AGENT-TESTS.md`'s "What stays by hand" now lists only:
+  - the StartOS password, when the backup path changed and on the rare
+    WAY, BETA and CB tracks;
+  - the VM's browser sign-in;
+  - MAC-1's first open;
+  - the agent's own approvals;
+  - the owner's own test.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 
