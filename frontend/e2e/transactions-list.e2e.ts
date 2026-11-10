@@ -60,6 +60,26 @@ test("rows show account, amounts, fee, source and gain", async ({ authedPage: pa
   await expect(buy).toContainText(/\+1\.00000000 BTC\s*\$20,000\.00/);
 });
 
+test.describe("a phone, 375 px wide", () => {
+  test.use({ viewport: { width: 375, height: 812 } });
+
+  test("a row's sub-line wraps rather than cut its fee off (#922)", async ({ authedPage: page }) => {
+    test.fail(); // #922, before its fix
+    await seedKnownLedger(page.request);
+    await createTx(page.request, {
+      type: "Withdrawal", timestamp: "2024-04-01T15:00:00Z", from_account_id: 2, to_account_id: 99,
+      amount: "0.005", fee_amount: "0.00002", fee_currency: "BTC", purpose: "Spent", gross_proceeds_usd: "400",
+    });
+    await page.goto("/transactions");
+    const fees = page.locator(".tx-sub", { hasText: "Fee " });
+    await expect(fees).toHaveCount(3); // the sell's in USD, the transfer's and the spend's in BTC
+    for (const sub of await fees.all()) {
+      expect(await sub.evaluate((e) => e.scrollWidth <= e.clientWidth), await sub.innerText()).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(375); // and the page no wider
+  });
+});
+
 test("a spend shows its gain; a gift, a donation and lost coins show none (#257)", async ({ authedPage: page }) => {
   await seedKnownLedger(page.request);
   for (const [day, purpose] of [["01", "Spent"], ["02", "Gift"], ["03", "Donation"], ["04", "Lost"]]) {
