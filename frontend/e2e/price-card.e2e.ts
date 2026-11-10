@@ -8,6 +8,13 @@ import type { Page } from "@playwright/test";
 
 test.use({ fakeInternet: true, priceSource: "unset" });
 
+// #188's handlers ask the server themselves (route.fetch(), page.request): one
+// still asking when its test ends fails, and is reported against the next test (#930)
+test.afterEach(async ({ page }) => {
+  // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 const MEMPOOL_DOWN = "http://mempool.invalid:3006"; // the fake internet never answers .invalid
 const TOR_STOPPED = "socks5h://tor.invalid:9050";
 

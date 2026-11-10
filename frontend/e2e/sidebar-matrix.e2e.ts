@@ -17,6 +17,13 @@ import type { Locator, Page } from "@playwright/test";
 // A fresh install, so every outside request belongs to the state a test chooses.
 test.use({ fakeInternet: true, priceSource: "unset" });
 
+// holdLivePrices' handler asks the server itself (route.fetch()): one still
+// asking when its test ends fails, and is reported against the next test (#930)
+test.afterEach(async ({ page }) => {
+  // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // The day Date mode looks up: not the first day of a block the public price
 // history comes in (1,000 days each from 2011-08-18), which requests do name.
 const DAY = "2024-03-01";

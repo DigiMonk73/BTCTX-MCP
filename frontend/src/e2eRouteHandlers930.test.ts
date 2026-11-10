@@ -81,7 +81,7 @@ describe("the click-through specs", () => {
     expect(specs).toContain("price-card.e2e.ts");
   });
 
-  it.fails("drop their routes after each test wherever a handler asks the network (#930)", () => {
+  it("drop their routes after each test wherever a handler asks the network (#930)", () => {
     const left = specs.filter((f) => {
       const spec = readFileSync(join(e2eDir, f), "utf8");
       return hasFetchingHandler(spec) && !dropsRoutesAfterEach(spec);
