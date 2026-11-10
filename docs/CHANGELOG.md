@@ -79,6 +79,25 @@ All notable changes to BitcoinTX are documented in this file.
   a PDF download does the same. A restore's notice still waits on screen
   to be read (#407). No figure or data was affected.
 
+- **Settings' account list shows the balances after Delete All without a
+  reload** (#921). Settings keeps its closed sections loaded, and Delete
+  All, an import or a restore changes the balances meanwhile. "Wallets,
+  exchanges and banks" read its accounts again each time it opened (#720),
+  but its balances only once, when Settings opened: after Delete All it
+  kept showing the old ones until a reload. It now reads them each time it
+  opens.
+- **A transaction's fee stays readable on a phone** (#922). The grey line
+  under each transaction (its time, note and fee) was cut with "…" where it
+  didn't fit, so at a phone's width a fee could read "Fee $1…". It now
+  wraps onto a second line, and the fee's amount moves to the next line
+  whole, with its unit.
+- **The AI Setup prompt asks you to turn on AI access only while it's
+  off** (#923). The prompt that Settings › Connect an AI Assistant gives
+  you to paste into an AI app always said "AI access is off until I turn it
+  on", so the AI asked you to turn on a switch that was already on. It now
+  follows the switch: while it's off, the AI still asks before its first
+  check (#676); once it's on, the prompt doesn't ask.
+
 ### Security
 - **The Docker image moves to Python 3.13.18** (#934, for #871), on
   Docker Hub's 2026-11-05 build of `python:3.13-slim`; 2.0.1's was from
@@ -146,6 +165,25 @@ All notable changes to BitcoinTX are documented in this file.
   after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
   steps point to it; `test_gate_pages_924.py` checks the host rule, the
   steps and the guide.
+- **A click-through test no longer fails the next one at random** (#930).
+  The route handlers of #188's test (`price-card.e2e.ts`) and of
+  `sidebar-matrix.e2e.ts`'s held prices ask the server themselves
+  (`route.fetch()`), and one still asking when its test ended failed, but
+  Playwright reported it against the next test. Both specs now drop their
+  routes after each test (`page.unrouteAll({ behavior: "ignoreErrors" })`),
+  and `e2eRouteHandlers930.test.ts` checks that every spec with such a
+  handler does.
+- **CI type-checks the click-through tests** (#944). `npx tsc -p e2e`
+  failed (`FormData.entries()` needs the `DOM.Iterable` library), and
+  nothing ran it: the build's type check covers only the app, and
+  Playwright doesn't check the specs' types. The specs' `tsconfig.json`
+  takes `DOM.Iterable`, and CI's frontend job runs the check.
+- **A click-through test for Settings' price choice right after the
+  Dashboard's** (#920). The 2.0.1 release gate saw Settings › Privacy &
+  Network with Nobody highlighted but not ticked, right after Nobody was
+  chosen on the Dashboard. That couldn't be reproduced, either in the
+  click-through tests or in the in-app browser on the gate's own path.
+  The new test keeps that path checked.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 

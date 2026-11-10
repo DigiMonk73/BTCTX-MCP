@@ -88,7 +88,7 @@ const Settings: React.FC = () => {
         </SettingsSection>
         <SettingsSection {...props("accounts")} title="Wallets, exchanges and banks"
           summary={accountsSummary(accounts.book)}>
-          <LedgerAccounts {...accounts} onFiguresChanged={reviewAgain} />
+          <LedgerAccounts {...accounts} onFiguresChanged={reviewAgain} open={accountsOpen} />
         </SettingsSection>
         <SettingsSection {...props("review")} title="Ledger Review" region="Ledger review"
           summary={reviewSummary(review)}>
