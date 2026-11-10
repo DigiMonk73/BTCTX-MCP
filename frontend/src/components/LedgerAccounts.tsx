@@ -13,6 +13,8 @@ interface LedgerAccountsProps extends AccountsState {
   reload: () => Promise<void>;
   /** A change here moved figures: the 1099-DA switch moves Form 8949 boxes, which Ledger Review reads. */
   onFiguresChanged?: () => void;
+  /** Whether its Settings section is open: the balances are read each time it opens. */
+  open?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface LedgerAccountsProps extends AccountsState {
  * change is one request, then the book and the balances again; the server's
  * refusal is shown in its words.
  */
-const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, onFiguresChanged }) => {
+const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, onFiguresChanged, open = true }) => {
   const [balances, setBalances] = useState<AccountBalance[]>();
   const [busy, setBusy] = useState(false);
   const [refusal, setRefusal] = useState("");
@@ -44,9 +46,11 @@ const LedgerAccounts: React.FC<LedgerAccountsProps> = ({ book, failed, reload, o
       .catch(() => ask === asked.current && setBalances(undefined)); // the rows show no balance
   }, []);
 
+  // Closed, the section stays mounted while Delete All, an import or a restore changes the
+  // balances: they're read as it opens, as Settings reads the book again (#720, #921)
   useEffect(() => {
-    void loadBalances();
-  }, [loadBalances]);
+    if (open) void loadBalances();
+  }, [open, loadBalances]);
 
   // Hidden, the row is in its group's folded list; shown again, back in the
   // list; deleted, gone: its button if it's there, else "Show hidden", else Add

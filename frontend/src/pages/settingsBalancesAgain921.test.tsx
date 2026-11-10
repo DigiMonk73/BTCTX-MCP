@@ -22,7 +22,7 @@ function balances(wallet: string, bank: string): AccountBalance[] {
   return [one(2, "Wallet", "BTC", wallet, "wallet"), one(1, "Bank", "USD", bank, "bank")];
 }
 
-it.fails("reads the balances again as the accounts section opens: Delete All's zeros show at once", async () => {
+it("reads the balances again as the accounts section opens: Delete All's zeros show at once", async () => {
   window.localStorage.clear(); // every section closed, as a new browser has them
   let server = balances("0.3997", "45000.00");
   const get = vi.spyOn(api, "get").mockImplementation(async (url: string) => {
