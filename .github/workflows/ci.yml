@@ -139,6 +139,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run lint
+      # The build's type check (tsc -b) covers only the app, and Playwright
+      # strips the specs' types without checking them (#944)
+      - name: Type check the click-through tests
+        run: npx tsc -p e2e
       - run: npm test
       - name: Type check + production build
         run: npm run build
