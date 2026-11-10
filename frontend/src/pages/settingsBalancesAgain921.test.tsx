@@ -34,6 +34,9 @@ it("reads the balances again as the accounts section opens: Delete All's zeros s
   render(<MemoryRouter initialEntries={["/settings"]}><ToastProvider><Settings /></ToastProvider></MemoryRouter>);
   const user = userEvent.setup();
   const asked = () => get.mock.calls.filter(([url]) => url === "/calculations/accounts/balances").length;
+  // Closed, it asks for none: the book is read, the balances wait for the section
+  await waitFor(() => expect(get.mock.calls.some(([url]) => url === "/accounts/")).toBe(true));
+  expect(asked()).toBe(0);
 
   const section = screen.getByRole("button", { name: "Wallets, exchanges and banks" });
   await user.click(section);
