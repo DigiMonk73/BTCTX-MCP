@@ -188,7 +188,7 @@ of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
-BitcoinTX 2.0.1 is the current version, a maintenance update of 2.0.0.
+BitcoinTX 2.0.2 is the current version, a maintenance update of 2.0.
 2.0 added multiple wallets, exchanges and bank accounts, each wallet and
 exchange with its own cost-basis lots
 ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). A release
@@ -213,8 +213,8 @@ marked **Pre-release**, and 2.0 replaces them:
   its `bitcointx-preview` entry from your AI app.
 - **StartOS:** 2.0 updates a pre-release in place. The StartOS backup you
   made under 1.x still takes you back to 1.x.
-- **Docker:** start `:v2.0.1` on the same volume.
-- **An AI:** set your AI app to `btctx-mcp==2.0.1`, and replace a
+- **Docker:** start `:v2.0.2` on the same volume.
+- **An AI:** set your AI app to `btctx-mcp==2.0.2`, and replace a
   `bitcointx-preview` entry for a server you've updated with what Settings →
   Connect an AI Assistant gives now.
 
