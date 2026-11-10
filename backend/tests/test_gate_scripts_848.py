@@ -175,7 +175,6 @@ BY_HAND = ("The VM's StartOS password", "Signing the VM's browser in", "A downlo
            "The agent's own approval prompts", "The owner's own test")
 
 
-@pytest.mark.xfail(strict=True, reason="for #924: the table still lists what an agent can do")
 def test_the_by_hand_table_lists_only_what_needs_a_person():
     guide = (ROOT / "docs" / "AGENT-TESTS.md").read_text()
     by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]
