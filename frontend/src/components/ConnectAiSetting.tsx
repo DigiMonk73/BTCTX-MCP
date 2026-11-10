@@ -261,7 +261,8 @@ const ConnectAiSetting: React.FC<{
   }, []);
 
   const keyMode = access?.mode === "mac";
-  const input = useMemo(() => ({ url, version, keyMode }), [url, version, keyMode]);
+  const aiAccessOn = access?.on;
+  const input = useMemo(() => ({ url, version, keyMode, aiAccessOn }), [url, version, keyMode, aiAccessOn]);
   // The closed section's summary words the key by edition, once it's known (#724)
   const known = access !== null;
   useEffect(() => {

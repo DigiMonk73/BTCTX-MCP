@@ -28,11 +28,11 @@ const TransactionRow: React.FC<Props> = ({ tx, book, onEdit }) => {
     hour: "numeric",
     minute: "2-digit",
   });
-  let feeLabel = "";
+  let fee = "";
   if (tx.fee_amount && tx.fee_amount !== 0) {
-    feeLabel = tx.fee_currency === "BTC" ? `Fee ${formatBtc(tx.fee_amount)}` : `Fee ${formatUsd(tx.fee_amount)}`;
+    fee = tx.fee_currency === "BTC" ? formatBtc(tx.fee_amount) : formatUsd(tx.fee_amount);
   }
-  const subtitle = [timeStr, rowNote(tx, book), coinsChosenNote(tx), feeLabel].filter(Boolean).join(" \u00b7 ");
+  const subtitle = [timeStr, rowNote(tx, book), coinsChosenNote(tx)].filter(Boolean).join(" \u00b7 ");
   const gain = gainLabel(tx);
   const { primary, secondary } = rowAmounts(tx, book);
   const Icon = TYPE_ICONS[tx.type] ?? ArrowLeftRight;
@@ -47,7 +47,10 @@ const TransactionRow: React.FC<Props> = ({ tx, book, onEdit }) => {
           {tx.type}
           <span className="tx-account">{" \u00b7 "}{rowAccounts(tx, book)}</span>
         </span>
-        <span className="tx-sub">{subtitle}</span>
+        <span className="tx-sub">
+          {subtitle}
+          {fee && <>{" \u00b7 Fee "}<span className="tx-fee">{fee}</span></>}
+        </span>
       </span>
       <span className={`tx-gain ${tx.realized_gain_usd >= 0 ? "text-gain" : "text-loss"}`}>{gain}</span>
       <span className="tx-amounts">
