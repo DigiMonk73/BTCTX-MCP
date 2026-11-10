@@ -165,6 +165,43 @@ All notable changes to BitcoinTX are documented in this file.
   after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
   steps point to it; `test_gate_pages_924.py` checks the host rule, the
   steps and the guide.
+- **A script says when the StartOS backup's gate steps are needed: when a
+  release changes the backup path, so for now at every release** (#924,
+  for #848). BAK-5 and UPG-5b need the VM's StartOS
+  password, a person's. `scripts/gate/backup_path_changed.py FROM TO`
+  says when they're needed. That's when the release changes any of:
+  - the package's backup settings or start-sdk version;
+  - the rest of the package's code (`startos/startos/`), including what it
+    runs on a restore and keeps in its volumes;
+  - its own migrations (any change under `startos/startos/versions/`);
+  - `backup.py`, `migrate.py`, the migrations, `database.py` or
+    `backend/cli.py`;
+  - the data folder's layout;
+  - the image (the Dockerfile, whole) and its entrypoint.
+
+  It compares from the last release whose BAK-5 passed. Otherwise it says
+  "not needed" and lists every file the release changes, and the report
+  records the steps as NOT NEEDED with that list. **Until #962, BAK-5 and
+  UPG-5b run at every release:** each release changes `current.ts` (its version and
+  notes), and telling that apart safely from a change to what a restore
+  runs is #962's job (the owner's choice, 2026-11-10). For 2.0.2 they're
+  needed anyway (start-sdk 4.0.0, #940). `test_gate_backup_path_924.py`
+  holds the rule.
+- **A Mac test build no longer logs the installed BitcoinTX out** (#924).
+  WebKit keeps an app's cookies by bundle id, and a test build ran under
+  the installed app's id. `desktop/run-test-build.sh` now runs a copy of
+  the build in its test folder, as `<the build's id>.test-build`,
+  re-signed ad hoc. While no installed app runs, Track C checks that the
+  installed apps' WebKit folders stay untouched (the app's private mode
+  clears the store WebKit keeps by bundle id at each window open). A copy
+  still starting is never made again. Nothing that ships changes. So
+  `docs/AGENT-TESTS.md`'s "What stays by hand" now lists only:
+  - the StartOS password, when the backup path changed and on the rare
+    WAY, BETA and CB tracks;
+  - the VM's browser sign-in;
+  - MAC-1's first open;
+  - the agent's own approvals;
+  - the owner's own test.
 - **A click-through test no longer fails the next one at random** (#930).
   The route handlers of #188's test (`price-card.e2e.ts`) and of
   `sidebar-matrix.e2e.ts`'s held prices ask the server themselves

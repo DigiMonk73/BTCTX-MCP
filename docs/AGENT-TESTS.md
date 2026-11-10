@@ -55,20 +55,56 @@ run starts:
 
 | What | Who | Steps |
 |---|---|---|
-| The VM's StartOS password, typed for a StartOS backup or its restore | whoever set up the VM (an agent never stores it) | BAK-5, UPG-5b, WAY-1 to WAY-5, BETA-1, CB |
-| `start-cli -H $URL auth login` (the same password), once per VM | whoever set up the VM | before any `start-cli` step |
-| Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (#924) |
-| A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh` clears the quarantine for its own launches) |
-| Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac launch, and logging in to it again after, when the test build shares its WebKit folders | the owner | Track C, WAY-7, BETA |
-| StartOS's **My Mempool on this server** | the owner, on their own server | PRC-4 |
-| A real exchange export, tried on a test copy | a tester who has one | MAP-1 (not part of an agent's walk) |
+| The VM's StartOS password, typed for a StartOS backup or its restore, and for `start-cli -H $URL auth login` once per VM | whoever set up the VM (an agent never stores it) | BAK-5 and UPG-5b only when the release changes the backup path (`scripts/gate/backup_path_changed.py`, below), so at every release until #962; WAY-1 to WAY-5, BETA-1 and CB, the rare tracks; the login before any `start-cli` step |
+| Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (an agent types a test login only into a page on its own computer, never the VM's) |
+| A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh`'s launches need none: it runs its own copy, without the quarantine) |
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
-| The owner's own test: the release loaded and a few basics tried on their own install | the owner | after the gate, before "merge" |
+| The owner's own test: the release loaded and a few basics tried on their own install, with StartOS's **My Mempool on this server** (PRC-4, which needs their synced node) | the owner | after the gate, before "merge" |
 
-AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2, once a person's (they type
-test logins into the app's own pages), need no one: `scripts/gate/pages.py`
-runs them on `127.0.0.1` with the candidate's own image ([The golden
-ledger](#the-golden-ledger), "The sign-in and password pages, by script").
+**When BAK-5 and UPG-5b run** (#924). They run only when the release
+changes the StartOS backup path:
+- the package's backup settings or start-sdk version;
+- what it runs on a restore and keeps in its volumes;
+- its own migrations: every change under `startos/startos/versions/`;
+- the rest of the package's code (`startos/startos/`) and the commands it
+  runs (`backend/cli.py`);
+- `backup.py` (the service or the router), `migrate.py`, the migrations
+  or `database.py`;
+- the data folder's layout;
+- the image: the Dockerfile, whole, and its entrypoint.
+
+The script's docstring names each file. Before the run,
+`scripts/gate/backup_path_changed.py FROM $SHA` says which: "needed" with
+the files that make it so, or "not needed" with every file the release
+changes. FROM is the tag of the last release whose BAK-5 and UPG-5b
+passed, not just the previous release. A release that shipped with them
+deferred or BLOCKED left its changes untested (2.0.1's were deferred, so
+2.0.2's FROM is the release before it whose BAK-5 passed). The report
+names FROM. When the answer is not needed, record BAK-5 and UPG-5b as
+NOT NEEDED with the script's output, the diff that shows it, and ask no
+one for the password for them.
+
+**Until #962, that's every release.** Each release changes
+`startos/startos/versions/current.ts`, its version and its notes, and no
+check yet tells a change that only does that from one that changes what a
+restore runs (the owner's choice, 2026-11-10, after #957's reviews). So
+ask for the StartOS password for BAK-5 (and UPG-5b, where its track
+runs) at every release. #962 will make
+such a release read "not needed" safely.
+
+No longer a person's:
+- AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2 (they type test logins
+  into the app's own pages): `scripts/gate/pages.py` runs them on
+  `127.0.0.1` with the candidate's own image ([The golden
+  ledger](#the-golden-ledger), "The sign-in and password pages, by
+  script").
+- Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac
+  launch, and logging in to it again after: the test build runs as a copy
+  with a bundle id of its own, so it never shares their web view storage
+  (Track C).
+
+MAP-1, a real exchange export tried on a test copy, is a tester's walk,
+never part of an agent's.
 
 Decisions aren't tests: the release's "merge", anything sent to Start9 and
 a promotion stay the owner's (AGENTS.md).
@@ -135,7 +171,8 @@ names the release walk's corrections.
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
-  them, mark those steps BLOCKED.
+  them, mark those steps BLOCKED. BAK-5 and UPG-5b run only when the
+  release changes the backup path (What stays by hand).
 - **Optional services on the VM:** Tor (PRC-3, PRC-3b). Mempool (PRC-4) needs a
   synced Bitcoin node, so skip it unless the VM has one.
 - **Your browser runs in `America/New_York`.** The transaction form reads
@@ -330,8 +367,9 @@ from the VM's own walk instead:
 
 The VM's browser still has to be signed in for its other pages (after
 INS-5, after AUTH-5's and LCK-2's changes, and after BAK-4's restore),
-which types the INS-3 login (or LCK-2's) into the VM's page: a person's
-until #924 settles it (What stays by hand).
+which types the INS-3 login (or LCK-2's) into the VM's page: a person's,
+since an agent types a test login only into a page on its own computer
+(What stays by hand).
 
 ---
 
@@ -1587,8 +1625,9 @@ Set `KEY` to the key from AI-3, and use
 
 ### BAK (StartOS backup)
 
-- **BAK-5** (needs the second virtual disk and the VM's StartOS password)
-  Create a StartOS backup of BitcoinTX: System › Create Backup, the second
+- **BAK-5** (needs the second virtual disk and the VM's StartOS password;
+  only when `scripts/gate/backup_path_changed.py` says "needed", else NOT
+  NEEDED with its output: What stays by hand) Create a StartOS backup of BitcoinTX: System › Create Backup, the second
   disk, select BitcoinTX, the password ("Master password needed"), **Create
   Backup**. Then uninstall BitcoinTX (its data goes with it). Restore it
   from the backup: System › Restore Backup, the disk, the server, the
@@ -1735,7 +1774,7 @@ Start from the `clean` snapshot.
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.
 - **UPG-5b** (from 1.x to 2.0; needs UPG-1's StartOS backup and the VM's
-  StartOS password) A 1.x StartOS backup restored, then updated (Start9's
+  StartOS password; only when the backup path changed, as BAK-5) A 1.x StartOS backup restored, then updated (Start9's
   rule for a restore below the current version). Uninstall BitcoinTX (2.0
   and its data go). Restore UPG-1's StartOS backup, as BAK-5 does. Expect
   BitcoinTX back at 1.2.10 (the service page's version, and
@@ -1933,17 +1972,31 @@ read a 2.0 database back. So, on any Mac where that app is installed:
   http://127.0.0.1:8765/api/health`, and the same on 8767. Neither may
   change during the track: a version or schema that moved is a blocker
   FAIL; STOP.
-- Before the first launch, check whether the test build shares the
-  installed app's web view storage. WebKit keeps a window's cookies by
-  bundle id, and a cookie ignores the port, so a test build's login on
-  127.0.0.1 could replace the installed app's session or device cookie.
-  Note the modification times of
-  `~/Library/WebKit/<bundle id>` and `~/Library/HTTPStorages/<bundle id>*`
-  (where they exist), launch, log in, quit, and compare; then `ls
-  DATA/home/Library` for the test build's own. If the installed app's
-  moved, it shares them: the owner quits the installed app before each
-  launch and logs in to it again after the track, or the track runs on
-  another macOS account. Record which.
+- The script runs a copy of the build (in DATA, `test-app/`) with a bundle
+  id of its own, the build's with `.test-build` after it
+  (`org.bitcointx.desktop.test-build`), re-signed ad hoc, and prints it.
+  WebKit keeps a window's web view storage by bundle id, so a build run
+  under the installed app's id would share it (#924). The app opens its
+  window in pywebview's private mode, which clears that whole store at
+  each open, so even a launch without a login logged a running installed
+  app out; and a cookie ignores the port, so a test login could replace
+  its session cookie. The installed app stays as it is: no one quits it
+  or logs in to it again.
+- Check once that the storage isn't shared. If neither installed app is
+  running (nothing answers on 8765 or 8767):
+  - before the first launch, record each file's modification time and
+    size under `~/Library/WebKit/<installed id>`,
+    `~/Library/HTTPStorages/<installed id>*` and
+    `~/Library/Caches/<installed id>`, where they exist, for
+    `org.bitcointx.desktop` and `org.bitcointx.desktop.preview`;
+  - launch, log in, quit, and compare;
+  - expect them all unchanged, and the test build's own storage under
+    `<installed id>.test-build`. One that moved is a blocker FAIL; STOP.
+
+  If one of them is running, it writes its own folders too, so the check
+  would fail falsely. Record it as not run, and instead expect
+  `~/Library/WebKit/<installed id>.test-build` to appear at the first
+  launch: the store is the copy's own.
 - A step that can't keep these rules is BLOCKED, never run another way.
 
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
@@ -2317,7 +2370,7 @@ Commit: <SHA> · Date: <date> · Agent: <name/model> · StartOS: <version> · VM
 Tracks run: A, B, C, WAY, BETA, REF, MAP (say which were skipped and why)
 
 ## Summary
-PASS n · FAIL n · KNOWN n · BLOCKED n
+PASS n · FAIL n · KNOWN n · BLOCKED n · NOT NEEDED n (BAK-5, UPG-5b: What stays by hand)
 Release verdict: GO / NO-GO (NO-GO if any FAIL is a blocker)
 
 ## Results
