@@ -10,17 +10,21 @@ All notable changes to BitcoinTX are documented in this file.
 bug that could make a tax figure wrong (the AI connector still read the AI
 computer's own timezone data, #908), and corrects 2.0.1's notes for its
 timezone fix, which named too few places for the Mac app (#939): the two
-entries marked "tax figures" below say who could be affected and what to
-do; most ledgers need nothing more. On StartOS, it needs StartOS 0.4.1 or
-later (#913). It also fixes four screen bugs found in 2.0.1 (#919, #921,
-#922, #923) and moves the Docker image to Python 3.13.18 (#934).
+entries marked "tax figures" in the CHANGELOG say who could be affected
+and what to do; most ledgers need nothing more. On StartOS, it needs
+StartOS 0.4.1 or later (#913). It also fixes four screen bugs found in
+2.0.1 (#919, #921, #922, #923) and moves the Docker image to Python
+3.13.18 (#934).
 
 **Before you update, on StartOS:** update StartOS to 0.4.1 or later first.
-A server still on StartOS 0.4.0.x keeps BitcoinTX 2.0.1 until then.
+Until then, a server on StartOS 0.4.0.x can update BitcoinTX only as far
+as 2.0.1.
 
-**Coming from 1.x?** Read 2.0.0's "Before you update", below, first: on
-StartOS, make a StartOS backup of BitcoinTX and keep it, as it's your way
-back to 1.x.
+**Coming from 1.x?** Read [2.0.0's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0)
+first: on StartOS, make a StartOS backup of BitcoinTX and keep it, as it's
+your way back to 1.x. **Coming from 1.x or 2.0.0?** Read
+[2.0.1's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.1)
+too: its timezone fix (#889) can ask you to correct some times.
 
 **What to do after updating**
 
@@ -28,23 +32,25 @@ back to 1.x.
    itself).
 2. **Update the AI connector** to `btctx-mcp==2.0.2` in your AI app's
    configuration, then restart the AI app.
-3. Then read the two entries marked "tax figures" below: they say whether
-   there's anything to do.
+3. Then read the two entries marked "tax figures" in the CHANGELOG: they
+   say whether there's anything to do.
 
 **Known issues:** the ones 2.0.1 listed stay: the blank row's lookup
 (#824, #849; Ledger Review lists a value saved like that, and can apply
-the hour's price to it) and the Form 1099-DA that lists a network fee,
-corrected by hand (#551). Found since, to be fixed in 2.0.3, each one can
-make a figure wrong:
+the hour's price to it) and a Form 1099-DA that lists a transfer's or a
+gift's network fee, or a fee without its withdrawal, corrected by hand
+(#551). Found since, each one can make a figure wrong, and their fix is
+planned for 2.0.3:
 - coins acquired on 28 February of 2011, 2015, 2019, 2023 or 2027 and sold
   on 29 February of the next year are reported long-term; by the IRS's
   counting they're short-term: the same gain, in Form 8949's Part I, not
-  Part II (#950);
+  Part II. Check the term of such a sale (#950);
 - the AI connector's import puts rows that share a time in an order by
   type (deposits, buys, transfers, sales, withdrawals), where a file import
   keeps the file's order, so a sale and a transfer out at the same time
-  can use other coins, and give another gain, by the way they were added
-  (#951);
+  can use other coins, and give another gain, by the way they were added.
+  Until then, add rows that share a time through a file import, or check
+  which coins such a sale used (#951);
 - BitcoinTX's own CSV import drops, with no error, every row after a cell
   whose quote is never closed: only a hand-edited file, so compare the
   preview's row count with your file's (#952);
@@ -80,10 +86,14 @@ make a figure wrong:
 
   A copy from 2024 or earlier also misses Paraguay's change
   (`America/Asuncion`: on summer time for good since October 2024, so
-  from 23 March 2025 such a time was saved an hour late), and an older
-  copy, older changes. An hour off moves the date of a time in
-  the hour before midnight (an hour late) or after it (an hour early).
-  That date is the one on Form 8949, in the holding period (a sale near a
+  from 23 March to 5 October 2025, and from 22 March to 4 October 2026,
+  such a time was saved an hour late; never at a year's end). A copy from
+  2023 or earlier also misses Kazakhstan's (`Asia/Almaty`, `Asia/Qostanay`:
+  on UTC+5 since 1 March 2024, so from then such a time was saved an hour
+  early, across the ends of 2024 and 2025), and an older copy, older
+  changes (Gaza's and Hebron's, Egypt's, Greenland's). An hour off moves
+  the date of a time in the hour before midnight (an hour late) or after
+  it (an hour early). That date is the one on Form 8949, in the holding period (a sale near a
   year after its purchase could show the wrong term; a date originally
   acquired a day off, the same) and, at the year's end, in the tax year.
   A value BitcoinTX fills in from the price (income, a fee, a spend's
@@ -118,10 +128,16 @@ make a figure wrong:
   app** (#939, tax figures; a correction of the notes, no code change).
   2.0.1's entry (#889, below) named Manitoba, the Northwest Territories'
   Inuvik and Cuba, and said every other zone gives the same dates as
-  before. That holds for Docker and StartOS, whose 2.0.0 image's timezone
-  data (Debian's 2026c) already had the other places' changes, but not for
-  the Mac app: up to 2.0.0 it read macOS's own timezone data. On a Mac whose
-  copy is older than BitcoinTX's (IANA 2026f), 2.0.1 also moved the dates
+  before. That holds for Docker and StartOS: their images, from 0.8.0 to
+  2.0.1, carry Debian's 2026c (checked in 0.8.0's, 1.2.4's, and the base
+  images of 1.2.5 to 1.2.8 and of 1.2.9 to 2.0.1), which already had the
+  other places' changes. The one exception there is the old name
+  `Canada/Central` (Manitoba's), which those images don't carry: BitcoinTX
+  read it from its own copy, which up to 1.2.6 (tzdata 2026.4) still
+  turned Manitoba's clocks back, so from 1 November 2026 it's as
+  `America/Winnipeg` in 2.0.1's entry. It doesn't hold for the Mac app: up
+  to 2.0.0 it read macOS's own timezone data. On a Mac whose copy was
+  older than BitcoinTX's (IANA 2026f), 2.0.1 also moved the dates
   and times of the other zones whose rules have changed since, the zones of
   #908's entry above. A copy from 2025 or earlier misses 2026's changes:
   - from 1 November 2026, British Columbia, Alberta and the rest of the
@@ -137,26 +153,34 @@ make a figure wrong:
     before midnight was given the next day's date, and such a time was
     saved an hour early;
   - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) has changed its clocks
-    at 03:00, not 02:00, since 2022: only such a time in that hour, on
-    those two days a year, was saved an hour off (its date never moves).
+    at 03:00, not 02:00, since 2022: only such a time from 03:00 to 04:00
+    on the last Sunday of March (saved an hour early) or of October (an
+    hour late); its date never moves.
 
   A copy from 2024 or earlier also misses Paraguay's change
-  (`America/Asuncion`: on summer time for good since October 2024), so
-  from 23 March 2025 it's as British Columbia; an older copy, older
-  changes. 2.0.1's figures follow the right rules: only its notes left
-  these places out.
+  (`America/Asuncion`): from 23 March to 5 October 2025, and from 22
+  March to 4 October 2026, it's as British Columbia, never at a year's
+  end. A copy from 2023 or earlier also misses Kazakhstan's (`Asia/Almaty`,
+  `Asia/Qostanay`): from 1 March 2024 it's as Morocco, across the ends of
+  2024 and 2025; an older copy, older changes (#908's entry above). 2.0.1's
+  figures follow the right rules: only its notes left these places out.
   **Affected:** the Mac app, every version up to 2.0.0, on a Mac with older
   timezone data, with one of those zones as the tax timezone, or an
-  exchange file read in one of them, from the date its rules changed.
-  **What to do:** as 2.0.1's entry says. A date is right by itself since
-  2.0.1 (the holding period once the ledger is recalculated). Correct the
-  time of each transaction imported from a file or added by the AI
-  connector, with a time but no timezone, in one of those zones from that
-  date: an hour earlier (Canada, Paraguay) or an hour later (Morocco); in
-  Moldova, only one in the hour of a clock change. A value filled in from
-  the price is then priced again; a typed one stays. Leave those rows out
-  if you import their file again, then Recalculate Ledger once. A time the
-  AI later changed is #908's, above.
+  exchange file read in one of them, in the periods above; and Docker and
+  StartOS up to 1.2.6, for `Canada/Central` from 1 November 2026.
+  **What to do:** a date is right by itself since 2.0.1 (the holding
+  period once the ledger is recalculated). Correct the time of each
+  transaction imported from a file or added by the AI connector with
+  BitcoinTX 2.0.0 or earlier, with a time but no timezone, in one of those
+  zones and periods (a row saved with 2.0.1 is right): move it an hour
+  earlier than the time shown (Canada, Paraguay) or an hour later
+  (Morocco, Kazakhstan), even where it shows the time written, as a
+  device still on old timezone data shows it. Or ask the AI, with the
+  connector at 2.0.2, to set it again as written. In Moldova, check one
+  from 03:00 to 04:00 on those two Sundays against its source. A value
+  filled in from the price is then priced again; a typed one stays. Leave
+  those rows out if you import their file again, then Recalculate Ledger
+  once. A time the AI later changed is #908's, above.
 
 - **After a password change, another browser's next click goes to the
   sign-in page** (#919). Changing the password in Settings ends every
@@ -213,8 +237,9 @@ make a figure wrong:
 - **Package 2.0.2:0** (Start9's `versions.md`). 2.0.1:0's migration was
   empty, so `current.ts` is bumped in place, with no migration of its own.
   Its release notes, in five languages, cover what changed since 2.0.1:0,
-  which the community registry serves: StartOS 0.4.1 or later first, what
-  to do after updating (the AI connector's `btctx-mcp==2.0.2`), the
+  which the community registry serves: StartOS 0.4.1 or later first, a
+  pointer to 2.0.1's notes for a 1.x or 2.0.0 install, what to do after
+  updating (the AI connector's `btctx-mcp==2.0.2`), the
   tax-figures fix #908 with who could be affected and what to do, the other
   changes and the known issues. #939 corrects the Mac app's notes only, so
   they don't carry it.
