@@ -182,6 +182,9 @@ if [ "$fresh" = 1 ]; then
   if answers; then
     fail "a BitcoinTX still answers on port $PORT: quit it before --fresh"
   fi
+  if copy_runs; then
+    fail "a test copy in $COPIES is still running but doesn't answer on port $PORT: wait for it to open, or quit it"
+  fi
   for name in "${APP_FILES[@]}"; do rm -rf "${DATA:?}/$name"; done
 fi
 

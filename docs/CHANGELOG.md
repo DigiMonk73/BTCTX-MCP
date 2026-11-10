@@ -165,8 +165,10 @@ All notable changes to BitcoinTX are documented in this file.
   WebKit keeps an app's cookies by bundle id, and a test build ran under
   the installed app's id. `desktop/run-test-build.sh` now runs a copy of
   the build in its test folder, as `<the build's id>.test-build`,
-  re-signed ad hoc, and Track C checks that the installed app's WebKit
-  folders stay untouched. Nothing that ships changes. So
+  re-signed ad hoc. While no installed app runs, Track C checks that the
+  installed apps' WebKit folders stay untouched (the app's private mode
+  clears the store WebKit keeps by bundle id at each window open). A copy
+  still starting is never made again. Nothing that ships changes. So
   `docs/AGENT-TESTS.md`'s "What stays by hand" now lists only:
   - the StartOS password, when the backup path changed and on the rare
     WAY, BETA and CB tracks;

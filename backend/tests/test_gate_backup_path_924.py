@@ -87,6 +87,26 @@ NEEDED = {
     "a version's helper above its migrations": ("startos/startos/versions/current.ts",
                                                 RELEASE.format("2.0.1", "Notes.", "await forgetPassword(effects)"),
                                                 RELEASE.format("2.0.2", "Notes.", "await forgetLogin(effects)")),
+    # Code the release text's filter must never take for notes or a comment (the re-check, #957)
+    "a path inside a migration's template string": (
+        "startos/startos/versions/v2.0.2_0.ts", RELEASE.format("2.0.2", "Notes.", "await rm(`btctx.db-journal`)"),
+        RELEASE.format("2.0.2", "Notes.", "await rm(`btctx.db`)")),
+    "a glob string holding /*": (
+        "startos/startos/versions/v2.0.2_0.ts", RELEASE.format("2.0.2", "Notes.", "await rm('/data/*.tmp')"),
+        RELEASE.format("2.0.2", "Notes.", "await rm('/data/*.tmp'); await rm('/data/backups')")),
+    "a comment holding one backtick, after code": (
+        "startos/startos/versions/v2.0.2_0.ts",
+        RELEASE.format("2.0.2", "Notes.", "await rm('a') // the ` file\n  await keep('b')"),
+        RELEASE.format("2.0.2", "Notes.", "await rm('a') // the ` file\n  await rm('b')")),
+    "a version inside a migration": (
+        "startos/startos/versions/v2.0.2_0.ts",
+        RELEASE.format("2.0.2", "Notes.", "await store.merge(effects, { version: '1' })"),
+        RELEASE.format("2.0.2", "Notes.", "await store.merge(effects, { version: '2' })")),
+    "an older version's own version": (
+        "startos/startos/versions/v1.2.9_0.ts", RELEASE.format("1.2.9", "Notes.", "await x()"),
+        RELEASE.format("1.2.8", "Notes.", "await x()")),
+    "the package's entry point": ("startos/startos/index.ts", "export { init } from './init'",
+                                  "export { init, uninit } from './init'"),
 }
 
 NOT_NEEDED = {

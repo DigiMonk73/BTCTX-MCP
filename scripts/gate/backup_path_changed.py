@@ -21,8 +21,10 @@ The backup path is what a StartOS backup and its restore go through:
   and the mounts), utils.ts (the volume's mount, DATABASE_FILE, the app's
   commands and the migrations' helpers) and the manifest's volumes;
 - the package's own migrations (versions/: everything but a version's
-  release notes, its comments and its links), which a restore below the
-  current version runs, and the version graph that chains them;
+  release notes, its whole comment lines, its links to the repository and,
+  for current.ts, bumped in place at each release, its version line), which
+  a restore below the current version runs, and the version graph that
+  chains them; and its entry point (startos/startos/index.ts);
 - backup.py (the service and the router), migrate.py, the migrations and
   database.py;
 - the data folder's layout: the Dockerfile's /data, DATABASE_FILE and its
@@ -87,14 +89,19 @@ class Rule:
         return text
 
 
-# What changes in a StartOS version file at every release without changing
-# what it runs: the notes (a template string per language), the comments,
-# its version and the links to the repository the notes name (the
-# CHANGELOG, a release)
-RELEASE_TEXT = (r"^\s*[a-z]{2}_[A-Z]{2}:\s*`(?:\\.|[^`\\])*`,?[ \t]*$"
-                r"|`(?:\\.|[^`\\])*`|/\*[\s\S]*?\*/|^\s*//.*$|version: '[^']*'"
-                r"|^const [A-Z0-9_]+ =\s*'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'$"
-                r"|'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'")
+# What changes in a StartOS version file without changing what it runs:
+# its notes (each language's template string, a whole line of its own), whole
+# comment lines and the links to the repository the notes name (the
+# CHANGELOG, a release). Each is anchored to its own line, so a string or a
+# template in the code itself always counts.
+NOTES_TEXT = (r"^\s*(?:[a-z]{2}_[A-Z]{2}|releaseNotes):\s*`(?:\\.|[^`\\])*`,?[ \t]*$"
+              r"|^\s*/\*[\s\S]*?\*/[ \t]*$|^\s*//.*$"
+              r"|^const [A-Z0-9_]+ =\s*'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'$"
+              r"|'https://github\.com/DigiMonk73/BTCTX-MCP/[^']*'")
+# current.ts is bumped in place at a release whose migration is empty
+# (Start9's versions.md), so its own version line is release text too; an
+# older version's is where its migration sits in the graph
+CURRENT_TEXT = NOTES_TEXT + r"|^\s*version: '[^']*',?[ \t]*$"
 
 RULES = (
     Rule("startos/startos/backups.ts", "the package's backup settings"),
@@ -104,8 +111,10 @@ RULES = (
     Rule("startos/startos/main.ts", "how the service starts (its migrate step, entrypoint and mounts)"),
     Rule("startos/startos/utils.ts", "the data folder's mount, the app's commands or the migrations' helpers"),
     Rule("startos/startos/manifest/index.ts", "the package's volumes", keep=r"volumes:\s*\[[^\]]*\]"),
+    Rule("startos/startos/index.ts", "the package's entry point (its backups and init)"),
     Rule("startos/startos/versions/index.ts", "the package's own migrations (the version graph)"),
-    Rule("startos/startos/versions/", "the package's own migrations", drop=RELEASE_TEXT),
+    Rule("startos/startos/versions/current.ts", "the package's own migrations", drop=CURRENT_TEXT),
+    Rule("startos/startos/versions/", "the package's own migrations", drop=NOTES_TEXT),
     Rule("backend/services/backup.py", "backup.py (the service)"),
     Rule("backend/routers/backup.py", "backup.py (the router)"),
     Rule("backend/migrate.py", "migrate.py"),
@@ -119,13 +128,13 @@ RULES = (
 
 
 def reasons(changes: list[Change]) -> list[str]:
-    """Each changed file on the backup path, with why: empty when none is."""
+    """Each changed file on the backup path, with why: empty when none is.
+    A file's first rule decides it (current.ts's before the versions/ one)."""
     found = []
     for change in changes:
-        for rule in RULES:
-            if rule.covers(change.path) and rule.part(change.before) != rule.part(change.after):
-                found.append(f"{change.path}: {rule.why}")
-                break
+        rule = next((rule for rule in RULES if rule.covers(change.path)), None)
+        if rule is not None and rule.part(change.before) != rule.part(change.after):
+            found.append(f"{change.path}: {rule.why}")
     return found
 
 

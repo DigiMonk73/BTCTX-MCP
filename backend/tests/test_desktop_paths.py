@@ -351,6 +351,29 @@ def test_a_copy_still_starting_is_never_made_again(tmp_path):
 
 
 @on_a_mac
+def test_fresh_keeps_the_data_of_a_copy_still_starting(tmp_path):
+    """--fresh while a copy runs without answering yet: refused before it
+    deletes anything (the re-check, #957)."""
+    import time
+
+    stop = tmp_path / "stop"
+    app = _app_with_id(tmp_path, desktop_paths.APP_ID, runs_until=stop)
+    data = tmp_path / "test-data"
+    try:
+        assert _run_script(tmp_path, "--app", str(app), "--background", data=data).returncode == 0
+        for _ in range(50):
+            if (tmp_path / "ran").exists():
+                break
+            time.sleep(0.1)
+        (data / "btctx.db").write_text("the test ledger")
+        r = _run_script(tmp_path, "--app", str(app), "--fresh", "--background", data=data)
+        assert r.returncode == 1 and "is still running but doesn't answer on port 8766" in r.stderr, r.stderr
+        assert (data / "btctx.db").read_text() == "the test ledger"
+    finally:
+        stop.write_text("")
+
+
+@on_a_mac
 def test_the_copy_itself_is_refused_as_the_build(tmp_path):
     """Making the copy anew deletes the old one: given as --app, it would be
     deleted before it was copied."""
