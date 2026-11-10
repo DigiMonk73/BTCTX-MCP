@@ -23,7 +23,7 @@ as 2.0.1.
 **Coming from 1.x?** Read [2.0.0's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0)
 first: on StartOS, make a StartOS backup of BitcoinTX and keep it, as it's
 your way back to 1.x. **Coming from 1.x or 2.0.0?** Read
-[2.0.1's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.1)
+[2.0.1's notes](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.1/docs/CHANGELOG.md)
 too: its timezone fix (#889) can ask you to correct some times.
 
 **What to do after updating**
@@ -44,9 +44,10 @@ planned for 2.0.3:
 - coins acquired on 28 February of 2011, 2015, 2019, 2023 or 2027 and sold
   on 29 February of the next year are reported long-term; by the IRS's
   counting they're short-term: the same gain, in Form 8949's Part I, not
-  Part II. Check the term of such a sale (#950);
-- the AI connector's import puts rows that share a time in an order by
-  type (deposits, buys, transfers, sales, withdrawals), where a file import
+  Part II. Until then, report such a sale as short-term by hand (#950);
+- the AI connector's import puts rows that share a time (rows it's given
+  with a date only all share noon) in an order by type (deposits, buys,
+  transfers, sales, withdrawals), where a file import
   keeps the file's order, so a sale and a transfer out at the same time
   can use other coins, and give another gain, by the way they were added.
   Until then, add rows that share a time through a file import, or check
@@ -56,7 +57,13 @@ planned for 2.0.3:
   preview's row count with your file's (#952);
 - BitcoinTX's own CSV import, and River's, read a bitcoin amount written
   "1,234" as 1234 BTC: check the preview's amounts if your spreadsheet
-  writes decimals with a comma (#953).
+  writes decimals with a comma (#953);
+- a time typed in the transaction form, on a device whose timezone data
+  misses 2026's changes, is saved an hour off: an hour late in British
+  Columbia, Alberta, Manitoba, the Northwest Territories and Cuba from 1
+  November 2026, an hour early in Morocco from 20 September 2026, and the
+  device shows it back as typed. Keep the device's system and browser up
+  to date, and check such times (#964).
 
 ### Fixed
 
@@ -81,8 +88,9 @@ planned for 2.0.3:
   - from 20 September 2026, Morocco stays at UTC+0 (`Africa/Casablanca`,
     `Africa/El_Aaiun`): such a time was saved an hour early;
   - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) has changed its clocks
-    at 03:00, not 02:00, since 2022: only a time in that hour, on those
-    two days a year (its date never moves).
+    at 03:00, not 02:00, since 2022: only a time from 03:00 to 04:00 on
+    the last Sunday of March (saved an hour early) or of October (an hour
+    late); its date never moves.
 
   A copy from 2024 or earlier also misses Paraguay's change
   (`America/Asuncion`: on summer time for good since October 2024, so
@@ -93,9 +101,10 @@ planned for 2.0.3:
   early, across the ends of 2024 and 2025), and an older copy, older
   changes (Gaza's and Hebron's, Egypt's, Greenland's). An hour off moves
   the date of a time in the hour before midnight (an hour late) or after
-  it (an hour early). That date is the one on Form 8949, in the holding period (a sale near a
-  year after its purchase could show the wrong term; a date originally
-  acquired a day off, the same) and, at the year's end, in the tax year.
+  it (an hour early). That date is the one on Form 8949, in the holding
+  period (a sale near a year after its purchase could show the wrong
+  term; a date originally acquired a day off, the same) and, at the year's
+  end, in the tax year.
   A value BitcoinTX fills in from the price (income, a fee, a spend's
   proceeds) used another hour's price (an inheritance's value, another
   day's), and a gain could change where the hour moved a sale past
@@ -121,8 +130,8 @@ planned for 2.0.3:
   in from `get_btc_price` for such a time. The updated connector saves
   the right moment, and one already right stays as it is. A value filled in from
   the price is then priced again; a typed one stays. Don't go by the time
-  on screen: your device works it out with its own timezone data, the
-  same old copy on that computer. Form 8949's dates are BitcoinTX's own.
+  on screen: your device works it out with its own timezone data. Form
+  8949's dates are BitcoinTX's own.
 
 - **2.0.1's notes for its timezone fix named too few places for the Mac
   app** (#939, tax figures; a correction of the notes, no code change).
@@ -170,13 +179,13 @@ planned for 2.0.3:
   StartOS up to 1.2.6, for `Canada/Central` from 1 November 2026.
   **What to do:** a date is right by itself since 2.0.1 (the holding
   period once the ledger is recalculated). Correct the time of each
-  transaction imported from a file or added by the AI connector with
-  BitcoinTX 2.0.0 or earlier, with a time but no timezone, in one of those
-  zones and periods (a row saved with 2.0.1 is right): move it an hour
-  earlier than the time shown (Canada, Paraguay) or an hour later
-  (Morocco, Kazakhstan), even where it shows the time written, as a
-  device still on old timezone data shows it. Or ask the AI, with the
-  connector at 2.0.2, to set it again as written. In Moldova, check one
+  transaction imported from a file or added by the AI connector with the
+  Mac app 2.0.0 or earlier (on Docker and StartOS, only one in
+  `Canada/Central`, with 1.2.6 or earlier), with a time but no timezone,
+  in one of those zones and periods (a row saved with 2.0.1 is right):
+  move it an hour earlier than the time shown (Canada, Paraguay) or an
+  hour later (Morocco, Kazakhstan), even where it shows the time written,
+  as a device still on old timezone data shows it. In Moldova, check one
   from 03:00 to 04:00 on those two Sundays against its source. A value
   filled in from the price is then priced again; a typed one stays. Leave
   those rows out if you import their file again, then Recalculate Ledger
@@ -241,14 +250,15 @@ planned for 2.0.3:
   pointer to 2.0.1's notes for a 1.x or 2.0.0 install, what to do after
   updating (the AI connector's `btctx-mcp==2.0.2`), the
   tax-figures fix #908 with who could be affected and what to do, the other
-  changes and the known issues. #939 corrects the Mac app's notes only, so
-  they don't carry it.
+  changes and the known issues. They don't carry #939: it concerns the Mac
+  app, and on StartOS only `Canada/Central` up to 1.2.6, which the pointer
+  to 2.0.1's notes (Manitoba) covers.
 - **BitcoinTX on StartOS needs StartOS 0.4.1 or later**, because the
   package is built with **start-sdk 4.0.0** (from 3.1.1, #913): Start9's
   current SDK, which their Pre-Publish Checklist asks for before any pull
   request to their fork. Its release notes: "Packages built with SDK 4.0.0
-  require StartOS 0.4.1 or later". A server still on StartOS 0.4.0.x keeps
-  BitcoinTX 2.0.1 until StartOS is updated. The README,
+  require StartOS 0.4.1 or later". Until StartOS is updated, a server on
+  StartOS 0.4.0.x can update BitcoinTX only as far as 2.0.1. The README,
   `docs/STARTOS_COMPATIBILITY.md` and `docs/ARCHITECTURE.md` say so, and
   `test_startos_conformance.py` checks them against the pinned SDK. In the
   package, the web interface's health check takes 4.0.0's type (what it
