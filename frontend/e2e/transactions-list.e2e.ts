@@ -64,7 +64,6 @@ test.describe("a phone, 375 px wide", () => {
   test.use({ viewport: { width: 375, height: 812 } });
 
   test("a row's sub-line wraps rather than cut its fee off (#922)", async ({ authedPage: page }) => {
-    test.fail(); // #922, before its fix
     await seedKnownLedger(page.request);
     await createTx(page.request, {
       type: "Withdrawal", timestamp: "2024-04-01T15:00:00Z", from_account_id: 2, to_account_id: 99,
