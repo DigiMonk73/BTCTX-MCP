@@ -62,6 +62,20 @@ test("keyboard only: Tab into the choices, the arrows pick, Tab to the button, E
   expect(browser).toEqual([]);
 });
 
+// The 2.0.1 gate saw none ticked here until a reload (#920), not reproduced since: this keeps it checked
+test("#920: Nobody chosen on the Dashboard shows ticked in Settings, with no reload between", async ({ page, app }) => {
+  await logIn(page, app);
+  const card = page.getByRole("region", { name: "Bitcoin prices" });
+  await card.getByLabel(/^Nobody/).check();
+  await card.getByRole("button", { name: "Use this" }).click();
+  await expect(card).toHaveCount(0);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const net = await openSection(page, "Privacy & Network");
+  await expect(net.getByText("Fully offline: nothing is contacted.")).toBeVisible();
+  await expect(net.getByLabel(/^Nobody/)).toBeChecked();
+  for (const other of [/^My own Mempool/, /^Public price sites/]) await expect(net.getByLabel(other)).not.toBeChecked();
+});
+
 test("your Mempool down, with the backup: the status says the public sites answered instead", async ({ page, app }) => {
   await logIn(page, app);
   await choosePriceSource(page, { price_source: "mempool", mempool_url: MEMPOOL_DOWN, mempool_fallback: true });
