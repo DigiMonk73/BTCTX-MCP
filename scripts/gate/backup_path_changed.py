@@ -16,18 +16,18 @@ The backup path is what a StartOS backup and its restore go through:
 - the package's backup settings: startos/startos/backups.ts, and the
   start-sdk version that runs them (startos/package.json);
 - what the package runs on a restore and holds in its volumes: init/
-  (restoreInit, and the tasks a restore raises or not), fileModels/ (the
-  startos volume's store.json), main.ts (the migrate step, the entrypoint
-  and the mounts), utils.ts (the volume's mount, DATABASE_FILE, the app's
-  commands and the migrations' helpers) and the manifest's volumes;
+  (restoreInit, and the tasks a restore raises or not), actions/ (the
+  actions those tasks name), fileModels/ (the startos volume's store.json),
+  main.ts (the migrate step, the entrypoint and the mounts), utils.ts (the
+  volume's mount, DATABASE_FILE, the app's commands and the migrations'
+  helpers), priceSource.ts (the price source init and main.ts set) and the
+  manifest's volumes;
 - the package's own migrations (versions/, each file whole), which a
   restore below the current version runs, the version graph that chains
-  them, and its entry point (startos/startos/index.ts). The one exception
-  (the owner's choice, 2026-11-10, #957): current.ts bumped in place, as
-  Start9's versions.md asks at a release whose migration is empty, with
-  that migration empty on both sides and nothing else in the file that can
-  run (bumped_in_place, below). Its version and notes change, and nothing
-  it runs;
+  them, and its entry point (startos/startos/index.ts). Every release
+  changes current.ts (its version and its notes), so for now every release
+  reads "needed" (the owner's choice, 2026-11-10, #957): a release that
+  changes only its version and notes is told apart safely only by #962;
 - backup.py (the service and the router), migrate.py, the migrations and
   database.py;
 - the data folder's layout: the Dockerfile's /data, DATABASE_FILE and its
@@ -49,7 +49,6 @@ can't compare the two.
 import re
 import subprocess
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 
 NEEDED = "BAK-5 and UPG-5b: needed"
@@ -69,13 +68,11 @@ class Change:
 class Rule:
     """Files on the backup path. For a file that also holds other things,
     `keep` keeps only what matches (the Dockerfile's build steps, package.json's
-    other tools, the manifest's other fields). `unless` names the one change
-    of a covered file that doesn't count."""
+    other tools, the manifest's other fields)."""
 
     path: str
     why: str
     keep: str | None = None
-    unless: Callable[[Change], bool] | None = None
 
     def covers(self, path: str) -> bool:
         return path.startswith(self.path) if self.path.endswith("/") else path == self.path
@@ -85,44 +82,20 @@ class Rule:
             return text
         return "\n".join(re.findall(self.keep, text, re.MULTILINE))
 
-    def counts(self, change: Change) -> bool:
-        if self.part(change.before) == self.part(change.after):
-            return False
-        return self.unless is None or not self.unless(change)
-
-
-def bumped_in_place(change: Change) -> bool:
-    """current.ts bumped in place at a release whose migration is empty: on
-    both sides it imports only the SDK, exports only its VersionInfo, and has
-    one migration, empty, with no way down. So nothing in it can run, and only
-    its version and notes change. Any other shape counts, whatever changed in
-    it: the check reads the file's form, never which of its lines changed."""
-    return all(text is not None and _runs_nothing(text) for text in (change.before, change.after))
-
-
-def _runs_nothing(text: str) -> bool:
-    imported = set(re.findall(r"\bfrom\s+'([^']*)'", text)) | set(re.findall(r'\bfrom\s+"([^"]*)"', text))
-    exports = re.findall(r"^export\b.*$", text, re.MULTILINE)
-    ups = re.findall(r"^\s*up:.*$", text, re.MULTILINE)
-    downs = re.findall(r"^\s*down:.*$", text, re.MULTILINE)
-    return (imported <= {"@start9labs/start-sdk"} and not re.search(r"\b(?:import|require)\s*\(", text)
-            and len(exports) == 1 and bool(re.fullmatch(r"export const \w+ = VersionInfo\.of\(\{", exports[0]))
-            and len(ups) == 1 and bool(re.fullmatch(r"\s*up: async \((?:\{ effects \})?\) => \{\},", ups[0]))
-            and len(downs) == 1 and bool(re.fullmatch(r"\s*down: IMPOSSIBLE,", downs[0])))
-
 
 RULES = (
     Rule("startos/startos/backups.ts", "the package's backup settings"),
     Rule("startos/package.json", "the start-sdk version", keep=r"^.*@start9labs/start-sdk.*$"),
     Rule("startos/startos/init/", "what the package runs on a restore (init)"),
+    Rule("startos/startos/actions/", "the actions a restore's tasks name"),
+    Rule("startos/startos/priceSource.ts", "the price source init and the service set"),
     Rule("startos/startos/fileModels/", "what the startos volume holds (store.json)"),
     Rule("startos/startos/main.ts", "how the service starts (its migrate step, entrypoint and mounts)"),
     Rule("startos/startos/utils.ts", "the data folder's mount, the app's commands or the migrations' helpers"),
     Rule("startos/startos/manifest/index.ts", "the package's volumes", keep=r"volumes:\s*\[[^\]]*\]"),
     Rule("startos/startos/index.ts", "the package's entry point (its backups and init)"),
     Rule("startos/startos/versions/index.ts", "the package's own migrations (the version graph)"),
-    Rule("startos/startos/versions/current.ts", "the package's own migrations", unless=bumped_in_place),
-    Rule("startos/startos/versions/", "the package's own migrations"),
+    Rule("startos/startos/versions/", "the package's own migrations (every change, until #962)"),
     Rule("backend/services/backup.py", "backup.py (the service)"),
     Rule("backend/routers/backup.py", "backup.py (the router)"),
     Rule("backend/migrate.py", "migrate.py"),
@@ -137,11 +110,11 @@ RULES = (
 
 def reasons(changes: list[Change]) -> list[str]:
     """Each changed file on the backup path, with why: empty when none is.
-    A file's first rule decides it (current.ts's before the versions/ one)."""
+    A file's first rule decides it (versions/index.ts's before the versions/ one)."""
     found = []
     for change in changes:
         rule = next((rule for rule in RULES if rule.covers(change.path)), None)
-        if rule is not None and rule.counts(change):
+        if rule is not None and rule.part(change.before) != rule.part(change.after):
             found.append(f"{change.path}: {rule.why}")
     return found
 

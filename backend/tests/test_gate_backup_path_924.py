@@ -122,9 +122,25 @@ NEEDED = {
         RELEASE.format("1.2.8", "Notes.", "await x()")),
     "the package's entry point": ("startos/startos/index.ts", "export { init } from './init'",
                                   "export { init, uninit } from './init'"),
-    # Option A (the owner, 2026-11-10): a version file counts whole. The one
-    # exception, current.ts bumped in place with an empty migration, holds only
-    # when nothing else in it can run
+    # Every version file counts whole (the owner, 2026-11-10): even current.ts
+    # bumped in place with an empty migration, until #962 makes that safe to
+    # tell apart (option A's review found migrations.other, #957)
+    "current.ts bumped in place, its migration empty": (
+        "startos/startos/versions/current.ts", _current(),
+        _current(v="2.0.2", notes="Other notes, with \\`code\\` and a /* in them.")),
+    "current.ts bumped in place, an older release's empty migration": (
+        "startos/startos/versions/current.ts", _current(v="1.0.1", up="async () => {}"),
+        _current(v="1.0.2", up="async () => {}")),
+    "current.ts's notes only": ("startos/startos/versions/current.ts", VERSION.format("2.0.1:0", "Notes.", ""),
+                                VERSION.format("2.0.1:0", "Other notes.", "")),
+    "a fast-forward migration added in place": (
+        "startos/startos/versions/current.ts", _current(),
+        _current(v="2.0.2").replace("    down: IMPOSSIBLE,\n",
+                                    "    down: IMPOSSIBLE,\n    other: {\n"
+                                    "      '>=1.0.0:0 && <2.0.0:0': { up: async () => {} },\n    },\n")),
+    # What init raises on a restore, and the price source it sets (option A's review, #957)
+    "an action init raises on a restore": ("startos/startos/actions/setCredentials.ts", "a", "b"),
+    "the price source's settings": ("startos/startos/priceSource.ts", "a", "b"),
     "current.ts's migration no longer empty": ("startos/startos/versions/current.ts", _current(),
                                                _current(v="2.0.2", up=RUNS)),
     "current.ts bumped in place with a migration that runs": (
@@ -158,19 +174,10 @@ NEEDED = {
 NOT_NEEDED = {
     "frontend only": (("frontend/src/App.tsx", "a", "b"), ("frontend/package.json", "{}", '{"x": 1}')),
     "docs only": (("docs/AGENT-TESTS.md", "a", "b"), ("README.md", "a", "b"), ("docs/CHANGELOG.md", "a", "b")),
-    "the package's version and notes only": (
-        ("startos/startos/versions/current.ts", VERSION.format("2.0.1:0", "Notes.", ""),
-         VERSION.format("2.0.2:0", "Other notes.", "")),),
     "another tool in the package": (("startos/package.json", SDK.format("4.0.0", "5.9.3"),
                                      SDK.format("4.0.0", "5.9.4")),),
     "the Dockerfile's base image": (("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
                                      DOCKERFILE.format("b2", "/data/btctx.db")),),
-    "current.ts bumped in place, its migration empty": (
-        ("startos/startos/versions/current.ts", _current(),
-         _current(v="2.0.2", notes="Other notes, with \\`code\\` and a /* in them.")),),
-    "current.ts bumped in place, an older release's empty migration": (
-        ("startos/startos/versions/current.ts", _current(v="1.0.1", up="async () => {}"),
-         _current(v="1.0.2", up="async () => {}")),),
     "the manifest's other fields": (("startos/startos/manifest/index.ts",
                                      MANIFEST.format("A ledger", "    'main',\n    'startos',\n"),
                                      MANIFEST.format("A tax ledger", "    'main',\n    'startos',\n")),),

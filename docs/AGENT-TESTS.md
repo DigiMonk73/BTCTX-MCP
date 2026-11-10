@@ -55,7 +55,7 @@ run starts:
 
 | What | Who | Steps |
 |---|---|---|
-| The VM's StartOS password, typed for a StartOS backup or its restore, and for `start-cli -H $URL auth login` once per VM | whoever set up the VM (an agent never stores it) | BAK-5 and UPG-5b only when the release changes the backup path (`scripts/gate/backup_path_changed.py`, below); WAY-1 to WAY-5, BETA-1 and CB, the rare tracks; the login before any `start-cli` step |
+| The VM's StartOS password, typed for a StartOS backup or its restore, and for `start-cli -H $URL auth login` once per VM | whoever set up the VM (an agent never stores it) | BAK-5 and UPG-5b only when the release changes the backup path (`scripts/gate/backup_path_changed.py`, below), so at every release until #962; WAY-1 to WAY-5, BETA-1 and CB, the rare tracks; the login before any `start-cli` step |
 | Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (an agent types a test login only into a page on its own computer, never the VM's) |
 | A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh`'s launches need none: it runs its own copy, without the quarantine) |
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
@@ -65,8 +65,7 @@ run starts:
 changes the StartOS backup path:
 - the package's backup settings or start-sdk version;
 - what it runs on a restore and keeps in its volumes;
-- its own migrations: each version file whole, except `current.ts` bumped
-  in place with its migration empty (the owner's choice, 2026-11-10);
+- its own migrations: every change under `startos/startos/versions/`;
 - `backup.py` (the service or the router), `migrate.py`, the migrations
   or `database.py`;
 - the data folder's layout;
@@ -82,6 +81,13 @@ deferred or BLOCKED left its changes untested (2.0.1's were deferred, so
 names FROM. When the answer is not needed, record BAK-5 and UPG-5b as
 NOT NEEDED with the script's output, the diff that shows it, and ask no
 one for the password for them.
+
+**Until #962, that's every release.** Each release changes
+`startos/startos/versions/current.ts`, its version and its notes, and no
+check yet tells a change that only does that from one that changes what a
+restore runs (the owner's choice, 2026-11-10, after #957's reviews). So
+ask for the StartOS password for BAK-5 at every release. #962 will make
+such a release read "not needed" safely.
 
 No longer a person's:
 - AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2 (they type test logins
