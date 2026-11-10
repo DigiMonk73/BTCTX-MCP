@@ -152,7 +152,8 @@ All notable changes to BitcoinTX are documented in this file.
   says when they're needed. That's when the release changes any of:
   - the package's backup settings or start-sdk version;
   - what the package runs on a restore and keeps in its volumes;
-  - its own migrations;
+  - its own migrations: each version file whole, except `current.ts`
+    bumped in place with its migration empty;
   - `backup.py`, `migrate.py`, the migrations or `database.py`;
   - the data folder's layout;
   - the image's entrypoint.

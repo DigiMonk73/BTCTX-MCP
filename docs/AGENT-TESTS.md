@@ -65,7 +65,8 @@ run starts:
 changes the StartOS backup path:
 - the package's backup settings or start-sdk version;
 - what it runs on a restore and keeps in its volumes;
-- its own migrations;
+- its own migrations: each version file whole, except `current.ts` bumped
+  in place with its migration empty (the owner's choice, 2026-11-10);
 - `backup.py` (the service or the router), `migrate.py`, the migrations
   or `database.py`;
 - the data folder's layout;

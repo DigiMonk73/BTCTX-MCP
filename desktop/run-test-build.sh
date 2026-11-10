@@ -178,6 +178,10 @@ case "$EXE" in
 esac
 BIN="$APP/Contents/MacOS/$EXE"
 [ -x "$BIN" ] || fail "no app at $APP (build one with desktop/build-mac.sh, or give --app)"
+# Before --fresh, so the refusal names its reason and deletes nothing:
+# making the copy anew would delete the build given
+SOURCE="$(physical "$APP")"
+in_folder "$SOURCE" "$COPIES" && fail "refusing $APP: it is this script's own copy (give the build it was made from)"
 if [ "$fresh" = 1 ]; then
   if answers; then
     fail "a BitcoinTX still answers on port $PORT: quit it before --fresh"
@@ -194,8 +198,6 @@ fi
 # (#924). So the build runs as a copy with an id of its own, re-signed ad hoc,
 # since the signature seals the id. A bundle with no Info.plist names no id.
 if [ -f "$APP/Contents/Info.plist" ]; then
-  SOURCE="$(physical "$APP")"
-  in_folder "$SOURCE" "$COPIES" && fail "refusing $APP: it is this script's own copy (give the build it was made from)"
   COPY="$COPIES/$(basename "$SOURCE")"
   if answers; then
     # The test run that answers is this build's copy (a second launch, MAC-5):

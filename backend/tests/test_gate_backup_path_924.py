@@ -31,6 +31,21 @@ RELEASE = "const CHANGELOG =\n  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v{
           "  // what the migration does\n  migrations: {{\n    up: async ({{ effects }}) => forget(effects),\n" \
           "    down: IMPOSSIBLE,\n  }},\n}})\n"
 MANIFEST = "export const manifest = setupManifest({{\n  description: {{ short: '{}' }},\n  volumes: [\n{}  ],\n}})\n"
+# current.ts as the package writes it (#957, option A): the SDK's import,
+# the CHANGELOG's link, a comment, the notes in each language and the
+# migration. Bumped in place at a release, only its version and notes change.
+CURRENT = ("import {{ IMPOSSIBLE, VersionInfo }} from '{imp}'\n\n"
+           "const CHANGELOG =\n  'https://github.com/DigiMonk73/BTCTX-MCP/blob/v{v}/docs/CHANGELOG.md'\n\n"
+           "/**\n * {v}:0, {notes}\n */\n{extra}"
+           "export const current = VersionInfo.of({{\n  version: '{v}:0',\n  releaseNotes: {{\n"
+           "    en_US: `{notes} \\`btctx-mcp=={v}\\` [All](${{CHANGELOG}})`,\n    es_ES: `{notes}`,\n  }},\n"
+           "  migrations: {{\n    up: {up},\n    down: {down},\n  }},\n}})\n")
+EMPTY = "async ({ effects }) => {}"
+RUNS = "async ({ effects }) => {\n      await makeRecalculationDue(effects)\n    }"
+
+
+def _current(v="2.0.1", notes="Notes.", up=EMPTY, down="IMPOSSIBLE", imp="@start9labs/start-sdk", extra=""):
+    return CURRENT.format(v=v, notes=notes, up=up, down=down, imp=imp, extra=extra)
 
 
 def _rule():
@@ -107,6 +122,37 @@ NEEDED = {
         RELEASE.format("1.2.8", "Notes.", "await x()")),
     "the package's entry point": ("startos/startos/index.ts", "export { init } from './init'",
                                   "export { init, uninit } from './init'"),
+    # Option A (the owner, 2026-11-10): a version file counts whole. The one
+    # exception, current.ts bumped in place with an empty migration, holds only
+    # when nothing else in it can run
+    "current.ts's migration no longer empty": ("startos/startos/versions/current.ts", _current(),
+                                               _current(v="2.0.2", up=RUNS)),
+    "current.ts bumped in place with a migration that runs": (
+        "startos/startos/versions/current.ts", _current(up=RUNS), _current(v="2.0.2", up=RUNS)),
+    "current.ts importing the package's own code": (
+        "startos/startos/versions/current.ts", _current(imp="../utils"), _current(v="2.0.2", imp="../utils")),
+    "current.ts with an export of its own": (
+        "startos/startos/versions/current.ts", _current(extra="export const OLD = 'btctx.db'\n"),
+        _current(v="2.0.2", extra="export const OLD = 'btctx.db-wal'\n")),
+    "current.ts whose way down runs": (
+        "startos/startos/versions/current.ts", _current(down=EMPTY), _current(v="2.0.2", down=EMPTY)),
+    "current.ts with a second line like an empty migration": (
+        "startos/startos/versions/current.ts", _current(up=RUNS, notes="Notes.\n    up: async () => {},"),
+        _current(v="2.0.2", up=RUNS, notes="Notes.\n    up: async () => {},")),
+    "current.ts made anew": ("startos/startos/versions/current.ts", None, _current(v="2.0.2")),
+    # Round 3's examples (#957): a version file's code, whatever it looks like
+    "code after a comment on its line": (
+        "startos/startos/versions/v2.0.2_0.ts",
+        "/* the old file */ const OLD = 'btctx.db'\n" + RELEASE.format("2.0.2", "Notes.", "await rm(OLD)"),
+        "/* the old file */ const OLD = 'btctx.db-wal'\n" + RELEASE.format("2.0.2", "Notes.", "await rm(OLD)")),
+    "a line like a comment inside a template in code": (
+        "startos/startos/versions/v2.0.2_0.ts",
+        RELEASE.format("2.0.2", "Notes.", "await writeFile(p, `\n  //data/btctx.db\n`)"),
+        RELEASE.format("2.0.2", "Notes.", "await writeFile(p, `\n  //data/ledger.db\n`)")),
+    "a repository link the code fetches": (
+        "startos/startos/versions/v2.0.2_0.ts",
+        RELEASE.format("2.0.2", "Notes.", "await fetch('https://github.com/DigiMonk73/BTCTX-MCP/releases/download/a')"),
+        RELEASE.format("2.0.2", "Notes.", "await fetch('https://github.com/DigiMonk73/BTCTX-MCP/releases/download/b')")),
 }
 
 NOT_NEEDED = {
@@ -119,9 +165,12 @@ NOT_NEEDED = {
                                      SDK.format("4.0.0", "5.9.4")),),
     "the Dockerfile's base image": (("Dockerfile", DOCKERFILE.format("a1", "/data/btctx.db"),
                                      DOCKERFILE.format("b2", "/data/btctx.db")),),
-    "a release's version file: its notes, comment and links": (
-        ("startos/startos/versions/current.ts", RELEASE.format("2.0.1", "Notes.", "await forgetPassword(effects)"),
-         RELEASE.format("2.0.2", "Other notes, with \\`code\\`.", "await forgetPassword(effects)")),),
+    "current.ts bumped in place, its migration empty": (
+        ("startos/startos/versions/current.ts", _current(),
+         _current(v="2.0.2", notes="Other notes, with \\`code\\` and a /* in them.")),),
+    "current.ts bumped in place, an older release's empty migration": (
+        ("startos/startos/versions/current.ts", _current(v="1.0.1", up="async () => {}"),
+         _current(v="1.0.2", up="async () => {}")),),
     "the manifest's other fields": (("startos/startos/manifest/index.ts",
                                      MANIFEST.format("A ledger", "    'main',\n    'startos',\n"),
                                      MANIFEST.format("A tax ledger", "    'main',\n    'startos',\n")),),

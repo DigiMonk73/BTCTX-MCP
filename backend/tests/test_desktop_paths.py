@@ -374,16 +374,20 @@ def test_fresh_keeps_the_data_of_a_copy_still_starting(tmp_path):
 
 
 @on_a_mac
-def test_the_copy_itself_is_refused_as_the_build(tmp_path):
+@pytest.mark.parametrize("fresh", [False, True])
+def test_the_copy_itself_is_refused_as_the_build(tmp_path, fresh):
     """Making the copy anew deletes the old one: given as --app, it would be
-    deleted before it was copied."""
+    deleted before it was copied. With --fresh, refused before the test data
+    goes, and for that reason (round 3, #957)."""
     app = _app_with_id(tmp_path, desktop_paths.APP_ID)
     data = tmp_path / "test-data"
     assert _run_script(tmp_path, "--app", str(app), data=data).returncode == 0
     copy = data / "test-app" / "BitcoinTX.app"
-    r = _run_script(tmp_path, "--app", str(copy), data=data)
+    (data / "btctx.db").write_text("the test ledger")
+    r = _run_script(tmp_path, "--app", str(copy), *(["--fresh"] if fresh else []), data=data)
     assert r.returncode == 1 and "this script's own copy" in r.stderr, r.stderr
     assert (copy / "Contents" / "Info.plist").exists()
+    assert (data / "btctx.db").read_text() == "the test ledger"
 
 
 def test_no_doc_runs_a_build_s_binary_by_itself():
