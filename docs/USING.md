@@ -27,7 +27,9 @@ basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949** and
 > them were figured together: ask a tax professional whether an earlier
 > return needs a change.
 
-On this page: [Wallets, exchanges and banks](#wallets-exchanges-and-banks) ·
+On this page: [Your first tax year in six
+steps](#your-first-tax-year-in-six-steps) · [Wallets, exchanges and
+banks](#wallets-exchanges-and-banks) ·
 [Dashboard](#dashboard) · [Transactions](#transactions) · [A change to an
 earlier tax year](#a-change-to-an-earlier-tax-year) · [Lots, gains and the
 holding period](#lots-gains-and-the-holding-period) · [Choosing which coins
@@ -37,6 +39,54 @@ export](#imports-and-the-csv-export) · [Ledger Review and Recalculate
 Ledger](#ledger-review-and-recalculate-ledger) · [Prices and
 privacy](#prices-and-privacy) · [Backups and safety
 copies](#backups-and-safety-copies) · [Settings](#settings)
+
+## Your first tax year in six steps
+
+New to BitcoinTX? It starts with a Dashboard of zeros and a page of
+Settings. These six steps, in this order, take you from there to your tax
+forms. Each links to the part of this page that says more.
+
+1. **Choose where prices come from.** The Dashboard asks "Where should
+   BitcoinTX get Bitcoin prices?": **My own Mempool**, **Public price
+   sites** or **Nobody**. BitcoinTX contacts nothing until you choose, and
+   it uses prices for the dollar values you don't type and to show what
+   your bitcoin is worth. On StartOS, the **Price Source & Privacy**
+   action asks first. ([Prices and privacy](#prices-and-privacy))
+2. **Check the tax timezone.** In **Settings → Account**, the **Tax
+   Timezone** decides which tax year a late-night December 31 transaction
+   belongs to, and when your coins turn long-term. Choose the one where
+   you file and click **Save**, before you add transactions: changing it
+   later recalculates the ledger. ([Lots, gains and the holding
+   period](#lots-gains-and-the-holding-period))
+3. **Add each wallet, exchange and bank.** BitcoinTX starts with one of
+   each. In **Settings → Wallets, exchanges and banks**, rename them to
+   match yours, and use **Add a wallet**, **Add an exchange** or **Add a
+   bank** for the rest. Since 2025, cost basis is figured for each wallet
+   and each exchange on its own, so give every one its own account here
+   before you record anything in it. ([Wallets, exchanges and
+   banks](#wallets-exchanges-and-banks))
+4. **Import or enter your transactions.** Include the years before this
+   one: the coins you bought earlier set the cost of what you sell now.
+   **Settings → Import from an exchange** reads an exchange's file and
+   shows a preview before anything is saved; **Add transaction**, on the
+   **Transactions** page, enters the rest by hand. A move between your own
+   wallets and exchanges is a Transfer, not a sale. ([Imports and the CSV
+   export](#imports-and-the-csv-export), [Transactions](#transactions))
+5. **Go through Ledger Review.** **Settings → Ledger Review** lists saved
+   entries worth a second look, such as a spent withdrawal with no
+   proceeds, and says what to do with each. Work through it until its line
+   no longer counts transactions to check, then compare the Dashboard's
+   balances with your wallets and exchanges. ([Ledger Review and
+   Recalculate Ledger](#ledger-review-and-recalculate-ledger))
+6. **Print the reports.** On **Reports**, choose the **Tax year** and a
+   **Report**, then click **Export**. **IRS Reports (Form 8949, Schedule
+   D, etc.)** are the filled tax forms; the **Complete Tax Report** shows
+   every figure behind them. A year marked "(no IRS forms yet)" gets its
+   forms in an update of BitcoinTX once the IRS publishes them. Have a tax
+   professional check the figures before you file. ([Reports and tax
+   forms](#reports-and-tax-forms))
+
+Each year after that is steps 4 to 6.
 
 ## Wallets, exchanges and banks
 
@@ -561,7 +611,7 @@ BitcoinTX get Bitcoin prices?"): your own Mempool, public price sites, or
 nobody. Where the server sets that choice (on StartOS, the **Price Source
 & Privacy** action), Settings shows it read-only.
 
-- **Your own Mempool**: the live price, block height and newer prices come
+- **My own Mempool**: the live price, block height and newer prices come
   from it, and no public site is contacted unless you tick **If it can't
   answer, ask public price sites**. It has hourly prices only from when it
   began recording. A home server's https address works too: when

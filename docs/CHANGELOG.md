@@ -4,6 +4,17 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Documentation
+- **Your first tax year in six steps** (#959). A new user sees a
+  Dashboard of zeros and a page of Settings, with no path through them.
+  `docs/USING.md` now opens with six steps in order: choose where prices
+  come from, check the tax timezone, add each wallet, exchange and bank,
+  import or enter the transactions, go through Ledger Review, print the
+  reports. Each step links to the part of the page that says more. The
+  README's "First login" points to it, and the StartOS Instructions already
+  link the page. The page and the README now call the first price choice
+  **My own Mempool**, as the app does.
+
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
 **In short.** 2.0.2 is the second maintenance update of 2.0. It fixes one
