@@ -360,7 +360,7 @@ map.
   professional developer: explain in plain words, with one recommendation.
 - **Claude Code** is the developer: code, tests, dependency updates,
   releases, docs, and a read-only report each Monday of what needs
-  attention (a scheduled task on the owner's Mac).
+  attention (`monday-report.yml`, "Bugs and security").
 - **Grok** is a second set of eyes, never the developer (its
   roles and passes: `docs/GROK-REVIEW.md`):
   - Grok Bot on the web brainstorms from links the owner gives it
@@ -404,11 +404,9 @@ carry its `Co-Authored-By` line.
   In maintenance, with one or two changes at a time, that was overhead,
   so every change now goes straight into `develop`. The pre-push hook
   refuses any push to it but its deletion. GitHub reads `dependabot.yml`
-  only from `main`, so until `main` carries the new one (the next
-  release) Dependabot still opens its pull requests into `staging`: each
-  is moved onto `develop` ("Pull requests"), and the branch stays, or
-  Dependabot's run fails. Once `main` has it, the owner deletes the
-  "Protect staging" ruleset and the branch (#901).
+  only from `main`, which carries the new one since 2.0.1's release, so
+  Dependabot opens its pull requests into `develop`. What's left is the
+  owner's: delete the "Protect staging" ruleset, then the branch (#901).
 - **`main`**: released code only; it is what users get (the `:main` Docker
   image; releases are cut from it). Never commit on `main`, never
   force-push or rewind it. It moves only by fast-forwarding to GitHub's
@@ -683,9 +681,8 @@ what's red, and fix anything red first, before any new work; then bring
 up to date the next reviewed pull request waiting behind one that merged
 ("Pull requests"). Then the Security tab (draft advisories, Dependabot's
 alerts), the week's Monday report issue and the open `start9` issues.
-GitHub runs a schedule only from `main`: until `main` carries
-`monday-report.yml` (from 2.0.1's release), run `scripts/monday-report.sh
---dry-run` instead. `start9-watch.yml` already runs from `main`
+GitHub runs a schedule only from `main`, which carries
+`monday-report.yml` since 2.0.1's release, and `start9-watch.yml`
 (startos/UPDATING.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`

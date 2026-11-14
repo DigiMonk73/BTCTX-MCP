@@ -8,8 +8,6 @@ places a contributor or a session reads them.
 
 import re
 
-import pytest
-
 from backend.tests.test_test_files import needs_a_checkout
 from backend.tests.test_texts_2_0_357 import ROOT, flat, tracked
 
@@ -96,7 +94,6 @@ def test_start9s_contributions_are_looked_at_first_never_accepted_automatically(
             assert words in rules, f"{path}: {words}"
 
 
-@pytest.mark.xfail(strict=True, reason="#903's lines, fixed in this pull request (for #937)")
 def test_the_flow_says_what_main_already_carries():
     """#903 moved these lines word for word while they were already out of
     date: the Monday report is `monday-report.yml`, not a task on a Mac, and
