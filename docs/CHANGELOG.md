@@ -238,8 +238,8 @@ planned for 2.0.3:
   (#889). The image already took `ca-certificates` deb13u1 (#638); now it
   comes with the base. The base sets `LANG=C.UTF-8` again on 3.13
   (docker-library/python#1145): text and file names stay UTF-8, and the
-  app uses no locale. The move changes none of its Python packages. No
-  figure moves: the release gate's figures, the reference test ledger's
+  app uses no locale. The move changes none of the app's Python packages.
+  No figure moves: the release gate's figures, the reference test ledger's
   IRS forms and CSVs (byte for byte) and its Complete Tax Reports (by
   text) are the same from the old image and the new.
 - **opentelemetry-api 1.45.2** (from 1.45.1, for #937), for an advisory
@@ -251,9 +251,11 @@ planned for 2.0.3:
   metadata, which only your own AI app sends. The connector now requires
   1.45.2 or later, so updating it to `btctx-mcp==2.0.2` (above) installs
   the fix. That reader is the only code 1.45.2 changes. The release gate
-  ran before this, on 1.45.1, and wasn't run again, since the server never
-  runs the changed code. CI's full tests, click-through tests and StartOS
-  package build ran on it instead. No figure moves.
+  ran before this, with the server on 1.45.1 and the connector already on
+  1.45.2 (PyPI's newest then), and wasn't run again: the server never runs
+  the changed code, and the gate's connector already had it. CI's full
+  tests, click-through tests and StartOS package build ran on it instead.
+  No figure moves.
 
 ### StartOS package
 - **Package 2.0.2:0** (Start9's `versions.md`). 2.0.1:0's migration was
