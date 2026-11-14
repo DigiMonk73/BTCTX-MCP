@@ -4,6 +4,25 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Development
+- **Maintenance runs in lanes, not numbered sessions** (the owner,
+  2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
+  once a month the lead runs a cycle of at most three lanes (Updates,
+  StartOS, Fix), one sub-session for each kind of work instead of one
+  for each issue, each from one fixed brief in that file, with no plan
+  or kickoff prompt of its own. Cycles collect work on `develop`; a
+  release goes out about every three months or later, at once for a
+  `tax-figures` or security fix, and a new tax year's IRS forms as soon
+  as the IRS publishes them. The lead runs on Fable 5.2 at high effort
+  and a lane on Opus 5.5; any session may use Fable 5.2 where its
+  judgement says the work needs it, and says why in one line. The
+  reviews, the figures rule, the release tests and the handoff at each
+  release are unchanged. It is in force from 2.0.2's handoff
+  (2026-11-14): 2.0.3 is the first release run this way. Why: 2.0.2
+  had taken 15 sessions and about 54,000 words of plans, prompts and
+  reviews for 173 shipped lines by its fifth merged step, where
+  2.0.1's release took a lead and one release session.
+
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
 **In short.** 2.0.2 is the second maintenance update of 2.0. It fixes one

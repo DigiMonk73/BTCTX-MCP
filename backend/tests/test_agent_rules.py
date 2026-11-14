@@ -88,17 +88,25 @@ def test_a_path_scoped_rule_names_the_invariants_for_the_tax_paths():
 
 # The maintenance lead (the owner, 2026-11-04, #869): a fresh lead starts from
 # docs/MAINTENANCE-LEAD.md and #869's kickoff, and each release ends with the
-# handoff to the next one.
+# handoff to the next one. Since 2026-11-09 (the owner) the work runs in a
+# monthly cycle of lanes, a sub-session for each kind of work, the lead on
+# Fable 5.2 and a lane on Opus 5.5 unless its work needs more.
 LEAD = "docs/MAINTENANCE-LEAD.md"
 
 
 def test_the_maintenance_leads_job_has_its_own_doc():
     text = " ".join((ROOT / LEAD).read_text().split())
-    for words in ("## Starting as lead", "## The release cycle", "Start every session at once", "### Who talks to whom",
-                  "### Pacing", "### The board", "three rounds in a row",
-                  "## Working through numbered sub-sessions", "## What always needs the owner",
-                  "## The handoff at each release", "Kickoff prompt for the lead session", "Opus 5.5",
-                  '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
+    for words in ("## Starting as lead", "## The cycle: three lanes", "| **Updates** |", "| **StartOS** |", "| **Fix** |",
+                  'The owner says "start the cycle"', "### The lane brief", "### Which model",
+                  "The lead runs on Fable 5.2 at high effort", "runs on Opus 5.5 (or a later Opus release) unless there is a reason",
+                  "In force from 2.0.2's handoff", "Never a lane item", "Waiting is the default", "Between cycles",
+                  "before anything is pushed", "Never turn on auto-merge", "never to more than two at once",
+                  "nothing here loosens them",
+                  "Any session may use Fable 5.2 where its own judgement says", "says why in one line",
+                  "Never a Sonnet or a Haiku", "### Who talks to whom", "### The board", "## Releases",
+                  "go out as soon as the IRS publishes", "I don't necessarily want to claim a freeze", "three rounds in a row",
+                  "## What always needs the owner", "## The handoff at each release",
+                  "Kickoff prompt for the lead session", '"ready: #N"', 'AGENTS.md`\'s "Reviews"'):
         assert words in text, words
 
 
