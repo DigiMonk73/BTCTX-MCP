@@ -224,8 +224,15 @@ with one release session: the version pull request, the release tests
 on the StartOS test machine and the fresh docs read, then the owner's
 "merge".
 
-- **When:** about every three months, and sooner for a `tax-figures`
-  or security fix, which goes out as soon as it's ready.
+- **When:** about every three months, or later when nothing needs to
+  go out (the owner, 2026-11-14: "I may go longer between releases"),
+  and sooner for a `tax-figures` or security fix, which goes out as
+  soon as it's ready.
+- **A release with more than routine scope may get a planning
+  session**, when the owner asks for one (2.0.3, the owner,
+  2026-11-14: "open a Fable session to do the thorough plan"). It
+  posts one plan as a comment on the release's issue and changes
+  nothing else; the lanes still get only the brief above.
 - **A new tax year's IRS forms go out as soon as the IRS publishes
   them** (the owner, 2026-11-09: "I want to get the new 2026 tax form
   as soon as it comes out"). The IRS forms watch opens an issue when
