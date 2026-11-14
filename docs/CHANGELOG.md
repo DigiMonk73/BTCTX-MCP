@@ -4,6 +4,68 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
+
+**In short.** 2.0.2 is the second maintenance update of 2.0. It fixes one
+bug that could make a tax figure wrong (the AI connector still read the AI
+computer's own timezone data, #908), and corrects 2.0.1's notes for its
+timezone fix, which named too few places for the Mac app (#939): the two
+entries marked "tax figures" in the CHANGELOG say who could be affected
+and what to do; most ledgers need nothing more. On StartOS, it needs
+StartOS 0.4.1 or later (#913). It also fixes four screen bugs found in
+2.0.1 (#919, #921, #922, #923) and moves the Docker image to Python
+3.13.18 (#934).
+
+**Before you update, on StartOS:** update StartOS to 0.4.1 or later first.
+Until then, a server on StartOS 0.4.0.x can update BitcoinTX only as far
+as 2.0.1.
+
+**Coming from 1.x?** Read [2.0.0's notes](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0)
+first: on StartOS, make a StartOS backup of BitcoinTX and keep it, as it's
+your way back to 1.x. **Coming from 1.x or 2.0.0?** Read
+[2.0.1's notes](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.1/docs/CHANGELOG.md)
+too: its timezone fix (#889) can ask you to correct some times.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself).
+2. **Update the AI connector** to `btctx-mcp==2.0.2` in your AI app's
+   configuration, then restart the AI app.
+3. Then read the two entries marked "tax figures" in the CHANGELOG: they
+   say whether there's anything to do.
+
+**Known issues:** the ones 2.0.1 listed stay: the blank row's lookup
+(#824, #849; Ledger Review lists a value saved like that, and can apply
+the hour's price to it) and a Form 1099-DA that lists a transfer's or a
+gift's network fee, or a fee without its withdrawal, corrected by hand
+(#551). Found since, each one can make a figure wrong, and their fix is
+planned for 2.0.3:
+- coins acquired on 28 February of 2011, 2015, 2019, 2023 or 2027 and sold
+  on 29 February of the next year are reported long-term; by the IRS's
+  counting they're short-term: the same gain, in Form 8949's Part I, not
+  Part II. Until then, report such a sale as short-term by hand (#950);
+- the AI connector's import puts rows that share a time (rows it's given
+  with a date only all share noon) in an order by type (deposits, buys,
+  transfers, sales, withdrawals), where a file import
+  keeps the file's order, so a sale and a transfer out at the same time
+  can use other coins, and give another gain, by the way they were added.
+  Until then, add rows that share a time through a file import, or check
+  which coins such a sale used (#951);
+- BitcoinTX's own CSV import drops, with no error, every row after a cell
+  whose quote is never closed: only a hand-edited file, so compare the
+  preview's row count with your file's (#952);
+- BitcoinTX's own CSV import, and River's, read a bitcoin amount written
+  "1,234" as 1234 BTC: check the preview's amounts if your spreadsheet
+  writes decimals with a comma (#953);
+- on a device whose timezone data is older than BitcoinTX's, a time typed
+  in the transaction form, in the zones and periods of #908's entry in the
+  CHANGELOG (under Fixed), can be saved an hour off, and the device shows
+  it back as typed. Keep the device's system and browser up to date. Once
+  it is, open each such transaction and compare its time with the receipt
+  or record you typed it from. Where it's an hour off, type the receipt's
+  time again (#964).
+
 ### Fixed
 
 - **The AI connector reads a time in the tax timezone by BitcoinTX's own
@@ -27,17 +89,23 @@ All notable changes to BitcoinTX are documented in this file.
   - from 20 September 2026, Morocco stays at UTC+0 (`Africa/Casablanca`,
     `Africa/El_Aaiun`): such a time was saved an hour early;
   - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) has changed its clocks
-    at 03:00, not 02:00, since 2022: only a time in that hour, on those
-    two days a year (its date never moves).
+    at 03:00, not 02:00, since 2022: only a time from 03:00 to 04:00 on
+    the last Sunday of March (saved an hour early) or of October (an hour
+    late); its date never moves.
 
   A copy from 2024 or earlier also misses Paraguay's change
   (`America/Asuncion`: on summer time for good since October 2024, so
-  from 23 March 2025 such a time was saved an hour late), and an older
-  copy, older changes. An hour off moves the date of a time in
-  the hour before midnight (an hour late) or after it (an hour early).
-  That date is the one on Form 8949, in the holding period (a sale near a
-  year after its purchase could show the wrong term; a date originally
-  acquired a day off, the same) and, at the year's end, in the tax year.
+  from 23 March to 5 October 2025, and from 22 March to 4 October 2026,
+  such a time was saved an hour late; never at a year's end). A copy from
+  2023 or earlier also misses Kazakhstan's (`Asia/Almaty`, `Asia/Qostanay`:
+  on UTC+5 since 1 March 2024, so from then such a time was saved an hour
+  early, across the ends of 2024 and 2025), and an older copy, older
+  changes (Gaza's and Hebron's, Egypt's, Greenland's). An hour off moves
+  the date of a time in the hour before midnight (an hour late) or after
+  it (an hour early). That date is the one on Form 8949, in the holding
+  period (a sale near a year after its purchase could show the wrong
+  term; a date originally acquired a day off, the same) and, at the year's
+  end, in the tax year.
   A value BitcoinTX fills in from the price (income, a fee, a spend's
   proceeds) used another hour's price (an inheritance's value, another
   day's), and a gain could change where the hour moved a sale past
@@ -63,8 +131,66 @@ All notable changes to BitcoinTX are documented in this file.
   in from `get_btc_price` for such a time. The updated connector saves
   the right moment, and one already right stays as it is. A value filled in from
   the price is then priced again; a typed one stays. Don't go by the time
-  on screen: your device works it out with its own timezone data, the
-  same old copy on that computer. Form 8949's dates are BitcoinTX's own.
+  on screen: your device works it out with its own timezone data. Form
+  8949's dates are BitcoinTX's own.
+
+- **2.0.1's notes for its timezone fix named too few places for the Mac
+  app** (#939, tax figures; a correction of the notes, no code change).
+  2.0.1's entry (#889, below) named Manitoba, the Northwest Territories'
+  Inuvik and Cuba, and said every other zone gives the same dates as
+  before. That holds for Docker and StartOS: their images, from 0.8.0 to
+  2.0.1, carry Debian's 2026c (checked in 0.8.0's, 1.2.4's, and the base
+  images of 1.2.5 to 1.2.8 and of 1.2.9 to 2.0.1), which already had the
+  other places' changes. The one exception there is the old name
+  `Canada/Central` (Manitoba's), which those images don't carry: BitcoinTX
+  read it from its own copy, which up to 1.2.6 (tzdata 2026.4) still
+  turned Manitoba's clocks back, so from 1 November 2026 it's as
+  `America/Winnipeg` in 2.0.1's entry. It doesn't hold for the Mac app: up
+  to 2.0.0 it read macOS's own timezone data. On a Mac whose copy was
+  older than BitcoinTX's (IANA 2026f), 2.0.1 also moved the dates
+  and times of the other zones whose rules have changed since, the zones of
+  #908's entry above. A copy from 2025 or earlier misses 2026's changes:
+  - from 1 November 2026, British Columbia, Alberta and the rest of the
+    Northwest Territories stay on summer time too (`America/Vancouver`,
+    `America/Edmonton`, `America/Yellowknife`, and the old names
+    `Canada/Pacific`, `Canada/Mountain` and, for Manitoba, `Canada/Central`).
+    As 2.0.1's entry says for Manitoba: with that tax timezone, a
+    transaction in the first hour after midnight was given the previous
+    day's date, and a time imported or added by the AI connector, without a
+    timezone, was saved an hour late;
+  - from 20 September 2026, Morocco stays at UTC+0 (`Africa/Casablanca`,
+    `Africa/El_Aaiun`), the other way round: a transaction in the last hour
+    before midnight was given the next day's date, and such a time was
+    saved an hour early;
+  - Moldova (`Europe/Chisinau`, `Europe/Tiraspol`) has changed its clocks
+    at 03:00, not 02:00, since 2022: only such a time from 03:00 to 04:00
+    on the last Sunday of March (saved an hour early) or of October (an
+    hour late); its date never moves.
+
+  A copy from 2024 or earlier also misses Paraguay's change
+  (`America/Asuncion`): from 23 March to 5 October 2025, and from 22
+  March to 4 October 2026, it's as British Columbia, never at a year's
+  end. A copy from 2023 or earlier also misses Kazakhstan's (`Asia/Almaty`,
+  `Asia/Qostanay`): from 1 March 2024 it's as Morocco, across the ends of
+  2024 and 2025; an older copy, older changes (#908's entry above). 2.0.1's
+  figures follow the right rules: only its notes left these places out.
+  **Affected:** the Mac app, every version up to 2.0.0, on a Mac with older
+  timezone data, with one of those zones as the tax timezone, or an
+  exchange file read in one of them, in the periods above; and Docker and
+  StartOS up to 1.2.6, for `Canada/Central` from 1 November 2026.
+  **What to do:** a date is right by itself since 2.0.1 (the holding
+  period once the ledger is recalculated). Correct the time of each
+  transaction imported from a file or added by the AI connector with the
+  Mac app 2.0.0 or earlier (on Docker and StartOS, only one in
+  `Canada/Central`, with 1.2.6 or earlier), with a time but no timezone,
+  in one of those zones and periods (a row saved with 2.0.1 is right):
+  move it an hour earlier than the time shown (Canada, Paraguay) or an
+  hour later (Morocco, Kazakhstan), even where it shows the time written,
+  as a device still on old timezone data shows it. In Moldova, check one
+  from 03:00 to 04:00 on those two Sundays against its source. A value
+  filled in from the price is then priced again; a typed one stays. Leave
+  those rows out if you import their file again, then Recalculate Ledger
+  once. A time the AI later changed is #908's, above.
 
 - **After a password change, another browser's next click goes to the
   sign-in page** (#919). Changing the password in Settings ends every
@@ -78,6 +204,25 @@ All notable changes to BitcoinTX are documented in this file.
   tab) goes to the sign-in page at its next request, as a reload did, and
   a PDF download does the same. A restore's notice still waits on screen
   to be read (#407). No figure or data was affected.
+
+- **Settings' account list shows the balances after Delete All without a
+  reload** (#921). Settings keeps its closed sections loaded, and Delete
+  All, an import or a restore changes the balances meanwhile. "Wallets,
+  exchanges and banks" read its accounts again each time it opened (#720),
+  but its balances only once, when Settings opened: after Delete All it
+  kept showing the old ones until a reload. It now reads them each time it
+  opens.
+- **A transaction's fee stays readable on a phone** (#922). The grey line
+  under each transaction (its time, note and fee) was cut with "…" where it
+  didn't fit, so at a phone's width a fee could read "Fee $1…". It now
+  wraps onto a second line, and the fee's amount moves to the next line
+  whole, with its unit.
+- **The AI Setup prompt asks you to turn on AI access only while it's
+  off** (#923). The prompt that Settings › Connect an AI Assistant gives
+  you to paste into an AI app always said "AI access is off until I turn it
+  on", so the AI asked you to turn on a switch that was already on. It now
+  follows the switch: while it's off, the AI still asks before its first
+  check (#676); once it's on, the prompt doesn't ask.
 
 ### Security
 - **The Docker image moves to Python 3.13.18** (#934, for #871), on
@@ -93,18 +238,42 @@ All notable changes to BitcoinTX are documented in this file.
   (#889). The image already took `ca-certificates` deb13u1 (#638); now it
   comes with the base. The base sets `LANG=C.UTF-8` again on 3.13
   (docker-library/python#1145): text and file names stay UTF-8, and the
-  app uses no locale. Its Python packages are unchanged. No figure moves:
-  the release gate's figures, the reference test ledger's IRS forms and
-  CSVs (byte for byte) and its Complete Tax Reports (by text) are the same
-  from the old image and the new.
+  app uses no locale. The move changes none of the app's Python packages.
+  No figure moves: the release gate's figures, the reference test ledger's
+  IRS forms and CSVs (byte for byte) and its Complete Tax Reports (by
+  text) are the same from the old image and the new.
+- **opentelemetry-api 1.45.2** (from 1.45.1, for #937), for an advisory
+  published on 2026-11-13 (CVE-2026-126360, GHSA-mf5v-w3w3-f6cg): a
+  crafted trace value could take a long time to read. BitcoinTX's server
+  installs it with FastAPI but never runs that reader: FastAPI reads trace
+  data only when its own telemetry is on, and BitcoinTX never turns it on.
+  The AI connector's MCP library does read trace data, from each request's
+  metadata, which only your own AI app sends. The connector now requires
+  1.45.2 or later, so updating it to `btctx-mcp==2.0.2` (above) installs
+  the fix. That reader is the only code 1.45.2 changes. The release gate
+  ran before this, with the server on 1.45.1 and the connector already on
+  1.45.2 (PyPI's newest then), and wasn't run again: the server never runs
+  the changed code, and the gate's connector already had it. CI's full
+  tests, click-through tests and StartOS package build ran on it instead.
+  No figure moves.
 
 ### StartOS package
+- **Package 2.0.2:0** (Start9's `versions.md`). 2.0.1:0's migration was
+  empty, so `current.ts` is bumped in place, with no migration of its own.
+  Its release notes, in five languages, cover what changed since 2.0.1:0,
+  which the community registry serves: StartOS 0.4.1 or later first, a
+  pointer to 2.0.1's notes for a 1.x or 2.0.0 install, what to do after
+  updating (the AI connector's `btctx-mcp==2.0.2`), the
+  tax-figures fix #908 with who could be affected and what to do, the other
+  changes and the known issues. They don't carry #939: it concerns the Mac
+  app, and on StartOS only `Canada/Central` up to 1.2.6; the pointer to
+  2.0.1's notes points a user with that zone to Manitoba's fix.
 - **BitcoinTX on StartOS needs StartOS 0.4.1 or later**, because the
   package is built with **start-sdk 4.0.0** (from 3.1.1, #913): Start9's
   current SDK, which their Pre-Publish Checklist asks for before any pull
   request to their fork. Its release notes: "Packages built with SDK 4.0.0
-  require StartOS 0.4.1 or later". A server still on StartOS 0.4.0.x keeps
-  BitcoinTX 2.0.1 until StartOS is updated. The README,
+  require StartOS 0.4.1 or later". Until StartOS is updated, a server on
+  StartOS 0.4.0.x can update BitcoinTX only as far as 2.0.1. The README,
   `docs/STARTOS_COMPATIBILITY.md` and `docs/ARCHITECTURE.md` say so, and
   `test_startos_conformance.py` checks them against the pinned SDK. In the
   package, the web interface's health check takes 4.0.0's type (what it
@@ -152,6 +321,76 @@ All notable changes to BitcoinTX are documented in this file.
   release (#896). It adds commands that sign and endorse packages; its
   release notes name no change to packing. The SHA-256 is the release
   notes' and GitHub's own digest of `start-cli_x86_64-linux`.
+- **The release gate's sign-in and password page checks run by script**
+  (#935, for #924). These are AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8's form
+  and END-2's form and dialog. An agent types a test login only into a
+  page on its own computer, so 2.0.1's gate left these steps to the owner.
+  Now `scripts/gate/pages.py <candidate image>` runs them with Playwright
+  against the candidate's own Docker image on `127.0.0.1`, set up as StartOS
+  sets it up, with throwaway test logins, PASS or FAIL per step with what
+  it saw. It refuses any other host, checks the owner's ports before and
+  after, and removes its container and volume. `docs/AGENT-TESTS.md`'s
+  steps point to it; `test_gate_pages_924.py` checks the host rule, the
+  steps and the guide.
+- **A script says when the StartOS backup's gate steps are needed: when a
+  release changes the backup path, so for now at every release** (#924,
+  for #848). BAK-5 and UPG-5b need the VM's StartOS
+  password, a person's. `scripts/gate/backup_path_changed.py FROM TO`
+  says when they're needed. That's when the release changes any of:
+  - the package's backup settings or start-sdk version;
+  - the rest of the package's code (`startos/startos/`), including what it
+    runs on a restore and keeps in its volumes;
+  - its own migrations (any change under `startos/startos/versions/`);
+  - `backup.py`, `migrate.py`, the migrations, `database.py` or
+    `backend/cli.py`;
+  - the data folder's layout;
+  - the image (the Dockerfile, whole) and its entrypoint.
+
+  It compares from the last release whose BAK-5 passed. Otherwise it says
+  "not needed" and lists every file the release changes, and the report
+  records the steps as NOT NEEDED with that list. **Until #962, BAK-5 and
+  UPG-5b run at every release:** each release changes `current.ts` (its version and
+  notes), and telling that apart safely from a change to what a restore
+  runs is #962's job (the owner's choice, 2026-11-10). For 2.0.2 they're
+  needed anyway (start-sdk 4.0.0, #940). `test_gate_backup_path_924.py`
+  holds the rule.
+- **A Mac test build no longer logs the installed BitcoinTX out** (#924).
+  WebKit keeps an app's cookies by bundle id, and a test build ran under
+  the installed app's id. `desktop/run-test-build.sh` now runs a copy of
+  the build in its test folder, as `<the build's id>.test-build`,
+  re-signed ad hoc. While no installed app runs, Track C checks that the
+  installed apps' WebKit folders stay untouched (the app's private mode
+  clears the store WebKit keeps by bundle id at each window open). A copy
+  still starting is never made again. Nothing that ships changes. So
+  `docs/AGENT-TESTS.md`'s "What stays by hand" now lists only:
+  - the StartOS password, when the backup path changed and on the rare
+    WAY, BETA and CB tracks;
+  - the VM's browser sign-in;
+  - MAC-1's first open;
+  - the agent's own approvals;
+  - the owner's own test.
+- **A click-through test no longer fails the next one at random** (#930).
+  The route handlers of #188's test (`price-card.e2e.ts`) and of
+  `sidebar-matrix.e2e.ts`'s held prices ask the server themselves
+  (`route.fetch()`), and one still asking when its test ended failed, but
+  Playwright reported it against the next test. Both specs now drop their
+  routes after each test (`page.unrouteAll({ behavior: "ignoreErrors" })`),
+  and `e2eRouteHandlers930.test.ts` checks that every spec with such a
+  handler does.
+- **CI type-checks the click-through tests** (#944). `npx tsc -p e2e`
+  failed (`FormData.entries()` needs the `DOM.Iterable` library), and
+  nothing ran it: the build's type check covers only the app, and
+  Playwright doesn't check the specs' types. The specs' `tsconfig.json`
+  takes `DOM.Iterable`, and CI's frontend job runs the check.
+- **A click-through test for Settings' price choice right after the
+  Dashboard's** (#920). The 2.0.1 release gate saw Settings › Privacy &
+  Network with Nobody highlighted but not ticked, right after Nobody was
+  chosen on the Dashboard. That couldn't be reproduced, either in the
+  click-through tests or in the in-app browser on the gate's own path.
+  The new test keeps that path checked.
+- **2.0.2's release gate** (#936): GO on StartOS 0.4.1.2 and on 0.4.2,
+  with the StartOS backup and restore run on both (BAK-5), and UPG-5b on
+  0.4.1.2.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 

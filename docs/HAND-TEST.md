@@ -17,7 +17,7 @@ Use one of these, and nothing else:
   only if you have it and it holds nothing you want to keep.
 - **A throwaway Docker install**, which you remove at the end. In a Terminal
   window, with `VERSION` being the version you're testing (for example
-  `v2.0.1`):
+  `v2.0.2`):
 
   ```bash
   docker run -d --name btctx-handtest -p 127.0.0.1:8090:80 -v btctx-handtest:/data ghcr.io/digimonk73/btctx-mcp:VERSION

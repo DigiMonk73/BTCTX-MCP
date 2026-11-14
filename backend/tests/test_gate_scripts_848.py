@@ -164,3 +164,24 @@ def test_the_gate_lists_what_stays_by_hand():
                  "approval prompts", "own test"):
         assert step in by_hand
     assert "**No silent waits**" in guide
+
+
+# What a person still does at a release, row by row (#924): the StartOS
+# password, only when the backup path changed and on the rare WAY, BETA and
+# CB tracks; the VM's browser sign-in, since an agent types a test login only
+# into a page on its own computer; MAC-1's first open; and what no agent
+# takes over, its own approvals and the owner's own test.
+BY_HAND = ("The VM's StartOS password", "Signing the VM's browser in", "A downloaded Mac app's first open",
+           "The agent's own approval prompts", "The owner's own test")
+
+
+def test_the_by_hand_table_lists_only_what_needs_a_person():
+    guide = (ROOT / "docs" / "AGENT-TESTS.md").read_text()
+    by_hand = guide[guide.index("## What stays by hand"):guide.index("## What CI already proves")]
+    rows = [line for line in by_hand.splitlines() if line.startswith("| ") and not line.startswith("| What |")]
+    assert len(rows) == len(BY_HAND), rows
+    for row, start in zip(rows, BY_HAND, strict=True):
+        assert row.startswith(f"| {start}"), row
+    # The StartOS password only when the script says the backup path changed
+    assert "BAK-5 and UPG-5b only when" in rows[0] and "backup_path_changed.py" in rows[0]
+    assert "scripts/gate/backup_path_changed.py" in by_hand and "NOT NEEDED" in by_hand

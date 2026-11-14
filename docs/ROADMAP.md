@@ -4,9 +4,9 @@ Shipped work is in [CHANGELOG.md](CHANGELOG.md). This file lists the features
 and larger work coming next; specific to-dos and checks are GitHub issues
 (`AGENTS.md`, "Working through GitHub").
 
-## Now: 2.0.1
+## Now: 2.0.2
 
-BitcoinTX 2.0.1 is the current version, the first maintenance update of
+BitcoinTX 2.0.2 is the current version, the second maintenance update of
 2.0: each wallet, exchange and bank is an account of its own, each wallet
 and exchange with its own cost-basis lots. 2.0 is the final stable
 release, with no new features planned: what comes next is updates, bug

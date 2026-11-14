@@ -45,6 +45,11 @@ feeling.
    script says it usually takes, is reported at once to the lead or the
    owner, saying what it waits on, rather than left to sit. Beta.2's gate
    lost 12 hours to one browser step waiting on an approval nobody saw.
+9. **Radios and checkboxes by real clicks**, never a browser tool's
+   `form_input` (or anything else that sets `checked` itself): the app
+   doesn't see such a change, so the page and the app fall out of step,
+   and what you read back is the tool's doing. 2.0.1's AUTH-4 finding
+   (#920, not reproduced with real clicks) was most likely that.
 
 ## What stays by hand
 
@@ -55,14 +60,62 @@ run starts:
 
 | What | Who | Steps |
 |---|---|---|
-| The VM's StartOS password, typed for a StartOS backup or its restore | whoever set up the VM (an agent never stores it) | BAK-5, UPG-5b, WAY-1 to WAY-5, BETA-1, CB |
-| `start-cli -H $URL auth login` (the same password), once per VM | whoever set up the VM | before any `start-cli` step |
-| A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh` clears the quarantine for its own launches) |
-| Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac launch, and logging in to it again after, when the test build shares its WebKit folders | the owner | Track C, WAY-7, BETA |
-| StartOS's **My Mempool on this server** | the owner, on their own server | PRC-4 |
-| A real exchange export, tried on a test copy | a tester who has one | MAP-1 (not part of an agent's walk) |
+| The VM's StartOS password, typed for a StartOS backup or its restore, and for `start-cli -H $URL auth login` once per VM | whoever set up the VM (an agent never stores it) | BAK-5 and UPG-5b only when the release changes the backup path (`scripts/gate/backup_path_changed.py`, below), so at every release until #962; WAY-1 to WAY-5, BETA-1 and CB, the rare tracks; the login before any `start-cli` step |
+| Signing the VM's browser in: the login (INS-3's, then LCK-2's) typed into the VM's own page, the first time and after each step that logs it out | whoever set up the VM | Track A on the VM: after INS-5, AUTH-5, BAK-4 and LCK-2 (an agent types a test login only into a page on its own computer, never the VM's) |
+| A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh`'s launches need none: it runs its own copy, without the quarantine) |
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
-| The owner's own test: the release loaded and a few basics tried on their own install | the owner | after the gate, before "merge" |
+| The owner's own test: the release loaded and a few basics tried on their own install, with StartOS's **My Mempool on this server** (PRC-4, which needs their synced node) | the owner | after the gate, before "merge" |
+
+**The StartOS backup and restore, by hand** (BAK-5, UPG-5b): StartOS lists
+the backup disk by its device (`/dev/sda1` on the lab VM), not by its
+label. Between the backup and the agent's check, nobody runs Set Login
+Credentials or signs in to BitcoinTX: its login isn't needed, and the
+restore is checked against the login it backed up (#936).
+
+**When BAK-5 and UPG-5b run** (#924). They run only when the release
+changes the StartOS backup path:
+- the package's backup settings or start-sdk version;
+- what it runs on a restore and keeps in its volumes;
+- its own migrations: every change under `startos/startos/versions/`;
+- the rest of the package's code (`startos/startos/`) and the commands it
+  runs (`backend/cli.py`);
+- `backup.py` (the service or the router), `migrate.py`, the migrations
+  or `database.py`;
+- the data folder's layout;
+- the image: the Dockerfile, whole, and its entrypoint.
+
+The script's docstring names each file. Before the run,
+`scripts/gate/backup_path_changed.py FROM $SHA` says which: "needed" with
+the files that make it so, or "not needed" with every file the release
+changes. FROM is the tag of the last release whose BAK-5 and UPG-5b
+passed, not just the previous release. A release that shipped with them
+deferred or BLOCKED left its changes untested (2.0.1's were deferred, so
+2.0.2's FROM is the release before it whose BAK-5 passed). The report
+names FROM. When the answer is not needed, record BAK-5 and UPG-5b as
+NOT NEEDED with the script's output, the diff that shows it, and ask no
+one for the password for them.
+
+**Until #962, that's every release.** Each release changes
+`startos/startos/versions/current.ts`, its version and its notes, and no
+check yet tells a change that only does that from one that changes what a
+restore runs (the owner's choice, 2026-11-10, after #957's reviews). So
+ask for the StartOS password for BAK-5 (and UPG-5b, where its track
+runs) at every release. #962 will make
+such a release read "not needed" safely.
+
+No longer a person's:
+- AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2 (they type test logins
+  into the app's own pages): `scripts/gate/pages.py` runs them on
+  `127.0.0.1` with the candidate's own image ([The golden
+  ledger](#the-golden-ledger), "The sign-in and password pages, by
+  script").
+- Quitting the installed BitcoinTX or BitcoinTX Preview before a Mac
+  launch, and logging in to it again after: the test build runs as a copy
+  with a bundle id of its own, so it never shares their web view storage
+  (Track C).
+
+MAP-1, a real exchange export tried on a test copy, is a tester's walk,
+never part of an agent's.
 
 Decisions aren't tests: the release's "merge", anything sent to Start9 and
 a promotion stay the owner's (AGENTS.md).
@@ -125,11 +178,14 @@ names the release walk's corrections.
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
-  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1). Finish StartOS setup, then
+  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.1 or later:
+  from 2.0.2 (start-sdk 4.0.0, #940) the package installs on nothing
+  older. Finish StartOS setup, then
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
-  them, mark those steps BLOCKED.
+  them, mark those steps BLOCKED. BAK-5 and UPG-5b run only when the
+  release changes the backup path (What stays by hand).
 - **Optional services on the VM:** Tor (PRC-3, PRC-3b). Mempool (PRC-4) needs a
   synced Bitcoin node, so skip it unless the VM has one.
 - **Your browser runs in `America/New_York`.** The transaction form reads
@@ -165,6 +221,15 @@ names the release walk's corrections.
   installing); an action with input needs the `eventId` from
   `package action get-input` passed to `package action run --event-id`,
   with the input as JSON on stdin (`null` for none).
+- `server update <registry> --to X` means X **or newer**: at 2.0.2's gate,
+  `--to 0.4.1.2` staged 0.4.2 (#936). To update to one version exactly,
+  as a gate on an older StartOS needs, write `--to '=X'`, quoted, since
+  zsh reads a leading `=` as a command's path. It returns at once while
+  StartOS downloads in the background: wait until
+  `serverInfo.statusInfo.updateProgress` is null (`start-cli db dump`)
+  before any shutdown, or the update is thrown away. Then `server
+  shutdown` and a cold start, not `server restart`, whose warm restart
+  hung the VM twice (#881).
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no key trusted for packages signed: our own
   packages, and BitcoinTX's Community Beta builds, which only that
@@ -278,6 +343,57 @@ a last line PASS or FAIL. It needs `pypdf` (the repository's `.venv`). On
 Docker, `scripts/gate/docker-update.sh <previous image> <candidate image>`
 runs the whole comparison across an update by itself.
 
+**The sign-in and password pages, by script** (#935, for #924). AUTH-1 to
+AUTH-3, BAK-2, BAK-3, SEC-8's form and END-2's form and dialog type test
+logins into BitcoinTX's own pages. An agent types a test login only into a
+page on its own computer (`127.0.0.1` or `localhost`), never on the VM's
+`.local` address. So these steps run against the candidate's own Docker
+image on this computer, the image the StartOS package runs:
+`scripts/gate/pages.py <candidate image> [<folder>]`. It needs Docker, the
+repository's `.venv` and the frontend's Playwright (`cd frontend && npm ci
+&& npx playwright install chromium`), and takes under a minute.
+- It refuses any host but `127.0.0.1` and `localhost`.
+- It checks the owner's ports (8765, 8767) before and after, and stops if
+  either answers differently.
+- It sets the image up as StartOS does: Set Login Credentials' own command
+  while the app is stopped (INS-3), the schema step, then the server with
+  the package's settings and no price source (INS-4).
+- Before BAK-2 it loads the golden ledger and adds Coldcard and Kraken and
+  an AI key, as the walk's earlier steps leave them.
+- It prints PASS or FAIL per step with what it saw, and a last line PASS or
+  FAIL. In the folder: `results.json`, a screenshot of each FAIL,
+  BAK-2's `bitcoin_backup.btx`, BAK-3's figures before and after
+  (`before-backup.json`, `after-restore.json`, `BAK-3-figures.txt`), the
+  browser's own confirms (`dialogs.json`) and the server's log.
+- Its container and volume are removed at the end.
+
+Build the image at `$SHA` (`git archive $SHA | docker build -t
+btctx:candidate -`) and paste the summary into the report.
+
+**On the VM**, these steps aren't walked: their pages are the script's,
+and the API checks (the golden loader, IMP-3's and SEC-1 to SEC-9's curl)
+still run there, but for those that send the VM's test login or AI key:
+#924's open question (SEC's first paragraph). The later steps that use what these steps leave take it
+from the VM's own walk instead:
+- **The login stays INS-3's** `admin`, since no SEC-8 or END-2 ran there.
+  SEC-9's fresh jar logs in with it, LCK-2 expects INS-3's password (not
+  `tester`) to stop working, and END-3 checks `admin` alone (there is no
+  `fresh`).
+- **BAK-2's file is made through the API**, at BAK-2's place in the walk.
+  Log in with curl as in SEC-4 (`-c jar`), then send
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -o bitcoin_backup.btx $API/backup/download`.
+  BAK-4 restores it the same way:
+  `curl --cacert ca.crt -s -b jar -F password=backup-pass-123 -F file=@bitcoin_backup.btx $API/backup/restore`
+  (expect its `message` to be BAK-3's "✅ Database successfully restored. …"),
+  then checks what BAK-4 expects.
+- **BAK-5's AI key** is the one AI-12 made last, not BAK-3's.
+
+The VM's browser still has to be signed in for its other pages (after
+INS-5, after AUTH-5's and LCK-2's changes, and after BAK-4's restore),
+which types the INS-3 login (or LCK-2's) into the VM's page: a person's,
+since an agent types a test login only into a page on its own computer
+(What stays by hand).
+
 ---
 
 ## Track A: fresh install of the release candidate
@@ -316,12 +432,15 @@ Start from the `clean` snapshot.
 - **AUTH-1** Open the Web UI. Expect: "Welcome to BitcoinTX" and "Sign in",
   with no **Setup Code** field (StartOS never keeps the default login). The
   **Show password** toggle reveals the typed password.
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-2** Log in with the wrong password, then with `admin` /
   `password`. Expect both times: "Invalid username or password."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-3** Log in with the INS-3 credentials. Expect: the Dashboard.
   Settings, open **Account**: Tax Timezone reads "Current:
   America/New_York": a login adopts the browser's timezone while the
   ledger is empty (#334).
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **AUTH-4** Expect the card "Bitcoin prices" on the Dashboard only (not on
   other pages), nothing chosen, its status line "Not chosen yet: nothing is
   contacted." Choose **Nobody**, then **Use this**. Expect: no page reload,
@@ -469,10 +588,12 @@ Start from the `clean` snapshot.
   `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
   "Page 1 of N" at the foot of each page.
 - **RPT-5** Complete Tax Report 2023 and 2024, with Nobody and no stored
-  prices. Expect: both generate. Every holdings value (Beginning of Year
-  and End of Year) reads "not priced", with the note "No BTC price for
-  when YYYY ended: not priced" (and for 2024 "No BTC price is stored for
-  2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
+  prices. Expect: both generate. Every holdings value of coins held
+  (Beginning of Year and End of Year) reads "not priced", with the note
+  "No BTC price for when YYYY ended: not priced" (and for 2024 "No BTC
+  price is stored for 2024-01-01, so the holdings aren't valued …"),
+  never $0.00. A day that holds 0 BTC rightly reads $0.00: 2023's
+  Beginning of Year, before the ledger holds any (#936). Every other
   figure is as in the expected-figures table. Section 7, "Notes", says how
   a blank value is priced (Bitstamp's hourly opening price, or your
   Mempool server's) and that the IRS approves no price source, and ends
@@ -1187,6 +1308,7 @@ Set `KEY` to the key from AI-3, and use
   nothing; so does `backup-pass` in both (11 characters: "The password is
   too short. At least 12 characters.", #204). Expect: the file
   `bitcoin_backup.btx` and "Backup downloaded."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **IMP-1** Settings, open **Data Management**: **Template** and
   **Instructions**. Expect: `btctx_import_template.csv`, whose header is the
   same as BAK-1's, and `BitcoinTX_CSV_Import_Guide.pdf`, which opens.
@@ -1241,6 +1363,7 @@ Set `KEY` to the key from AI-3, and use
   Expect: every golden figure, Coldcard and Kraken in **Wallets, exchanges
   and banks** (the backup's accounts), and the key made just before the
   restore still works (a restore never brings back an older key).
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **IMP-4** River import. Save this file as `river.csv`:
 
   ```csv
@@ -1448,6 +1571,18 @@ Set `KEY` to the key from AI-3, and use
 
 ### SEC: the live install from outside
 
+**At 2.0.2's gate, nothing sent the VM's test login or AI key to the
+VM** (the lead, #936). SEC-1 to SEC-9 ran on `127.0.0.1` against the
+candidate's image (plain http there, so no `Secure`), and on the VM only
+the legs that need no login. Left out on the VM, BLOCKED: SEC-4's cookie
+flags through StartOS's proxy, the AI key through it, SEC-5 with a
+session (its 200 and its 409) and SEC-9's right password. The golden
+ledger was loaded, and the figures read, inside the service over
+start-cli's own session. Whether these legs, and the walk's other test
+logins and AI-key calls to the VM (the golden loader's, BAK-2's and
+BAK-4's curl, the AI track's), may go to the VM is #924's open question,
+the owner's to decide. Until it is, ask the lead which way a run goes.
+
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
   Expect: 401 for each. `curl --cacert ca.crt -s -D - -o /dev/null
@@ -1500,6 +1635,7 @@ Set `KEY` to the key from AI-3, and use
   The second session's next action lands on the login page. Log in as
   `tester`. Nothing in StartOS shows a password again: Set Login
   Credentials only makes a new one.
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **SEC-9** Last in Track A's security checks, because it makes you wait.
   First log in with the current login (SEC-8's `tester` /
   `tester-password-1`) into a fresh jar (`-c jar9`): SEC-8's password
@@ -1526,16 +1662,24 @@ Set `KEY` to the key from AI-3, and use
 
 ### BAK (StartOS backup)
 
-- **BAK-5** (needs the second virtual disk and the VM's StartOS password)
-  Create a StartOS backup of BitcoinTX: System › Create Backup, the second
-  disk, select BitcoinTX, the password ("Master password needed"), **Create
+- **BAK-5** (needs the second virtual disk and the VM's StartOS password;
+  only when `scripts/gate/backup_path_changed.py` says "needed", else NOT
+  NEEDED with its output: What stays by hand) Create a StartOS backup of BitcoinTX: System › Create Backup, the second
+  disk (StartOS lists it by its device, `/dev/sda1` on the lab VM, not by
+  its label), select BitcoinTX, the password ("Master password needed"), **Create
   Backup**. Then uninstall BitcoinTX (its data goes with it). Restore it
   from the backup: System › Restore Backup, the disk, the server, the
-  password, BitcoinTX "Ready to restore", **Restore selected**. Expect: no
+  password, BitcoinTX "Ready to restore", **Restore selected**. Between
+  the backup and the agent's check, nobody runs Set Login Credentials or
+  signs in to BitcoinTX: its login isn't needed, and the restore is
+  checked against the login it backed up (2.0.2's first round failed only
+  that way, #936). Expect: no
   Set Login Credentials task; the service
-  starts; the LCK-2 password logs in; every golden figure; Tax Timezone
-  America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
-  still works; **Wallets, exchanges and banks** with Coldcard and Kraken
+  starts; the stored login is still LCK-2's (2.0.2's gate compared it
+  inside the service over start-cli); every golden figure; Tax Timezone
+  America/New_York; the price source as PRC-6 left it; the stored AI key
+  is still BAK-3's (on the VM, AI-12's), compared the same way;
+  **Wallets, exchanges and banks** with Coldcard and Kraken
   (Kraken's 1099-DA box ticked). INS-5's check that BitcoinTX isn't root
   passes too (from 1.2.9, #202).
 
@@ -1581,6 +1725,7 @@ severity: blocker (wrong tax figure, data loss, security), major, or minor.
   transactions, never accounts), each now with **Delete**; Bank's row
   offers none: "Your first bank, wallet and exchange can't be deleted.
   Hide one you don't use."
+  By script: `scripts/gate/pages.py` on `127.0.0.1` (#935).
 - **END-3** Uninstall BitcoinTX, then sideload the same `btctx_x86_64.s9pk`
   again (Start9's `publishing.md`: "Uninstall and reinstall to confirm
   teardown works"). Expect a fresh install, as INS-1 and INS-2: the two
@@ -1673,7 +1818,7 @@ Start from the `clean` snapshot.
   "unset"`, `"managed": false`. Public price sites saved by themselves is
   a FAIL. Set the action back to **Public price sites**.
 - **UPG-5b** (from 1.x to 2.0; needs UPG-1's StartOS backup and the VM's
-  StartOS password) A 1.x StartOS backup restored, then updated (Start9's
+  StartOS password; only when the backup path changed, as BAK-5) A 1.x StartOS backup restored, then updated (Start9's
   rule for a restore below the current version). Uninstall BitcoinTX (2.0
   and its data go). Restore UPG-1's StartOS backup, as BAK-5 does. Expect
   BitcoinTX back at 1.2.10 (the service page's version, and
@@ -1871,17 +2016,31 @@ read a 2.0 database back. So, on any Mac where that app is installed:
   http://127.0.0.1:8765/api/health`, and the same on 8767. Neither may
   change during the track: a version or schema that moved is a blocker
   FAIL; STOP.
-- Before the first launch, check whether the test build shares the
-  installed app's web view storage. WebKit keeps a window's cookies by
-  bundle id, and a cookie ignores the port, so a test build's login on
-  127.0.0.1 could replace the installed app's session or device cookie.
-  Note the modification times of
-  `~/Library/WebKit/<bundle id>` and `~/Library/HTTPStorages/<bundle id>*`
-  (where they exist), launch, log in, quit, and compare; then `ls
-  DATA/home/Library` for the test build's own. If the installed app's
-  moved, it shares them: the owner quits the installed app before each
-  launch and logs in to it again after the track, or the track runs on
-  another macOS account. Record which.
+- The script runs a copy of the build (in DATA, `test-app/`) with a bundle
+  id of its own, the build's with `.test-build` after it
+  (`org.bitcointx.desktop.test-build`), re-signed ad hoc, and prints it.
+  WebKit keeps a window's web view storage by bundle id, so a build run
+  under the installed app's id would share it (#924). The app opens its
+  window in pywebview's private mode, which clears that whole store at
+  each open, so even a launch without a login logged a running installed
+  app out; and a cookie ignores the port, so a test login could replace
+  its session cookie. The installed app stays as it is: no one quits it
+  or logs in to it again.
+- Check once that the storage isn't shared. If neither installed app is
+  running (nothing answers on 8765 or 8767):
+  - before the first launch, record each file's modification time and
+    size under `~/Library/WebKit/<installed id>`,
+    `~/Library/HTTPStorages/<installed id>*` and
+    `~/Library/Caches/<installed id>`, where they exist, for
+    `org.bitcointx.desktop` and `org.bitcointx.desktop.preview`;
+  - launch, log in, quit, and compare;
+  - expect them all unchanged, and the test build's own storage under
+    `<installed id>.test-build`. One that moved is a blocker FAIL; STOP.
+
+  If one of them is running, it writes its own folders too, so the check
+  would fail falsely. Record it as not run, and instead expect
+  `~/Library/WebKit/<installed id>.test-build` to appear at the first
+  launch: the store is the copy's own.
 - A step that can't keep these rules is BLOCKED, never run another way.
 
 - **MAC-1** Open `BitcoinTX-macOS.dmg`, drag the app to Applications and
@@ -2255,7 +2414,7 @@ Commit: <SHA> · Date: <date> · Agent: <name/model> · StartOS: <version> · VM
 Tracks run: A, B, C, WAY, BETA, REF, MAP (say which were skipped and why)
 
 ## Summary
-PASS n · FAIL n · KNOWN n · BLOCKED n
+PASS n · FAIL n · KNOWN n · BLOCKED n · NOT NEEDED n (BAK-5, UPG-5b: What stays by hand)
 Release verdict: GO / NO-GO (NO-GO if any FAIL is a blocker)
 
 ## Results
@@ -2294,3 +2453,20 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
   page "If your Form 1099-DA differs" (in a year with no sale in box G,
   H, J or K, its note on fees) says how to move its row by hand.
+
+Found in 2.0.2's time, each planned for 2.0.3 (2.0.2's CHANGELOG, Known
+issues). The golden ledger meets none of them; an exploratory step, a
+file of your own or MAP-1's real export can:
+- **#950**: coins acquired on 28 February of 2011, 2015, 2019, 2023 or
+  2027 and sold on 29 February of the next year are reported long-term;
+  they're short-term.
+- **#951**: the AI connector's import orders rows that share a time by
+  type, where a file import keeps the file's order, so the same rows can
+  use other coins.
+- **#952**: BitcoinTX's own CSV import drops, with no error, every row
+  after a cell whose quote is never closed.
+- **#953**: BitcoinTX's own CSV import, and River's, read a bitcoin
+  amount written "1,234" as 1234 BTC.
+- **#964**: on a device whose timezone data is older than BitcoinTX's, a
+  time typed in the transaction form, in #908's zones and periods, can be
+  saved an hour off.

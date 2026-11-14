@@ -94,6 +94,17 @@ def test_start9s_contributions_are_looked_at_first_never_accepted_automatically(
             assert words in rules, f"{path}: {words}"
 
 
+def test_the_flow_says_what_main_already_carries():
+    """#903 moved these lines word for word while they were already out of
+    date: the Monday report is `monday-report.yml`, not a task on a Mac, and
+    since 2.0.1's release `main` carries it and the new `dependabot.yml`."""
+    flow = flat((ROOT / "docs/HOW-CHANGES-FLOW.md").read_text())
+    for stale in ("a scheduled task on the owner's Mac",
+                  "until `main` carries `monday-report.yml`",
+                  "until `main` carries the new one"):
+        assert stale not in flow, stale
+
+
 def test_agents_md_keeps_the_outside_pull_request_rule():
     """Its short version in AGENTS.md, and the rule in full where it moved
     (docs/HOW-CHANGES-FLOW.md, #903)."""

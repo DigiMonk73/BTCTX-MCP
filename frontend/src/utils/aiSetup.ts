@@ -35,6 +35,8 @@ export interface AiSetupInput {
   version?: string;
   /** The Mac app: the MCP server finds the app and its key by itself. */
   keyMode?: boolean;
+  /** AI access's switch, once read: when on, the AI isn't asked to turn it on (#923). */
+  aiAccessOn?: boolean;
 }
 
 const RELEASE = /^\d+\.\d+\.\d+$/;
@@ -102,9 +104,13 @@ export function buildAiPrompt(input: AiSetupInput): string {
     "",
     // Off in a new install: the first try failed with "AI access is turned off" (#676).
     // A pre-release's Mac app has its own switch, never the installed app's
-    'AI access is off until I turn it on: before you check it works, ask me to turn on ' +
-      `"Let AI assistants use BitcoinTX" in ${input.keyMode ? macApp(input.version) : "BitcoinTX"} ` +
-      "Settings → Connect an AI Assistant.",
+    ...(input.aiAccessOn
+      ? []
+      : [
+          'AI access is off until I turn it on: before you check it works, ask me to turn on ' +
+            `"Let AI assistants use BitcoinTX" in ${input.keyMode ? macApp(input.version) : "BitcoinTX"} ` +
+            "Settings → Connect an AI Assistant.",
+        ]),
     "If you can't change your own configuration, give me the exact steps instead. " +
       "Once it's connected, call get_portfolio to confirm it works" +
       (input.keyMode ? ` (${macApp(input.version)} must be open).` : "."),

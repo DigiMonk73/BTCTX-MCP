@@ -27,6 +27,7 @@ make hooks          # installs the pre-push gate
 | Dependency audit | `make audit-deps` | No known-vulnerable Python/npm packages | secs |
 | Everything but e2e | `make check` | lint, test, smoke, audit-deps (run `make e2e` separately) | ~7 min |
 | Agent release tests | `docs/AGENT-TESTS.md` | An AI agent (or a person) runs the packaged app on a StartOS VM, before each release: install, actions and tasks, the update from the last release, backups, price sources, TLS, a real MCP client, and the Mac app, against a 14-transaction ledger with every figure known | ~4 h |
+| The gate's sign-in and password pages | `scripts/gate/pages.py <candidate image>` | The release gate's AUTH-1 to AUTH-3, BAK-2, BAK-3, SEC-8 and END-2 (#935), by Playwright against the candidate's own Docker image on `127.0.0.1`, set up as StartOS sets it up, with test logins: PASS or FAIL per step with what it saw. Refuses any other host; checks the owner's ports (8765, 8767) before and after; removes its container and volume. Not in CI: it needs the candidate's image | ~1 min |
 
 ## When they run
 
@@ -55,9 +56,8 @@ make hooks          # installs the pre-push gate
     other pull request (into `develop`, `main` or any other branch) runs
     the full set. `staging`, which had the medium set too, is retired
     (#901). AGENTS.md, "Branches".
-- **Weekly, on Mondays** (from the release that brings it to `main`, since
-  GitHub runs a schedule only from there; until then each session runs the
-  script, AGENTS.md, "Starting a session"): `start9-watch.yml`
+- **Weekly, on Mondays** (from `main`, since GitHub runs a schedule only
+  from there): `start9-watch.yml`
   (`scripts/start9-watch.sh`) opens an issue for
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
@@ -239,6 +239,16 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   run the sidebar's converter and calculator under every price-source
   state, checking that nothing is asked before a choice or while off and
   that no request names the day.
+- A route handler that asks the network itself (`route.fetch()`, or a
+  request context's call) fails once its test's page is closed, and
+  Playwright blames whichever test runs next (#930). So a spec with such a
+  handler has a top-level `test.afterEach` (one inside a `describe` covers
+  only that block) awaiting
+  `page.unrouteAll({ behavior: "ignoreErrors" })`, or the context's,
+  whichever it routed; the shared helpers have no such handler. `src/e2eRouteHandlers930.test.ts` fails otherwise.
+- The specs' types are checked only in CI (`npx tsc -p e2e`, the frontend
+  job, #944): `make lint` and the pre-push hook run `tsc -b`, which covers
+  the app alone. Run `cd frontend && npx tsc -p e2e` after changing a spec.
 - A `test.fail()` marks a known bug the test describes correctly, naming
   its `bug` issue; remove it with the fix.
 - Install the browsers once per Playwright version: `npx playwright install

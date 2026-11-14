@@ -8,6 +8,13 @@ import type { Page } from "@playwright/test";
 
 test.use({ fakeInternet: true, priceSource: "unset" });
 
+// #188's handlers ask the server themselves (route.fetch(), page.request): one
+// still asking when its test ends fails, and is reported against the next test (#930)
+test.afterEach(async ({ page }) => {
+  // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 const MEMPOOL_DOWN = "http://mempool.invalid:3006"; // the fake internet never answers .invalid
 const TOR_STOPPED = "socks5h://tor.invalid:9050";
 
@@ -53,6 +60,20 @@ test("keyboard only: Tab into the choices, the arrows pick, Tab to the button, E
   await expect(card).toHaveCount(0);
   expect((await (await page.request.get("/api/settings/network")).json()).price_source).toBe("public");
   expect(browser).toEqual([]);
+});
+
+// The 2.0.1 gate saw none ticked here until a reload (#920), not reproduced since: this keeps it checked
+test("#920: Nobody chosen on the Dashboard shows ticked in Settings, with no reload between", async ({ page, app }) => {
+  await logIn(page, app);
+  const card = page.getByRole("region", { name: "Bitcoin prices" });
+  await card.getByLabel(/^Nobody/).check();
+  await card.getByRole("button", { name: "Use this" }).click();
+  await expect(card).toHaveCount(0);
+  await page.getByRole("link", { name: "Settings" }).click();
+  const net = await openSection(page, "Privacy & Network");
+  await expect(net.getByText("Fully offline: nothing is contacted.")).toBeVisible();
+  await expect(net.getByLabel(/^Nobody/)).toBeChecked();
+  for (const other of [/^My own Mempool/, /^Public price sites/]) await expect(net.getByLabel(other)).not.toBeChecked();
 });
 
 test("your Mempool down, with the backup: the status says the public sites answered instead", async ({ page, app }) => {
