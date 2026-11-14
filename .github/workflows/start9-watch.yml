@@ -8,9 +8,9 @@ name: Start9 watch
 # failed build on the mirror or on Start9's fork, and changes on the fork not
 # taken back. Each opens one issue, labelled start9; the Monday report
 # (monday-report.yml) lists the open ones hours later. GitHub runs a schedule
-# only from the default branch (main), which carries this file since
-# 2.0.1's release. It runs develop's script, so a fix to the script needs
-# no release.
+# only from the default branch (main), which has carried this file since
+# 2.0.0's release (weekly since 2.0.1's). It runs develop's script, so a fix
+# to the script needs no release.
 on:
   schedule:
     - cron: '23 8 * * 1'

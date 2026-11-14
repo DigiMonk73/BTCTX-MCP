@@ -1677,8 +1677,9 @@ the owner's to decide. Until it is, ask the lead which way a run goes.
   Set Login Credentials task; the service
   starts; the stored login is still LCK-2's (2.0.2's gate compared it
   inside the service over start-cli); every golden figure; Tax Timezone
-  America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
-  still works; **Wallets, exchanges and banks** with Coldcard and Kraken
+  America/New_York; the price source as PRC-6 left it; the stored AI key
+  is still BAK-3's (on the VM, AI-12's), compared the same way;
+  **Wallets, exchanges and banks** with Coldcard and Kraken
   (Kraken's 1099-DA box ticked). INS-5's check that BitcoinTX isn't root
   passes too (from 1.2.9, #202).
 
