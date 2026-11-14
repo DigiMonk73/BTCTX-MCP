@@ -49,9 +49,9 @@ map.
   `request.session` itself relies on its router's `get_current_user`
   having cleared an ended session first; outside such a router, use
   `require_login`.
-  A 401 to a browser means its session ended, and nothing else (#945):
-  since #943 the frontend sends the browser to the sign-in page on any
-  401 but its own two (`frontend/src/api.ts`, `OWN_401`: `/api/login`'s
+  A 401 to a browser means its session ended, except `OWN_401`'s two
+  (#945): since #943 the frontend sends the browser to the sign-in page
+  on any other 401 (`frontend/src/api.ts`, `OWN_401`: `/api/login`'s
   wrong password, and `/api/protected`, PrivateRoute's check whether
   anyone is signed in). Anything else a browser is refused gets 403, a
   wrong current password included. A route answering 401 for something

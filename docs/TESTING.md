@@ -242,9 +242,10 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
 - A route handler that asks the network itself (`route.fetch()`, or a
   request context's call) fails once its test's page is closed, and
   Playwright blames whichever test runs next (#930). So a spec with such a
-  handler drops its routes after each test (`page.unrouteAll`, from the
-  page or context it routed), and the shared helpers have none;
-  `src/e2eRouteHandlers930.test.ts` fails otherwise.
+  handler has a top-level `test.afterEach` (one inside a `describe` covers
+  only that block) awaiting
+  `page.unrouteAll({ behavior: "ignoreErrors" })`, or the context's,
+  whichever it routed; the shared helpers have no such handler. `src/e2eRouteHandlers930.test.ts` fails otherwise.
 - The specs' types are checked only in CI (`npx tsc -p e2e`, the frontend
   job, #944): `make lint` and the pre-push hook run `tsc -b`, which covers
   the app alone. Run `cd frontend && npx tsc -p e2e` after changing a spec.

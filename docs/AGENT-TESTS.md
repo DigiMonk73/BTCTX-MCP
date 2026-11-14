@@ -49,7 +49,7 @@ feeling.
    `form_input` (or anything else that sets `checked` itself): the app
    doesn't see such a change, so the page and the app fall out of step,
    and what you read back is the tool's doing. 2.0.1's AUTH-4 finding
-   (#920, not reproduced with real clicks) was that.
+   (#920, not reproduced with real clicks) was most likely that.
 
 ## What stays by hand
 
@@ -68,9 +68,9 @@ run starts:
 
 **The StartOS backup and restore, by hand** (BAK-5, UPG-5b): StartOS lists
 the backup disk by its device (`/dev/sda1` on the lab VM), not by its
-label. BitcoinTX's own login isn't needed between the parts and must not
-be reset: running Set Login Credentials before the agent's check changes
-the very login the restore is checked against (#936).
+label. Between the backup and the agent's check, nobody runs Set Login
+Credentials or signs in to BitcoinTX: its login isn't needed, and the
+restore is checked against the login it backed up (#936).
 
 **When BAK-5 and UPG-5b run** (#924). They run only when the release
 changes the StartOS backup path:
@@ -224,7 +224,12 @@ names the release walk's corrections.
 - `server update <registry> --to X` means X **or newer**: at 2.0.2's gate,
   `--to 0.4.1.2` staged 0.4.2 (#936). To update to one version exactly,
   as a gate on an older StartOS needs, write `--to '=X'`, quoted, since
-  zsh reads a leading `=` as a command's path.
+  zsh reads a leading `=` as a command's path. It returns at once while
+  StartOS downloads in the background: wait until
+  `serverInfo.statusInfo.updateProgress` is null (`start-cli db dump`)
+  before any shutdown, or the update is thrown away. Then `server
+  shutdown` and a cold start, not `server restart`, whose warm restart
+  hung the VM twice (#881).
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no key trusted for packages signed: our own
   packages, and BitcoinTX's Community Beta builds, which only that
@@ -367,7 +372,8 @@ btctx:candidate -`) and paste the summary into the report.
 
 **On the VM**, these steps aren't walked: their pages are the script's,
 and the API checks (the golden loader, IMP-3's and SEC-1 to SEC-9's curl)
-still run there. The later steps that use what these steps leave take it
+still run there, but for those that send the VM's test login or AI key:
+#924's open question (SEC's first paragraph). The later steps that use what these steps leave take it
 from the VM's own walk instead:
 - **The login stays INS-3's** `admin`, since no SEC-8 or END-2 ran there.
   SEC-9's fresh jar logs in with it, LCK-2 expects INS-3's password (not
@@ -1565,15 +1571,17 @@ Set `KEY` to the key from AI-3, and use
 
 ### SEC: the live install from outside
 
-**The legs that need a login are BLOCKED on the VM for now** (2.0.2's
-gate, #936): SEC-4's cookie flags, the AI key through StartOS's proxy,
-SEC-5 with a session (its 200 and its 409) and SEC-9's right password.
-Each sends the VM's test login or AI key to the VM, while an agent sends
-a test login only to its own computer (`127.0.0.1`). Whether these may
-go to the VM is #924's open question, the owner's to decide; until then
-mark them BLOCKED with that reason. Their pages and API run on
-`127.0.0.1` against the candidate's image in Track A's walk, and the
-checks that need no login still run on the VM.
+**At 2.0.2's gate, nothing sent the VM's test login or AI key to the
+VM** (the lead, #936). SEC-1 to SEC-9 ran on `127.0.0.1` against the
+candidate's image (plain http there, so no `Secure`), and on the VM only
+the legs that need no login. Left out on the VM, BLOCKED: SEC-4's cookie
+flags through StartOS's proxy, the AI key through it, SEC-5 with a
+session (its 200 and its 409) and SEC-9's right password. The golden
+ledger was loaded, and the figures read, inside the service over
+start-cli's own session. Whether these legs, and the walk's other test
+logins and AI-key calls to the VM (the golden loader's, BAK-2's and
+BAK-4's curl, the AI track's), may go to the VM is #924's open question,
+the owner's to decide. Until it is, ask the lead which way a run goes.
 
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
@@ -1662,11 +1670,13 @@ checks that need no login still run on the VM.
   Backup**. Then uninstall BitcoinTX (its data goes with it). Restore it
   from the backup: System › Restore Backup, the disk, the server, the
   password, BitcoinTX "Ready to restore", **Restore selected**. Between
-  the backup and the check, nobody runs Set Login Credentials or signs in
-  to BitcoinTX: the restore is checked against the login it backed up
-  (2.0.2's first round failed only that way, #936). Expect: no
+  the backup and the agent's check, nobody runs Set Login Credentials or
+  signs in to BitcoinTX: its login isn't needed, and the restore is
+  checked against the login it backed up (2.0.2's first round failed only
+  that way, #936). Expect: no
   Set Login Credentials task; the service
-  starts; the LCK-2 password logs in; every golden figure; Tax Timezone
+  starts; the stored login is still LCK-2's (2.0.2's gate compared it
+  inside the service over start-cli); every golden figure; Tax Timezone
   America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
   still works; **Wallets, exchanges and banks** with Coldcard and Kraken
   (Kraken's 1099-DA box ticked). INS-5's check that BitcoinTX isn't root

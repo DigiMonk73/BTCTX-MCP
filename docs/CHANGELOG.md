@@ -357,6 +357,8 @@ planned for 2.0.3:
   chosen on the Dashboard. That couldn't be reproduced, either in the
   click-through tests or in the in-app browser on the gate's own path.
   The new test keeps that path checked.
+- **2.0.2's release gate** (#936): GO on StartOS 0.4.1.2 and on 0.4.2,
+  with the StartOS backup and restore (BAK-5, UPG-5b) run on both.
 
 ## [v2.0.1] - 2026-11-06 - A maintenance update: the tax timezone's rules from BitcoinTX's own data, and a page for when a Form 1099-DA differs
 
