@@ -4,6 +4,31 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Coins acquired on 28 February and sold on 29 February of the next
+  year are short-term** (#950, tax figures). The IRS counts a holding
+  period from the day after the acquisition, and a holding period that
+  starts on the first of a month runs in whole calendar months (Rev. Rul.
+  66-7; Caspe v. United States). So coins acquired on the last day of a
+  month are held more than a year only from the first day of the month
+  after that month a year later. BitcoinTX counted a year to the same date
+  a year later, and so reported coins acquired on 28 February 2023 and
+  sold on 29 February 2024 as long-term. Every other date was already
+  right: the only sales that change are those on 29 February 2012, 2016,
+  2020 or 2024 (next, 2028) of coins acquired on 28 February of the year
+  before, a purchase or a My BTC or Gift deposit's date originally
+  acquired. Such a sale's gain stays the same; it moves from long-term to
+  short-term: from Form 8949's Part II to Part I (for 2024, box F to box
+  C) and on Schedule D. Every earlier version has it.
+  **What to do:** if you sold, spent or donated bitcoin on 29 February
+  2024 (or 2020, 2016, 2012) from coins acquired on 28 February of the
+  year before, update, run Recalculate Ledger, and print that year's
+  forms again. If you already filed that year with the sale as long-term,
+  ask your tax preparer whether to amend: short-term gains are taxed at
+  your ordinary rate. Most ledgers have no such sale and see no change.
+  The report's note on the holding period says the rule.
+
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
 **In short.** 2.0.2 is the second maintenance update of 2.0. It fixes one

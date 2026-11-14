@@ -281,7 +281,15 @@ map.
   (`hourly_prices.with_prices_found`, #426), so a new way to save or
   recalculate runs in it.
 - **Holding period**: long-term only when disposed *after* the one-year
-  anniversary (IRS "more than one year"), dates taken in the tax timezone.
+  anniversary (IRS "more than one year", counted from the day after
+  acquisition: Pub. 550), dates taken in the tax timezone. Acquired on a
+  month's last day, the anniversary is the last day of the same month a
+  year later (Rev. Rul. 66-7; Caspe v. United States: the year runs in
+  calendar months from the first of the next month), so 28 February 2023
+  turns long-term on 1 March 2024, never on 29 February
+  (`transaction.one_year_anniversary`, #950); 29 February's is 28
+  February. Never "(acquired + 1 day) + 1 year": it makes 28 February 2024
+  long-term on 28 February 2025.
   It runs from the lot's acquisition date: a My BTC or Gift deposit's date
   originally acquired (`acquired_at`, a plain date since #185: its lot is at
   noon of it in the tax timezone, never after the deposit) when given, else
