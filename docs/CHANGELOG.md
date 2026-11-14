@@ -242,6 +242,15 @@ planned for 2.0.3:
   the release gate's figures, the reference test ledger's IRS forms and
   CSVs (byte for byte) and its Complete Tax Reports (by text) are the same
   from the old image and the new.
+- **opentelemetry-api 1.45.2** (from 1.45.1), which FastAPI installs, for
+  an advisory published on 2026-11-13 (CVE-2026-126360,
+  GHSA-mf5v-w3w3-f6cg): a long `traceparent` header could take a long
+  time to read. FastAPI reads that header only when its own telemetry is
+  turned on, and BitcoinTX never turns it on, so the risk here was low.
+  It's the only package that changes. The release gate ran before it, on
+  1.45.1; the change is a patch release of a library BitcoinTX never
+  calls, so the gate wasn't run again: CI's full tests, click-through
+  tests and StartOS package build ran on it instead. No figure moves.
 
 ### StartOS package
 - **Package 2.0.2:0** (Start9's `versions.md`). 2.0.1:0's migration was
