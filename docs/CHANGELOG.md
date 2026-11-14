@@ -13,7 +13,8 @@ All notable changes to BitcoinTX are documented in this file.
   reports. Each step links to the part of the page that says more. The
   README's "First login" points to it, and the StartOS Instructions already
   link the page. The page and the README now call the first price choice
-  **My own Mempool**, as the app does.
+  **My own Mempool**, as the app does, and "Reports and tax forms" says
+  what a year older than BitcoinTX's IRS forms has instead.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 

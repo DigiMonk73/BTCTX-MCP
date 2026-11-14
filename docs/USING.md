@@ -48,45 +48,44 @@ forms. Each links to the part of this page that says more.
 
 1. **Choose where prices come from.** The Dashboard asks "Where should
    BitcoinTX get Bitcoin prices?": **My own Mempool**, **Public price
-   sites** or **Nobody**. BitcoinTX contacts nothing until you choose, and
-   it uses prices for the dollar values you don't type and to show what
-   your bitcoin is worth. On StartOS, the **Price Source & Privacy**
-   action asks first. ([Prices and privacy](#prices-and-privacy))
+   sites** or **Nobody**; nothing is contacted until you choose. On
+   StartOS, the **Price Source & Privacy** action asks instead, unless you
+   choose **Decide in BitcoinTX instead** there. ([Prices and
+   privacy](#prices-and-privacy))
 2. **Check the tax timezone.** In **Settings → Account**, the **Tax
    Timezone** decides which tax year a late-night December 31 transaction
-   belongs to, and when your coins turn long-term. Choose the one where
-   you file and click **Save**, before you add transactions: changing it
-   later recalculates the ledger. ([Lots, gains and the holding
+   belongs to, and when coins turn long-term. If it isn't where you file,
+   choose that one and click **Save** before you add transactions: a
+   change later recalculates the ledger. ([Lots, gains and the holding
    period](#lots-gains-and-the-holding-period))
 3. **Add each wallet, exchange and bank.** BitcoinTX starts with one of
-   each. In **Settings → Wallets, exchanges and banks**, rename them to
+   each: in **Settings → Wallets, exchanges and banks**, rename them to
    match yours, and use **Add a wallet**, **Add an exchange** or **Add a
-   bank** for the rest. Since 2025, cost basis is figured for each wallet
-   and each exchange on its own, so give every one its own account here
-   before you record anything in it. ([Wallets, exchanges and
+   bank** for the rest. Cost basis is figured for each wallet and each
+   exchange on its own, so give every one its own account before you
+   record anything in it. ([Wallets, exchanges and
    banks](#wallets-exchanges-and-banks))
-4. **Import or enter your transactions.** Include the years before this
-   one: the coins you bought earlier set the cost of what you sell now.
-   **Settings → Import from an exchange** reads an exchange's file and
-   shows a preview before anything is saved; **Add transaction**, on the
-   **Transactions** page, enters the rest by hand. A move between your own
-   wallets and exchanges is a Transfer, not a sale. ([Imports and the CSV
+4. **Import or enter your transactions,** every year back to your first
+   bitcoin: the coins you bought earlier set the cost of what you sell
+   now. Use **Settings → Import from an exchange** for an exchange's file
+   (it shows a preview before saving), and **Add transaction**, on
+   **Transactions**, for the rest. ([Imports and the CSV
    export](#imports-and-the-csv-export), [Transactions](#transactions))
 5. **Go through Ledger Review.** **Settings → Ledger Review** lists saved
-   entries worth a second look, such as a spent withdrawal with no
-   proceeds, and says what to do with each. Work through it until its line
-   no longer counts transactions to check, then compare the Dashboard's
-   balances with your wallets and exchanges. ([Ledger Review and
-   Recalculate Ledger](#ledger-review-and-recalculate-ledger))
-6. **Print the reports.** On **Reports**, choose the **Tax year** and a
-   **Report**, then click **Export**. **IRS Reports (Form 8949, Schedule
-   D, etc.)** are the filled tax forms; the **Complete Tax Report** shows
-   every figure behind them. A year marked "(no IRS forms yet)" gets its
-   forms in an update of BitcoinTX once the IRS publishes them. Have a tax
-   professional check the figures before you file. ([Reports and tax
-   forms](#reports-and-tax-forms))
+   entries worth a second look, and says what to do with each: work
+   through it until its line says "Nothing to review" or "Nothing looks
+   wrong" (for a year you've already filed, read what it says before
+   changing a value). Then compare the Dashboard's balances with your
+   wallets and exchanges. ([Ledger Review and Recalculate
+   Ledger](#ledger-review-and-recalculate-ledger))
+6. **Print the reports.** On **Reports**, choose the **Report** and the
+   **Tax year**, then click **Export**: **IRS Reports (Form 8949, Schedule
+   D, etc.)** are the filled tax forms, and the **Complete Tax Report**
+   shows every figure behind them. Have a tax professional check them
+   before you file. ([Reports and tax forms](#reports-and-tax-forms))
 
-Each year after that is steps 4 to 6.
+Each year after that is steps 4 to 6, with step 3 first for a new wallet,
+exchange or bank.
 
 ## Wallets, exchanges and banks
 
@@ -471,7 +470,9 @@ Two more limits:
 
 Each year's final IRS forms come in an update once the IRS publishes them;
 until then, the IRS's draft of that year is a preview, marked DRAFT — DO
-NOT FILE.
+NOT FILE. A year older than the forms BitcoinTX has is marked "(no IRS
+forms yet)" too: for it, the Complete Tax Report has every figure Form
+8949 needs, for your tax professional or tax software.
 
 ## Imports and the CSV export
 
