@@ -178,7 +178,9 @@ names the release walk's corrections.
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
-  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1). Finish StartOS setup, then
+  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.1 or later:
+  from 2.0.2 (start-sdk 4.0.0, #940) the package installs on nothing
+  older. Finish StartOS setup, then
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
@@ -2440,3 +2442,20 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
   page "If your Form 1099-DA differs" (in a year with no sale in box G,
   H, J or K, its note on fees) says how to move its row by hand.
+
+Found in 2.0.2's time, each planned for 2.0.3 (2.0.2's CHANGELOG, Known
+issues). The golden ledger meets none of them; an exploratory step, a
+file of your own or MAP-1's real export can:
+- **#950**: coins acquired on 28 February of 2011, 2015, 2019, 2023 or
+  2027 and sold on 29 February of the next year are reported long-term;
+  they're short-term.
+- **#951**: the AI connector's import orders rows that share a time by
+  type, where a file import keeps the file's order, so the same rows can
+  use other coins.
+- **#952**: BitcoinTX's own CSV import drops, with no error, every row
+  after a cell whose quote is never closed.
+- **#953**: BitcoinTX's own CSV import, and River's, read a bitcoin
+  amount written "1,234" as 1234 BTC.
+- **#964**: on a device whose timezone data is older than BitcoinTX's, a
+  time typed in the transaction form, in #908's zones and periods, can be
+  saved an hour off.

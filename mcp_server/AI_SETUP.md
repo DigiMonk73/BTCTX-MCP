@@ -102,8 +102,10 @@ and give the user the steps to follow.
 ## 2A. The Mac app: add the server, nothing secret
 
 One command, no environment variables. BitcoinTX must be open when the AI
-uses it, and the user must turn on **Settings → Connect an AI Assistant → Let
-AI assistants use BitcoinTX** (off by default); ask them to. For a 2.0 alpha
+uses it, with **Settings → Connect an AI Assistant → Let AI assistants use
+BitcoinTX** on (off by default). Ask the user to turn it on only if their
+prompt says AI access is off, or section 4's check answers `AI access is
+turned off`: a prompt copied once it's on doesn't say so. For a 2.0 alpha
 or beta, the app is BitcoinTX Preview: use `bitcointx-preview` for
 `bitcointx` below and the prompt's `btctx-mcp==2.0.0aN` or `2.0.0bN`, beside
 any `bitcointx` server, which stays as it is.
