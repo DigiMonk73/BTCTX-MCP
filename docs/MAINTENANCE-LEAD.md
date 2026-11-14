@@ -232,7 +232,9 @@ on the StartOS test machine and the fresh docs read, then the owner's
   session**, when the owner asks for one (2.0.3, the owner,
   2026-11-14: "open a Fable session to do the thorough plan"). It
   posts one plan as a comment on the release's issue and changes
-  nothing else; the lanes still get only the brief above.
+  nothing else. The lead carries it into that issue's lane rows,
+  which is where a lane reads it: the lanes still get only the
+  brief above.
 - **A new tax year's IRS forms go out as soon as the IRS publishes
   them** (the owner, 2026-11-09: "I want to get the new 2026 tax form
   as soon as it comes out"). The IRS forms watch opens an issue when
