@@ -8,6 +8,8 @@ places a contributor or a session reads them.
 
 import re
 
+import pytest
+
 from backend.tests.test_test_files import needs_a_checkout
 from backend.tests.test_texts_2_0_357 import ROOT, flat, tracked
 
@@ -92,6 +94,18 @@ def test_start9s_contributions_are_looked_at_first_never_accepted_automatically(
         rules = section((ROOT / path).read_text(), heading)
         for words in ("Start9Labs", "Start9-Community", "never accepted automatically", "the same day", "never by"):
             assert words in rules, f"{path}: {words}"
+
+
+@pytest.mark.xfail(strict=True, reason="#903's lines, fixed in this pull request (for #937)")
+def test_the_flow_says_what_main_already_carries():
+    """#903 moved these lines word for word while they were already out of
+    date: the Monday report is `monday-report.yml`, not a task on a Mac, and
+    since 2.0.1's release `main` carries it and the new `dependabot.yml`."""
+    flow = flat((ROOT / "docs/HOW-CHANGES-FLOW.md").read_text())
+    for stale in ("a scheduled task on the owner's Mac",
+                  "until `main` carries `monday-report.yml`",
+                  "until `main` carries the new one"):
+        assert stale not in flow, stale
 
 
 def test_agents_md_keeps_the_outside_pull_request_rule():
