@@ -45,6 +45,11 @@ feeling.
    script says it usually takes, is reported at once to the lead or the
    owner, saying what it waits on, rather than left to sit. Beta.2's gate
    lost 12 hours to one browser step waiting on an approval nobody saw.
+9. **Radios and checkboxes by real clicks**, never a browser tool's
+   `form_input` (or anything else that sets `checked` itself): the app
+   doesn't see such a change, so the page and the app fall out of step,
+   and what you read back is the tool's doing. 2.0.1's AUTH-4 finding
+   (#920, not reproduced with real clicks) was that.
 
 ## What stays by hand
 
@@ -1557,6 +1562,16 @@ Set `KEY` to the key from AI-3, and use
   the backup's rows (#656).
 
 ### SEC: the live install from outside
+
+**The legs that need a login are BLOCKED on the VM for now** (2.0.2's
+gate, #936): SEC-4's cookie flags, the AI key through StartOS's proxy,
+SEC-5 with a session (its 200 and its 409) and SEC-9's right password.
+Each sends the VM's test login or AI key to the VM, while an agent sends
+a test login only to its own computer (`127.0.0.1`). Whether these may
+go to the VM is #924's open question, the owner's to decide; until then
+mark them BLOCKED with that reason. Their pages and API run on
+`127.0.0.1` against the candidate's image in Track A's walk, and the
+checks that need no login still run on the VM.
 
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.

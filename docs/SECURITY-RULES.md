@@ -49,6 +49,15 @@ map.
   `request.session` itself relies on its router's `get_current_user`
   having cleared an ended session first; outside such a router, use
   `require_login`.
+  A 401 to a browser means its session ended, and nothing else (#945):
+  since #943 the frontend sends the browser to the sign-in page on any
+  401 but its own two (`frontend/src/api.ts`, `OWN_401`: `/api/login`'s
+  wrong password, and `/api/protected`, PrivateRoute's check whether
+  anyone is signed in). Anything else a browser is refused gets 403, a
+  wrong current password included. A route answering 401 for something
+  else would send its page to the sign-in page, which, finding the
+  session open, goes back to the Dashboard: a loop if the Dashboard asked
+  that route. The AI key's 401s never reach a browser.
 - Login, reset-account and password changes are throttled
   (`services/login_throttle.py`, per client and global; 429 + Retry-After).
   A try counts as a failure from when it arrives (`check()`) until it's
