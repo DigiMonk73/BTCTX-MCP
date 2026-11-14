@@ -61,6 +61,12 @@ run starts:
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
 | The owner's own test: the release loaded and a few basics tried on their own install, with StartOS's **My Mempool on this server** (PRC-4, which needs their synced node) | the owner | after the gate, before "merge" |
 
+**The StartOS backup and restore, by hand** (BAK-5, UPG-5b): StartOS lists
+the backup disk by its device (`/dev/sda1` on the lab VM), not by its
+label. BitcoinTX's own login isn't needed between the parts and must not
+be reset: running Set Login Credentials before the agent's check changes
+the very login the restore is checked against (#936).
+
 **When BAK-5 and UPG-5b run** (#924). They run only when the release
 changes the StartOS backup path:
 - the package's backup settings or start-sdk version;
@@ -208,6 +214,10 @@ names the release walk's corrections.
   installing); an action with input needs the `eventId` from
   `package action get-input` passed to `package action run --event-id`,
   with the input as JSON on stdin (`null` for none).
+- `server update <registry> --to X` means X **or newer**: at 2.0.2's gate,
+  `--to 0.4.1.2` staged 0.4.2 (#936). To update to one version exactly,
+  as a gate on an older StartOS needs, write `--to '=X'`, quoted, since
+  zsh reads a leading `=` as a command's path.
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no key trusted for packages signed: our own
   packages, and BitcoinTX's Community Beta builds, which only that
@@ -565,10 +575,12 @@ Start from the `clean` snapshot.
   `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
   "Page 1 of N" at the foot of each page.
 - **RPT-5** Complete Tax Report 2023 and 2024, with Nobody and no stored
-  prices. Expect: both generate. Every holdings value (Beginning of Year
-  and End of Year) reads "not priced", with the note "No BTC price for
-  when YYYY ended: not priced" (and for 2024 "No BTC price is stored for
-  2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
+  prices. Expect: both generate. Every holdings value of coins held
+  (Beginning of Year and End of Year) reads "not priced", with the note
+  "No BTC price for when YYYY ended: not priced" (and for 2024 "No BTC
+  price is stored for 2024-01-01, so the holdings aren't valued …"),
+  never $0.00. A day that holds 0 BTC rightly reads $0.00: 2023's
+  Beginning of Year, before the ledger holds any (#936). Every other
   figure is as in the expected-figures table. Section 7, "Notes", says how
   a blank value is priced (Bitstamp's hourly opening price, or your
   Mempool server's) and that the IRS approves no price source, and ends
@@ -1628,10 +1640,14 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-5** (needs the second virtual disk and the VM's StartOS password;
   only when `scripts/gate/backup_path_changed.py` says "needed", else NOT
   NEEDED with its output: What stays by hand) Create a StartOS backup of BitcoinTX: System › Create Backup, the second
-  disk, select BitcoinTX, the password ("Master password needed"), **Create
+  disk (StartOS lists it by its device, `/dev/sda1` on the lab VM, not by
+  its label), select BitcoinTX, the password ("Master password needed"), **Create
   Backup**. Then uninstall BitcoinTX (its data goes with it). Restore it
   from the backup: System › Restore Backup, the disk, the server, the
-  password, BitcoinTX "Ready to restore", **Restore selected**. Expect: no
+  password, BitcoinTX "Ready to restore", **Restore selected**. Between
+  the backup and the check, nobody runs Set Login Credentials or signs in
+  to BitcoinTX: the restore is checked against the login it backed up
+  (2.0.2's first round failed only that way, #936). Expect: no
   Set Login Credentials task; the service
   starts; the LCK-2 password logs in; every golden figure; Tax Timezone
   America/New_York; the price source as PRC-6 left it; the AI key from BAK-3

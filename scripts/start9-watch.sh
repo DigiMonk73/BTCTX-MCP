@@ -129,7 +129,7 @@ check_startos() {
 Start9 released StartOS ${v#v} ($NOTES/start-os/$v). Users update to it, so BitcoinTX's package must work there:
 
 - Read the release notes for anything that touches services: install and update, tasks and actions, backups, interfaces and networking, health checks.
-- Update the lab VM (\`~/code/btctx-vm-lab\`: \`./vm.sh cli server update https://registry.start9.com --to ${v#v}\`, then restart it), then install the released package fresh and update to it from the previous release (\`docs/AGENT-TESTS.md\`, INS and UPG-1 to UPG-3), and record the result here.
+- Update the lab VM (\`~/code/btctx-vm-lab\`: \`./vm.sh cli server update https://registry.start9.com --to '=${v#v}'\`, then restart it), then install the released package fresh and update to it from the previous release (\`docs/AGENT-TESTS.md\`, INS and UPG-1 to UPG-3), and record the result here.
 - If it raises the minimum StartOS the SDK targets, the next package follows it (startos/UPDATING.md).
 EOF
   open_once "StartOS ${v#v} is out: test BitcoinTX on it" "$body"
