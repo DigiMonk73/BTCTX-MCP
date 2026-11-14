@@ -39,7 +39,9 @@ install, never on someone else's.
 
 Only the latest release gets security fixes. On StartOS, that's the newest
 BitcoinTX package Start9 publishes (each release goes to Start9's Community
-Beta registry first). Updating is the fix for every older version.
+Beta registry first). Updating is the fix for every older version. From
+2.0.2 the package needs StartOS 0.4.1 or later, so on an older StartOS
+that means updating StartOS first.
 
 BitcoinTX 1.x gets no more fixes: its last release, 1.2.10, stays
 downloadable, and updating to 2.0 is the fix. So is updating from a 2.0

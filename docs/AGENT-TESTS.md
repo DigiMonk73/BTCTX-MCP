@@ -45,6 +45,11 @@ feeling.
    script says it usually takes, is reported at once to the lead or the
    owner, saying what it waits on, rather than left to sit. Beta.2's gate
    lost 12 hours to one browser step waiting on an approval nobody saw.
+9. **Radios and checkboxes by real clicks**, never a browser tool's
+   `form_input` (or anything else that sets `checked` itself): the app
+   doesn't see such a change, so the page and the app fall out of step,
+   and what you read back is the tool's doing. 2.0.1's AUTH-4 finding
+   (#920, not reproduced with real clicks) was most likely that.
 
 ## What stays by hand
 
@@ -60,6 +65,12 @@ run starts:
 | A downloaded Mac app's first open: Control-click > Open, or **Open Anyway** in System Settings | a person at the Mac | MAC-1 (`desktop/run-test-build.sh`'s launches need none: it runs its own copy, without the quarantine) |
 | The agent's own approval prompts (a tool's or a site's permission, a browser extension's) | whoever runs the agent, granting what the run needs before it starts | every track |
 | The owner's own test: the release loaded and a few basics tried on their own install, with StartOS's **My Mempool on this server** (PRC-4, which needs their synced node) | the owner | after the gate, before "merge" |
+
+**The StartOS backup and restore, by hand** (BAK-5, UPG-5b): StartOS lists
+the backup disk by its device (`/dev/sda1` on the lab VM), not by its
+label. Between the backup and the agent's check, nobody runs Set Login
+Credentials or signs in to BitcoinTX: its login isn't needed, and the
+restore is checked against the login it backed up (#936).
 
 **When BAK-5 and UPG-5b run** (#924). They run only when the release
 changes the StartOS backup path:
@@ -167,7 +178,9 @@ names the release walk's corrections.
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
-  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1). Finish StartOS setup, then
+  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.1 or later:
+  from 2.0.2 (start-sdk 4.0.0, #940) the package installs on nothing
+  older. Finish StartOS setup, then
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
@@ -208,6 +221,15 @@ names the release walk's corrections.
   installing); an action with input needs the `eventId` from
   `package action get-input` passed to `package action run --event-id`,
   with the input as JSON on stdin (`null` for none).
+- `server update <registry> --to X` means X **or newer**: at 2.0.2's gate,
+  `--to 0.4.1.2` staged 0.4.2 (#936). To update to one version exactly,
+  as a gate on an older StartOS needs, write `--to '=X'`, quoted, since
+  zsh reads a leading `=` as a command's path. It returns at once while
+  StartOS downloads in the background: wait until
+  `serverInfo.statusInfo.updateProgress` is null (`start-cli db dump`)
+  before any shutdown, or the update is thrown away. Then `server
+  shutdown` and a cold start, not `server restart`, whose warm restart
+  hung the VM twice (#881).
 - On StartOS 0.4.1 or later, `package install` needs `--trust` (start-cli
   2.6.0 or later) for a package no key trusted for packages signed: our own
   packages, and BitcoinTX's Community Beta builds, which only that
@@ -350,7 +372,8 @@ btctx:candidate -`) and paste the summary into the report.
 
 **On the VM**, these steps aren't walked: their pages are the script's,
 and the API checks (the golden loader, IMP-3's and SEC-1 to SEC-9's curl)
-still run there. The later steps that use what these steps leave take it
+still run there, but for those that send the VM's test login or AI key:
+#924's open question (SEC's first paragraph). The later steps that use what these steps leave take it
 from the VM's own walk instead:
 - **The login stays INS-3's** `admin`, since no SEC-8 or END-2 ran there.
   SEC-9's fresh jar logs in with it, LCK-2 expects INS-3's password (not
@@ -565,10 +588,12 @@ Start from the `clean` snapshot.
   `TransactionHistory_2023.pdf`, landscape, the same 6 transactions, and
   "Page 1 of N" at the foot of each page.
 - **RPT-5** Complete Tax Report 2023 and 2024, with Nobody and no stored
-  prices. Expect: both generate. Every holdings value (Beginning of Year
-  and End of Year) reads "not priced", with the note "No BTC price for
-  when YYYY ended: not priced" (and for 2024 "No BTC price is stored for
-  2024-01-01, so the holdings aren't valued …"). Never $0.00. Every other
+  prices. Expect: both generate. Every holdings value of coins held
+  (Beginning of Year and End of Year) reads "not priced", with the note
+  "No BTC price for when YYYY ended: not priced" (and for 2024 "No BTC
+  price is stored for 2024-01-01, so the holdings aren't valued …"),
+  never $0.00. A day that holds 0 BTC rightly reads $0.00: 2023's
+  Beginning of Year, before the ledger holds any (#936). Every other
   figure is as in the expected-figures table. Section 7, "Notes", says how
   a blank value is priced (Bitstamp's hourly opening price, or your
   Mempool server's) and that the IRS approves no price source, and ends
@@ -1546,6 +1571,18 @@ Set `KEY` to the key from AI-3, and use
 
 ### SEC: the live install from outside
 
+**At 2.0.2's gate, nothing sent the VM's test login or AI key to the
+VM** (the lead, #936). SEC-1 to SEC-9 ran on `127.0.0.1` against the
+candidate's image (plain http there, so no `Secure`), and on the VM only
+the legs that need no login. Left out on the VM, BLOCKED: SEC-4's cookie
+flags through StartOS's proxy, the AI key through it, SEC-5 with a
+session (its 200 and its 409) and SEC-9's right password. The golden
+ledger was loaded, and the figures read, inside the service over
+start-cli's own session. Whether these legs, and the walk's other test
+logins and AI-key calls to the VM (the golden loader's, BAK-2's and
+BAK-4's curl, the AI track's), may go to the VM is #924's open question,
+the owner's to decide. Until it is, ask the lead which way a run goes.
+
 - **SEC-1** Without a session, `curl --cacert ca.crt -o /dev/null -w "%{http_code}"`
   on `$API/transactions`, `$API/settings/network` and `$API/reports/years`.
   Expect: 401 for each. `curl --cacert ca.crt -s -D - -o /dev/null
@@ -1628,14 +1665,21 @@ Set `KEY` to the key from AI-3, and use
 - **BAK-5** (needs the second virtual disk and the VM's StartOS password;
   only when `scripts/gate/backup_path_changed.py` says "needed", else NOT
   NEEDED with its output: What stays by hand) Create a StartOS backup of BitcoinTX: System › Create Backup, the second
-  disk, select BitcoinTX, the password ("Master password needed"), **Create
+  disk (StartOS lists it by its device, `/dev/sda1` on the lab VM, not by
+  its label), select BitcoinTX, the password ("Master password needed"), **Create
   Backup**. Then uninstall BitcoinTX (its data goes with it). Restore it
   from the backup: System › Restore Backup, the disk, the server, the
-  password, BitcoinTX "Ready to restore", **Restore selected**. Expect: no
+  password, BitcoinTX "Ready to restore", **Restore selected**. Between
+  the backup and the agent's check, nobody runs Set Login Credentials or
+  signs in to BitcoinTX: its login isn't needed, and the restore is
+  checked against the login it backed up (2.0.2's first round failed only
+  that way, #936). Expect: no
   Set Login Credentials task; the service
-  starts; the LCK-2 password logs in; every golden figure; Tax Timezone
-  America/New_York; the price source as PRC-6 left it; the AI key from BAK-3
-  still works; **Wallets, exchanges and banks** with Coldcard and Kraken
+  starts; the stored login is still LCK-2's (2.0.2's gate compared it
+  inside the service over start-cli); every golden figure; Tax Timezone
+  America/New_York; the price source as PRC-6 left it; the stored AI key
+  is still BAK-3's (on the VM, AI-12's), compared the same way;
+  **Wallets, exchanges and banks** with Coldcard and Kraken
   (Kraken's 1099-DA box ticked). INS-5's check that BitcoinTX isn't root
   passes too (from 1.2.9, #202).
 
@@ -2409,3 +2453,20 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   withdrawal. Such a fee stays in box I or L; the Complete Tax Report's
   page "If your Form 1099-DA differs" (in a year with no sale in box G,
   H, J or K, its note on fees) says how to move its row by hand.
+
+Found in 2.0.2's time, each planned for 2.0.3 (2.0.2's CHANGELOG, Known
+issues). The golden ledger meets none of them; an exploratory step, a
+file of your own or MAP-1's real export can:
+- **#950**: coins acquired on 28 February of 2011, 2015, 2019, 2023 or
+  2027 and sold on 29 February of the next year are reported long-term;
+  they're short-term.
+- **#951**: the AI connector's import orders rows that share a time by
+  type, where a file import keeps the file's order, so the same rows can
+  use other coins.
+- **#952**: BitcoinTX's own CSV import drops, with no error, every row
+  after a cell whose quote is never closed.
+- **#953**: BitcoinTX's own CSV import, and River's, read a bitcoin
+  amount written "1,234" as 1234 BTC.
+- **#964**: on a device whose timezone data is older than BitcoinTX's, a
+  time typed in the transaction form, in #908's zones and periods, can be
+  saved an hour off.

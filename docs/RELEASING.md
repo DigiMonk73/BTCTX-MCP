@@ -72,7 +72,9 @@ the rules.
    secret is set.
    There, Start9's Tag and Release workflow tags it `v<upstream>_<revision>`
    and releases it (needs the mirror's `DEV_KEY` secret and
-   `REFERENCE_REGISTRY` variable).
+   `REFERENCE_REGISTRY` variable). Until this step's tag exists, the Setup
+   prompt's link to `blob/vX.Y.Z/mcp_server/AI_SETUP.md` answers 404:
+   expected during the gate, not a finding (2.0.1, 2.0.2).
 4. Once Start9 has forked the mirror, a release reaches them **only as a
    pull request** from the mirror's `main` to their fork: nobody but Start9
    can change the fork, and the mirror is never edited by hand. The release
