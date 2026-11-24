@@ -81,7 +81,7 @@ pointers that still name its sections (`AGENTS.md, "Prices"`):
 | "Releasing" | `docs/RELEASING.md`: read it before any release step |
 | "Start9" | `docs/START9.md`: read it before any Start9 step |
 | "Big work" ("The lead runs the merges"…) | `docs/BIG-WORK.md` |
-| The maintenance lead's job, and its handoff at each release (new) | `docs/MAINTENANCE-LEAD.md` |
+| The maintenance lead's job: the cycle's lanes, the models, its handoff | `docs/MAINTENANCE-LEAD.md` |
 | "Who does what", "Branches", "Pull requests", "Working through GitHub", "Bugs and security", "Starting a session", "Ending a session" | `docs/HOW-CHANGES-FLOW.md`, "The detailed rules" |
 | "What's at stake", "Before you change…", "Reviews" | here, word for word |
 
@@ -162,8 +162,8 @@ comments end "— Grok (Cursor)".
   "CI passed" has passed on a branch up to date with `develop`. A branch
   that falls behind gets `develop` merged in, never a rebase
   (Dependabot's: "@dependabot rebase"). Once the review has nothing
-  open, Claude turns on auto-merge as "Reviews" allows; in big work a
-  session posts "ready: #N" and only the lead does (`docs/BIG-WORK.md`).
+  open, Claude turns on auto-merge as "Reviews" allows; in big work or a
+  lane, a session posts "ready: #N" and only the lead does.
   `staging` is retired (#901).
 - Never commit on `main` or a local `develop`, never force-push or
   rewind `main`: it moves only by fast-forwarding to GitHub's `develop`,
