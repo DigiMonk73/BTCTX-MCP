@@ -92,6 +92,14 @@ All notable changes to BitcoinTX are documented in this file.
   had taken 15 sessions and about 54,000 words of plans, prompts and
   reviews for 173 shipped lines by its fifth merged step, where
   2.0.1's release took a lead and one release session.
+- **python-dateutil is no longer a dependency** (for #950). Its one use,
+  `relativedelta(years=1)` in the holding period, went with #950's fix,
+  which works out the anniversary with Python's own `calendar`
+  (`one_year_anniversary`). The app, the Docker image and the Mac app no
+  longer install it, nor `six`, which only it needed;
+  `desktop/BitcoinTX.spec` drops its hidden imports, and
+  `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
+  pull request (#927) goes with it, unmerged. No figure moves.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
