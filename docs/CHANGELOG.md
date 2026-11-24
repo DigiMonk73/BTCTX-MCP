@@ -6,6 +6,24 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 
+- **Ledger Review's advice for a value left blank or $0 says to type it
+  when BitcoinTX asks no one for prices** (#966). For an income or rebate
+  deposit, a gift, donation or lost coins, or a spend at $0, Ledger Review
+  said to clear the value "to use that hour's price". With the price
+  source Nobody, none chosen yet, one not confirmed, or a server's
+  settings not valid, clearing it fills nothing unless that hour's price
+  is already stored, and the item stayed listed. The advice now says to
+  type the value, and why, as the Edit form already does. No figure
+  changes.
+
+- **A request nested a thousand levels deep is refused with a 422, not a
+  server error** (#954). A JSON body nested about 1,000 to 10,000 levels
+  deep (a few kilobytes), sent to the login or to any route that takes
+  JSON, made the answer's encoding run past Python's recursion limit: a
+  500 instead of the 422 that says what's wrong. Nothing was saved, and
+  nothing leaked: the answer was one fixed sentence. Now it's the 422,
+  without the nested input echoed back.
+
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
   closed, BitcoinTX's own CSV import, River's import and every other

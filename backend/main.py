@@ -350,14 +350,25 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     FastAPI's 422, less any input JSON can't carry: a number such as 1e999
     is read as infinity (#218), and text can hold a lone surrogate (#210).
     Echoed back, either failed the answer with a 500; so did a body that
-    isn't UTF-8, sent without a JSON type (_without_bytes_input).
+    isn't UTF-8, sent without a JSON type (_without_bytes_input), and one
+    nested a thousand levels deep, whose encoding ran past Python's
+    recursion limit (#954).
     """
-    errors = jsonable_encoder([_without_bytes_input(error) for error in exc.errors()])
+    errors = [_encoded(_without_bytes_input(error)) for error in exc.errors()]
     for error in errors:
         if not _writable(error):
             error.pop("input", None)
             error.pop("ctx", None)
     return JSONResponse(status_code=422, content={"detail": errors})
+
+
+def _encoded(error: dict) -> dict:
+    """One error as JSON can carry it; one whose input or context is nested
+    too deep to encode (#954) without them, which only echo the body."""
+    try:
+        return jsonable_encoder(error)
+    except RecursionError:
+        return jsonable_encoder({k: v for k, v in error.items() if k not in ("input", "ctx")})
 
 
 @app.exception_handler(DateOutOfRange)

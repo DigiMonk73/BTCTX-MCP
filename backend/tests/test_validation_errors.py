@@ -47,3 +47,36 @@ def test_a_missing_field_whose_input_holds_one(auth_client):
 def test_an_input_json_can_carry_is_still_given(auth_client):
     error = only_error(raw(auth_client, "/api/transactions", DEPOSIT % '"lots"'))
     assert error["loc"] == ["body", "amount"] and error["input"] == "lots"
+
+
+# #954: a body nested about 1,000 to 10,000 levels deep (a few KB) made the
+# handler's encoding recurse past Python's limit: a 500 where a 422 is due.
+DEEP = "[" * 2000 + "]" * 2000
+
+
+@pytest.mark.parametrize("url, body", [
+    ("/api/login", '{"username": %s, "password": "x"}'),
+    ("/api/users/register", '{"username": %s, "password": "a long enough password"}'),
+    ("/api/users/reset-account", '{"username": %s, "password": "a long enough password"}'),
+])
+def test_a_deeply_nested_field_is_a_422_without_its_input(url, body):
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    r = raw(TestClient(app), url, body % DEEP)
+    errors = [e for e in r.json()["detail"] if e["loc"] == ["body", "username"]] if r.status_code == 422 else []
+    assert r.status_code == 422 and errors, r.text[:300]
+    assert all("input" not in e and "ctx" not in e for e in errors)
+
+
+def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engine):
+    from fastapi.testclient import TestClient
+    from sqlalchemy.orm import Session
+    from backend.main import app
+    from backend.services import ai_key
+    with Session(test_engine) as db:
+        ai_key.set_access(db, True)
+        key = ai_key.create_key(db)
+    r = TestClient(app).post("/api/import/entries/preview", content='{"rows": %s}' % ("[" * 2000 + "{}" + "]" * 2000),
+                             headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
+    assert r.status_code == 422, r.text[:300]
+    assert all("input" not in e for e in r.json()["detail"])
