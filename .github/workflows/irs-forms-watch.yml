@@ -1,6 +1,8 @@
 name: IRS forms watch
 
-# Weekly, all year: opens an issue (label claude, once while it's open) for
+# Every day in December and January, when the IRS usually publishes the next
+# year's final forms, and weekly the rest of the year: opens an issue (label
+# claude, once while it's open) for
 # each yearly step irs.gov calls for (scripts/irs_new_year.py --due):
 # - the IRS's draft Form 8949 + Schedule D for a year newer than the final
 #   forms, or a revision of it: ship it as the preview (usually spring);
@@ -12,7 +14,8 @@ name: IRS forms watch
 # Steps: docs/IRS_ANNUAL_FORM_UPDATE.md.
 on:
   schedule:
-    - cron: "0 14 * * 1"   # Mondays 14:00 UTC
+    - cron: "0 14 * 12,1 *"   # every day in December and January, 14:00 UTC
+    - cron: "0 14 * 2-11 1"   # Mondays the rest of the year
   workflow_dispatch:
   push:
     paths:
