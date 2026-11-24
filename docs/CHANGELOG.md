@@ -57,6 +57,73 @@ All notable changes to BitcoinTX are documented in this file.
   between Inherited and income, interest, a reward or a rebate, open it
   and clear Cost Basis to have it valued again.
 
+- **A time typed in the transaction form is saved by BitcoinTX's own
+  timezone rules, not the device's** (#964, tax figures). The form turned
+  a typed Date & Time into a moment with the device's copy of the world's
+  timezone rules (the browser's, or macOS's in the Mac app), not
+  BitcoinTX's own (the `tzdata` package, IANA 2026f). On a device whose
+  copy is older, a time typed in a zone whose rules changed since was
+  saved an hour off: from 1 November 2026, British Columbia, Alberta,
+  Manitoba, the Northwest Territories and Cuba (an hour late); from 20
+  September 2026, Morocco (an hour early); Moldova in its clock-change
+  hour; and on older devices the earlier changes of 2.0.2's entry
+  (Paraguay, Kazakhstan). That moved the hour's price used for a value
+  BitcoinTX fills in, and near midnight the date: Form 8949's date, the
+  holding period and, on 31 December, the tax year. The form now sends the
+  time as typed with the device's zone, and BitcoinTX works out the moment
+  by its own rules, as the AI connector has since 2.0.2 (#908). On an
+  up-to-date device nothing changes. On an out-of-date one the right
+  moment is saved, and the form says so: the device shows that time an
+  hour off until its system or browser is updated. A time the form filled
+  in itself (a new transaction's "now", an edited transaction's saved
+  time) and left alone is saved as it was. Every earlier version has it.
+  **What to do:** if you typed transactions on a device that may have been
+  out of date, in one of those places and periods, update the device
+  first, then open each such transaction and compare its time with the
+  receipt you typed it from; where it's an hour off, type the receipt's
+  time again.
+
+- **A comma in a bitcoin amount is refused, where "1,234" was read as 1234
+  BTC** (#953, tax figures). BitcoinTX's own CSV import and River's read a
+  comma in any amount as a thousands separator, so a bitcoin amount
+  written "1,234" became 1234 BTC, and a spreadsheet that writes decimals
+  with a comma, in a cell shown with three decimals, wrote 2.5 BTC as
+  "2,500", read as 2500 BTC, with no error: only the preview's amount
+  showed it. A bitcoin amount takes no comma now: the CSV import refuses
+  one in `amount` when the row's amount is bitcoin and in `fee_amount`
+  when its fee is (a fee_currency left blank counts as the one the row
+  pays in), and River's import in a sent or received amount in BTC and in
+  a send's fee (River records a send's fee in bitcoin), saying to write
+  decimals with a point and no thousands separator. Dollars keep their
+  thousands separator ("1,000.50"), and the note on a comma a number can't
+  take says so. The import of any other exchange's file already refused a
+  separator in bitcoin. Every earlier version has it. **What to do:** if
+  you imported a file from a spreadsheet, look for a bitcoin amount a
+  thousand times too large: the dashboard's holdings would show it at
+  once.
+
+- **Ledger Review's advice for a value left blank or $0 says to type it
+  when BitcoinTX asks no one for prices** (#966). For an income or rebate
+  deposit, a gift, donation or lost coins, or a spend at $0, Ledger Review
+  said to clear the value "to use that hour's price". With the price
+  source Nobody, none chosen yet, one not confirmed, or a server's
+  settings not valid, clearing it fills nothing unless that hour's price
+  is already stored, and the item stayed listed. The advice now says to
+  type the value, and why, as the Edit form already does. No figure
+  changes.
+
+- **A request nested a thousand levels deep is refused with a 422, not a
+  server error** (#954). A JSON body nested about 1,000 to 10,000 levels
+  deep (a few kilobytes), sent to the login or to a route that takes JSON,
+  made the answer's encoding run past Python's recursion limit: a 500
+  instead of the 422 that says what's wrong. Nothing was saved, and
+  nothing leaked: the answer was one fixed sentence. Now it's the 422,
+  without the nested input echoed back. On Python 3.11 (a from-source
+  install's oldest) the JSON reader refuses a body past about 950 levels
+  itself, a 400, and the few levels just under that are the 422 too. Two
+  levels just under the depth where a body is refused outright still
+  answer 500 on a logged-in route, from the data checks themselves: #1000.
+
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
   closed, BitcoinTX's own CSV import, River's import and every other

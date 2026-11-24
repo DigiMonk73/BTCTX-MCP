@@ -58,6 +58,7 @@ def _init_db(looks_up_prices: bool = False):
             outbound.load(db, upgrade=False)
     except Exception as e:
         print(f"warning: couldn't read the price settings, no price lookups: {e}", file=sys.stderr)
+        outbound.unread("the price settings couldn't be read")
         return result
     if looks_up_prices and outbound.current().server_settings_missing:
         print(f"note: {outbound.no_server_settings()}", file=sys.stderr)

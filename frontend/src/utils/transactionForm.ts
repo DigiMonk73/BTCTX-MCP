@@ -8,9 +8,46 @@ import { isBtcPurpose, isListedSource, isNotSold, listedPurpose, listedSource } 
 import { dollarTransferFee, pastTheCent } from "./transferAmounts";
 import { proceedsSent, withdrawalProceeds } from "./withdrawalProceeds";
 
-/** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC. */
+/** A "datetime-local" value ("2025-03-01T12:00", local time) as ISO 8601 UTC, by this device's rules. */
 export function localDatetimeToIso(localDatetime: string): string {
   return new Date(localDatetime).toISOString();
+}
+
+/** A moment the form shows in Date & Time itself, and the text it shows (#964). */
+export function shownTime(date: Date): { iso: string; local: string } {
+  return { iso: date.toISOString(), local: toDatetimeLocal(date) };
+}
+
+/** A datetime-local value with its seconds: a time typed back as shown ("…T14:15") is the one shown ("…T14:15:00"). */
+function toSeconds(local: string): string {
+  return /T\d{2}:\d{2}$/.test(local) ? `${local}:00` : local;
+}
+
+/** This device's IANA zone, or undefined where the browser doesn't say. */
+export function deviceZone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The time to send (#964). A time the form put in itself and the owner
+ * left alone is sent as the moment it was: on a device whose timezone
+ * rules are out of date it's shown an hour off, and read again it would
+ * move. A typed one goes with its text and the device's zone, for the
+ * server to read by its own rules; the device's reading stays beside it,
+ * for a server that can't.
+ */
+export function timePayload(data: Pick<TransactionFormData, "timestamp" | "timestampShown">):
+  Pick<ICreateTransactionPayload, "timestamp" | "typed_time"> {
+  if (data.timestampShown && toSeconds(data.timestamp) === toSeconds(data.timestampShown.local)) {
+    return { timestamp: data.timestampShown.iso };
+  }
+  const zone = deviceZone();
+  const timestamp = localDatetimeToIso(data.timestamp);
+  return zone ? { timestamp, typed_time: { local: data.timestamp, zone } } : { timestamp };
 }
 
 /**
@@ -51,6 +88,7 @@ function commonFormData(tx: ITransaction): TransactionFormData {
   return {
     type: tx.type,
     timestamp: toDatetimeLocal(new Date(tx.timestamp)),
+    timestampShown: shownTime(new Date(tx.timestamp)),
     // Kept for every type (5.13); a null id is held as undefined
     fromAccountId: tx.from_account_id ?? undefined,
     toAccountId: tx.to_account_id ?? undefined,
@@ -330,7 +368,7 @@ export function buildTransactionPayload(
   const chosen_coins = chosenCoinsSent(data, book);
   return {
     type: data.type,
-    timestamp: localDatetimeToIso(data.timestamp),
+    ...timePayload(data),
     from_account_id,
     to_account_id,
     amount: values.amount,

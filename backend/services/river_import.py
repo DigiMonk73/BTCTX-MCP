@@ -44,6 +44,7 @@ from backend.schemas.transaction import BTC_PLACES
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.csv_import import (
+    BTC_COMMA,
     _parse_decimal,
     decimal_comma_note,
     number_limits,
@@ -338,8 +339,24 @@ def _river_numbers(r: dict[str, str], row_number: int,
                 + decimal_comma_note(text),
             ))
             return None
+        if value is not None and "," in text and _in_bitcoin(r, column):
+            errors.append(CSVParseError(row_number=row_number, column=column, severity="error",
+                                        message=f"Invalid {column} '{text}'. {BTC_COMMA}"))
+            return None
         numbers.append(value)
     return tuple(numbers)
+
+
+def _in_bitcoin(r: dict[str, str], column: str) -> bool:
+    """Whether River's amount in `column` is bitcoin (#953): a sent or
+    received amount by its own currency column; the fee only on a send, the
+    one kind of row River records a fee in bitcoin for, whatever Fee
+    Currency says (send). A send is bitcoin out and nothing received, unless
+    it's tagged a Sell for dollars, which _river_file_row reads first."""
+    if column == "Fee Amount":
+        sell = r.get("tag", "").title() == "Sell" and r.get("received currency", "").upper() == "USD"
+        return r.get("sent currency", "").upper() == "BTC" and not r.get("received amount") and not sell
+    return r.get(column.lower().replace("amount", "currency"), "").upper() == "BTC"
 
 
 @dataclass
