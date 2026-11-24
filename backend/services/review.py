@@ -125,7 +125,7 @@ from sqlalchemy.orm import Session
 from backend.constants import ACCOUNT_EXTERNAL, GIFT_LIKE_PURPOSES, INCOME_SOURCES, INHERITED_SOURCE, ORIGINAL_DATE_SOURCES, VALUED_AT_RECEIPT, normalized
 from backend.database import scratch_copy
 from backend.models.transaction import BitcoinLot, LotDisposal, Transaction
-from backend.services import hourly_prices, old_rows, price_history
+from backend.services import hourly_prices, old_rows, outbound, price_history
 from backend.services.hourly_review import hourly_changes
 from backend.services.account import AccountBook, account_book
 from backend.services.calculation import btc_text
@@ -314,6 +314,24 @@ EXPLANATIONS: dict[str, tuple[str, ...]] = {
         "value listed then was not at it (an older version could value a fee at the live price).",
     ),
 }
+
+
+# What a value left blank or $0 needs when BitcoinTX asks no one for prices
+# (#966): clearing it fills it only from an hour's price already stored, so
+# the advice says to type it, and why, as the Edit form says it
+# (frontend/src/utils/priceStatus.ts, noAsking). A typed income far from the
+# price (income_value_off) is listed only beside a stored price: clearing
+# it does fill it.
+WHEN_NOTHING_IS_ASKED: dict[str, str] = {
+    "income_without_value": "Edit each one: type its value when you received it. Clearing its Cost Basis (USD) "
+                            "fills it in only if BitcoinTX already has that hour's price, since {why}.",
+    "gift_without_value": "Edit each one: type its value when it left. Clearing its FMV (USD) fills it in only if "
+                          "BitcoinTX already has that hour's price, since {why}.",
+    "zero_proceeds_spend": "If you didn't really get $0, edit the proceeds. Clearing them fills them in only if "
+                           "BitcoinTX already has that hour's price, since {why}.",
+}
+
+
 LISTED_FROM = Decimal("1.00")
 # What each priced value is called in an item (income: also the income reported)
 VALUE_NAMES = {"gross_proceeds_usd": "Proceeds", "fmv_usd": "Value", "fee_usd": "Fee value"}
@@ -490,6 +508,32 @@ def _lots_made(db: Session, tz) -> dict[int, dict[str, Any]]:
     } for tx_id, lots in made.items()}
 
 
+def advice(key: str) -> str:
+    """A check's advice for the price choice in use: CHECKS' own, or, for a
+    value to fill from a price while BitcoinTX asks no one, WHEN_NOTHING_IS_ASKED's."""
+    why = _why_nothing_is_asked(outbound.current())
+    if why is None or key not in WHEN_NOTHING_IS_ASKED:
+        return CHECKS[key][1]
+    return WHEN_NOTHING_IS_ASKED[key].format(why=why)
+
+
+def _why_nothing_is_asked(settings: outbound.NetworkSettings) -> str | None:
+    """Why no one is asked for a price, in the form's order; None when someone
+    is, or when this is a command run without the server's own settings
+    (#461), which can't tell what the app asks."""
+    if settings.server_settings_missing:
+        return None
+    if settings.invalid:
+        return "this server's price settings aren't valid"
+    if settings.waiting:
+        return "the price source isn't confirmed yet (confirm it on the Dashboard)"
+    if settings.price_source == "unset":
+        return "no price source is chosen yet (choose one on the Dashboard)"
+    if settings.price_source == "off":
+        return "you chose Nobody"
+    return None
+
+
 def build_review(db: Session) -> dict[str, Any]:
     """Every check's items, in date order. Changes no transaction."""
     tz = get_tax_timezone(db)
@@ -517,9 +561,9 @@ def build_review(db: Session) -> dict[str, Any]:
     found["coins_chosen_later"] = _chosen_later_items(db, tz, book)
 
     checks = [
-        {"key": key, "kind": "reminder" if key in REMINDERS else "check", "title": title, "action": action,
+        {"key": key, "kind": "reminder" if key in REMINDERS else "check", "title": title, "action": advice(key),
          "explanation": list(EXPLANATIONS.get(key, ())), "count": len(found[key]), "items": found[key]}
-        for key, (title, action) in CHECKS.items()
+        for key, (title, _action) in CHECKS.items()
     ]
     # Counted: every transaction the hour would change, the unlisted ones under $1.00 too
     hourly = next(c for c in checks if c["key"] == "day_priced_values")

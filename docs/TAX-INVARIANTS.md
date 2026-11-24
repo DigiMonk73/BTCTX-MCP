@@ -113,16 +113,26 @@ map.
   clears any it holds, such as a bitcoin withdrawal's an edit made it from
   (`compute_sell_summary_from_disposals`, #487).
 - **Income deposits** (source Income/Interest/Reward into a BTC account):
-  basis = market value at receipt, which is also the reported income. A blank
-  or 0 basis is filled from the hour's price on create/update
-  (`_value_at_receipt`); no price → 422, never $0. A value from the price
-  is marked (`cost_basis_from_price`) and priced again when an edit changes
-  the account, amount, UTC hour or type, or moves it from a source not valued
-  at receipt (Reward to Rebate keeps it; a type change makes it typed); a
-  typed one is kept, and the form's echo of a priced value isn't a typed one
-  (`_revalue_income_deposit`). Income (report, dashboard) counts only
-  deposits into a bitcoin account (`AccountBook.is_btc`): a USD
-  deposit is dollars, whatever value it carries.
+  basis = market value at receipt, which is also the reported income. A
+  blank or 0 basis is filled from the hour's price on create/update
+  (`_value_at_receipt`); no price → 422, never $0. A value from the price is
+  marked (`cost_basis_from_price`) and priced again when an edit changes the
+  account, amount, UTC hour or type, or moves it from a source not valued at
+  receipt (Reward to Rebate keeps it; a type change makes it typed); a typed
+  one is kept, and the form's echo of a priced value isn't a typed one
+  (`_revalue_income_deposit`). An edit that makes a bitcoin deposit valued
+  from the price (income, a rebate, an inheritance) one of a source not
+  valued at receipt (My BTC, Gift, N/A) needs a cost, as a new deposit of
+  that source does: without one it's refused in the create's words; another
+  cost than the one shown is typed, and the value shown sent back unchanged
+  keeps its mark, so made income again it's priced again
+  (`_leaves_its_price`, `_another_cost`, the owner's decision, #955). A
+  typed value isn't asked for again by the server (it's already the user's
+  figure); the form, which can't tell the user's cost from a value typed at
+  receipt, clears the cost on any switch from a valued source to one that
+  isn't, and asks. Income (report, dashboard) counts only deposits into a
+  bitcoin account (`AccountBook.is_btc`): a USD deposit is dollars, whatever
+  value it carries.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued
   like income deposits (`constants.VALUED_AT_RECEIPT`: the same filling,
   marking and re-pricing), but never income: not in the report's or the

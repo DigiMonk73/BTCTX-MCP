@@ -350,14 +350,37 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     FastAPI's 422, less any input JSON can't carry: a number such as 1e999
     is read as infinity (#218), and text can hold a lone surrogate (#210).
     Echoed back, either failed the answer with a 500; so did a body that
-    isn't UTF-8, sent without a JSON type (_without_bytes_input).
+    isn't UTF-8, sent without a JSON type (_without_bytes_input), and one
+    nested a thousand levels deep, whose encoding ran past Python's
+    recursion limit (#954).
     """
-    errors = jsonable_encoder([_without_bytes_input(error) for error in exc.errors()])
-    for error in errors:
-        if not _writable(error):
-            error.pop("input", None)
-            error.pop("ctx", None)
-    return JSONResponse(status_code=422, content={"detail": errors})
+    errors = [_encoded(_without_bytes_input(error)) for error in exc.errors()]
+    return _written([error if _writable(error) else _without_echo(error) for error in errors])
+
+
+def _encoded(error: dict) -> dict:
+    """One error as JSON can carry it; one whose input or context is nested
+    too deep to encode (#954) without them, which only echo the body."""
+    try:
+        return jsonable_encoder(error)
+    except RecursionError:
+        return _without_echo(error)
+
+
+def _without_echo(error: dict) -> dict:
+    """An error less its input and context, which only echo the body."""
+    return {key: value for key, value in error.items() if key not in ("input", "ctx")}
+
+
+def _written(errors: list[dict]) -> JSONResponse:
+    """The 422, written here, so its own write is the one tried: on Python
+    3.11 an error that passed _writable alone could still recurse too deep
+    two levels further in (#954). If the whole can't be written, every
+    error goes without its echo."""
+    try:
+        return JSONResponse(status_code=422, content={"detail": errors})
+    except (ValueError, RecursionError):
+        return JSONResponse(status_code=422, content={"detail": [_without_echo(error) for error in errors]})
 
 
 @app.exception_handler(DateOutOfRange)
@@ -380,10 +403,10 @@ def _without_bytes_input(error: dict) -> dict:
 
 def _writable(value) -> bool:
     """Whether JSONResponse can write `value` (its rules: no NaN or
-    infinity, UTF-8)."""
+    infinity, UTF-8), not nested past Python's recursion limit."""
     try:
         json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
-    except ValueError:  # UnicodeEncodeError is one too
+    except (ValueError, RecursionError):  # UnicodeEncodeError is a ValueError too
         return False
     return True
 
