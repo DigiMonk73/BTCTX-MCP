@@ -126,7 +126,34 @@ def test_a_spend_listed_before_a_same_time_transfer_out_takes_the_oldest_coins()
              "fee_amount": "0", "fee_currency": "BTC"}
     assert CLIENT.post("/api/import/entries/execute", json={"rows": [spend, MOVE]}).status_code == 200
     spent = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    assert len(spent) == 1, spent
     assert Decimal(str(spent[0]["cost_basis_usd"])) == Decimal("10000")
+
+
+def test_a_spend_listed_before_a_same_time_sell_takes_the_oldest_coins():
+    _two_buys()
+    spend = {"date": WHEN, "type": "Withdrawal", "amount": "0.5", "from_account": "Exchange BTC",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "35000",
+             "fee_amount": "0", "fee_currency": "BTC"}
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [spend, SELL]}).status_code == 200
+    assert Decimal(str(_the_sell()["cost_basis_usd"])) == Decimal("30000")
+
+
+def test_a_move_listed_before_a_same_time_deposit_of_older_coins_leaves_them():
+    """The move out takes the exchange's 2024 coins; the deposit of coins
+    first acquired in 2020, listed after it, stays on the exchange."""
+    _two_buys()
+    older = {"date": WHEN, "type": "Deposit", "amount": "0.5", "from_account": "External",
+             "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "1000",
+             "acquired_at": "2020-01-02"}
+    spend = {"date": "2024-03-02T15:00:00Z", "type": "Withdrawal", "amount": "0.5", "from_account": "Wallet",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "35000",
+             "fee_amount": "0", "fee_currency": "BTC"}
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [MOVE, older, spend]}).status_code == 200
+    spent = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    assert len(spent) == 1, spent
+    assert Decimal(str(spent[0]["cost_basis_usd"])) == Decimal("10000")
+    assert spent[0]["holding_period"] == "SHORT"
 
 
 def test_a_confirmed_past_year_add_keeps_the_order_given(tax_year):
