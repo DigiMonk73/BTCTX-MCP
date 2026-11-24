@@ -11,7 +11,7 @@ import pytest
 
 from backend.services import outbound, review
 
-ADVISED = ("income_without_value", "gift_without_value", "zero_proceeds_spend", "income_value_off")
+ADVISED = ("income_without_value", "gift_without_value", "zero_proceeds_spend")
 
 
 def _actions(monkeypatch, **settings) -> dict[str, str]:
@@ -37,6 +37,20 @@ def test_when_prices_are_asked_the_advice_is_as_before(monkeypatch):
     assert actions["gift_without_value"] == (
         "Edit each one: clear its FMV (USD) to use that hour's price, or type its value when it left.")
     assert actions["income_without_value"] == review.CHECKS["income_without_value"][1]
+
+
+def test_a_command_without_the_servers_settings_keeps_the_advice(monkeypatch):
+    """`cli review` on StartOS or Docker runs without the server's price
+    settings (#461) and reads "off": it can't say what the app asks, so the
+    advice is CHECKS' own, never "you chose Nobody"."""
+    actions = _actions(monkeypatch, price_source="off", server_settings_missing="BTCTX_PRICE_SOURCE")
+    assert actions == {key: review.CHECKS[key][1] for key in ADVISED}
+
+
+def test_a_typed_income_far_from_the_price_keeps_its_advice(monkeypatch):
+    """Listed only beside a stored price, so clearing it does fill it."""
+    monkeypatch.setattr(outbound, "current", lambda: outbound.NetworkSettings(price_source="off"))
+    assert review.advice("income_value_off") == review.CHECKS["income_value_off"][1]
 
 
 def test_the_review_carries_the_advice(monkeypatch, auth_client, test_engine):

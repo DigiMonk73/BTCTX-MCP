@@ -18,11 +18,13 @@ All notable changes to BitcoinTX are documented in this file.
 
 - **A request nested a thousand levels deep is refused with a 422, not a
   server error** (#954). A JSON body nested about 1,000 to 10,000 levels
-  deep (a few kilobytes), sent to the login or to any route that takes
-  JSON, made the answer's encoding run past Python's recursion limit: a
-  500 instead of the 422 that says what's wrong. Nothing was saved, and
+  deep (a few kilobytes), sent to the login or to a route that takes JSON,
+  made the answer's encoding run past Python's recursion limit: a 500
+  instead of the 422 that says what's wrong. Nothing was saved, and
   nothing leaked: the answer was one fixed sentence. Now it's the 422,
-  without the nested input echoed back.
+  without the nested input echoed back. Two levels just under the depth
+  where a body is refused outright still answer 500 on a logged-in route,
+  from the data checks themselves: #1000.
 
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
