@@ -44,6 +44,7 @@ from backend.schemas.transaction import BTC_PLACES
 from backend.services.account import FIXED_BOOK, AccountBook, account_book
 from backend.services.calculation import btc_text
 from backend.services.csv_import import (
+    BTC_COMMA,
     _parse_decimal,
     decimal_comma_note,
     number_limits,
@@ -337,6 +338,10 @@ def _river_numbers(r: dict[str, str], row_number: int,
                 message=f"{column} '{text}' isn't a number with at most {number_limits(BTC_PLACES)}."
                 + decimal_comma_note(text),
             ))
+            return None
+        if value is not None and "," in text and r.get(column.lower().replace("amount", "currency"), "").upper() == "BTC":
+            errors.append(CSVParseError(row_number=row_number, column=column, severity="error",
+                                        message=f"{column} '{text}'. {BTC_COMMA}"))
             return None
         numbers.append(value)
     return tuple(numbers)
