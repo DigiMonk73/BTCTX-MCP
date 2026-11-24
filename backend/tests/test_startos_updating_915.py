@@ -7,9 +7,9 @@ to docs/STARTOS-PACKAGE.md, and every pointer follows them.
 
 #898: the StartOS release notes say what a user observes, never how it was
 done (Start9's versions.md, "Release Notes", 2026-11-03, and from
-2026-11-19 never the minimum StartOS). The rule is written in
-startos/AGENTS.md, where the release reads it, and checked here for every
-version after 2.0.2:0, whose notes were published before the last part.
+2026-11-19 never the minimum StartOS). startos/AGENTS.md points to it and
+adds ours, where the release reads them; checked here for every version
+after 2.0.2:0, whose notes were published before the last part.
 """
 
 import re
@@ -78,15 +78,18 @@ def test_every_pointer_names_a_section_its_doc_has():
 
 # --- #898: the release notes ---
 
-# What a user can't observe, or doesn't need: an issue number (history), the
-# SDK or start-cli (the package's internals), a StartOS version (the minimum,
-# which "only a server that already meets it is shown").
+# What a user can't observe, or doesn't need: an issue number or link
+# (history), the SDK or start-cli (the package's internals), a StartOS version
+# (the minimum, which "only a server that already meets it is shown"). Only
+# the written text is read: a value put in with ${…} isn't.
 UNOBSERVED = {
-    "an issue number": re.compile(r"#\d"),
+    "an issue number": re.compile(r"#\d|/issues/\d|/pull/\d"),
     "the SDK or start-cli": re.compile(r"start-sdk|start-cli|\bSDK\b"),
-    # StartOS's versions are 0.x, BitcoinTX's 1.x on: "StartOS 0.4.2", "StartOS
-    # to 0.4.2", "StartOS auf 0.4.2", with a space or a no-break one.
-    "a StartOS version": re.compile(r"StartOS\b[^.`]{0,20}?\b0\.\d+\.\d"),
+    # StartOS's versions are 0.x, BitcoinTX's 1.x on, so any 0.x.y is
+    # StartOS's (or a 0.x BitcoinTX's, which is history), in any language and
+    # word order; and "StartOS 0.4" or "StartOS v0.4", with any space. A
+    # bitcoin amount (0.5 BTC) has one dot.
+    "a StartOS version": re.compile(r"\bv?0\.\d+\.\d|StartOS\W{1,3}v?0\.\d"),
 }
 # The last notes published before Start9's rule against the minimum StartOS.
 LAST_BEFORE_THE_RULE = (2, 0, 2, 0)
@@ -122,8 +125,13 @@ NOTES = "export const current = VersionInfo.of({{\n  version: '2.0.3:0',\n  rele
 
 @pytest.mark.parametrize("notes, what", [
     ("It fixes the wrong date on Form 8949 (#950).", "an issue number"),
+    ("Details: https://github.com/DigiMonk73/BTCTX-MCP/issues/950", "an issue number"),
     ("Built with start-sdk 4.1.0.", "the SDK or start-cli"),
     ("**Update StartOS to 0.4.2 or later first.**", "a StartOS version"),
+    ("Needs StartOS v0.4.2.", "a StartOS version"),
+    ("Needs StartOS 0.4.", "a StartOS version"),
+    ("Necesita la versión 0.4.2 de StartOS.", "a StartOS version"),
+    ("Requires 0.4.2 or later.", "a StartOS version"),
 ])
 def test_the_check_finds_what_a_user_does_not_observe(notes, what):
     assert unobserved(NOTES.format(notes)) == [what]
@@ -137,15 +145,22 @@ def test_the_check_would_refuse_2_0_2s_notes_today():
     assert unobserved(text.replace("version: '2.0.2:0'", "version: '2.0.3:0'")) == ["a StartOS version"]
 
 
-def test_the_check_passes_notes_that_say_what_a_user_sees():
-    assert unobserved(NOTES.format("Form 8949 for 2025 now shows the right date sold.")) == []
+@pytest.mark.parametrize("notes", [
+    "Form 8949 for 2025 now shows the right date sold.",
+    "A sale of 0.5 BTC now takes the coins listed first.",
+    "Update StartOS first, then BitcoinTX 2.0.3.",
+])
+def test_the_check_passes_notes_that_say_what_a_user_sees(notes):
+    assert unobserved(NOTES.format(notes)) == []
 
 
 def test_the_rule_is_written_where_the_release_reads_it():
+    # Start9's rule by its page, never restated (project-structure.md,
+    # "AGENTS.md and CLAUDE.md"); ours beside it.
     rules = " ".join((ROOT / "startos" / "AGENTS.md").read_text().split())
-    assert "https://docs.start9.com/packaging/versions.html" in rules
-    assert "what a user observes" in rules
-    assert "never the minimum StartOS" in rules
-    assert "tax-figures" in rules  # ours, reconciled with Start9's
+    assert "[Versions](https://docs.start9.com/packaging/versions.html), \"Release Notes\"" in rules
+    assert "never the minimum StartOS" not in rules
+    assert "`tax-figures` fix" in rules
+    assert "never which BitcoinTX versions had it" in rules
     releasing = " ".join((ROOT / "docs" / "RELEASING.md").read_text().split())
-    assert "`startos/AGENTS.md`, \"Release notes\"" in releasing
+    assert "ours in `startos/AGENTS.md`" in releasing

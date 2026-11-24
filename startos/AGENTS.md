@@ -27,24 +27,13 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
   the package is translated (the i18n dictionaries, the release notes in `versions/`,
   the store listing): the app is English-only, so a translated name points at a screen
   that doesn't exist.
+- **Release notes** (`versions/`) keep Start9's rule
+  ([Versions](https://docs.start9.com/packaging/versions.html), "Release Notes"), never
+  restated here, and add ours: each `tax-figures` fix (BTCTX-MCP's label for a figure
+  that could be wrong) says what the user saw, which tax years and what to do, never
+  which BitcoinTX versions had it; with every new `VERSION`, the AI connector's new
+  version, as BitcoinTX's Settings > Connect an AI Assistant gives it; last, the
+  CHANGELOG link. BTCTX-MCP's `backend/tests/test_startos_updating_915.py` checks them.
 - **Checks:** `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
   (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
   instead of checking, so the format check comes first).
-
-## Release notes
-
-The notes in `startos/versions/` follow Start9's
-[Versions](https://docs.start9.com/packaging/versions.html) page, "Release Notes":
-say what a user observes, never how it was done.
-
-- A feature, or a fix by its symptom, and what to do. Never the mechanism, an SDK or
-  dependency bump, an issue number or a defect's history ("introduced in…"), and
-  never the minimum StartOS: only a server that already meets it is offered the update.
-- Every instruction is one a user carries out from StartOS or from BitcoinTX itself.
-- Ours, within that: each `tax-figures` fix (BTCTX-MCP's label for a figure that could
-  be wrong) is told by what the user sees: what was wrong, which tax years, what to do.
-  With every new `VERSION`, the AI connector's new version, as BitcoinTX's Settings >
-  Connect an AI Assistant gives it. The notes end with the CHANGELOG link.
-
-BTCTX-MCP's `backend/tests/test_startos_updating_915.py` checks every version after
-2.0.2:0 for an issue number, the SDK or start-cli, and a StartOS version.

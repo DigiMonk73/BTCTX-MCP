@@ -80,11 +80,12 @@ All notable changes to BitcoinTX are documented in this file.
   Start9's newest SDK once the StartOS it needs has been out four weeks
   (`docs/STARTOS-PACKAGE.md`, "Bumping the SDK").
 - **The release notes say what a user observes** (#898): Start9's rule
-  (`versions.md`, "Release Notes"), now written in `startos/AGENTS.md`,
-  "Release notes", with ours (each `tax-figures` fix: what was wrong,
-  which tax years, what to do). From 2.0.3 they name no issue number, no
-  SDK or start-cli and no StartOS version: since 2026-11-19 Start9's rule
-  leaves out the minimum StartOS, which only a server that meets it sees.
+  (`versions.md`, "Release Notes"), which `startos/AGENTS.md` now points
+  to beside ours (each `tax-figures` fix: what was wrong, which tax years,
+  what to do, never which versions had it). From 2.0.3 they name no issue
+  number, no SDK or start-cli and no StartOS version: since 2026-11-19
+  Start9's rule leaves out the minimum StartOS, which only a server that
+  meets it sees.
   `test_startos_updating_915.py` checks it for every version after 2.0.2:0.
 
 ### Documentation
