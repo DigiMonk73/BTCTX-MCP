@@ -12,11 +12,12 @@ import re
 from pathlib import Path
 
 WORKFLOWS = sorted((Path(__file__).resolve().parents[2] / ".github/workflows").glob("*.y*ml"))
-# The oldest start-cli allowed: Start9's newest when the SDK moved to 4.0.0
-# (#896), since their builds pack with their newest (UPDATING.md, "Bumping the
-# SDK", step 3). The technical floor is lower, 2.6.0: SDK 4.0.0's packages
-# keep multiline image environment values only when packed by 2.6.0 or later.
-OLDEST = (2, 7, 0)
+# The oldest start-cli allowed: Start9's newest when the SDK moved to 4.1.0
+# (#965; 2.7.0 with 4.0.0, #896), since their builds pack with their newest
+# (UPDATING.md, "Bumping the SDK", step 3). The technical floor is lower,
+# 2.6.0: SDK 4.0.0's packages keep multiline image environment values only
+# when packed by 2.6.0 or later.
+OLDEST = (2, 8, 0)
 PIN = re.compile(r"^\s*START_CLI_VERSION:\s*(\S+)\s*(?:#.*)?$", re.M)
 SHA256 = re.compile(r"^\s*START_CLI_SHA256:\s*(\S+)\s*(?:#.*)?$", re.M)
 # A start-cli release named in a URL or a `gh release` command, written any way

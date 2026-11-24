@@ -178,9 +178,9 @@ names the release walk's corrections.
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
-  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.1 or later:
-  from 2.0.2 (start-sdk 4.0.0, #940) the package installs on nothing
-  older. Finish StartOS setup, then
+  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.2 or later:
+  from 2.0.3 (start-sdk 4.1.0, #965) the package installs on nothing
+  older (2.0.2, start-sdk 4.0.0, on 0.4.1 or later). Finish StartOS setup, then
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
