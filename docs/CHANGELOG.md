@@ -92,6 +92,12 @@ All notable changes to BitcoinTX are documented in this file.
   had taken 15 sessions and about 54,000 words of plans, prompts and
   reviews for 173 shipped lines by its fifth merged step, where
   2.0.1's release took a lead and one release session.
+- **Playwright 1.65.1** for the click-through tests (from 1.64.1; #972,
+  Updates row 4), by hand as `docs/MAINTENANCE.md` asks. Its notable
+  changes (text in a closed `<details>` left out of accessible names,
+  actions waiting for an element not to be inert, TypeScript class
+  fields, an empty shard set failing) touch none of our tests: both
+  suites pass. Development only: nothing that ships changes.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
