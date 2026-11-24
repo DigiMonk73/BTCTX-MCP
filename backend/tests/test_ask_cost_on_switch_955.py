@@ -3,8 +3,10 @@
 that an edit makes My BTC, Gift or N/A asks for its cost, as a new deposit
 of those sources does: the market value at receipt isn't what the user's
 own coins cost them. The owner's yes, decision 1 on #972 (2026-11-14). An
-edit that sends no cost is refused in the create's words; a cost sent with
-the switch is the user's, so it's no longer marked as from the price.
+edit that sends no cost is refused in the create's words; another cost than
+the one shown is the user's, so it's no longer marked as from the price,
+while the value shown sent back unchanged keeps its mark (a switch back to
+income prices it again, as before).
 """
 
 from decimal import Decimal
