@@ -740,7 +740,9 @@ _INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp"
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
     An income or rebate deposit's value after an edit (#76). A typed one is
-    kept. One that came from a price, or a blank or $0 one (the form sends 0
+    kept, but never a cost made income: a My BTC, Gift or N/A deposit made
+    one valued at receipt is valued again unless the edit states another
+    value (#998). One that came from a price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the hour's price (an inheritance: its
     date of death's day price) when the edit changes what it depends on:
     the account, amount or hour (date of death), or a source not
@@ -801,7 +803,8 @@ def _states_its_value(tx: Transaction, tx_data: dict) -> bool:
     user's, only another than the cost stored, which sent back is a cost,
     not the income (#998)."""
     if _leaves_its_own_cost(tx):
-        return _another_cost(tx, tx_data)
+        # $0 is blank here as everywhere a value at receipt is filled (never $0 income)
+        return _another_cost(tx, tx_data) and Decimal(tx_data["cost_basis_usd"]) > 0
     return _typed_basis(tx, tx_data)
 
 
@@ -1234,11 +1237,14 @@ def _gift_left_blank(row: dict, book: AccountBook) -> bool:
 def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
     """Leave blank each value the save prices again: one from a price whose
     inputs the edit changes, the value sent with it included when it's the
-    one shown sent back (a value sent back unchanged isn't a typed one), and
+    one shown sent back (a value sent back unchanged isn't a typed one), a
+    My BTC, Gift or N/A deposit's cost made income (#998), and
     a gift's the save fills (_gift_priced_by_edit: a blank one, or a sale's
     $0 it becomes a gift with)."""
     if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
+    elif _leaves_its_own_cost(tx) and _valued_at_receipt(row, db) and not _states_its_value(tx, edit):
+        row["cost_basis_usd"] = None  # a cost made income is priced again (#998)
     if tx.proceeds_from_price and not _typed_proceeds(tx, edit) and _proceeds_priced_by_edit(tx, edit):
         row["proceeds_usd"] = row["gross_proceeds_usd"] = None
     if _gift_priced_by_edit(tx, edit, book):  # a sale's $0 made a gift too (_moments_priced reads only a gift's)

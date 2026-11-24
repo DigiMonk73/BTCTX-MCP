@@ -90,6 +90,16 @@ def test_a_cost_typed_with_the_switch_is_never_the_income(away):
     assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
 
 
+def test_a_zero_sent_with_the_switch_back_is_blank_and_priced():
+    """#998: $0 is blank wherever a value at receipt is filled: never $0 income."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "cost_basis_usd": "0"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
 def test_another_value_sent_with_the_switch_back_is_the_users_income_figure():
     """#998: a value other than the stored cost, sent with the switch back, is
     the income the user states: typed."""

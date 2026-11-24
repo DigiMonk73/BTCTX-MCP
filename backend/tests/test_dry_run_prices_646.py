@@ -194,6 +194,17 @@ def test_a_spend_made_an_income_deposit_has_its_value_found_first(ledger):
     assert found == asked == {hour("2024-03-04T12:00:00Z")}
 
 
+@pytest.mark.parametrize("change", [{"source": "Income"}, {"source": "Income", "cost_basis_usd": "120"}],
+                         ids=["the AI's partial edit", "its cost sent back"])
+def test_a_my_btc_deposit_made_income_has_its_value_found_first(ledger, change):
+    """#998: its cost isn't income, so the save prices it: found before the lock."""
+    tx_id = ledger.add({"type": "Deposit", "timestamp": "2024-03-06T12:00:00Z", "from_account_id": EXTERNAL,
+                        "to_account_id": WALLET, "amount": "0.01", "source": "MyBTC", "cost_basis_usd": "120",
+                        **NO_FEE})
+    found, asked = ledger.edit(tx_id, change)
+    assert found == asked == {hour("2024-03-06T12:00:00Z")}
+
+
 def test_a_dollar_deposit_moved_into_a_wallet_as_income_has_its_value_found_first(ledger):
     """Its dollar basis is dropped (_drop_dollar_deposit_basis); the save prices the income."""
     tx_id = ledger.add({"type": "Deposit", "timestamp": "2024-03-05T12:00:00Z", "from_account_id": EXTERNAL,
