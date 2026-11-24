@@ -118,7 +118,12 @@ Deposit: External -> any account
                column (b). Never record an inheritance as a Gift: the rules
                differ. When
                changing a deposit's source to or from Inherited, send
-               acquired_at in the same update. Suggest the user's tax
+               acquired_at in the same update. When changing a deposit's
+               source from Income, Interest, Reward, Rebate or Inherited to
+               MyBTC, Gift or N/A, ask the user what the coins cost and send
+               cost_basis_usd in the same update (the ledger refuses the
+               change without one when the value came from the price);
+               never resend the listed value as the cost. Suggest the user's tax
                preparer if they owned the coins jointly with the person who
                died (only part may be inherited), or gave them to that
                person within a year before the death (the basis may be the

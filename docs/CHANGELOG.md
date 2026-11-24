@@ -4,6 +4,23 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Changing a priced deposit to My BTC or Gift asks for what the coins
+  cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
+  valued from the price when it came in (income, interest, a reward, a
+  rebate, an inheritance) kept that market value as its cost basis when
+  edited to My BTC, Gift or N/A, still marked "from the price", though the
+  cost of your own coins, or a gift's, is what was paid for them. Such an
+  edit now asks for the cost, as a new deposit of those sources does: the
+  form clears the Cost Basis field and Save asks you to enter it (0 if
+  it's unknown), and the AI connector's edit is refused until it sends
+  one. A cost you enter is kept as yours. Changed back to income, the
+  deposit is valued again from the price, as before, unless you typed a
+  cost other than the value shown. Nothing saved changes by itself: a
+  deposit changed this way before keeps its value; if it's your own coins
+  or a gift, check that its cost basis is what was paid.
+
 ### Fixed
 
 - **A time typed in the transaction form is saved by BitcoinTX's own
@@ -31,6 +48,47 @@ All notable changes to BitcoinTX are documented in this file.
   first, then open each such transaction and compare its time with the
   receipt you typed it from; where it's an hour off, type the receipt's
   time again.
+
+- **A comma in a bitcoin amount is refused, where "1,234" was read as 1234
+  BTC** (#953, tax figures). BitcoinTX's own CSV import and River's read a
+  comma in any amount as a thousands separator, so a bitcoin amount
+  written "1,234" became 1234 BTC, and a spreadsheet that writes decimals
+  with a comma, in a cell shown with three decimals, wrote 2.5 BTC as
+  "2,500", read as 2500 BTC, with no error: only the preview's amount
+  showed it. A bitcoin amount takes no comma now: the CSV import refuses
+  one in `amount` when the row's amount is bitcoin and in `fee_amount`
+  when its fee is (a fee_currency left blank counts as the one the row
+  pays in), and River's import in a sent or received amount in BTC and in
+  a send's fee (River records a send's fee in bitcoin), saying to write
+  decimals with a point and no thousands separator. Dollars keep their
+  thousands separator ("1,000.50"), and the note on a comma a number can't
+  take says so. The import of any other exchange's file already refused a
+  separator in bitcoin. Every earlier version has it. **What to do:** if
+  you imported a file from a spreadsheet, look for a bitcoin amount a
+  thousand times too large: the dashboard's holdings would show it at
+  once.
+
+- **Ledger Review's advice for a value left blank or $0 says to type it
+  when BitcoinTX asks no one for prices** (#966). For an income or rebate
+  deposit, a gift, donation or lost coins, or a spend at $0, Ledger Review
+  said to clear the value "to use that hour's price". With the price
+  source Nobody, none chosen yet, one not confirmed, or a server's
+  settings not valid, clearing it fills nothing unless that hour's price
+  is already stored, and the item stayed listed. The advice now says to
+  type the value, and why, as the Edit form already does. No figure
+  changes.
+
+- **A request nested a thousand levels deep is refused with a 422, not a
+  server error** (#954). A JSON body nested about 1,000 to 10,000 levels
+  deep (a few kilobytes), sent to the login or to a route that takes JSON,
+  made the answer's encoding run past Python's recursion limit: a 500
+  instead of the 422 that says what's wrong. Nothing was saved, and
+  nothing leaked: the answer was one fixed sentence. Now it's the 422,
+  without the nested input echoed back. On Python 3.11 (a from-source
+  install's oldest) the JSON reader refuses a body past about 950 levels
+  itself, a 400, and the few levels just under that are the 422 too. Two
+  levels just under the depth where a body is refused outright still
+  answer 500 on a logged-in route, from the data checks themselves: #1000.
 
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
@@ -148,6 +206,14 @@ All notable changes to BitcoinTX are documented in this file.
   `desktop/BitcoinTX.spec` drops its hidden imports, and
   `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
   pull request (#927) goes with it, unmerged. No figure moves.
+- **Playwright 1.65.1** for the click-through tests (from 1.64.1; #972,
+  Updates row 4), by hand as `docs/MAINTENANCE.md` asks. Its notable
+  changes (text in a closed `<details>` left out of accessible names,
+  actions waiting for an element not to be inert, TypeScript class
+  fields, an empty shard set failing) touch none of our specs. Locally,
+  Chromium's suite passes; WebKit's, on a Mac, too but for two focus
+  checks that fail the same way on 1.64.1 there (`docs/TESTING.md`); CI's
+  Linux suites decide. Development only: nothing that ships changes.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
