@@ -215,13 +215,21 @@ def _why_unpriced(day) -> tuple[str, str] | None:
 
 def unreadable_csv(exc: csv.Error) -> CSVParseError:
     """The csv module couldn't read the file (a field over its 131,072
-    characters, say): a file error, not a server error (#211)."""
-    return _file_error(f"The file can't be read as CSV ({exc}).")
+    characters, say): a file error, not a server error (#211). A quote out
+    of place is said in plain words: read leniently, it swallowed the rows
+    after it into one cell, or dropped the quotes (#952)."""
+    reason = str(exc)
+    if reason == "unexpected end of data":
+        return _file_error("The file can't be read as CSV: a cell opens a quote (\") that is never closed.")
+    if reason.endswith("expected after '\"'"):
+        return _file_error("The file can't be read as CSV: a cell has more text after its closing quote (\"),"
+                           " even a space.")
+    return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
-    reader = csv.DictReader(io.StringIO(_decode(content)))
+    reader = csv.DictReader(io.StringIO(_decode(content)), strict=True)  # a stray quote refuses the file (#952)
     header_error = _header_error(reader.fieldnames)
     if header_error:
         result.errors.append(header_error)

@@ -6,6 +6,28 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 
+- **A file with a quote out of place is refused, with the reason, instead
+  of losing rows** (#952, tax figures). In a cell whose quote (") is never
+  closed, BitcoinTX's own CSV import, River's import and every other
+  exchange's read the rest of the file as that one cell: those rows
+  vanished, and the preview and the import said nothing. A cell with more
+  text after its closing quote was read with the quotes left out. Each
+  import now refuses such a file and says what it found (a quote never
+  closed; text, even a space, after a closing quote). One case can't be
+  detected: a stray quote that a second stray quote further down happens
+  to close makes a valid file, read with the rows between as one cell
+  (#990). So with a hand-edited file, compare the preview's row count with
+  the file's. Only a hand-edited or damaged file has a stray quote;
+  BitcoinTX's own export never writes one, and a cell with a line break or
+  a doubled quote ("") still reads. Every earlier version has it. **What
+  to do:** if you imported a file you had edited by hand, compare the
+  number of transactions the import saved with the file's rows. Add a
+  missing one by hand; for River's or another exchange's file, importing
+  the corrected file again also works, since the rows already saved are
+  found as duplicates and left out. The row just before the missing ones
+  read their text into the cell where the stray quote was (River's tag,
+  which decides its type, or a note): check that transaction too.
+
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding
   period from the day after the acquisition, and a holding period that
@@ -92,6 +114,14 @@ All notable changes to BitcoinTX are documented in this file.
   had taken 15 sessions and about 54,000 words of plans, prompts and
   reviews for 173 shipped lines by its fifth merged step, where
   2.0.1's release took a lead and one release session.
+- **python-dateutil is no longer a dependency** (for #950). Its one use,
+  `relativedelta(years=1)` in the holding period, went with #950's fix,
+  which works out the anniversary with Python's own `calendar`
+  (`one_year_anniversary`). The app, the Docker image and the Mac app no
+  longer install it, nor `six`, which only it needed;
+  `desktop/BitcoinTX.spec` drops its hidden imports, and
+  `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
+  pull request (#927) goes with it, unmerged. No figure moves.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
