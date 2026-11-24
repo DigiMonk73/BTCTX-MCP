@@ -45,17 +45,19 @@ export async function saveTransaction(
 
 /**
  * When the server read a typed time as another moment than this device
- * did (#964), what to tell the owner: the time typed is the one saved,
- * and this device shows it off by the difference until its rules are
- * updated. Undefined when they agree, or nothing was typed.
+ * did (#964), what to tell the owner, true whichever rules are the older:
+ * BitcoinTX saved it by its own, the device shows it off by the
+ * difference, and what to update (a saved time stays as saved, so after
+ * BitcoinTX's update it's typed again). Undefined when they agree, or
+ * nothing was typed.
  */
 export function deviceRulesWarning(payload: ICreateTransactionPayload, savedTimestamp: string): string | undefined {
   if (!payload.typed_time) return undefined;
   const minutes = Math.round((Date.parse(payload.timestamp) - Date.parse(savedTimestamp)) / 60_000);
   if (!minutes) return undefined;
-  return `Saved at the time you typed, by BitcoinTX's timezone rules. This device's rules differ (they're ` +
-    `usually out of date), so it shows this transaction's time ${howFar(minutes)} off until they agree: ` +
-    "update this device's system or browser, and BitcoinTX.";
+  return `This device's timezone rules and BitcoinTX's read this time ${howFar(minutes)} apart. BitcoinTX ` +
+    `saved it by its own, so this device shows it ${howFar(minutes)} off. Usually the device is out of date: ` +
+    "update its system or browser. If BitcoinTX is, update BitcoinTX, then type this time again.";
 }
 
 function howFar(minutes: number): string {

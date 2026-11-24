@@ -59,9 +59,9 @@ describe("deviceRulesWarning", () => {
 
   it("says the typed time is saved, and how far off this device shows it", () => {
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T21:00:00Z")).toBe(
-      "Saved at the time you typed, by BitcoinTX's timezone rules. This device's rules differ (they're " +
-      "usually out of date), so it shows this transaction's time an hour off until they agree: update this " +
-      "device's system or browser, and BitcoinTX.");
+      "This device's timezone rules and BitcoinTX's read this time an hour apart. BitcoinTX saved it by its " +
+      "own, so this device shows it an hour off. Usually the device is out of date: update its system or " +
+      "browser. If BitcoinTX is, update BitcoinTX, then type this time again.");
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T21:30:00Z")).toContain("30 minutes off");
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T20:00:00Z")).toContain("2 hours off");
   });

@@ -2464,6 +2464,3 @@ file of your own or MAP-1's real export can:
   after a cell whose quote is never closed.
 - **#953**: BitcoinTX's own CSV import, and River's, read a bitcoin
   amount written "1,234" as 1234 BTC.
-- **#964**: on a device whose timezone data is older than BitcoinTX's, a
-  time typed in the transaction form, in #908's zones and periods, can be
-  saved an hour off.

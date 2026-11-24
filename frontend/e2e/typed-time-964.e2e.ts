@@ -23,7 +23,7 @@ test("a typed time is sent as typed, with the browser's zone (#964)", async ({ a
   const body = (await sent).postDataJSON();
   expect(body.typed_time).toEqual({ local: "2024-07-04T09:15", zone });
   // The server's reading and this browser's agree: no warning
-  await expect(page.getByText("This device's rules differ")).toHaveCount(0);
+  await expect(page.getByText("timezone rules and BitcoinTX's read this time")).toHaveCount(0);
 });
 
 test("an edit that leaves Date & Time alone sends the moment saved (#964)", async ({ authedPage: page }) => {
