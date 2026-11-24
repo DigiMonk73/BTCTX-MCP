@@ -4,6 +4,20 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **The Sell form shows the coins a sale uses** (#960, the owner's go,
+  2026-11-10). Before you save a sale, or when you open a saved one, the
+  Sell form lists, read-only, the coins it takes from the exchange, oldest
+  first: each lot's date acquired, amount and cost, and the proceeds, gain
+  and term (long-term or short-term) it will have on Form 8949. A
+  withdrawal from an exchange (a spend, gift, donation or lost coins)
+  lists its coins too, as one from a wallet already did; a gift's,
+  donation's or lost coins' show their term only. Until now a sale's coins
+  showed only in the tax report's PDF. The AI connector's get_coins_moved
+  answers for a saved sale too, with the same figures. Nothing is computed
+  differently: the list is the save's own.
+
 ### Fixed
 
 - **A time typed in the transaction form is saved by BitcoinTX's own

@@ -210,7 +210,9 @@ describe("no coins are chosen", () => {
     await form.user.type(screen.getByLabelText("Amount"), "0.1");
     await waitForCoins(form);
     expect(screen.queryByRole("button", { name: "Choose which coins leave" })).toBeNull();
-    expect(asked(form)).toEqual([]);
+    // Since #960 it lists the coins it uses, as a sale does: asked, with no choice sent
+    expect(asked(form).length).toBeGreaterThan(0);
+    expect(asked(form).every((r) => !r.body?.chosen_coins)).toBe(true);
   });
 });
 

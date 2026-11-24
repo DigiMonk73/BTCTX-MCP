@@ -20,7 +20,7 @@ const TypeFields: React.FC<{ type: TransactionType | ""; book: AccountBook; tran
     case "Buy":
       return <BuyFields book={book} />;
     case "Sell":
-      return <SellFields book={book} />;
+      return <SellFields book={book} transactionId={transactionId} />;
     default:
       return null;
   }
