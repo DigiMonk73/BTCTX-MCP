@@ -6,6 +6,8 @@ large for a float (1e999) is read as infinity, and NaN as NaN: FastAPI's own
 Nothing was saved either way.
 """
 
+import sys
+
 import pytest
 
 DEPOSIT = ('{"type": "Deposit", "timestamp": "2024-01-01T00:00:00Z", "from_account_id": 99, '
@@ -51,9 +53,13 @@ def test_an_input_json_can_carry_is_still_given(auth_client):
 
 # #954: a body nested about 1,000 to 10,000 levels deep (a few KB) made the
 # handler's encoding recurse past Python's limit: a 500 where a 422 is due.
+# Python 3.11's JSON parser refuses one past about 950 levels itself (a 400
+# before validation); from 3.12 it reads them to about 10,000.
 DEEP = "[" * 2000 + "]" * 2000
+READS_DEEP = pytest.mark.skipif(sys.version_info < (3, 12), reason="3.11's parser refuses 2,000 levels: a 400")
 
 
+@READS_DEEP
 @pytest.mark.parametrize("url, body", [
     ("/api/login", '{"username": %s, "password": "x"}'),
     ("/api/users/register", '{"username": %s, "password": "a long enough password"}'),
@@ -68,6 +74,7 @@ def test_a_deeply_nested_field_is_a_422_without_its_input(url, body):
     assert all("input" not in e and "ctx" not in e for e in errors)
 
 
+@READS_DEEP
 def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engine):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import Session
@@ -80,3 +87,17 @@ def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engin
                              headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
     assert r.status_code == 422, r.text[:300]
     assert all("input" not in e for e in r.json()["detail"])
+
+
+def test_no_depth_the_parser_reads_is_a_500():
+    """Every depth near either Python's parser limit: a 422, or the parser's
+    400, never a 500. On 3.11, 952 to 954 levels parsed and passed the
+    check of each error alone, then failed the answer's own encoding, two
+    levels deeper (#954's CI)."""
+    from fastapi.testclient import TestClient
+    from backend.main import app
+    client = TestClient(app, raise_server_exceptions=False)
+    for depth in [*range(900, 1001), *range(9950, 10001)]:
+        nested = "[" * depth + "]" * depth
+        r = raw(client, "/api/login", '{"username": %s, "password": "x"}' % nested)
+        assert r.status_code in (400, 422), (depth, r.text[:200])

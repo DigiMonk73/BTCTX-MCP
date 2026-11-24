@@ -359,7 +359,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
         if not _writable(error):
             error.pop("input", None)
             error.pop("ctx", None)
-    return JSONResponse(status_code=422, content={"detail": errors})
+    return Response(content=_written(errors), status_code=422, media_type="application/json")
 
 
 def _encoded(error: dict) -> dict:
@@ -368,7 +368,28 @@ def _encoded(error: dict) -> dict:
     try:
         return jsonable_encoder(error)
     except RecursionError:
-        return jsonable_encoder({k: v for k, v in error.items() if k not in ("input", "ctx")})
+        return _without_echo(error)
+
+
+def _without_echo(error: dict) -> dict:
+    """An error less its input and context, which only echo the body."""
+    return {key: value for key, value in error.items() if key not in ("input", "ctx")}
+
+
+def _written(errors: list[dict]) -> bytes:
+    """The 422's body, written here rather than by JSONResponse, so the
+    write is the one tried: on Python 3.11 an error that passed _writable
+    alone could still recurse too deep two levels further in (#954). If the
+    whole can't be written, every error goes without its echo."""
+    try:
+        return _json_bytes({"detail": errors})
+    except (ValueError, RecursionError):
+        return _json_bytes({"detail": [_without_echo(error) for error in errors]})
+
+
+def _json_bytes(content) -> bytes:
+    """JSON as JSONResponse writes it (its rules: no NaN or infinity, UTF-8)."""
+    return json.dumps(content, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
 
 
 @app.exception_handler(DateOutOfRange)
@@ -390,11 +411,11 @@ def _without_bytes_input(error: dict) -> dict:
 
 
 def _writable(value) -> bool:
-    """Whether JSONResponse can write `value` (its rules: no NaN or
-    infinity, UTF-8)."""
+    """Whether `value` can be written as JSON (_json_bytes): no NaN or
+    infinity, UTF-8, not nested past Python's recursion limit."""
     try:
-        json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
-    except ValueError:  # UnicodeEncodeError is one too
+        _json_bytes(value)
+    except (ValueError, RecursionError):  # UnicodeEncodeError is a ValueError too
         return False
     return True
 

@@ -39,9 +39,11 @@ All notable changes to BitcoinTX are documented in this file.
   made the answer's encoding run past Python's recursion limit: a 500
   instead of the 422 that says what's wrong. Nothing was saved, and
   nothing leaked: the answer was one fixed sentence. Now it's the 422,
-  without the nested input echoed back. Two levels just under the depth
-  where a body is refused outright still answer 500 on a logged-in route,
-  from the data checks themselves: #1000.
+  without the nested input echoed back. On Python 3.11 (a from-source
+  install's oldest) the JSON reader refuses a body past about 950 levels
+  itself, a 400, and the few levels just under that are the 422 too. Two
+  levels just under the depth where a body is refused outright still
+  answer 500 on a logged-in route, from the data checks themselves: #1000.
 
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
