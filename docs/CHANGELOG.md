@@ -30,12 +30,46 @@ All notable changes to BitcoinTX are documented in this file.
   form clears the Cost Basis field and Save asks you to enter it (0 if
   it's unknown), and the AI connector's edit is refused until it sends
   one. A cost you enter is kept as yours. Changed back to income, the
-  deposit is valued again from the price, as before, unless you typed a
-  cost other than the value shown. Nothing saved changes by itself: a
-  deposit changed this way before keeps its value; if it's your own coins
-  or a gift, check that its cost basis is what was paid.
+  deposit is valued again from the price (#998). Nothing saved changes by
+  itself: a deposit changed this way before keeps its value; if it's your
+  own coins or a gift, check that its cost basis is what was paid.
 
 ### Fixed
+
+- **A cost typed for My BTC or Gift is no longer kept as the value
+  received when the deposit is changed to income, a rebate or an
+  inheritance** (#998, tax figures). A bitcoin deposit's cost basis typed
+  while its source was My BTC, Gift or N/A (what the coins cost, or the
+  giver's cost) was kept if the deposit was later changed to a source
+  valued when received (income, interest, a reward, a rebate, an
+  inheritance): reported as that income, or taken as the rebate's or
+  inheritance's value, though a cost is neither. Such a change now values
+  the deposit again from the price (an inheritance's at its date of
+  death), as a new one of that source is valued; without a price it's
+  refused, as a new one is, until a value is given. A value above $0 sent
+  with it, other than the cost, is kept as the value you state. The form
+  clears the Cost Basis field on that switch, so it's filled in from the
+  price. Every earlier version has it. **What to do:** if you changed a
+  deposit from My BTC, Gift or N/A to income, interest, a reward, a rebate
+  or an inheritance, check its value: open it and clear Cost Basis to have
+  it valued from the price again.
+
+- **An inheritance's value is no longer kept as income, nor income's as an
+  inheritance's, when a deposit's source is changed** (#999, tax figures).
+  A bitcoin deposit's value typed for an inheritance (its value at the
+  date of death) was kept if the deposit was changed to income, interest,
+  a reward or a rebate, and reported as income when received; and a value
+  typed for income was kept when changed to Inherited, as the value at the
+  death. The two are taken on different dates. Such a change now values
+  the deposit again, at the hour received or at the date of death, unless
+  a value above $0 other than the old one is sent with it, which is kept
+  as the value you state. A change among income, interest, a reward and a
+  rebate keeps a typed value, as before: all are valued when received. The
+  form has cleared Cost Basis on such a switch since 1.2.8 (#154), so only
+  a change made through the AI connector or the API kept the old value;
+  every earlier version has it. **What to do:** if an AI changed a deposit
+  between Inherited and income, interest, a reward or a rebate, open it
+  and clear Cost Basis to have it valued again.
 
 - **A time typed in the transaction form is saved by BitcoinTX's own
   timezone rules, not the device's** (#964, tax figures). The form turned
