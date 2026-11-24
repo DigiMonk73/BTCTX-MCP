@@ -111,6 +111,30 @@ test("a Gift made Inherited asks for the date of death and the value again (#154
   expect((await listTx(page.request))[0]).toMatchObject({ source: "Gift", cost_basis_usd: "50.00" });
 });
 
+test("a rebate valued from the price, made My BTC, asks for what the coins cost (#955)", async ({ authedPage: page }) => {
+  // Left without a value: BitcoinTX fills it in from the price
+  const rebate = await createTx(page.request, {
+    type: "Deposit", timestamp: TS, from_account_id: 99, to_account_id: 2, amount: "0.005", fee_amount: "0",
+    fee_currency: "BTC", source: "Rebate",
+  });
+  expect(rebate.cost_basis_from_price).toBe(true);
+  await openEdit(page, "Deposit");
+  await expect(page.locator(".field-origin")).toHaveText(/^From the price:/);
+  await page.getByLabel("Source").selectOption("MyBTC");
+  // Its value when received isn't what your own coins cost you: the form
+  // empties the field and its own check asks (the server's is pytest's)
+  await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
+  await page.getByRole("button", { name: "Update Transaction" }).click();
+  await expect(page.getByText("Enter this deposit's cost basis (type 0 if unknown).")).toBeVisible();
+  expect((await listTx(page.request))[0]).toMatchObject({ source: "Rebate", cost_basis_from_price: true });
+
+  await page.getByLabel("Cost Basis (USD)").fill("120");
+  await saveForm(page, "Update Transaction");
+  expect((await listTx(page.request))[0]).toMatchObject({
+    source: "MyBTC", cost_basis_usd: "120.00", cost_basis_from_price: false,
+  });
+});
+
 test("saving an edit without changes changes nothing", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   const created = await createTx(page.request, CASES[4].tx);

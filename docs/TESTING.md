@@ -216,7 +216,11 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   `E2E_WEBKIT=1 npx playwright test --project=webkit` (once
   `npx playwright install webkit`). CI's WebKit runs on Linux: what only
   macOS's WebKit does (#456, a cleared date field that blocked Save) shows
-  only in that command run on a Mac.
+  only in that command run on a Mac. On a Mac, two keyboard-focus checks in
+  `settings-accounts-355.e2e.ts` (its tests at lines 48 and 374) fail with
+  `toBeFocused` reading "inactive", on Playwright 1.64.1 and 1.65.1 alike
+  (2026-11-24); they pass in CI's WebKit on Linux. Not yet explained: a
+  failure there that matches is not the change under test.
 - **Playwright's WebKit crashes ("Page crashed") at the next navigation
   after any reload of a signed-in page** (a second reload, or a `goto`),
   with or without the price card. Real Safari and Chrome reload normally,

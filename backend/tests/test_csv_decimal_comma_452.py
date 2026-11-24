@@ -30,7 +30,8 @@ THOUSANDS = [
     ("1,000", "1000"), ("12,345.67", "12345.67"), ("1,000,000", "1000000"),
     ("999,999.99", "999999.99"), ("1,000.", "1000"),
 ]
-COMMA_NOTE = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+COMMA_NOTE = ("A comma is read only as a thousands separator in dollars (1,000.50), never in bitcoin:"
+              " write decimals with a point (0.5, not 0,5).")
 
 DEPOSIT = {"date": "2024-01-10T10:00:00Z", "type": "Deposit", "amount": "0.5", "from_account": "External",
            "to_account": "Wallet", "cost_basis_usd": "100", "source": "MyBTC"}
@@ -79,7 +80,12 @@ def test_a_number_refused_for_something_else_says_nothing_of_the_comma(column, r
     assert result.transactions == []
 
 
-@pytest.mark.parametrize("column, row", COLUMNS)
+# A thousands separator works in dollars only: a bitcoin amount takes none (#953)
+DOLLAR_COLUMNS = [("amount", {**DEPOSIT, "to_account": "Bank", "cost_basis_usd": "", "source": "N/A"}),
+                  *[c for c in COLUMNS if c[0] != "amount"]]
+
+
+@pytest.mark.parametrize("column, row", DOLLAR_COLUMNS)
 @pytest.mark.parametrize("cell, number", THOUSANDS)
 def test_a_thousands_separator_still_works(column, row, cell, number):
     result = parse_csv_file(csv_file({**row, column: cell}))
@@ -173,7 +179,7 @@ def test_a_river_amount_refused_for_something_else_says_nothing_of_the_comma(col
     assert errors[0].message.startswith(f"{column} '{cell}' isn't a number") and "comma" not in errors[0].message
 
 
-@pytest.mark.parametrize("column", RIVER_NUMBER_COLUMNS)
+@pytest.mark.parametrize("column", [c for c in RIVER_NUMBER_COLUMNS if c != "Received Amount"])  # in dollars (#953)
 @pytest.mark.parametrize("cell, number", THOUSANDS)
 def test_a_river_amount_with_thousands_separators_still_works(column, cell, number):
     rows, errors = parse_river_csv(river_file(river_row(column, cell)))
