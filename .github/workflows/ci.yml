@@ -51,7 +51,10 @@ jobs:
     # Which jobs this change needs (#985, scripts/ci_changes.py): the jobs
     # it may skip, by id, which "CI passed" then counts as passed. A push or
     # a run from the Actions tab skips none. A pull request's checkout is
-    # the branch merged into its base: HEAD^1 is the base
+    # the branch merged into its base: HEAD^1 is the base, whose copy of
+    # the rules decides, so a pull request can't loosen them for itself
+    # (as ship-freeze, below). A move lists both paths (--no-renames), so a
+    # file moved into docs/ is never docs alone
     name: What this change needs
     runs-on: ubuntu-latest
     outputs:
@@ -65,8 +68,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.base_ref }}
         run: |
-          if [ "$EVENT" = pull_request ]; then git diff --name-only HEAD^1 HEAD; fi \
-            | python3 scripts/ci_changes.py --event "$EVENT" --base "$BASE" | tee -a "$GITHUB_OUTPUT"
+          git show HEAD^1:scripts/ci_changes.py > "$RUNNER_TEMP/rules.py" 2>/dev/null \
+            || cp scripts/ci_changes.py "$RUNNER_TEMP/rules.py"
+          if [ "$EVENT" = pull_request ]; then git diff --no-renames --name-only HEAD^1 HEAD; fi \
+            | python3 "$RUNNER_TEMP/rules.py" --event "$EVENT" --base "$BASE" | tee -a "$GITHUB_OUTPUT"
 
   docs:
     # On every change, docs alone too: the lint, and every test that reads
@@ -155,8 +160,8 @@ jobs:
           retention-days: 7
 
   python-guard:
-    # Fails "CI passed" unless, on each version, every test the shards
-    # collected ran in exactly one shard; and hands out the run's per-file
+    # Fails "CI passed" unless every test the shards collected ran in
+    # exactly one shard; and hands out the run's per-file
     # timings, the next backend/tests/test_durations.json (docs/TESTING.md)
     name: Python tests, every one run once
     needs: python

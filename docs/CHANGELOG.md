@@ -239,8 +239,10 @@ All notable changes to BitcoinTX are documented in this file.
     change, on both engines.
   - The Python suite runs once, on 3.13; the AI connector's tests on 3.11
     as well.
-  - A path the script doesn't name runs everything, and a push to
-    `develop`, `main` or `2.0` runs everything.
+  - A path the script doesn't name runs every job (into `2.0`, all but
+    the medium set's three), and a push to `develop`, `main` or `2.0`
+    runs everything. The base branch's copy of the script decides, so a
+    pull request can't loosen it for itself.
 
   "CI passed" is still the one required check: it counts a skipped job as
   passed only when the script said the change may skip it.

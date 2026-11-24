@@ -58,7 +58,9 @@ make hooks          # installs the pre-push gate
     in a few minutes, and skips the rest; one that changes nothing the
     click-through tests can see (docs, `startos/`, `mcp_server/`,
     `desktop/`, `.github/` but `ci.yml`) skips them. A path the script
-    doesn't name runs everything, and a push runs everything. "CI passed"
+    doesn't name runs every job (into `2.0`, all but the medium set's
+    three), and a push runs everything. A file moved counts as both its
+    paths, and the base branch's copy of the script decides. "CI passed"
     counts a skipped job as passed only when the script said this change
     may skip it.
   - A pull request into `2.0` (and only there) runs the

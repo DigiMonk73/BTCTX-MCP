@@ -145,3 +145,14 @@ def test_the_tests_that_read_the_docs():
         assert test in found, test
     assert all((ROOT / test).is_file() for test in found)
     assert "backend/tests/test_seed_ledger.py" not in found
+
+
+def test_the_base_branchs_rules_decide_and_a_move_lists_both_paths():
+    """A pull request can't loosen the rules for itself, and a file moved
+    into docs/ isn't docs alone: `git diff --name-only` lists a rename's
+    new path only (the review of #985)."""
+    block = jobs()["changes"]
+    assert 'git show HEAD^1:scripts/ci_changes.py > "$RUNNER_TEMP/rules.py"' in block
+    assert "git diff --no-renames --name-only HEAD^1 HEAD" in block
+    assert 'python3 "$RUNNER_TEMP/rules.py" --event' in block
+    assert skipped("pull_request", "develop", ["backend/notes.md", "docs/notes.md"]) == []

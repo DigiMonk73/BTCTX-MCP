@@ -212,9 +212,11 @@ def check_no_hardcoded_localhost_urls() -> bool:
 
 def check_python39_compatibility() -> bool:
     """
-    Every backend file must parse as Python 3.13, the server's everywhere
-    it runs (#985; 3.11 from #546 until then). Uses the real parser, so
-    syntax newer than 3.13 is caught without regex false alarms.
+    Every backend file must parse as Python 3.11. The server runs on 3.13
+    everywhere (#985), but the AI connector's own tests import its code,
+    and CI runs them on 3.11, the oldest Python the connector accepts. Uses
+    the real parser, so syntax newer than 3.11 is caught without regex
+    false alarms.
     (Name kept for callers; Python 3.9 support was dropped in 2026-09.)
     """
     project_root = Path(__file__).parent.parent.parent
@@ -225,13 +227,13 @@ def check_python39_compatibility() -> bool:
         if "__pycache__" in str(py_file):
             continue
         try:
-            ast.parse(py_file.read_text(), filename=str(py_file), feature_version=(3, 13))
+            ast.parse(py_file.read_text(), filename=str(py_file), feature_version=(3, 11))
         except SyntaxError as e:
             violations.append(f"{py_file.relative_to(project_root)}:{e.lineno}: {e.msg}")
 
     passed = len(violations) == 0
     details = "; ".join(violations[:2]) if violations else ""
-    record_result("Docker/StartOS Compatibility", "Python 3.13 compatibility", passed, details)
+    record_result("Docker/StartOS Compatibility", "Python 3.11 syntax (the connector's tests)", passed, details)
     return passed
 
 

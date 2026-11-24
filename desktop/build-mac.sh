@@ -87,7 +87,8 @@ else
     VENV_VERSION=$("$VENV_DIR/bin/python" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "?")
     echo "  Using existing virtual environment (Python $VENV_VERSION)"
     if [ "$VENV_VERSION" != "$PYTHON_VERSION" ]; then
-        echo "  It keeps its Python, not $PYTHON_VERSION: delete desktop/.venv to build with $PYTHON_VERSION"
+        echo "ERROR: desktop/.venv was made with Python $VENV_VERSION, not $PYTHON_VERSION (#985): delete it and run again"
+        exit 1
     fi
 fi
 

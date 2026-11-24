@@ -186,8 +186,8 @@ The script:
 
 1. Finds a Python 3.13 interpreter: the one `BTCTX_BUILD_PYTHON` names
    (CI passes the Python 3.13 it sets up), else `python3.13`, else
-   `python3` if it is 3.13. A `desktop/.venv` made earlier keeps its
-   Python (the log says so): delete it to build with another
+   `python3` if it is 3.13. A `desktop/.venv` made earlier with another
+   Python is refused: delete it and run again
 2. Creates/reuses `desktop/.venv` and installs the locks
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
    pywebview), each package checked against its hash

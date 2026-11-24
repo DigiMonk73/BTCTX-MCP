@@ -19,8 +19,9 @@ that read the docs, which run on every change (ci.yml's `docs` job).
   (the medium set, the owner's choice of 2026-10-22; they run on each merge
   into 2.0).
 
-A path this file doesn't name never skips a job: the rules list what may
-skip, never what must run.
+A path this file doesn't name never skips a job (beyond the medium set,
+into 2.0): the rules list what may skip, never what must run. ci.yml runs
+the base branch's copy of this file, and lists a moved file's two paths.
 """
 
 import argparse
