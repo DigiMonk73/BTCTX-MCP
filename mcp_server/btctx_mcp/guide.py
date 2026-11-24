@@ -276,6 +276,10 @@ BTC Fees / USD Fees are internal fee accounts - never use them directly.
   9:30 there; a bare date ("2024-03-05") means midday that day — fine when the
   time is unknown. Add "Z" or an offset only when the source states one
   (e.g. exchange emails in UTC). If the year is ambiguous, ask.
+- Rows at the same time (a day's bare dates all are) are recorded in the
+  order you list them, and that order decides which coins a sale or move
+  takes. List them in the order they happened: a buy before the sale or
+  move it pays for, even when the source lists newest first.
 - A broker's 1099-DA may date a sale in UTC, so near midnight its date can
   differ from BitcoinTX's (the tax timezone): that's expected. Enter the
   sale's real moment.
