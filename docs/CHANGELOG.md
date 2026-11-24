@@ -6,6 +6,22 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 
+- **A file with a quote out of place is refused, with the reason,
+  instead of losing rows** (#952, tax figures). In a cell whose quote (")
+  is never closed, BitcoinTX's own CSV import, River's import and every
+  other exchange's read the rest of the file as that one cell: the rows
+  after it vanished, and the preview and the import said nothing. A cell
+  with more text after its closing quote was read with the quotes left
+  out. Each now refuses the file and says which of the two it is, so it
+  can be corrected and imported whole. Only a hand-edited or damaged file
+  has either; BitcoinTX's own export never writes them, and a cell with a
+  line break or a doubled quote ("") still reads. Every earlier version
+  has it. **What to do:** if you imported a file you had edited by hand,
+  compare the number of transactions the import saved with the file's
+  rows. Add a missing one by hand; for River's or another exchange's
+  file, importing the corrected file again also works, since the rows
+  already saved are found as duplicates and left out.
+
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding
   period from the day after the acquisition, and a holding period that
