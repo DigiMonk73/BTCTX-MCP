@@ -420,9 +420,12 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
 def _refuse_bitcoin_commas(row: dict[str, str], checked: _Row) -> None:
     """_Rejected when the amount or the fee is bitcoin and written with a
     comma (BTC_COMMA): known only once the accounts and the fee's currency are."""
+    own_fee_currency = _fee_currency_used(checked)
     btc_columns = (
         ("amount", _amount_currency(checked.tx_type, checked.from_id, checked.to_id, checked.book)),
-        ("fee_amount", checked.fee_currency or _fee_currency_used(checked)),
+        # A fee in another currency than the row's own is the type rules' to
+        # refuse, in their words ("Buy fee must be in USD.")
+        ("fee_amount", own_fee_currency if (checked.fee_currency or own_fee_currency) == own_fee_currency else None),
     )
     for column, currency in btc_columns:
         raw = (row.get(column) or "").strip()
@@ -812,7 +815,8 @@ _THOUSANDS = re.compile(r"[+-]?[1-9][0-9]{0,2}(,[0-9]{3})+(\.[0-9]*)?")
 # Only digits, points and commas: when such a number's commas aren't
 # thousands separators, they're why it's refused
 _DIGITS_AND_SEPARATORS = re.compile(r"[+-]?[0-9.,]+")
-_DECIMAL_COMMA = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+_DECIMAL_COMMA = ("A comma is read only as a thousands separator in dollars (1,000.50), never in bitcoin:"
+                  " write decimals with a point (0.5, not 0,5).")
 # A bitcoin amount takes no thousands separator at all: a spreadsheet that
 # writes decimals with a comma writes 2.5 BTC as "2,500", which the thousands
 # rule would read as 2500 BTC (#953). The exchange reader refuses one too.

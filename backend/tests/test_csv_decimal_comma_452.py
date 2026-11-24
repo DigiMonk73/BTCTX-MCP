@@ -30,7 +30,8 @@ THOUSANDS = [
     ("1,000", "1000"), ("12,345.67", "12345.67"), ("1,000,000", "1000000"),
     ("999,999.99", "999999.99"), ("1,000.", "1000"),
 ]
-COMMA_NOTE = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+COMMA_NOTE = ("A comma is read only as a thousands separator in dollars (1,000.50), never in bitcoin:"
+              " write decimals with a point (0.5, not 0,5).")
 
 DEPOSIT = {"date": "2024-01-10T10:00:00Z", "type": "Deposit", "amount": "0.5", "from_account": "External",
            "to_account": "Wallet", "cost_basis_usd": "100", "source": "MyBTC"}

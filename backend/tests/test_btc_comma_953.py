@@ -74,6 +74,13 @@ def test_a_blank_fee_currency_that_is_bitcoin_counts_too():
     assert _errors(result) == [("fee_amount", f"Invalid fee_amount '1,000'. {BTC_NOTE}")]
 
 
+def test_a_buys_fee_said_in_bitcoin_gets_the_buys_own_refusal():
+    """A Buy pays its fee in dollars: a fee said in bitcoin is the type
+    rule's to refuse, in its words, whatever its comma."""
+    result = parse_csv_file(csv_file({**BUY, "fee_amount": "1,000", "fee_currency": "BTC"}))
+    assert _errors(result) == [("fee_currency", "Buy fee must be in USD.")]
+
+
 def test_a_dollar_fee_keeps_its_thousands_separator():
     result = parse_csv_file(csv_file({**BUY, "amount": "1", "cost_basis_usd": "100,000", "fee_amount": "1,000"}))
     assert result.errors == [], _errors(result)
@@ -96,13 +103,20 @@ def river_line(sent: str, sent_cur: str, received: str, received_cur: str, fee: 
 def test_rivers_bitcoin_amount_with_a_comma_is_refused():
     rows, errors = parse_river_csv(river_line("100000.00", "USD", "1,234", "BTC"))
     assert rows == []
-    assert [(e.column, e.message) for e in errors] == [("Received Amount", f"Received Amount '1,234'. {BTC_NOTE}")]
+    assert [(e.column, e.message) for e in errors] == [("Received Amount", f"Invalid Received Amount '1,234'. {BTC_NOTE}")]
 
 
-def test_rivers_bitcoin_fee_with_a_comma_is_refused():
+def test_a_river_sends_fee_with_a_comma_is_refused_whatever_its_currency_column_says():
+    """River records a send's fee in bitcoin (send()), so the comma is a bitcoin one."""
+    for fee_currency in ("BTC", "", "USD"):
+        rows, errors = parse_river_csv(river_line("1.5", "BTC", "", "", "1,000", fee_currency))
+        assert rows == []
+        assert [(e.column, e.message) for e in errors] == [("Fee Amount", f"Invalid Fee Amount '1,000'. {BTC_NOTE}")]
+
+
+def test_a_river_sells_fee_is_in_dollars_whatever_its_currency_column_says():
     rows, errors = parse_river_csv(river_line("1.5", "BTC", "100000.00", "USD", "1,000", "BTC"))
-    assert rows == []
-    assert [(e.column, e.message) for e in errors] == [("Fee Amount", f"Fee Amount '1,000'. {BTC_NOTE}")]
+    assert errors == []
 
 
 def test_rivers_dollar_amounts_keep_their_thousands_separator():

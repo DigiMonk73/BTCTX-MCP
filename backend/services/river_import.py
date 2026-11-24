@@ -339,12 +339,22 @@ def _river_numbers(r: dict[str, str], row_number: int,
                 + decimal_comma_note(text),
             ))
             return None
-        if value is not None and "," in text and r.get(column.lower().replace("amount", "currency"), "").upper() == "BTC":
+        if value is not None and "," in text and _in_bitcoin(r, column):
             errors.append(CSVParseError(row_number=row_number, column=column, severity="error",
-                                        message=f"{column} '{text}'. {BTC_COMMA}"))
+                                        message=f"Invalid {column} '{text}'. {BTC_COMMA}"))
             return None
         numbers.append(value)
     return tuple(numbers)
+
+
+def _in_bitcoin(r: dict[str, str], column: str) -> bool:
+    """Whether River's amount in `column` is bitcoin (#953): a sent or
+    received amount by its own currency column; the fee only on a send
+    (bitcoin out, nothing received), the one kind of row River records a
+    fee in bitcoin for, whatever Fee Currency says (send, _river_file_row)."""
+    if column == "Fee Amount":
+        return r.get("sent currency", "").upper() == "BTC" and not r.get("received amount")
+    return r.get(column.lower().replace("amount", "currency"), "").upper() == "BTC"
 
 
 @dataclass

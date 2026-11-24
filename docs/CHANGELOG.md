@@ -10,14 +10,16 @@ All notable changes to BitcoinTX are documented in this file.
   BTC** (#953, tax figures). BitcoinTX's own CSV import and River's read a
   comma in any amount as a thousands separator, so a bitcoin amount
   written "1,234" became 1234 BTC, and a spreadsheet that writes decimals
-  with a comma wrote 2.5 BTC as "2,500", read as 2500 BTC, with no error:
-  only the preview's amount showed it. A bitcoin amount takes no comma
-  now: the CSV import refuses one in `amount` when the row's amount is
-  bitcoin and in `fee_amount` when its fee is (a fee_currency left blank
-  counts as the one the row pays in), and River's import in each amount
-  whose currency is BTC, saying to write decimals with a point and no
-  thousands separator. Dollars keep their thousands separator
-  ("1,000.50"). The import of any other exchange's file already refused a
+  with a comma, in a cell shown with three decimals, wrote 2.5 BTC as
+  "2,500", read as 2500 BTC, with no error: only the preview's amount
+  showed it. A bitcoin amount takes no comma now: the CSV import refuses
+  one in `amount` when the row's amount is bitcoin and in `fee_amount`
+  when its fee is (a fee_currency left blank counts as the one the row
+  pays in), and River's import in a sent or received amount in BTC and in
+  a send's fee (River records a send's fee in bitcoin), saying to write
+  decimals with a point and no thousands separator. Dollars keep their
+  thousands separator ("1,000.50"), and the note on a comma a number can't
+  take says so. The import of any other exchange's file already refused a
   separator in bitcoin. Every earlier version has it. **What to do:** if
   you imported a file from a spreadsheet, look for a bitcoin amount a
   thousand times too large: the dashboard's holdings would show it at
