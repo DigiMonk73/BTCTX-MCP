@@ -124,8 +124,6 @@ hidden_imports = [
 
     # Utilities
     "dotenv",
-    "python_dateutil",
-    "dateutil",
     "itsdangerous",
     "multipart",
 
