@@ -117,8 +117,8 @@ def _require_login_to_list_coins(request: Request) -> None:
 @router.post("/coins-moved")
 def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Session = Depends(get_db)):
     """
-    Which coins a new Transfer, or a bitcoin Withdrawal from one of your
-    wallets, would move, as its save would (#706, #711), given the body its
+    Which coins a new Transfer, Sell or bitcoin Withdrawal would move, as
+    its save would (#706, #711, #960), given the body its
     save is sent: what it takes from its From account in the order its save
     takes it, each with its date acquired, amount, cost and acquisition, and
     the bitcoin its network fee disposes of; from a wallet, what the wallet
@@ -134,8 +134,8 @@ def coins_a_new_transfer_moves(tx: TransactionCreate, request: Request, db: Sess
 
 @router.post("/{transaction_id}/coins-moved")
 def coins_an_edited_transfer_moves(transaction_id: RowId, tx: TransactionUpdate, db: Session = Depends(get_db)):
-    """Which coins a Transfer or a Withdrawal from a wallet would move with
-    this edit, as its save would (#706, #711); as for a new one. 404 when
+    """Which coins a Transfer, Sell or bitcoin Withdrawal would move with
+    this edit, as its save would (#706, #711, #960); as for a new one. 404 when
     the transaction doesn't exist. Sent no change, the coins it moves now.
     The AI key may ask too (#711, Q4: the AI shows which coins a
     transaction moves), as for its preview: a dry run on a scratch copy

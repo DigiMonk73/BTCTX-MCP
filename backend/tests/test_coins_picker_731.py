@@ -22,18 +22,30 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from backend.services import past_years
+from backend.services.transfer_coins import NOT_LISTED
 from backend.tests.test_chosen_coins_711 import (  # noqa: F401  (owner, chose_a2: fixtures)
     EXCHANGE_BTC, LEAVES, WALLET, buy, chose_a2, coins, deposit, forget_acquisitions, owner, saved, spend, transfer,
 )
 
 URL = "/api/transactions/coins-moved"
-NOT_LISTED = "Only a Transfer, or a bitcoin Withdrawal from one of your wallets, lists the coins that leave."
 CHOICE_LINE = "A choice of coins counts only if you made it by the time they left and your records show it."
 
 
 def coin(acquired: str, btc: str, cost: str, acquired_txn_id: int, inherited: bool = False) -> dict:
     return {"acquired": acquired, "btc": btc, "cost_usd": cost, "inherited": inherited,
             "acquired_txn_id": acquired_txn_id}
+
+
+# What #960 adds to each coin a disposal takes (test_coins_a_sale_used_960.py)
+SOLD_KEYS = ("proceeds_usd", "gain_usd", "term")
+
+
+def as_731(answer: dict) -> dict:
+    """The answer as #711 gives it: since #960 each coin also carries its
+    proceeds, gain and term."""
+    coins = answer["coins"]
+    return {**answer, "coins": None if coins is None else
+            [{k: v for k, v in c.items() if k not in SOLD_KEYS} for c in coins]}
 
 
 def held(acquired_txn_id: int, acquired: str, btc: str, cost: str, term: str, oldest_first: str, *,
@@ -57,7 +69,7 @@ def test_a_spend_from_a_wallet_lists_the_coins_that_leave_and_what_the_wallet_ho
     ids = owner.ids
     r = owner.post(URL, json=spend(LEAVES, "0.1", "10000", "0.0001"))
     assert r.status_code == 200, r.text
-    assert r.json() == {
+    assert as_731(r.json()) == {
         "coins": [coin("2017-03-01", "0.10000000", "100.00", ids["A1"])],
         "fee_btc": "0.00010000",
         "detail": None,
@@ -70,7 +82,7 @@ def test_with_a_choice_the_coins_chosen_leave_and_the_wallet_holds_the_same(owne
     ids = owner.ids
     r = owner.post(URL, json=spend(LEAVES, "0.1", "10000", "0.0001", coins((ids["A2"], "0.1001"))))
     assert r.status_code == 200, r.text
-    assert r.json()["coins"] == [coin("2025-01-15", "0.10000000", "9000.00", ids["A2"])]
+    assert as_731(r.json())["coins"] == [coin("2025-01-15", "0.10000000", "9000.00", ids["A2"])]
     assert r.json()["held"] == wallet_then(ids)  # before it takes any: the choice changes nothing there
 
 
@@ -78,7 +90,7 @@ def test_a_transfer_from_a_wallet_lists_its_coins_with_their_acquisition_and_the
     ids = owner.ids
     r = owner.post(URL, json=transfer(LEAVES, "0.4001", "0.0001"))
     assert r.status_code == 200, r.text
-    assert r.json() == {
+    assert as_731(r.json()) == {
         "coins": [coin("2017-03-01", "0.29990000", "299.90", ids["A1"]),
                   coin("2025-01-15", "0.10010000", "9009.00", ids["A2"])],
         "fee_btc": "0.00010000",
@@ -93,7 +105,7 @@ def test_from_an_exchange_nothing_is_held_to_choose_from(owner):  # noqa: F811
     a4 = buy(owner, "2025-02-01T12:00:00Z", "1", "100000")
     r = owner.post(URL, json=transfer(LEAVES, "0.3", frm=EXCHANGE_BTC, to=WALLET))
     assert r.status_code == 200, r.text
-    assert r.json()["coins"] == [coin("2025-02-01", "0.30000000", "30000.00", a4)]
+    assert as_731(r.json())["coins"] == [coin("2025-02-01", "0.30000000", "30000.00", a4)]
     assert r.json()["held"] is None
 
 
@@ -165,7 +177,7 @@ def test_lots_without_their_acquisition_are_replayed_first(owner):  # noqa: F811
     r = owner.post(URL, json=spend(LEAVES, "0.1", "10000", "0.0001", coins((ids["A2"], "0.1001"))))
     assert r.status_code == 200, r.text
     assert r.json()["held"] == wallet_then(ids)
-    assert r.json()["coins"] == [coin("2025-01-15", "0.10000000", "9000.00", ids["A2"])]
+    assert as_731(r.json())["coins"] == [coin("2025-01-15", "0.10000000", "9000.00", ids["A2"])]
 
 
 def test_past_the_time_budget_nothing_is_listed_and_it_says_so(owner, monkeypatch):  # noqa: F811
@@ -220,11 +232,14 @@ def test_a_dollar_withdrawal_or_a_buy_lists_no_coins(owner):  # noqa: F811
         assert r.json()["detail"] == NOT_LISTED
 
 
-def test_a_withdrawal_from_an_exchange_lists_no_coins(owner):  # noqa: F811
-    buy(owner, "2025-02-01T12:00:00Z", "1", "100000")
+def test_a_withdrawal_from_an_exchange_lists_its_coins_but_none_to_choose(owner):  # noqa: F811
+    """Since #960 an exchange's spend lists the coins it uses, as a sale does;
+    an exchange's coins leave oldest first, so nothing is held to choose from."""
+    a4 = buy(owner, "2025-02-01T12:00:00Z", "1", "100000")
     r = owner.post(URL, json=spend(LEAVES, "0.1", "10000", frm=EXCHANGE_BTC))
-    assert r.status_code == 422, r.text
-    assert r.json()["detail"] == NOT_LISTED
+    assert r.status_code == 200, r.text
+    assert as_731(r.json())["coins"] == [coin("2025-02-01", "0.10000000", "10000.00", a4)]
+    assert r.json()["held"] is None
 
 
 # The past-year question (6.2)

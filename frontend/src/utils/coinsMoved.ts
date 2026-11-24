@@ -3,7 +3,9 @@
 // path on a scratch copy of the ledger), with what, and the words around
 // the list it gives. Asked with the body the Save sends, so the list
 // follows a choice of coins (#711), and a Withdrawal from one of your
-// wallets lists the coins that leave it, as a Transfer does.
+// wallets lists the coins that leave it, as a Transfer does; a Sell, and a
+// Withdrawal from an exchange, list the coins they use, with each piece's
+// proceeds, gain and term (#960).
 import { accountKind, accountName, chosenId, isBtcAccount } from "./accounts";
 import { addsUp, leaving, type HeldLine } from "./chosenCoins";
 import { btcText, dayText, parseDecimal } from "./format";
@@ -16,6 +18,11 @@ export interface MovedCoin {
   cost_usd: string;
   inherited: boolean;
   acquired_txn_id?: number | null; // the Buy or Deposit that acquired them (#711)
+  // A sale's or a spend's piece, as Form 8949 prints it (#960); a gift's has
+  // a term only, and a Transfer's coins none of the three
+  proceeds_usd?: string | null;
+  gain_usd?: string | null;
+  term?: "LONG" | "SHORT" | null;
 }
 
 /** The server's answer: coins and fee_btc are null when it couldn't work
@@ -42,14 +49,22 @@ export function movesCoins(values: FormAccounts, book: AccountBook): boolean {
 }
 
 /** A Withdrawal from one of your wallets: its coins leave, and can be
- * chosen (#711). An exchange's leave oldest first, and aren't listed. */
+ * chosen (#711). An exchange's leave oldest first: listed (#960), never chosen. */
 export function leavesAWallet(values: FormAccounts, book: AccountBook): boolean {
   return values.type === "Withdrawal" && accountKind(book, chosenId(values.fromAccountId)) === "wallet";
 }
 
+/** A Sell, or a Withdrawal of bitcoin from an exchange as from a wallet:
+ * the coins it disposes of are listed with what it realizes (#960). */
+export function disposesOfCoins(values: FormAccounts, book: AccountBook): boolean {
+  const fromId = chosenId(values.fromAccountId);
+  return (values.type === "Sell" || values.type === "Withdrawal") && fromId !== undefined &&
+    isBtcAccount(book, fromId);
+}
+
 /** Whether the form lists the coins a transaction takes. */
 export function listsCoins(values: FormAccounts, book: AccountBook): boolean {
-  return movesCoins(values, book) || leavesAWallet(values, book);
+  return movesCoins(values, book) || leavesAWallet(values, book) || disposesOfCoins(values, book);
 }
 
 /**
@@ -58,18 +73,29 @@ export function listsCoins(values: FormAccounts, book: AccountBook): boolean {
  * add up yet (Save waits for it) asks as oldest first, so the answer still
  * says what the wallet holds. Null until there's a list to ask for: a
  * Transfer's two amounts (what arrived above 0 and no more than what left),
- * a Withdrawal's amount above 0, and a date.
+ * a Withdrawal's amount above 0, a Sell's BTC and proceeds above 0, and a
+ * date.
  */
 export function coinsPayload(values: TransactionFormData, book: AccountBook): ICreateTransactionPayload | null {
   if (!listsCoins(values, book)) return null;
   const dated = Boolean(values.timestamp) && !Number.isNaN(new Date(values.timestamp).getTime());
-  const amounts = values.type === "Transfer"
-    ? parseDecimal(values.amountTo) > 0 && parseDecimal(values.amountFrom) >= parseDecimal(values.amountTo)
-    : parseDecimal(values.amount) > 0;
-  if (!dated || !amounts) return null;
+  if (!dated || !amountsToAsk(values)) return null;
   const payload = buildTransactionPayload(values, book);
   if (payload.chosen_coins && !addsUp(payload.chosen_coins, leaving(values))) payload.chosen_coins = null;
   return payload;
+}
+
+function amountsToAsk(values: TransactionFormData): boolean {
+  if (values.type === "Transfer") {
+    return parseDecimal(values.amountTo) > 0 && parseDecimal(values.amountFrom) >= parseDecimal(values.amountTo);
+  }
+  if (values.type === "Sell") {
+    // Its proceeds start at $0: a list of losses before they're typed would
+    // alarm more than it tells. A sale for $0 shows no list (a rare one)
+    const proceeds = values.grossProceedsUSD;  // a number (valueAsNumber), NaN while blank
+    return parseDecimal(values.amountBTC) > 0 && typeof proceeds === "number" && proceeds > 0;
+  }
+  return parseDecimal(values.amount) > 0;
 }
 
 /** Where to ask: a new transfer's, or the edit of a saved one's. */
@@ -81,7 +107,7 @@ export function coinsUrl(transactionId: number | null | undefined): string {
  * for the method (#713): the IRS default when none are identified (Treas.
  * Reg. §1.1012-1(j)), never a rule of its own. */
 export function oldestFirstLine(book: AccountBook, fromId: number, kind: TransactionType = "Transfer"): string {
-  const go = kind === "Withdrawal" ? "leave" : "move";
+  const go = kind === "Transfer" ? "move" : "leave";
   return `Per-wallet FIFO: your oldest coins in ${accountName(book, fromId)} ${go} first (the IRS default when you ` +
     "don't pick specific coins).";
 }
@@ -96,7 +122,7 @@ const NOT_SAVED = /^Not (saved|changed): /;
  */
 export function noListLine(status: number | undefined, reason: string, kind: TransactionType = "Transfer"): string {
   const why = reason.replace(NOT_SAVED, "");
-  const what = kind === "Withdrawal" ? "withdrawal" : "transfer";
+  const what = kind === "Withdrawal" ? "withdrawal" : kind === "Sell" ? "sale" : "transfer";
   if ((status === 400 || status === 422) && why) return `This ${what} can't be saved as it is: ${why}`;
   return why ? `Which coins move can't be shown: ${why}` : "Which coins move can't be shown right now.";
 }
