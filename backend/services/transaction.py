@@ -775,8 +775,8 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
 
 def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
     """Whether the edit makes a bitcoin deposit valued from the price (income,
-    a reward, a rebate) one of a source that isn't valued at receipt (My BTC,
-    Gift, N/A), whose cost is the user's (#955, the owner's decision 1 on
+    a reward, a rebate, an inheritance) one of a source that isn't valued at
+    receipt (My BTC, Gift, N/A), whose cost is the user's (#955, the owner's decision 1 on
     #972): the market value at receipt isn't what the user's own coins cost.
     So the edit needs a cost, as a new deposit of that source does, and the
     one it sends is the user's, even the value the form showed. Only the
