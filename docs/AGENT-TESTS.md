@@ -2457,9 +2457,6 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
 Found in 2.0.2's time, each planned for 2.0.3 (2.0.2's CHANGELOG, Known
 issues). The golden ledger meets none of them; an exploratory step, a
 file of your own or MAP-1's real export can:
-- **#950**: coins acquired on 28 February of 2011, 2015, 2019, 2023 or
-  2027 and sold on 29 February of the next year are reported long-term;
-  they're short-term.
 - **#951**: the AI connector's import orders rows that share a time by
   type, where a file import keeps the file's order, so the same rows can
   use other coins.

@@ -12,6 +12,7 @@ import importlib.util
 import json
 import re
 import sys
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -386,3 +387,38 @@ def test_a_choice_the_rules_dont_allow_stops_the_replay(rows, message):
     would hide a difference."""
     with pytest.raises(ValueError, match=re.escape(message)):
         independent.replay(rows)
+
+
+@pytest.mark.parametrize("acquired, sold, long_term", [
+    ((2023, 2, 5), (2024, 2, 5), False),
+    ((2023, 2, 5), (2024, 2, 6), True),
+    ((2024, 2, 29), (2025, 2, 28), False),
+    ((2024, 2, 29), (2025, 3, 1), True),
+    # The last day of a month: a year from the first of the next (#950)
+    ((2023, 2, 28), (2024, 2, 29), False),
+    ((2023, 2, 28), (2024, 3, 1), True),
+    ((2027, 2, 28), (2028, 2, 29), False),
+    ((2023, 1, 31), (2024, 1, 31), False),
+    ((2023, 1, 31), (2024, 2, 1), True),
+    ((2023, 12, 31), (2024, 12, 31), False),
+    ((2023, 12, 31), (2025, 1, 1), True),
+    ((2024, 2, 28), (2025, 2, 28), False),
+    ((2024, 2, 28), (2025, 3, 1), True),
+])
+def test_held_more_than_a_year(acquired, sold, long_term):
+    assert independent._is_long_term(date(*acquired), date(*sold)) is long_term
+
+
+def test_both_calculations_give_every_acquisition_from_2010_to_2030_the_same_term():
+    """The app's rule and the second calculation's, written apart, agree on
+    each acquisition date from 2010 to 2030 sold within a week of its
+    anniversary: the dates where a counting rule can go wrong (#950)."""
+    from backend.services.transaction import holding_period
+    day = date(2010, 1, 1)
+    while day <= date(2030, 12, 31):
+        noon = datetime(day.year, day.month, day.day, 12, tzinfo=timezone.utc)
+        for offset in range(358, 373):
+            sold = day + timedelta(days=offset)
+            app = holding_period(noon, datetime(sold.year, sold.month, sold.day, 12, tzinfo=timezone.utc))
+            assert (app == "LONG") is independent._is_long_term(day, sold), (day, sold, app)
+        day += timedelta(days=1)

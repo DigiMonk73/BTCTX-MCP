@@ -964,7 +964,8 @@ class _TaxReport:
             + " An exchange's own order of coins can give other figures. Trading between BTC and USD is a taxable "
             "event.",
             "A disposal is long-term when the bitcoin was held more than one year (disposed of after the first "
-            "anniversary of its acquisition), or was inherited; otherwise it is short-term.",
+            "anniversary of its acquisition; for bitcoin acquired on the last day of a month, after the last day "
+            "of that month a year later), or was inherited; otherwise it is short-term.",
             "USD values are the ones entered with each transaction. When one was left blank, BitcoinTX filled "
             "it in from the U.S. dollar price of bitcoin when the transaction's hour began (UTC): Bitstamp's "
             "hourly opening price, downloaded by BitcoinTX and checked against fingerprints published with it, "
