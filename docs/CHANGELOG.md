@@ -17,9 +17,9 @@ All notable changes to BitcoinTX are documented in this file.
   sold on 29 February 2024 as long-term. Every other date was already
   right: the only disposals that change are those on 29 February 2012,
   2016, 2020 or 2024 (next, 2028) of coins acquired on 28 February of the
-  year before, by any buy or deposit (for a My BTC or Gift deposit with a
-  date originally acquired, that date), network fees paid with them
-  included. Such a sale's gain stays the same; it moves from long-term to
+  year before, by any buy or deposit but an inheritance (always
+  long-term; for a My BTC or Gift deposit with a date originally
+  acquired, that date), network fees paid with them included. Such a sale's gain stays the same; it moves from long-term to
   short-term: from Form 8949's Part II to Part I (for 2024, box F to box
   C, or, with a broker reporting choice, box D to A or E to B) and on
   Schedule D. A donation of such coins counts as held a year or less in
@@ -27,9 +27,9 @@ All notable changes to BitcoinTX are documented in this file.
   **What to do:** if you sold, spent or donated bitcoin, or paid a network
   fee with it, on 29 February 2024 (or 2020, 2016, 2012) from coins
   acquired on 28 February of the year before, update, run Recalculate
-  Ledger, and print that year's forms again. If you already filed that year with the sale as long-term,
-  ask your tax preparer whether to amend: short-term gains are taxed at
-  your ordinary rate. Most ledgers have no such sale and see no change.
+  Ledger, and print that year's forms again. If you already filed that
+  year with the sale as long-term, ask your tax preparer whether to
+  amend: short-term gains are taxed at your ordinary rate. Most ledgers have no such sale and see no change.
   The report's note on the holding period says the rule.
 
 ### Development

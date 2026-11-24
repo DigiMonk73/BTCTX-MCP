@@ -93,8 +93,6 @@ class Clock:
         days = self.data.draw(st.integers(1, 60), label="gap_days")
         minutes = self.data.draw(st.integers(0, 24 * 60 - 1), label="minutes")
         self.t = self.t + timedelta(days=days, minutes=minutes)
-        if self.t.month == 2 and self.t.day == 29:  # keep anniversaries unambiguous
-            self.t += timedelta(days=1)
         return self.t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
