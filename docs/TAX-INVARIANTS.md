@@ -130,7 +130,17 @@ map.
   typed value isn't asked for again by the server (it's already the user's
   figure); the form, which can't tell the user's cost from a value typed at
   receipt, clears the cost on any switch from a valued source to one that
-  isn't, and asks. Income (report, dashboard) counts only deposits into a
+  isn't, and asks. A deposit made one valued at receipt from a source that
+  takes its basis another way (a cost: My BTC, Gift, N/A; a value when
+  received: income, interest, a reward, a rebate; a value at the date of
+  death: an inheritance) is valued again at the new source's moment, never
+  the old figure kept: a cost isn't income (#998), nor a value at someone's
+  death the value when received (#999). Only another value above $0 sent
+  with it is typed, the value the user states (the old figure sent back, or
+  $0, is priced; `_valued_otherwise`, `_states_its_value`); no price is then
+  a 422, as for a new deposit; the form clears the cost on those switches
+  too. A switch among the income sources keeps a typed value, valued at the
+  same moment. Income (report, dashboard) counts only deposits into a
   bitcoin account (`AccountBook.is_btc`): a USD deposit is dollars, whatever
   value it carries.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued

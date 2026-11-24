@@ -135,6 +135,22 @@ test("a rebate valued from the price, made My BTC, asks for what the coins cost 
   });
 });
 
+test("a My BTC deposit made a Rebate is valued from the price again (#998)", async ({ authedPage: page }) => {
+  await createTx(page.request, {
+    type: "Deposit", timestamp: TS, from_account_id: 99, to_account_id: 2, amount: "0.005", fee_amount: "0",
+    fee_currency: "BTC", source: "MyBTC", cost_basis_usd: "120.00", acquired_at: "2015-01-01",
+  });
+  await openEdit(page, "Deposit");
+  await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("120");
+  await page.getByLabel("Source").selectOption("Rebate");
+  // What your coins cost isn't their value when received: filled in from the price
+  await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
+  await saveForm(page, "Update Transaction");
+  const saved = (await listTx(page.request))[0];
+  expect(saved).toMatchObject({ source: "Rebate", cost_basis_from_price: true });
+  expect(saved.cost_basis_usd).not.toBe("120.00");
+});
+
 test("saving an edit without changes changes nothing", async ({ authedPage: page }) => {
   await seedFunds(page.request);
   const created = await createTx(page.request, CASES[4].tx);

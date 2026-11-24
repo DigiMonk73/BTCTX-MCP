@@ -665,7 +665,10 @@ async def update_transaction(
     An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
     (at the hour) when you change its amount, the time's hour or the account, or move it there
     from another source (a switch among those four keeps it; sending back the value it already
-    has doesn't make it typed); a Spent's proceeds that came from the price, when you change
+    has doesn't make it typed); a MyBTC, Gift or N/A deposit's cost made one of those sources
+    (or Inherited), or an Inherited deposit's value made one of them and back, is valued from
+    the price at the new source's moment, never the old figure kept: send cost_basis_usd only
+    with the value the user states, and above 0; a Spent's proceeds that came from the price, when you change
     its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed);
     a Gift/Donation/Lost withdrawal's, when you change its amount or the time's hour, and a blank
     one (or a Spent's $0 made a gift without fmv_usd) is filled from the price by any change.

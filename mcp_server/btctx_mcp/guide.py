@@ -123,7 +123,13 @@ Deposit: External -> any account
                MyBTC, Gift or N/A, ask the user what the coins cost and send
                cost_basis_usd in the same update (the ledger refuses the
                change without one when the value came from the price);
-               never resend the listed value as the cost. Suggest the user's tax
+               never resend the listed value as the cost. Changing one the
+               other way (MyBTC, Gift or N/A to a source valued at receipt),
+               leave cost_basis_usd out: BitcoinTX values it from the price
+               (send one, above 0, only if the user states its value when
+               received; the cost sent back is priced too). The same between
+               Inherited and Income, Interest, Reward or Rebate: valued again
+               at the new source's moment. Suggest the user's tax
                preparer if they owned the coins jointly with the person who
                died (only part may be inherited), or gave them to that
                person within a year before the death (the basis may be the
