@@ -785,9 +785,11 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_coins_moved(transaction_id: int) -> ToolResult:
-    """The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes, as
-    BitcoinTX works them out: each piece's date acquired, BTC, cost and whether it was
-    inherited, in the order taken, and the BTC its network fee disposes of. Without a choice,
+    """The coins a saved Transfer, Sell or BTC Withdrawal takes, as BitcoinTX works them out:
+    each piece's date acquired, BTC, cost and whether it was inherited, in the order taken,
+    and the BTC its network fee disposes of. A sale's or a spend's pieces also give
+    proceeds_usd, gain_usd and term (LONG or SHORT), as Form 8949 prints them; a gift's,
+    donation's or lost coins' give the term only. Without a choice,
     the From account's oldest coins first; with one (chosen_coins), the coins chosen. Leaving
     a wallet (not a move within it), held: the coins it held then (each purchase or deposit, acquired_in: the
     account it was bought or deposited into, not where its coins are now; its date acquired, BTC, cost, term,

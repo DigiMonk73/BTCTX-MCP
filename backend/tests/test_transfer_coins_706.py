@@ -61,9 +61,11 @@ def coin(acquired: str, btc: str, cost: str, inherited: bool = False) -> dict:
 def as_706(answer: dict) -> dict:
     """The list as #706 gives it: since #711 each coin also names its
     acquisition, and the answer gives what a wallet holds and whether it's
-    dated today (test_coins_picker_731.py)."""
+    dated today (test_coins_picker_731.py); since #960 each also carries its
+    proceeds, gain and term (test_coins_a_sale_used_960.py)."""
     coins = answer["coins"]
-    return {"coins": None if coins is None else [{k: v for k, v in c.items() if k != "acquired_txn_id"} for c in coins],
+    later = ("acquired_txn_id", "proceeds_usd", "gain_usd", "term")
+    return {"coins": None if coins is None else [{k: v for k, v in c.items() if k not in later} for c in coins],
             "fee_btc": answer["fee_btc"], "detail": answer["detail"]}
 
 

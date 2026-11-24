@@ -34,7 +34,7 @@ from backend.services import chosen_coins, past_years, tax_time
 from backend.services import transaction as tx_service
 from backend.services.account import AccountBook, account_book
 
-NOT_LISTED = "Only a Transfer, or a bitcoin Withdrawal from one of your wallets, lists the coins that leave."
+NOT_LISTED = "Only a Transfer, a Sell or a bitcoin Withdrawal lists the coins that leave."
 NOT_FOUND = "Transaction not found."
 TOO_SLOW = "BitcoinTX couldn't work out in time which coins move. Saving isn't affected."
 # Seen only by a form whose list another window asked for after it
@@ -101,7 +101,8 @@ def _check_listed(write: past_years.Write, db: Session) -> None:
     kind = write.data.get("type") or stored.type
     kind = getattr(kind, "value", kind)
     from_id = write.data.get("from_account_id", getattr(stored, "from_account_id", None))
-    if kind == "Transfer" or (kind == "Withdrawal" and account_book(db).kind(from_id) == "wallet"):
+    # A sale's, and a withdrawal's from an exchange too: the form shows a sale's coins (#960)
+    if kind in ("Transfer", "Sell") or (kind == "Withdrawal" and account_book(db).is_btc(from_id)):
         return
     raise HTTPException(status_code=422, detail=NOT_LISTED)
 
@@ -139,7 +140,9 @@ def _what_moved(tx: Transaction, db: Session) -> dict:
     else:
         pieces = (db.query(LotDisposal).filter(LotDisposal.transaction_id == tx.id, LotDisposal.is_fee.is_(False))
                   .order_by(LotDisposal.id).all())
-        coins = [_coin(piece.lot, piece.disposed_btc, piece.disposal_basis_usd, tz) for piece in pieces]
+        sold = tx.type == "Sell" or tx_service.counts_as_spent(tx, account_book(db))
+        coins = [{**_coin(piece.lot, piece.disposed_btc, piece.disposal_basis_usd, tz), **_disposed(piece, sold)}
+                 for piece in pieces]
     return {
         "coins": coins,
         "fee_btc": f"{sum((Decimal(part.disposed_btc) for part in fee), Decimal(0)):.8f}",
@@ -148,13 +151,29 @@ def _what_moved(tx: Transaction, db: Session) -> dict:
 
 
 def _coin(lot: BitcoinLot, btc, cost, tz) -> dict:
-    """A piece as the list shows it: the date acquired in the tax timezone, as Form 8949 prints it."""
+    """A piece as the list shows it: the date acquired in the tax timezone,
+    as Form 8949 prints it. A Transfer's coins aren't sold: no proceeds,
+    gain or term."""
     return {
         "acquired": tax_time.local_date(lot.acquired_date, tz).isoformat(),
         "btc": f"{Decimal(btc):.8f}",
         "cost_usd": f"{Decimal(cost):.2f}",
         "inherited": bool(lot.inherited),
         "acquired_txn_id": lot.acquired_txn_id,
+        "proceeds_usd": None,
+        "gain_usd": None,
+        "term": None,
+    }
+
+
+def _disposed(piece: LotDisposal, sold: bool) -> dict:
+    """A disposal's piece as Form 8949 will print it (#960), from the save's
+    own row: its term, and, for a sale or a spend, its share of the proceeds
+    and its gain. A gift, donation or lost coins realize none."""
+    return {
+        "proceeds_usd": f"{Decimal(piece.proceeds_usd_for_that_portion):.2f}" if sold else None,
+        "gain_usd": f"{Decimal(piece.realized_gain_usd):.2f}" if sold else None,
+        "term": piece.holding_period,
     }
 
 

@@ -143,7 +143,9 @@ def test_the_guide_covers_get_coins_moveds_answer():
     """T8's notes 1 and 2 (#694): it answers for a wallet's Withdrawal too;
     its held is the wallet's coins, never a menu; dated_today is the form's."""
     assert "get_coins_moved shows a saved Transfer's" not in GUIDE
-    assert "get_coins_moved shows the same for a saved Transfer or BTC Withdrawal from a wallet" in GUIDE
+    # #960: a saved Sell's, and any BTC Withdrawal's, with its proceeds, gain and term
+    assert "get_coins_moved shows the same for a saved Transfer, Sell or BTC Withdrawal" in GUIDE
+    assert "proceeds_usd, gain_usd and term" in GUIDE
     assert "Don't offer the wallet's coins (coins.held, or get_coins_moved's held) as a menu" in GUIDE
     assert "dated_today is for BitcoinTX's own form: ignore it" in GUIDE
 
@@ -159,8 +161,8 @@ def test_the_guide_says_a_late_choice_is_a_reminder():
 
 async def test_the_tools_say_what_2_0_does(mcp_client):  # noqa: F811
     tools = {t.name: flat(t.description) for t in (await mcp_client.list_tools()).tools}
-    assert tools["get_coins_moved"].startswith(
-        "The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes")
+    assert tools["get_coins_moved"].startswith("The coins a saved Transfer, Sell or BTC Withdrawal takes")
+    assert "proceeds_usd, gain_usd and term" in tools["get_coins_moved"]  # #960
     assert "held:" in tools["get_coins_moved"] and "dated_today" in tools["get_coins_moved"]
     assert "acquired_in: the account it was bought or deposited into" in tools["get_coins_moved"]  # #797
     assert "and confirm set to that confirm" in tools["update_transaction"]
