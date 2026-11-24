@@ -120,8 +120,8 @@ map.
   the account, amount, UTC hour or type, or moves it from a source not valued
   at receipt (Reward to Rebate keeps it; a type change makes it typed); a
   typed one is kept, and the form's echo of a priced value isn't a typed one
-  (`_revalue_income_deposit`). An edit that makes a deposit valued from the
-  price (income, a rebate, an inheritance) one of a source not valued at
+  (`_revalue_income_deposit`). An edit that makes a bitcoin deposit valued
+  from the price (income, a rebate, an inheritance) one of a source not valued at
   receipt (My BTC, Gift, N/A) needs a cost, as a new deposit of that source
   does: without one it's refused in the create's words, and the one it
   sends, even the value shown, is typed (`_leaves_its_price`, the owner's

@@ -1,5 +1,5 @@
 """
-#955: a bitcoin deposit valued from the price (income, a reward, a rebate)
+#955: a bitcoin deposit valued from the price (income, a reward, a rebate, an inheritance)
 that an edit makes My BTC, Gift or N/A asks for its cost, as a new deposit
 of those sources does: the market value at receipt isn't what the user's
 own coins cost them. The owner's yes, decision 1 on #972 (2026-11-14). An
@@ -64,7 +64,7 @@ def test_a_cost_sent_with_the_switch_is_the_users(from_source):
 
 
 def test_the_market_value_sent_back_with_the_switch_is_the_users_too():
-    """The form sends the value it shows: chosen with the switch, it's the user's figure."""
+    """An API client that sends back the value shown: sent with the switch, it's the user's figure."""
     tx = _priced()
     r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "500"})
     assert r.status_code == 200, r.text

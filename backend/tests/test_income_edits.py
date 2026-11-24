@@ -286,8 +286,9 @@ def test_a_source_change_prices_the_same_day_and_amount(auth_client):
 
 
 def test_a_deposit_that_stops_being_income_keeps_its_value(auth_client):
-    """My BTC's basis is the user's: it isn't priced. The form sends the value
-    it shows with the switch, so it's the user's figure from then on (#955)."""
+    """My BTC's basis is the user's: it isn't priced. The value sent with the
+    switch (an API client's echo of the one shown) is the user's figure from
+    then on (#955); the form clears the field and asks instead."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="MyBTC")
     assert basis(tx) == Decimal("50.00")
     assert basis(edit(auth_client, tx, amount="0.002")) == Decimal("50.00")

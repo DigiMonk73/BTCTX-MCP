@@ -121,7 +121,8 @@ test("a rebate valued from the price, made My BTC, asks for what the coins cost 
   await openEdit(page, "Deposit");
   await expect(page.locator(".field-origin")).toHaveText(/^From the price:/);
   await page.getByLabel("Source").selectOption("MyBTC");
-  // Its value when received isn't what your own coins cost you
+  // Its value when received isn't what your own coins cost you: the form
+  // empties the field and its own check asks (the server's is pytest's)
   await expect(page.getByLabel("Cost Basis (USD)")).toHaveValue("");
   await page.getByRole("button", { name: "Update Transaction" }).click();
   await expect(page.getByText("Enter this deposit's cost basis (type 0 if unknown).")).toBeVisible();
