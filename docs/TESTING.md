@@ -41,12 +41,26 @@ make hooks          # installs the pre-push gate
   start-sdk 3.1.0 formats instead of checking) and manifest check (if `startos/node_modules`
   exists and `start-cli` is on `PATH`). A failure blocks the push. Emergency bypass:
   `git push --no-verify`.
-- **On GitHub, every pull request and every push to `develop`, `main` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: Python 3.11 and 3.13
-  (Docker's, StartOS's and the Mac app's) full suite, each split across
+- **On GitHub, every pull request and every push to `develop`, `main` or `2.0`** (`.github/workflows/ci.yml`; once per change, not again for the branch push), the full set: the
+  full Python suite on 3.13 (the server's everywhere it runs), split across
   three machines with a guard that every test ran once ("The Python suite
-  across machines", below), frontend build, smoke test, click-through tests (Chromium and WebKit), Docker image build + smoke test
-  against the running container, dependency audit, StartOS package checks and
-  an x86_64 `btctx.s9pk` packed from this commit's image.
+  across machines", below), the AI connector's tests on 3.11 (the oldest
+  it accepts), the lint and the tests that read the docs, frontend build,
+  smoke test, click-through tests (Chromium and WebKit), Docker image build
+  + smoke test against the running container, dependency audit, StartOS
+  package checks and an x86_64 `btctx.s9pk` packed from this commit's
+  image.
+  - **A pull request runs what its change needs** (#985,
+    `scripts/ci_changes.py`, which `backend/tests/test_ci_changes_985.py`
+    holds to its rules): one changing only docs (Markdown outside
+    `backend/`, `frontend/`, `startos/`, `testdata/` and `desktop/`, or
+    anything under `docs/`) runs the lint and the tests that read the docs
+    in a few minutes, and skips the rest; one that changes nothing the
+    click-through tests can see (docs, `startos/`, `mcp_server/`,
+    `desktop/`, `.github/` but `ci.yml`) skips them. A path the script
+    doesn't name runs everything, and a push runs everything. "CI passed"
+    counts a skipped job as passed only when the script said this change
+    may skip it.
   - A pull request into `2.0` (and only there) runs the
     **medium set**: all of that except the click-through tests, the
     Docker image and the StartOS pack, so a night's batch ran side by
@@ -54,7 +68,7 @@ make hooks          # installs the pre-push gate
     newer run there cancels the older, so the last run tests every change
     merged (a cancelled run's red "CI passed" isn't a failure). Every
     other pull request (into `develop`, `main` or any other branch) runs
-    the full set. `staging`, which had the medium set too, is retired
+    the full set, less what its change doesn't need. `staging`, which had the medium set too, is retired
     (#901). AGENTS.md, "Branches".
 - **Weekly, on Mondays** (from `main`, since GitHub runs a schedule only
   from there): `start9-watch.yml`
@@ -65,8 +79,9 @@ make hooks          # installs the pre-push gate
   or their fork, changes on their fork not taken back (startos/UPDATING.md,
   "Watching Start9"). Hours later `monday-report.yml` writes the week's one
   issue of what needs attention (docs/MAINTENANCE.md, "Scheduled checks").
-- **Weekly:** `irs-forms-watch.yml` opens an issue when the IRS publishes
-  new draft forms (to ship as the preview) or the final forms for a new year.
+- **Weekly, and daily in December and January:** `irs-forms-watch.yml`
+  opens an issue when the IRS publishes new draft forms (to ship as the
+  preview) or the final forms for a new year.
   Monthly, `price-history-watch.yml` checks that Bitstamp still gives every
   year of the hourly price history as fingerprinted, and opens an issue if not.
 - **On the same runs** (or manually from the Actions tab), not a required check: builds the macOS
@@ -245,11 +260,11 @@ each test starts `scripts/smoke_test.py --serve` on a fresh temp database
   that no request names the day.
 - A route handler that asks the network itself (`route.fetch()`, or a
   request context's call) fails once its test's page is closed, and
-  Playwright blames whichever test runs next (#930). So a spec with such a
-  handler has a top-level `test.afterEach` (one inside a `describe` covers
-  only that block) awaiting
-  `page.unrouteAll({ behavior: "ignoreErrors" })`, or the context's,
-  whichever it routed; the shared helpers have no such handler. `src/e2eRouteHandlers930.test.ts` fails otherwise.
+  Playwright blames whichever test runs next (#930). So the fixtures drop
+  every test's routes as it ends, the page's and the context's
+  (`unrouteAll({ behavior: "ignoreErrors" })` in `fixtures.ts`, #961):
+  a spec needs nothing of its own. `e2e/unroute-at-teardown-961.e2e.ts`
+  shows it.
 - The specs' types are checked only in CI (`npx tsc -p e2e`, the frontend
   job, #944): `make lint` and the pre-push hook run `tsc -b`, which covers
   the app alone. Run `cd frontend && npx tsc -p e2e` after changing a spec.

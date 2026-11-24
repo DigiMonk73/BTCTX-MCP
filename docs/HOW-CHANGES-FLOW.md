@@ -466,8 +466,10 @@ squash-merged (the ruleset allows a merge commit too, which the retired
 daily cycle used), once `ci.yml`'s one required check, "CI passed", has
 passed ("Protect develop"; it needs every job except
 the macOS build and the macOS dependency audit, which run but aren't
-required; Python tests run on 3.11 and 3.13, both in it, since #546, each
-as three shards and a guard that every test ran once, since #814), on
+required; the Python tests run on 3.13, as three shards and a guard that
+every test ran once, since #814, and the AI connector's on 3.11 too,
+since #985; a job the change doesn't need is skipped and counts as
+passed, scripts/ci_changes.py), on
 a branch that's up to date with `develop` ("Require branches to be up to
 date before merging", on since 2026-10-17, the owner's choice), so a pull
 request's checks have run on everything already merged. "Protect 2.0"

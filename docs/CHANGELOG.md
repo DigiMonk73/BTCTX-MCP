@@ -20,6 +20,20 @@ All notable changes to BitcoinTX are documented in this file.
   itself: a deposit changed this way before keeps its value; if it's your
   own coins or a gift, check that its cost basis is what was paid.
 
+### Python 3.13 for running from source
+
+- **BitcoinTX's server needs Python 3.13** (#985, the owner's choice,
+  2026-11-23). Docker, StartOS and the Mac app already run it on 3.13;
+  running it from source, or building the Mac app yourself, now needs
+  3.13 too, where the README and `docs/MACOS_DESKTOP_APP.md` said 3.11 or
+  newer, and `desktop/build-mac.sh` looks for 3.13. CI tests the server
+  on 3.13 alone. The AI connector still runs on Python 3.11 or newer,
+  whichever `uvx` finds on your computer, and CI tests it on 3.11 too.
+  Python 3.11 is supported until October 2027; raising the connector's
+  minimum then will be a release note of its own. **What to do:** only if
+  you run BitcoinTX from source, install Python 3.13 and make its virtual
+  environment again with it.
+
 ### Fixed
 
 - **A cost typed for My BTC or Gift is no longer kept as the value
@@ -215,6 +229,39 @@ All notable changes to BitcoinTX are documented in this file.
   what a year older than BitcoinTX's IRS forms has instead.
 
 ### Development
+- **CI runs what a change needs** (#985, the owner's agreement,
+  2026-11-23). Every change ran the same 22 jobs, about 95 minutes of
+  machine time. Now `scripts/ci_changes.py` reads what a pull request
+  changes:
+  - Docs alone run the lint and the tests that read the docs, in a few
+    minutes, and skip the rest.
+  - The click-through tests run when the app, the tests or CI itself
+    change, on both engines.
+  - The Python suite runs once, on 3.13; the AI connector's tests on 3.11
+    as well.
+  - A path the script doesn't name runs everything, and a push to
+    `develop`, `main` or `2.0` runs everything.
+
+  "CI passed" is still the one required check: it counts a skipped job as
+  passed only when the script said the change may skip it.
+  `backend/tests/test_ci_changes_985.py` holds the rules and `ci.yml` to
+  each other.
+- **The .dmg check tries again when the image can't be opened yet**
+  (#946). Right after `hdiutil create`, `hdiutil verify` once couldn't
+  open the new disk image ("Resource temporarily unavailable") and failed
+  the Mac build; the re-run passed. `scripts/mac-app.sh` now verifies up
+  to five times, a few seconds apart, then fails as before. A test stands
+  in an `hdiutil` that fails once.
+- **The click-through tests drop every test's routes as it ends** (#961).
+  A route handler still asking the server when its test ended failed the
+  next test (#930); two specs dropped their routes themselves, and a
+  static check (#958) read every spec for one that forgot. The fixtures
+  now do it for every test, the page's and the context's routes, and the
+  static check, with its nine open nits, is gone.
+  `e2e/unroute-at-teardown-961.e2e.ts` fails the old way without it.
+- **The IRS forms watch runs every day in December and January**, when
+  the next year's final forms usually come, and weekly the rest of the
+  year (#972, Fix row 9).
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
   2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
   once a month the lead runs a cycle of at most three lanes (Updates,

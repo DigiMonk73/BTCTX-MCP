@@ -183,5 +183,5 @@ def test_ci_runs_the_split_the_guard_checks():
     assert f"--shard ${{{{ matrix.shard }}}}/{count}" in python
     assert "--ran-list" in python and "--collect-only -q" in python
     assert f"--shards {count}" in guard_job
-    needs = re.search(r"^    needs: \[(.*?)\]", ci_job("ci-passed"), re.M).group(1)
+    needs = re.search(r"^    needs: \[(.*?)\]", ci_job("ci-passed"), re.M | re.S).group(1)
     assert {"python", "python-guard"} <= {need.strip() for need in needs.split(",")}
