@@ -7,13 +7,15 @@ every amount goes through: BTC to 8 decimal places (a satoshi), USD to 2
 from __future__ import annotations
 
 from enum import Enum
-from pydantic import BaseModel, Field, field_serializer, field_validator, ConfigDict
+import re
+
+from pydantic import BaseModel, Field, field_serializer, field_validator, model_validator, ConfigDict
 from typing import Literal
 from datetime import date, datetime
 from decimal import Decimal
 
 from backend.database import RowId
-from backend.services.tax_time import as_utc
+from backend.services.tax_time import MAX_ZONE_NAME, as_utc, typed_moment
 
 # backend.constants.BROKER_REPORTING_VALUES
 BrokerReporting = Literal["none", "proceeds", "basis"]
@@ -168,6 +170,32 @@ CHOSEN_COINS = (
 )
 
 
+# A date and time as the form's Date & Time field gives it: no timezone
+_WALL_CLOCK = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?")
+
+
+class TypedTime(BaseModel):
+    """
+    A time as typed in the transaction form, and the zone of the device it
+    was typed on (#964). The server works out the moment it means by its
+    own timezone rules and uses it in place of `timestamp`, the device's
+    reading; a zone the server's rules don't name leaves `timestamp` as sent.
+    """
+    local: str = Field(max_length=32, description="The date and time as typed, without a timezone: 2026-11-15T14:00")
+    zone: str = Field(max_length=2 * MAX_ZONE_NAME, description="The device's IANA zone: America/Vancouver")
+
+    @field_validator("local")
+    def a_wall_clock_time(cls, v: str) -> str:
+        if not _WALL_CLOCK.fullmatch(v):
+            raise ValueError("must be a date and time without a timezone, as the form's Date & Time field gives it")
+        datetime.fromisoformat(v)  # a day or hour that doesn't exist is refused here
+        return v
+
+    def moment(self) -> datetime | None:
+        """The moment it means by the server's rules; None when they don't name the zone."""
+        return typed_moment(datetime.fromisoformat(self.local), self.zone)
+
+
 class TransactionBase(BaseModel):
     """
     A transaction as entered: its type, accounts, amount, fee and USD
@@ -293,6 +321,18 @@ class TransactionCreate(TransactionBase):
     Integrates with FastAPI/SwaggerUI via TxType enum dropdown.
     """
     timestamp: datetime
+    typed_time: TypedTime | None = Field(default=None, exclude=True)
+
+    @model_validator(mode="after")
+    def the_typed_times_moment(self) -> TransactionCreate:
+        self.timestamp = _typed_or(self.typed_time, self.timestamp)
+        return self
+
+
+def _typed_or(typed: TypedTime | None, timestamp: datetime | None) -> datetime | None:
+    """The moment a typed time means (#964), else the timestamp sent."""
+    moment = typed.moment() if typed is not None else None
+    return moment if moment is not None else timestamp
 
 
 class TransactionUpdate(BaseModel):
@@ -301,6 +341,7 @@ class TransactionUpdate(BaseModel):
     """
     type: TxType | None = None
     timestamp: datetime | None = None
+    typed_time: TypedTime | None = Field(default=None, exclude=True)
 
     from_account_id: RowId | None = None
     to_account_id: RowId | None = None
@@ -363,6 +404,12 @@ class TransactionUpdate(BaseModel):
         if v is not None:
             return validate_usd_decimal(v)
         return v
+
+    @model_validator(mode="after")
+    def the_typed_times_moment(self) -> TransactionUpdate:
+        self.timestamp = _typed_or(self.typed_time, self.timestamp)
+        return self
+
 
 
 class PriceUsed(BaseModel):

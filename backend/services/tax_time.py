@@ -208,6 +208,20 @@ def moved(ts: datetime, tz) -> datetime:
         raise DateOutOfRange() from None
 
 
+def typed_moment(wall_clock: datetime, zone: str) -> datetime | None:
+    """The moment a wall-clock time typed on a device means in `zone` (the
+    device's), by the tzdata package's rules, never the device's own: those
+    can predate a zone's change and put it an hour off (#964, as #908 did
+    for the AI connector). None when tzdata doesn't name the zone. A time in
+    a spring-forward gap, or in the hour an autumn change repeats, reads as
+    a browser reads it: the offset before the change, the first of the two."""
+    try:
+        name = validate_timezone(zone)
+    except ValueError:
+        return None
+    return as_utc(wall_clock.replace(tzinfo=ZoneInfo(name), fold=0))
+
+
 def as_utc(ts: datetime) -> datetime:
     """Stored timestamps are UTC; SQLite may hand them back naive."""
     return ts.replace(tzinfo=timezone.utc) if ts.tzinfo is None else moved(ts, timezone.utc)
