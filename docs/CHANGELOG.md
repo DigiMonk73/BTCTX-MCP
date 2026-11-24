@@ -32,6 +32,36 @@ All notable changes to BitcoinTX are documented in this file.
   amend: short-term gains are taxed at your ordinary rate. Most ledgers have no such sale and see no change.
   The report's note on the holding period says the rule.
 
+- **The AI connector's import keeps rows that share a time in the order
+  given** (#951, tax figures). Rows at the same time decide, by their
+  order, which coins a sale or a move takes (first in, first out). The CSV
+  and exchange imports keep a file's order; the AI connector's import put
+  same-time rows in a fixed order by type instead (deposits, buys,
+  transfers, sales, withdrawals), so the same rows could take other coins,
+  and give another cost basis, gain and holding period, by that route.
+  That's likely when the AI enters rows by date alone, which it puts at
+  noon: a day's rows then share a time. It touched any rows of one request
+  at the same time on the same account that weren't listed in that order
+  of types (a sale before a same-time move or deposit, a spend before a
+  sale, a move or a buy before a deposit...). For example, after buying
+  0.5 BTC for $10,000 and then 0.5 BTC for $30,000, a sale of 0.5 BTC
+  listed before a same-time move of 0.5 BTC to a wallet now has a cost
+  basis of $10,000, as a file gives; the AI's import gave it $30,000 (and
+  the moved coins the $10,000). And a sale listed before a same-time move
+  in of older coins took those, long-term, where the account's own were
+  short-term. A buy listed after a same-time sale it pays for is refused,
+  as in a file, and the refusal says to list the buy first; the AI
+  connector's guide says to list same-time rows in the order they
+  happened. Only the AI's import changes; every earlier version with the
+  AI connector (from 0.8.0) has it. A saved ledger's figures don't change.
+  **What to do:** update the AI connector. If an AI entered, in one
+  request, rows of different types on the same account at the same time
+  (or on the same day without a time), check the cost basis and term of
+  the sales, spends and moves out of those accounts from that day on
+  against your records. Where one took other coins than it should have,
+  put the rows in their real order by editing a time (a minute apart is
+  enough), and BitcoinTX works the figures out again.
+
 ### Documentation
 - **Your first tax year in six steps** (#959). A new user sees a
   Dashboard of zeros and a page of Settings, with no path through them.

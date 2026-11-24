@@ -49,6 +49,13 @@ map.
   lots the same way (`running_share`, #297), so its rows add up to them
   exactly and none is below zero. An exact half cent of a share rounds up
   (`SHARE_ROUNDING`).
+- **Same-time rows**: every import writes rows by time, and rows at the
+  same time in the order given (a stable sort): the CSV import, River's and
+  every exchange's in the file's order, the AI connector's in the request's
+  (`entry_import._chronological`, #951). That order decides which lots a
+  same-time disposal takes, and the ledger replays same-time transactions in
+  the order they were saved (by id), so an export and an import give back
+  the same figures. Never a fixed order by type.
 - **Proceeds**: the user's figure is anchored in `gross_proceeds_usd`; stored
   `proceeds_usd` is net of fees and is re-derived from gross on every recalc
   (never from the previous net, which would subtract the fee again). A
