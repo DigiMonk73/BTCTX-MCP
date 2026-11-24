@@ -745,7 +745,7 @@ def _create_until_refused(
         try:
             tx = create_transaction_record(dict(p.tx_data), db, auto_commit=False)
         except HTTPException as exc:
-            _reject(p, str(exc.detail))
+            _reject(p, _with_order_hint(str(exc.detail)))
             return created, pos
         except price_history.PriceNeeded:  # the dry run is made again once it's found (simulate)
             raise
@@ -756,6 +756,16 @@ def _create_until_refused(
             return created, pos
         created.append((p, tx))
     return created, None
+
+
+def _with_order_hint(error: str) -> str:
+    """A refusal for coins the account doesn't hold yet, with how rows are
+    ordered: a request often lists a day's sale before the buy that pays
+    for it, and rows at one time are written in the order given (#951)."""
+    if "Not enough BTC" not in error:
+        return error
+    return (error.rstrip(".") + ". Rows are saved by date, and rows at the same time in the order given:"
+            " list a buy before a sale or move it pays for")
 
 
 def _reject(p: PreparedRow, error: str) -> None:
@@ -865,7 +875,7 @@ def _create_in_order(ordered: list[PreparedRow], db: Session) -> list[tuple[Prep
         except HTTPException as exc:
             raise HTTPException(
                 status_code=400,
-                detail=f"Row {p.row}: {exc.detail}. No transactions were saved.",
+                detail=f"Row {p.row}: {_with_order_hint(str(exc.detail))}. No transactions were saved.",
             )
         created.append((p, tx))
     return created

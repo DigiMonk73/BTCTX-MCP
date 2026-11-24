@@ -12,21 +12,28 @@ All notable changes to BitcoinTX are documented in this file.
   and exchange imports keep a file's order; the AI connector's import put
   same-time rows in a fixed order by type instead (deposits, buys,
   transfers, sales, withdrawals), so the same rows could take other coins,
-  and give another cost basis and gain, by that route. That's likely when
-  the AI enters rows by date alone, which it puts at noon: a day's rows
-  then share a time. For example, after buying 0.5 BTC for $10,000 and
-  then 0.5 BTC for $30,000, a sale of 0.5 BTC listed before a same-time
-  move of 0.5 BTC to a wallet now has a cost basis of $10,000, as a file
-  gives; the AI's import gave it $30,000 (and the moved coins the
-  $10,000). A buy listed after a same-time sale it pays for is refused, as
-  in a file. Only the AI's import changes; every earlier version with the
+  and give another cost basis, gain and holding period, by that route.
+  That's likely when the AI enters rows by date alone, which it puts at
+  noon: a day's rows then share a time. It touched a sale, spend or other
+  withdrawal listed before a same-time move out of or into the same
+  account, or a buy or deposit into it. For example, after buying 0.5 BTC
+  for $10,000 and then 0.5 BTC for $30,000, a sale of 0.5 BTC listed
+  before a same-time move of 0.5 BTC to a wallet now has a cost basis of
+  $10,000, as a file gives; the AI's import gave it $30,000 (and the
+  moved coins the $10,000). And a sale listed before a same-time move in
+  of older coins took those, long-term, where the account's own were
+  short-term. A buy listed after a same-time sale it pays for is refused,
+  as in a file, and the refusal says to list the buy first; the AI
+  connector's guide says to list same-time rows in the order they
+  happened. Only the AI's import changes; every earlier version with the
   AI connector (from 0.8.0) has it. A saved ledger's figures don't change.
-  **What to do:** if an AI entered, in one request, a sale, spend or other
-  withdrawal and a move out of the same account at the same time (or on
-  the same day without a time), check that sale's cost basis against your
-  records. Where it took other coins than it should have, put the two in
-  their real order by editing a time (a minute apart is enough), and
-  BitcoinTX works the figures out again.
+  **What to do:** update the AI connector. If an AI entered, in one
+  request, a sale, spend or other withdrawal beside a move, buy or deposit
+  of the same account at the same time (or on the same day without a
+  time), check that sale's cost basis and term against your records.
+  Where it took other coins than it should have, put the rows in their
+  real order by editing a time (a minute apart is enough), and BitcoinTX
+  works the figures out again.
 
 ### Development
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
