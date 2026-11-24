@@ -102,7 +102,7 @@ desktop/.venv/
 # --- Local data samples (real exports used as dev reference; never commit) ---
 docs/*.csv
 
-# --- StartOS packaging workspace (keep it above the repo; see startos/UPDATING.md) ---
+# --- StartOS packaging workspace (keep it above the repo; see docs/STARTOS-PACKAGE.md) ---
 .startos/
 
 # Playwright

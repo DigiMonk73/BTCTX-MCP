@@ -2,7 +2,7 @@
 
 How BitcoinTX's StartOS package (`startos/`) is released, kept up with
 Start9 and built. Moved word for word from `startos/UPDATING.md` on
-2026-11-24 (#915): Start9's guide has a package's `UPDATING.md` hold the
+2026-11-23 (#915): Start9's guide has a package's `UPDATING.md` hold the
 upstream bump recipe and nothing else (`project-structure.md`,
 "UPDATING.md"), and the recipe stays there. Where the text below says
 "this file", it means this doc.
@@ -36,8 +36,9 @@ to `develop`.
 2. Move the `## [Unreleased]` section of `docs/CHANGELOG.md` to
    `## [vX.Y.Z] - <date> - <summary>`, and remove the ticked items from
    `docs/ROADMAP.md` (the CHANGELOG has them now). The release notes in
-   `current.ts` repeat each `tax-figures` fix: what was wrong, which tax
-   years, what to do.
+   `current.ts` follow `startos/AGENTS.md`, "Release notes": what a user
+   observes, and each `tax-figures` fix: what was wrong, which tax years,
+   what to do.
 3. Once it has merged, wait for CI on `develop`. Run the agent release tests
    (`docs/AGENT-TESTS.md`) on that commit's CI artifacts; a blocker FAIL
    stops the release. Meanwhile, the docs check (BTCTX-MCP's `AGENTS.md`,
@@ -157,10 +158,9 @@ differ, follow the page. What this package adds:
   count. Our release workflow can't release a version again: what that
   means for a package-only fix is under "After Start9 forks the mirror",
   above ("Before the community registry serves the current version").
-- Release notes end with the CHANGELOG link. Beside each `tax-figures` fix
-  ("Releasing a new version", step 2), with every new `VERSION` they give
-  the AI connector's new version (`btctx-mcp==` in the AI app's
-  configuration).
+- Release notes: `startos/AGENTS.md`, "Release notes" (Start9's rule and
+  ours: each `tax-figures` fix, the AI connector's new version, the
+  CHANGELOG link).
 
 Checks: `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
 (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
@@ -183,6 +183,16 @@ same without opening anything. Each issue says what to do; the Monday report
 lists the open ones.
 
 ## Bumping the SDK
+
+**When:** BitcoinTX follows Start9's newest start-sdk once the StartOS
+it needs (its release notes say which) has been out four weeks, counted
+from that StartOS's release, not its release candidates (the owner,
+2026-11-14, #972). Until then the package stays on the SDK it has, and a
+user on an older StartOS keeps the last BitcoinTX it installs on. Start9's
+Pre-Publish Checklist asks for the newest SDK before a pull request to
+their fork, so the release that follows the four weeks takes it. start-cli
+isn't bound by it (step 3). From 2.0.3, start-sdk 4.1.0: StartOS 0.4.2 or
+later.
 
 BTCTX-MCP's `scripts/start9-watch.sh` opens an issue when npm has a newer
 `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt them:

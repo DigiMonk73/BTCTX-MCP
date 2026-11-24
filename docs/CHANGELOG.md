@@ -62,6 +62,31 @@ All notable changes to BitcoinTX are documented in this file.
   put the rows in their real order by editing a time (a minute apart is
   enough), and BitcoinTX works the figures out again.
 
+### StartOS package
+- **BitcoinTX on StartOS needs StartOS 0.4.2 or later** (#965; the
+  owner, 2026-11-14), because the package is built with **start-sdk
+  4.1.0** (from 4.0.0): Start9's current SDK, which their Pre-Publish
+  Checklist asks for before any pull request to their fork. Its release
+  notes: "Install StartOS 0.4.2 or later before installing packages built
+  with SDK 4.1.0". Until StartOS is updated, a server on StartOS 0.4.1.x
+  can update BitcoinTX only as far as 2.0.2. The README, `SECURITY.md`,
+  `docs/STARTOS_COMPATIBILITY.md`, `docs/ARCHITECTURE.md` and
+  `docs/AGENT-TESTS.md` say so. 4.1.0 also fixes a service hanging when a
+  daemon captures only one of its output streams; BitcoinTX's daemons
+  capture neither. The bundled sibling packages (Mempool's and Tor's, and
+  the Bitcoin Core and LND code they bring) move to Start9's newest, all
+  on 4.1.0: the bundle holds the same modules, and the four constants
+  BitcoinTX reads from them are unchanged. From now on BitcoinTX follows
+  Start9's newest SDK once the StartOS it needs has been out four weeks
+  (`docs/STARTOS-PACKAGE.md`, "Bumping the SDK").
+- **The release notes say what a user observes** (#898): Start9's rule
+  (`versions.md`, "Release Notes"), now written in `startos/AGENTS.md`,
+  "Release notes", with ours (each `tax-figures` fix: what was wrong,
+  which tax years, what to do). From 2.0.3 they name no issue number, no
+  SDK or start-cli and no StartOS version: since 2026-11-19 Start9's rule
+  leaves out the minimum StartOS, which only a server that meets it sees.
+  `test_startos_updating_915.py` checks it for every version after 2.0.2:0.
+
 ### Documentation
 - **Your first tax year in six steps** (#959). A new user sees a
   Dashboard of zeros and a page of Settings, with no path through them.
@@ -75,6 +100,15 @@ All notable changes to BitcoinTX are documented in this file.
   what a year older than BitcoinTX's IRS forms has instead.
 
 ### Development
+- **`startos/UPDATING.md` is only the upstream bump recipe** (#915), as
+  Start9's guide asks (`project-structure.md`, "UPDATING.md"). Its other
+  sections (the release, Start9's fork, the package version, the watch,
+  the SDK bump, the local build and the secrets) moved word for word to
+  `docs/STARTOS-PACKAGE.md`, and every pointer follows them;
+  `test_startos_updating_915.py` checks that each quoted section exists.
+- **start-cli 2.8.0** (from 2.7.0) packs `btctx.s9pk` in CI and the
+  release (#965). It reads both community registries on start-registry
+  1.6.0. The SHA-256 is the release notes' for `start-cli_x86_64-linux`.
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
   2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
   once a month the lead runs a cycle of at most three lanes (Updates,

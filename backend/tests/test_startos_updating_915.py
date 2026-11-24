@@ -37,7 +37,7 @@ MOVED = [
     "One-time setup: secrets and a variable",
 ]
 # A pointer names a doc, then the section in quotes: `startos/UPDATING.md`,
-# "Bumping the SDK", or UPDATING.md's "Bumping the SDK".
+# "Applying the bump", or UPDATING.md's "Applying the bump".
 POINTER = r"{}`?(?:,|'s) \"([^\"]+)\""
 # History keeps its words: archived docs, notes and the CHANGELOG.
 UNPOINTED = ("docs/archive/", "docs/temp/", "docs/CHANGELOG.md")
@@ -48,7 +48,6 @@ def headings(path: Path, level: str = "#+") -> list[str]:
     return re.findall(rf"^{level} (.+?)\s*$", path.read_text(), re.M)
 
 
-@pytest.mark.xfail(strict=True, reason="#915/#898: written before the change")
 def test_updating_md_holds_only_the_recipe():
     assert headings(UPDATING, "##") == RECIPE
     assert headings(UPDATING, "###") == []
@@ -57,12 +56,10 @@ def test_updating_md_holds_only_the_recipe():
         assert gone not in text, gone
 
 
-@pytest.mark.xfail(strict=True, reason="#915/#898: written before the change")
 def test_the_moved_sections_have_their_new_home():
     assert headings(PACKAGE_DOC, "##") == MOVED
 
 
-@pytest.mark.xfail(strict=True, reason="#915/#898: written before the change")
 @needs_a_checkout
 def test_every_pointer_names_a_section_its_doc_has():
     tracked = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout
@@ -144,7 +141,6 @@ def test_the_check_passes_notes_that_say_what_a_user_sees():
     assert unobserved(NOTES.format("Form 8949 for 2025 now shows the right date sold.")) == []
 
 
-@pytest.mark.xfail(strict=True, reason="#915/#898: written before the change")
 def test_the_rule_is_written_where_the_release_reads_it():
     rules = " ".join((ROOT / "startos" / "AGENTS.md").read_text().split())
     assert "https://docs.start9.com/packaging/versions.html" in rules

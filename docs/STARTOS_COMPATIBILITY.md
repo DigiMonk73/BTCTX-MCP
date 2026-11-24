@@ -16,8 +16,9 @@ All three carry the version in `VERSION` (checked by
 `backend/tests/test_versions_agree.py`). `startos/` is self-contained and is
 mirrored as-is to [DigiMonk73/BTCTX-StartOS](https://github.com/DigiMonk73/BTCTX-StartOS),
 the repository Start9's community registry forks. How the package
-works: `startos/README.md`; how to release and bump it, and how Start9's
-changes come back here: `startos/UPDATING.md`.
+works: `startos/README.md`; how to bump it to a new app version:
+`startos/UPDATING.md`; how to release it, and how Start9's changes come
+back here: `docs/STARTOS-PACKAGE.md`.
 
 ## The Docker image
 

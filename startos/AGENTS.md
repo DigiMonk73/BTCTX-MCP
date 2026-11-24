@@ -14,7 +14,8 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
   and reaches [Start9-Community/BTCTX-StartOS](https://github.com/Start9-Community/BTCTX-StartOS)
   only as a pull request from that mirror. A change made on the Start9 fork must be
   taken back with BTCTX-MCP's `scripts/start9-pull.sh` before the next mirror sync,
-  or the sync undoes it (`UPDATING.md`). The app's side of the contract with this
+  or the sync undoes it (BTCTX-MCP's `docs/STARTOS-PACKAGE.md`, "After Start9 forks
+  the mirror"). The app's side of the contract with this
   package (its CLI, paths and variables) is BTCTX-MCP's `docs/STARTOS_COMPATIBILITY.md`.
 - **Ids are frozen:** package `btctx`, host `ui-multi`, interfaces `webui` and `mcp`,
   actions `price-source`, `set-credentials`, `recalculate-ledger` and `connect-ai`,
@@ -29,3 +30,21 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
 - **Checks:** `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
   (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
   instead of checking, so the format check comes first).
+
+## Release notes
+
+The notes in `startos/versions/` follow Start9's
+[Versions](https://docs.start9.com/packaging/versions.html) page, "Release Notes":
+say what a user observes, never how it was done.
+
+- A feature, or a fix by its symptom, and what to do. Never the mechanism, an SDK or
+  dependency bump, an issue number or a defect's history ("introduced in…"), and
+  never the minimum StartOS: only a server that already meets it is offered the update.
+- Every instruction is one a user carries out from StartOS or from BitcoinTX itself.
+- Ours, within that: each `tax-figures` fix (BTCTX-MCP's label for a figure that could
+  be wrong) is told by what the user sees: what was wrong, which tax years, what to do.
+  With every new `VERSION`, the AI connector's new version, as BitcoinTX's Settings >
+  Connect an AI Assistant gives it. The notes end with the CHANGELOG link.
+
+BTCTX-MCP's `backend/tests/test_startos_updating_915.py` checks every version after
+2.0.2:0 for an issue number, the SDK or start-cli, and a StartOS version.

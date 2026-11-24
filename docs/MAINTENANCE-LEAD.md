@@ -81,7 +81,7 @@ out:
 | Lane | What goes in it | Its pull requests |
 |---|---|---|
 | **Updates** | Dependabot's pull requests, the Docker base images, any other library | Dependabot's own, each checked as `docs/MAINTENANCE.md` says ("Dependabot", "Before a Dependabot pull request merges"), never committed to: brought up to date only by "@dependabot rebase". What Dependabot can't do, in one pull request of the lane's own |
-| **StartOS** | start-sdk, start-cli, start-registry, Start9's packaging guide, a new StartOS to support: the open `start9` issues | one pull request (`startos/AGENTS.md`, `docs/START9.md`, `startos/UPDATING.md`); a change to `startos/` waits for the owner's "merge" |
+| **StartOS** | start-sdk, start-cli, start-registry, Start9's packaging guide, a new StartOS to support: the open `start9` issues | one pull request (`startos/AGENTS.md`, `docs/START9.md`, `startos/UPDATING.md`, `docs/STARTOS-PACKAGE.md`); a change to `startos/` waits for the owner's "merge" |
 | **Fix** | bugs, a `tax-figures` one first | one pull request for each `tax-figures` fix; other bugs may share one |
 
 **Never a lane item:** a security problem that isn't fixed yet. It goes
@@ -248,7 +248,7 @@ on the StartOS test machine and the fresh docs read, then the owner's
 - **The StartOS test machine** runs for a release, as
   `docs/RELEASING.md` says, and in the StartOS lane where its item asks
   for it: a start-cli bump and a new StartOS are tried there first
-  (`startos/UPDATING.md`; the `start9` issue says so). A library update
+  (`docs/STARTOS-PACKAGE.md`; the `start9` issue says so). A library update
   or a bug fix stands on CI.
 - A new tax year's forms, or a big Start9 change, may be too much for
   one session: then it is big work (`docs/BIG-WORK.md`), and the lead

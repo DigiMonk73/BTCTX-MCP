@@ -262,8 +262,8 @@ def test_one_exact_sdk_and_siblings_at_next():
 # The pinned SDK and the oldest StartOS a package it builds installs on, from
 # its release notes: "Install StartOS 0.4.2 or later before installing
 # packages built with SDK 4.1.0" (#965; 4.0.0 needed 0.4.1, #913). An SDK
-# bump moves both, after reading its notes (UPDATING.md, "Bumping the SDK",
-# step 1), and the docs that tell users follow.
+# bump moves both, after reading its notes (docs/STARTOS-PACKAGE.md,
+# "Bumping the SDK", step 1), and the docs that tell users follow.
 SDK, MIN_STARTOS = "4.1.0", "0.4.2"
 # Where the docs name them: the README's StartOS section tells users, the other
 # two tell us. A version is digits and dots, never ending in one.

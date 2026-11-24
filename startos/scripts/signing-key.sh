@@ -3,7 +3,7 @@
 # build.key.pem, <workspace> being any directory above the package (use the
 # directory above the repository checkout, so the checkout stays clean).
 #
-#   DEV_KEY set (the stable developer key, an Ed25519 PEM; see UPDATING.md):
+#   DEV_KEY set (the stable developer key, an Ed25519 PEM; see BTCTX-MCP's docs/STARTOS-PACKAGE.md):
 #     sign with it.
 #   DEV_KEY unset: `start-cli s9pk init-workspace` generates a new throwaway
 #     key, as every release before DEV_KEY existed did.
@@ -29,7 +29,7 @@ if [ -n "${DEV_KEY:-}" ]; then
   echo "Signing with DEV_KEY"
 else
   start-cli s9pk init-workspace "$WS"
-  msg="DEV_KEY is not set: this s9pk is signed with a throwaway key (see startos/UPDATING.md)."
+  msg="DEV_KEY is not set: this s9pk is signed with a throwaway key (see BTCTX-MCP's docs/STARTOS-PACKAGE.md)."
   if [ -n "${GITHUB_ACTIONS:-}" ]; then echo "::warning::$msg"; else echo "warning: $msg" >&2; fi
 fi
 

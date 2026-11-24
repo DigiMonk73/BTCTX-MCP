@@ -13,7 +13,7 @@ map.
 ## Releasing
 
 Full steps, the package version and the signing/mirror secrets:
-`startos/UPDATING.md`. In short:
+`docs/STARTOS-PACKAGE.md`. In short:
 
 2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
 7.4's B10a and B10b: their version bumps go into `2.0`, not
@@ -40,8 +40,9 @@ the rules.
    Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
    when a new tax year's forms are added. The StartOS release notes
-   (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
-   years, what to do. Once it has merged, wait for CI on
+   (`current.ts`) follow `startos/AGENTS.md`, "Release notes": what a user
+   observes, never how (Start9's rule), and each `tax-figures` fix: what
+   was wrong, which tax years, what to do. Once it has merged, wait for CI on
    `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
    commit's CI artifacts; a blocker FAIL stops the release. Meanwhile a
    fresh Claude, one that didn't write the release, reads every doc
@@ -121,4 +122,4 @@ the release workflow's first job stops if you haven't (`--check`). By hand: `scr
 if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
-`startos/UPDATING.md`).
+`docs/STARTOS-PACKAGE.md`).

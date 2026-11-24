@@ -80,8 +80,8 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 6. **Commit and release.** Commit the new `backend/assets/irs_templates/YYYY/`
    folder and the `verified_years` change. Add a CHANGELOG entry that names the
    irs.gov source URLs. Then bump the **minor** version (project convention: a
-   new tax year's forms is a minor release) and follow `startos/UPDATING.md`
-   → Releasing a new version. Also update the [year quirks](#year-quirks-reference) table.
+   new tax year's forms is a minor release) and follow `docs/STARTOS-PACKAGE.md`,
+   "Releasing a new version". Also update the [year quirks](#year-quirks-reference) table.
    The pull request follows the figures rule (AGENTS.md, "Reviews"):
    adding a year moves no existing figure, so Claude merges it once the
    printed forms are checked (`test_printed_forms.py` and step 5's look);

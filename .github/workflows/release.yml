@@ -1,7 +1,7 @@
 name: Release
 
 # Push a branch named release/vX.Y.Z (matching VERSION; vX.Y.Z-N for a
-# package-only revision N, see startos/UPDATING.md) from main to publish that release:
+# package-only revision N, see docs/STARTOS-PACKAGE.md) from main to publish that release:
 # one GitHub release, tag created on that commit, notes from the
 # "## [<tag>]" section of docs/CHANGELOG.md (its summary and a link, when it
 # has one: scripts/release-notes.sh), with
@@ -24,7 +24,7 @@ name: Release
 # be current and cross-checked (scripts/price_history.py release-check)
 # before anything is built. Branch-based so a release
 # doesn't depend on being able to push tags. An existing release is left
-# alone. Setup of the two secrets: startos/UPDATING.md.
+# alone. Setup of the two secrets: docs/STARTOS-PACKAGE.md.
 #
 # A branch prerelease/vX.Y.Z-alpha.N or prerelease/vX.Y.Z-beta.N pushed from
 # 2.0 publishes a 2.0 pre-release the same way (2.0 plan 7.4, B10a; #251's
@@ -365,7 +365,7 @@ jobs:
           TAG: ${{ needs.check.outputs.tag }}
         run: |
           if [ -z "$MIRROR_TOKEN" ]; then
-            echo "::notice::MIRROR_TOKEN is not set: mirror not updated. Run scripts/sync-startos-mirror.sh --push by hand (startos/UPDATING.md)."
+            echo "::notice::MIRROR_TOKEN is not set: mirror not updated. Run scripts/sync-startos-mirror.sh --push by hand (docs/STARTOS-PACKAGE.md)."
             exit 0
           fi
           git config --global user.name "github-actions[bot]"

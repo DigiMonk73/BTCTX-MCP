@@ -208,7 +208,7 @@ names the release walk's corrections.
   runs at full speed in UTM (QEMU backend, hypervisor on, UEFI, 4 cores,
   8 GB, a 40 GB disk, shared network). The released `btctx.s9pk` is
   universal; CI's release-candidate artifact is x86_64 only, so on this VM
-  pack an aarch64 one from the commit (`startos/UPDATING.md`, "Building
+  pack an aarch64 one from the commit (`docs/STARTOS-PACKAGE.md`, "Building
   locally").
 - The installer answers at `start.local`; the server gets a new random name
   when setup finishes. For the `clean` snapshot, stop the VM and duplicate

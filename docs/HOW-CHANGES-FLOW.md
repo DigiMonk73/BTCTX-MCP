@@ -684,7 +684,7 @@ up to date the next reviewed pull request waiting behind one that merged
 alerts), the week's Monday report issue and the open `start9` issues.
 GitHub runs a schedule only from `main`, which carries
 `monday-report.yml` since 2.0.1's release, and `start9-watch.yml`
-(startos/UPDATING.md, "Watching Start9").
+(docs/STARTOS-PACKAGE.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
 down from GitHub and says whether anything exists only on this computer: work not

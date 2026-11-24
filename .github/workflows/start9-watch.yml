@@ -2,7 +2,7 @@ name: Start9 watch
 
 # Weekly, Mondays (the owner, 2026-10-31; it was written to run daily): what
 # Start9 changed that BitcoinTX's StartOS package must follow
-# (scripts/start9-watch.sh; startos/UPDATING.md, "Watching Start9"): a newer
+# (scripts/start9-watch.sh; docs/STARTOS-PACKAGE.md, "Watching Start9"): a newer
 # start-sdk or start-cli than develop pins, a StartOS or start-registry
 # release, changes to Start9's packaging guide or shared package workflows, a
 # failed build on the mirror or on Start9's fork, and changes on the fork not

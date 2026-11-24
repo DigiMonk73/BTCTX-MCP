@@ -38,7 +38,7 @@ permissions:
 
 env:
   # start-cli for the StartOS jobs: Start9's newest release, the one their
-  # builds pack with (startos/UPDATING.md, "Bumping the SDK", step 3), and
+  # builds pack with (docs/STARTOS-PACKAGE.md, "Bumping the SDK", step 3), and
   # its start-cli_x86_64-linux SHA-256 from the release notes, checked before
   # it runs. release.yml repeats both
   START_CLI_VERSION: v2.8.0
