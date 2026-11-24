@@ -5,7 +5,7 @@ import { useToast } from "../contexts/useToast";
 import "../styles/transactionForm.css";
 import { serverReason } from "../utils/apiError";
 import { parseTransaction } from "../utils/format";
-import { mapTransactionToFormData, plainBtcText, toDatetimeLocal } from "../utils/transactionForm";
+import { mapTransactionToFormData, plainBtcText, shownTime } from "../utils/transactionForm";
 import { ACCOUNTS_FAILED, useAccounts } from "../utils/useAccounts";
 import PastYearDialog from "./PastYearDialog";
 import TypeFields from "./transactionForm/TypeFields";
@@ -30,6 +30,15 @@ const TYPE_DEFAULTS: Partial<TransactionFormData> = {
 };
 
 /** The transaction form: a new transaction, or `transactionId`'s to edit. */
+// Long enough to read a warning of two sentences (#964)
+const WARNING_SHOWN_MS = 12_000;
+
+/** A new form's Date & Time: now, as a moment the form put in itself (#964). */
+function startingTime(): Pick<TransactionFormData, "timestamp" | "timestampShown"> {
+  const shown = shownTime(new Date());
+  return { timestamp: shown.local, timestampShown: shown };
+}
+
 const TransactionForm: React.FC<TransactionFormProps> = ({
   id,
   onDirtyChange,
@@ -44,7 +53,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const { book, failed } = useAccounts();
 
   const form = useForm<TransactionFormData>({
-    defaultValues: { timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS },
+    defaultValues: { ...startingTime(), ...TYPE_DEFAULTS },
   });
   const {
     register,
@@ -90,7 +99,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // chosen while it loads is kept
   useEffect(() => {
     if (transactionId) return;
-    reset({ timestamp: toDatetimeLocal(new Date()), ...TYPE_DEFAULTS });
+    reset({ ...startingTime(), ...TYPE_DEFAULTS });
     setCurrentType("");
   }, [transactionId, reset]);
 
@@ -127,7 +136,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const saved = await pastYears.attempt(transactionId ? "edit" : "add", (confirm) =>
         saveTransaction(data, book, transactionId, confirm));
       if (saved === null) return; // the owner cancelled: nothing saved, and the form keeps what was typed
-      toast.success(saved);
+      toast.success(saved.message);
+      if (saved.warning) toast.warning(saved.warning, WARNING_SHOWN_MS);
       reset();
       setCurrentType("");
       onSubmitSuccess?.();
