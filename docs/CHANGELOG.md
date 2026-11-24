@@ -4,6 +4,21 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Changing a priced deposit to My BTC or Gift asks for what the coins
+  cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
+  valued from the price when it came in (income, interest, a reward, a
+  rebate) kept that market value as its cost basis when edited to My BTC,
+  Gift or N/A, still marked "from the price", though the cost of your own
+  coins, or a gift's, is what was paid for them. Such an edit now asks for
+  the cost, as a new deposit of those sources does: the form clears the
+  Cost Basis field and Save asks you to enter it (0 if it's unknown), and
+  the AI connector's edit is refused until it sends one. The cost given is
+  kept as typed. Nothing saved changes by itself: a deposit changed this
+  way before keeps its value; if it's your own coins or a gift, check that
+  its cost basis is what was paid.
+
 ### Fixed
 
 - **A file with a quote out of place is refused, with the reason, instead

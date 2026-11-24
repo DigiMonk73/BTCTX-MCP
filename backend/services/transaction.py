@@ -690,6 +690,8 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
     _complete_sell_proceeds(merged, tx_data)
+    if _leaves_its_price(tx, merged, db) and "cost_basis_usd" not in tx_data:
+        merged["cost_basis_usd"] = None  # so the check asks for the cost, as a new deposit's does
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -753,7 +755,7 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
         # moved back with a new amount, the value is priced again. A value
         # typed meanwhile, or another type's figure, is the user's.
         is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
-        if not is_deposit or _typed_basis(tx, tx_data):
+        if not is_deposit or _typed_basis(tx, tx_data) or _leaves_its_price(tx, edited, db):
             tx_data["cost_basis_from_price"] = False
         if is_deposit and "cost_basis_usd" not in tx_data and not _into_btc(edited, db):
             # A USD deposit has no basis: one left from a BTC account by a
@@ -769,6 +771,20 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
         tx_data["cost_basis_from_price"] = True
         _note_moment(tx_data, edited["price_moment"])
+
+
+def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
+    """Whether the edit makes a bitcoin deposit valued from the price (income,
+    a reward, a rebate) one of a source that isn't valued at receipt (My BTC,
+    Gift, N/A), whose cost is the user's (#955, the owner's decision 1 on
+    #972): the market value at receipt isn't what the user's own coins cost.
+    So the edit needs a cost, as a new deposit of that source does, and the
+    one it sends is the user's, even the value the form showed. Only the
+    switch itself: a row switched before keeps editing as it did."""
+    if not tx.cost_basis_from_price or normalized(tx.source) not in VALUED_AT_RECEIPT:
+        return False
+    is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
+    return is_deposit and normalized(edited["source"]) not in VALUED_AT_RECEIPT and _into_btc(edited, db)
 
 
 def _typed_basis(tx: Transaction, tx_data: dict) -> bool:

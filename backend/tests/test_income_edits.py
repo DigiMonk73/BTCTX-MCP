@@ -22,7 +22,7 @@ from decimal import Decimal
 import pytest
 from alembic import command
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend.migrate import alembic_config, upgrade_database
 from backend.services.reports.reporting_core import generate_report_data
@@ -181,26 +181,40 @@ def test_the_river_import_passes_the_mark_through(auth_client):
     assert basis(partial(auth_client, tx, amount="0.002")) == Decimal("100.00")
 
 
-def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
+def test_a_round_trip_through_another_source_keeps_the_value_confirmed(auth_client):
+    """Made a Gift, its cost is the user's: the value sent with the switch,
+    even the one shown, is confirmed as theirs (#955), and kept back as
+    Interest, as a typed value is."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="Gift")
+    assert tx["cost_basis_from_price"] is False
     back = edit(auth_client, tx, source="Interest", amount="0.002")
-    assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
+    assert basis(back) == Decimal("50.00") and back["cost_basis_from_price"] is False
 
 
-@pytest.mark.parametrize("how", ["form", "partial"])
-def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine, how):
-    """Re-check of #111: Interest -> My BTC, a new amount (a My BTC value is
-    the user's, so it stays), then back to Interest on the same day: priced
-    again at the new amount, or the income would read the old $50."""
+def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine):
+    """Re-check of #111, on a row an earlier version switched without asking
+    (#955 asks now: still marked from the price): Interest -> My BTC, a new
+    amount (a My BTC value is the user's, so it stays), then back to Interest
+    on the same day: priced again at the new amount, or the income would
+    read the old $50."""
     tx = deposit(auth_client, amount="0.001")
     assert basis(tx) == Decimal("50.00")
-    step = (lambda t, **c: edit(auth_client, t, **c)) if how == "form" else (lambda t, **c: partial(auth_client, t, **c))
-    mine = step(tx, source="MyBTC")
-    mine = step(mine, amount="0.002")
+    with Session(test_engine) as db:  # switched as before #955: the mark kept
+        db.execute(text("UPDATE transactions SET source = 'MyBTC' WHERE id = :id"), {"id": tx["id"]})
+        db.commit()
+    mine = partial(auth_client, {**tx, "source": "MyBTC"}, amount="0.002")
     assert basis(mine) == Decimal("50.00")
-    back = step(mine, source="Interest")
+    back = partial(auth_client, mine, source="Interest")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
     assert income_reported(test_engine) == Decimal("100.00")
+
+
+def test_a_switch_to_my_btc_without_a_cost_asks_for_one(auth_client):
+    """#955: the partial edit the AI connector sends is refused in the
+    create's words; the value stays as it was."""
+    tx = deposit(auth_client, amount="0.001")
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC"})
+    assert r.status_code == 422 and "Enter this deposit's cost basis" in r.text, r.text
 
 
 def test_the_price_day_is_the_utc_day(auth_client):
