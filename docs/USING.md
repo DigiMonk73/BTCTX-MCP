@@ -27,7 +27,9 @@ basis (**Per-wallet FIFO**) and capital gains, and prints IRS **Form 8949** and
 > them were figured together: ask a tax professional whether an earlier
 > return needs a change.
 
-On this page: [Wallets, exchanges and banks](#wallets-exchanges-and-banks) ·
+On this page: [Your first tax year in six
+steps](#your-first-tax-year-in-six-steps) · [Wallets, exchanges and
+banks](#wallets-exchanges-and-banks) ·
 [Dashboard](#dashboard) · [Transactions](#transactions) · [A change to an
 earlier tax year](#a-change-to-an-earlier-tax-year) · [Lots, gains and the
 holding period](#lots-gains-and-the-holding-period) · [Choosing which coins
@@ -37,6 +39,53 @@ export](#imports-and-the-csv-export) · [Ledger Review and Recalculate
 Ledger](#ledger-review-and-recalculate-ledger) · [Prices and
 privacy](#prices-and-privacy) · [Backups and safety
 copies](#backups-and-safety-copies) · [Settings](#settings)
+
+## Your first tax year in six steps
+
+New to BitcoinTX? It starts with a Dashboard of zeros and a page of
+Settings. These six steps, in this order, take you from there to your tax
+forms. Each links to the part of this page that says more.
+
+1. **Choose where prices come from.** The Dashboard asks "Where should
+   BitcoinTX get Bitcoin prices?": **My own Mempool**, **Public price
+   sites** or **Nobody**; nothing is contacted until you choose. On
+   StartOS, the **Price Source & Privacy** action asks instead, unless you
+   choose **Decide in BitcoinTX instead** there. ([Prices and
+   privacy](#prices-and-privacy))
+2. **Check the tax timezone.** In **Settings → Account**, the **Tax
+   Timezone** decides which tax year a late-night December 31 transaction
+   belongs to, and when coins turn long-term. If it isn't where you file,
+   choose that one and click **Save** before you add transactions: a
+   change later recalculates the ledger. ([Lots, gains and the holding
+   period](#lots-gains-and-the-holding-period))
+3. **Add each wallet, exchange and bank.** BitcoinTX starts with one of
+   each: in **Settings → Wallets, exchanges and banks**, rename them to
+   match yours, and use **Add a wallet**, **Add an exchange** or **Add a
+   bank** for the rest. Cost basis is figured for each wallet and each
+   exchange on its own, so give every one its own account before you
+   record anything in it. ([Wallets, exchanges and
+   banks](#wallets-exchanges-and-banks))
+4. **Import or enter your transactions,** every year back to your first
+   bitcoin: the coins you bought earlier set the cost of what you sell
+   now. Use **Settings → Import from an exchange** for an exchange's file
+   (it shows a preview before saving), and **Add transaction**, on
+   **Transactions**, for the rest. ([Imports and the CSV
+   export](#imports-and-the-csv-export), [Transactions](#transactions))
+5. **Go through Ledger Review.** **Settings → Ledger Review** lists saved
+   entries worth a second look, and says what to do with each: work
+   through it until its line says "Nothing to review" or "Nothing looks
+   wrong" (for a year you've already filed, read what it says before
+   changing a value). Then compare the Dashboard's balances with your
+   wallets and exchanges. ([Ledger Review and Recalculate
+   Ledger](#ledger-review-and-recalculate-ledger))
+6. **Print the reports.** On **Reports**, choose the **Report** and the
+   **Tax year**, then click **Export**: **IRS Reports (Form 8949, Schedule
+   D, etc.)** are the filled tax forms, and the **Complete Tax Report**
+   shows every figure behind them. Have a tax professional check them
+   before you file. ([Reports and tax forms](#reports-and-tax-forms))
+
+Each year after that is steps 4 to 6, with step 3 first for a new wallet,
+exchange or bank.
 
 ## Wallets, exchanges and banks
 
@@ -423,7 +472,9 @@ Two more limits:
 
 Each year's final IRS forms come in an update once the IRS publishes them;
 until then, the IRS's draft of that year is a preview, marked DRAFT — DO
-NOT FILE.
+NOT FILE. A year older than the forms BitcoinTX has is marked "(no IRS
+forms yet)" too: for it, the Complete Tax Report has every figure Form
+8949 needs, for your tax professional or tax software.
 
 ## Imports and the CSV export
 
@@ -563,7 +614,7 @@ BitcoinTX get Bitcoin prices?"): your own Mempool, public price sites, or
 nobody. Where the server sets that choice (on StartOS, the **Price Source
 & Privacy** action), Settings shows it read-only.
 
-- **Your own Mempool**: the live price, block height and newer prices come
+- **My own Mempool**: the live price, block height and newer prices come
   from it, and no public site is contacted unless you tick **If it can't
   answer, ask public price sites**. It has hourly prices only from when it
   began recording. A home server's https address works too: when
