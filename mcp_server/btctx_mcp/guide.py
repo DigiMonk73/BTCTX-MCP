@@ -127,7 +127,9 @@ Deposit: External -> any account
                other way (MyBTC, Gift or N/A to a source valued at receipt),
                leave cost_basis_usd out: BitcoinTX values it from the price
                (send one, above 0, only if the user states its value when
-               received; the cost sent back is priced too). Suggest the user's tax
+               received; the cost sent back is priced too). The same between
+               Inherited and Income, Interest, Reward or Rebate: valued again
+               at the new source's moment. Suggest the user's tax
                preparer if they owned the coins jointly with the person who
                died (only part may be inherited), or gave them to that
                person within a year before the death (the basis may be the

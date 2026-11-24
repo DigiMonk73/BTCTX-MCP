@@ -156,3 +156,55 @@ def test_a_move_to_the_bank_needs_no_cost():
     tx = _priced()
     r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"to_account_id": 1, "amount": "500", "source": "N/A"})
     assert r.status_code == 200, r.text
+
+
+def _inherited(value: str | None) -> dict:
+    """An inheritance into the wallet, its date of death in 2024: typed, or valued at that day's price."""
+    body = {"type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+            "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Inherited",
+            "acquired_at": "2024-06-01"}
+    r = CLIENT.post("/api/transactions", json={**body, **({"cost_basis_usd": value} if value else {})})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+@pytest.mark.parametrize("to", ["Income", "Interest", "Reward", "Rebate"])
+def test_an_inheritances_typed_value_made_income_is_valued_when_received(to):
+    """#999: a value at the date of death isn't the value when received: made
+    income (or a rebate), it's priced again at the hour received."""
+    tx = _inherited("777")
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": to})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_an_incomes_typed_value_made_an_inheritance_is_valued_at_the_death():
+    """#999, the other way: a typed income value made Inherited is valued at its date of death."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Income", "cost_basis_usd": "777"})
+    tx_id = r.json()["id"]
+    r = CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Inherited", "acquired_at": "2024-06-01"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx_id}").json()
+    # The date of death's day price (conftest's daily stub, $50,000), never the $777 typed for income
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("250") and saved["cost_basis_from_price"] is True
+
+
+def test_another_value_sent_with_an_inheritance_made_income_is_kept():
+    tx = _inherited("777")
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Income", "cost_basis_usd": "450"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("450") and saved["cost_basis_from_price"] is False
+
+
+def test_a_switch_among_the_income_sources_keeps_a_typed_value():
+    """Valued at the same moment, received: Reward to Rebate keeps it (TAX-INVARIANTS)."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Reward", "cost_basis_usd": "777"})
+    tx_id = r.json()["id"]
+    assert CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Rebate"}).status_code == 200
+    assert Decimal(str(CLIENT.get(f"/api/transactions/{tx_id}").json()["cost_basis_usd"])) == Decimal("777")

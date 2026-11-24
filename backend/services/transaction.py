@@ -764,10 +764,10 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
             # partial edit was counted as income on the report
             tx_data["cost_basis_usd"] = None
         return
-    if _states_its_value(tx, tx_data):
+    if _states_its_value(tx, tx_data, edited):
         tx_data["cost_basis_from_price"] = False
         return
-    if _leaves_its_own_cost(tx) or (tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db)):
+    if _valued_otherwise(tx, edited) or (tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db)):
         edited["cost_basis_usd"] = None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
@@ -789,20 +789,30 @@ def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
     return is_deposit and normalized(edited["source"]) not in VALUED_AT_RECEIPT and _into_btc(edited, db)
 
 
-def _leaves_its_own_cost(tx: Transaction) -> bool:
-    """Whether the stored row is a deposit of a source not valued at receipt
-    (My BTC, Gift, N/A), whose cost basis is a cost, never income: made one
-    valued at receipt, it's valued again (#998), never the cost kept as the
-    income reported."""
-    return tx.type == "Deposit" and normalized(tx.source) not in VALUED_AT_RECEIPT
+def _valued_otherwise(tx: Transaction, edited: dict) -> bool:
+    """Whether the stored deposit's basis was taken otherwise than the edited
+    source takes it: a cost (My BTC, Gift, N/A), a value when received
+    (income, interest, a reward, a rebate) or a value at the date of death
+    (an inheritance). Made one valued at receipt from another kind, it's
+    valued again, never the old figure kept: a cost isn't income (#998), nor
+    a value at someone's death the value when received (#999)."""
+    return tx.type == "Deposit" and _valuation(tx.source) != _valuation(edited.get("source"))
 
 
-def _states_its_value(tx: Transaction, tx_data: dict) -> bool:
+def _valuation(source: str | None) -> str:
+    """How a deposit of `source` takes its basis: "cost", "received" or "death"."""
+    name = normalized(source)
+    if name == INHERITED_SOURCE:
+        return "death"
+    return "received" if name in VALUED_AT_RECEIPT else "cost"
+
+
+def _states_its_value(tx: Transaction, tx_data: dict, edited: dict) -> bool:
     """Whether the edit gives the value at receipt itself, so it's typed: a
-    new value (_typed_basis); made income from a source whose cost is the
-    user's, only another than the cost stored, which sent back is a cost,
-    not the income (#998)."""
-    if _leaves_its_own_cost(tx):
+    new value (_typed_basis); made one valued another way (_valued_otherwise),
+    only another than the figure stored, which sent back is the old kind's,
+    not this one's (#998, #999)."""
+    if _valued_otherwise(tx, edited):
         # $0 is blank here as everywhere a value at receipt is filled (never $0 income)
         return _another_cost(tx, tx_data) and Decimal(tx_data["cost_basis_usd"]) > 0
     return _typed_basis(tx, tx_data)
@@ -1243,8 +1253,8 @@ def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Sess
     $0 it becomes a gift with)."""
     if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
-    elif _leaves_its_own_cost(tx) and _valued_at_receipt(row, db) and not _states_its_value(tx, edit):
-        row["cost_basis_usd"] = None  # a cost made income is priced again (#998)
+    elif _valued_otherwise(tx, row) and _valued_at_receipt(row, db) and not _states_its_value(tx, edit, row):
+        row["cost_basis_usd"] = None  # valued again at the new source's moment (#998, #999)
     if tx.proceeds_from_price and not _typed_proceeds(tx, edit) and _proceeds_priced_by_edit(tx, edit):
         row["proceeds_usd"] = row["gross_proceeds_usd"] = None
     if _gift_priced_by_edit(tx, edit, book):  # a sale's $0 made a gift too (_moments_priced reads only a gift's)

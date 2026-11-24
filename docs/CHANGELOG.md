@@ -40,6 +40,21 @@ All notable changes to BitcoinTX are documented in this file.
   or an inheritance, check its value: open it and clear Cost Basis to have
   it valued from the price again.
 
+- **An inheritance's value is no longer kept as income, nor income's as an
+  inheritance's, when a deposit's source is changed** (#999, tax figures).
+  A bitcoin deposit's value typed for an inheritance (its value at the
+  date of death) was kept if the deposit was changed to income, interest,
+  a reward or a rebate, and reported as income when received; and a value
+  typed for income was kept when changed to Inherited, as the value at the
+  death. The two are taken on different dates. Such a change now values
+  the deposit again, at the hour received or at the date of death, unless
+  a value above $0 other than the old one is sent with it, which is kept
+  as the value you state. A change among income, interest, a reward and a
+  rebate keeps a typed value, as before: all are valued when received.
+  Every earlier version has it. **What to do:** if you changed a deposit
+  between Inherited and income, interest, a reward or a rebate, open it
+  and clear Cost Basis to have it valued again.
+
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
   closed, BitcoinTX's own CSV import, River's import and every other
