@@ -174,9 +174,12 @@ timezone in one line.
 `holding_period()` in `services/transaction.py` implements the IRS "more than
 one year" rule on calendar dates in the tax timezone. A disposal is **LONG
 only if it is disposed after the one-year anniversary** of acquisition.
-Selling on the anniversary itself is short-term. A Feb 29 acquisition's
-anniversary is Feb 28. The value is stored on each LotDisposal when the ledger
-is recalculated, and the form reads the stored value. SHORT rows go to Part I,
+Selling on the anniversary itself is short-term. An acquisition on a
+month's last day has its anniversary on the last day of the same month a
+year later (`one_year_anniversary()`; Rev. Rul. 66-7, #950): Feb 28, 2023's
+is Feb 29, 2024, and a Feb 29 acquisition's is Feb 28. The value is stored
+on each LotDisposal when the ledger is recalculated, and the form reads the
+stored value. SHORT rows go to Part I,
 LONG rows to Part II. Inherited coins (`bitcoin_lots.inherited`, an Inherited
 deposit's lot and the lots a transfer moves from it, #154) are LONG whatever
 their dates (IRC §1223(9); `lot_holding_period()`).

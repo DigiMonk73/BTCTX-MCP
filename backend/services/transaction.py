@@ -9,6 +9,7 @@ whole ledger in time order ("scorched earth", recalculate_all_transactions),
 so everything derived must follow from the saved transactions alone.
 """
 
+import calendar
 import logging
 import time
 import unicodedata
@@ -1324,17 +1325,28 @@ def _why_short(past: list[Transaction] | None, db: Session) -> str:
 
 def holding_period(acquired: datetime, disposed: datetime, tz=timezone.utc) -> str:
     """
-    IRS rule (Pub. 544): long-term only if held MORE than one year, counting
-    from the day after acquisition — i.e. disposed after the one-year
-    anniversary date. Selling on the anniversary itself is short-term.
-    (Feb 29 acquisitions: anniversary is Feb 28, so long-term from Mar 1.)
-    Calendar dates are taken in the tax timezone `tz`.
+    IRS rule (Pub. 544, Pub. 550): long-term only if held MORE than one
+    year, counting from the day after acquisition — i.e. disposed after the
+    one-year anniversary date. Selling on the anniversary itself is
+    short-term. Calendar dates are taken in the tax timezone `tz`.
     """
-    from dateutil.relativedelta import relativedelta
-    from backend.services.tax_time import local_date
-
-    anniversary = local_date(acquired, tz) + relativedelta(years=1)
+    anniversary = one_year_anniversary(local_date(acquired, tz))
     return "LONG" if local_date(disposed, tz) > anniversary else "SHORT"
+
+
+def one_year_anniversary(acquired: date) -> date:
+    """The last day of the first year an acquisition is held.
+
+    Acquired on a month's last day (29 February included), the holding
+    period starts on the first of the next month and runs in calendar
+    months, so its year ends on the last day of the same month a year later
+    (Rev. Rul. 66-7; Caspe v. United States, 694 F.2d 1116): 28 February
+    2023 is held a year on 29 February 2024, and long-term from 1 March
+    (#950). Any other day's anniversary is the same date a year later.
+    """
+    if acquired.day == calendar.monthrange(acquired.year, acquired.month)[1]:
+        return date(acquired.year + 1, acquired.month, calendar.monthrange(acquired.year + 1, acquired.month)[1])
+    return acquired.replace(year=acquired.year + 1)
 
 
 def lot_holding_period(lot: BitcoinLot, disposed: datetime, tz=timezone.utc) -> str:

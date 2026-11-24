@@ -357,8 +357,10 @@ coins in one of your own wallets. A transfer
 between your accounts moves lots, each keeping its acquisition date and
 its share of the cost. A sale is long-term only when it comes after the
 first anniversary of its lot's acquisition date (the IRS's "more than one
-year"), dates taken in your tax timezone. Inherited coins are long-term
-whatever the dates.
+year"), dates taken in your tax timezone. Coins acquired on the last day
+of a month turn long-term on the first day of the month after that month
+a year later: bought on 28 February 2023, from 1 March 2024, not 29
+February. Inherited coins are long-term whatever the dates.
 
 The **Tax Timezone** (Settings → Account) decides which tax year a
 late-night December 31 transaction lands in, the dates on Form 8949, and
