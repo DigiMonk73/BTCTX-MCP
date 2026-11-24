@@ -13,22 +13,20 @@ All notable changes to BitcoinTX are documented in this file.
   vanished, and the preview and the import said nothing. A cell with more
   text after its closing quote was read with the quotes left out. Each
   import now refuses such a file and says what it found (a quote never
-  closed; text, even a space, after a closing quote). BitcoinTX's own
-  import and River's also refuse a stray quote that a second one further
-  down closes, which read the rows between as one cell, and name the row
-  it starts in. Another exchange's file can still hide that case, since
-  its rows can be as narrow as two columns: compare the preview's row
-  count with the file's. Only a hand-edited or damaged file has any of
-  these; BitcoinTX's own export never writes them, and a cell with a line
-  break or a doubled quote ("") still reads. Every earlier version has it.
-  **What to do:** if you imported a file you had edited by hand, compare
-  the number of transactions the import saved with the file's rows. Add a
+  closed; text, even a space, after a closing quote). One case can't be
+  detected: a stray quote that a second stray quote further down happens
+  to close makes a valid file, read with the rows between as one cell
+  (#990). So with a hand-edited file, compare the preview's row count with
+  the file's. Only a hand-edited or damaged file has a stray quote;
+  BitcoinTX's own export never writes one, and a cell with a line break or
+  a doubled quote ("") still reads. Every earlier version has it. **What
+  to do:** if you imported a file you had edited by hand, compare the
+  number of transactions the import saved with the file's rows. Add a
   missing one by hand; for River's or another exchange's file, importing
   the corrected file again also works, since the rows already saved are
   found as duplicates and left out. The row just before the missing ones
-  read their text into the cell where the stray quote was, and the cells
-  after it from the last missing row (River's tag, which decides its type;
-  an exchange's note or account): check that transaction too.
+  read their text into the cell where the stray quote was (River's tag,
+  which decides its type, or a note): check that transaction too.
 
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding

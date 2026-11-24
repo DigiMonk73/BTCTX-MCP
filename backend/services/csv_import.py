@@ -9,7 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
@@ -227,27 +227,6 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
-def holds_rows(cells: Iterable[Any], columns: int) -> bool:
-    """Whether a cell holds whole rows of the file: a line in it, after a
-    line break, with as many commas as a row of `columns` (the header's).
-    A stray quote that another stray quote further down happens to close
-    reads the rows between as one cell, and a strict read can't see it
-    (#952); a note's own line break carries no row's worth of commas in a
-    file as wide as BitcoinTX's or River's. Not complete: two stray quotes
-    in one cell of rows next to each other read as a row of the right
-    width, and only the columns' own checks can catch that."""
-    commas = max(columns - 1, 1)
-    return any(line.count(",") >= commas
-               for cell in cells if isinstance(cell, str) and "\n" in cell
-               for line in cell.split("\n")[1:])
-
-
-def rows_in_a_cell(row_number: int) -> CSVParseError:
-    """The file error for a cell that holds whole rows (holds_rows)."""
-    return _file_error(f"The file can't be read as CSV: a cell in row {row_number} holds the rows after it,"
-                       " between two quotes (\") out of place.")
-
-
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
     reader = csv.DictReader(io.StringIO(_decode(content)), strict=True)  # a stray quote refuses the file (#952)
@@ -258,8 +237,6 @@ def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
 
     previous_date: datetime | None = None
     for row_number, row in enumerate(reader, start=2):  # the header is row 1
-        if holds_rows(row.values(), len(reader.fieldnames)):
-            return ParseResult(errors=[rows_in_a_cell(row_number)])
         if None in row:
             result.errors.append(_error(row_number, None, TOO_MANY_FIELDS))
             continue

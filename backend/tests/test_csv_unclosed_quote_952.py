@@ -4,11 +4,10 @@ that cell, and the import said nothing: the CSV module's lenient reading
 ends the cell at the end of the file. A file like that is refused, with
 the reason, by every reader of a CSV file: BitcoinTX's own import, River's
 and any exchange's. So is a closing quote followed by more text, which was
-read with the quotes dropped; and, by BitcoinTX's own import and River's
-(whose headers give a row's width), a stray quote that a second one further
-down closes, which reads the rows between as one cell. A cell holding a
-line break or a doubled quote, as BitcoinTX's own export writes them, still
-reads.
+read with the quotes dropped. A cell holding a line break or a doubled
+quote, as BitcoinTX's own export writes them, still reads. (Two stray
+quotes that close each other make a valid file, which no reader can tell
+from a correct one: #990.)
 """
 
 from backend.services.csv_import import parse_csv_file
@@ -48,33 +47,6 @@ def test_text_after_a_closing_quote_refuses_the_file():
 def test_a_space_after_a_closing_quote_refuses_the_file():
     text = f"{HEADER}\n2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"note\" \n"
     assert _messages(parse_csv_file(text.encode()).errors) == [TEXT_AFTER]
-
-
-# A second stray quote, before a line break, closes the first: the rows between vanish into one cell.
-PAIRED = (
-    f"{HEADER}\n"
-    "2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"oops\n"
-    "2024-01-06,Deposit,500,External,Bank,,,,,N/A,,second\n"
-    "2024-01-07,Deposit,700,External,Bank,,,,,N/A,,a 12\"\n"
-    "2024-01-08,Deposit,900,External,Bank,,,,,N/A,,fourth\n"
-)
-SWALLOWED = ("The file can't be read as CSV: a cell in row 2 holds the rows after it,"
-             " between two quotes (\") out of place.")
-
-
-def test_two_stray_quotes_that_close_each_other_refuse_the_file():
-    result = parse_csv_file(PAIRED.encode())
-    assert _messages(result.errors) == [SWALLOWED]
-    assert result.transactions == []
-
-
-def test_rivers_import_refuses_two_stray_quotes():
-    text = (f"{RIVER_HEADER}\n2026-01-05 12:00:00,25.00,USD,0.00030000,BTC,,,\"Buy\n"
-            "2026-01-12 12:00:00,25.00,USD,0.00031000,BTC,,,Buy\"\n"
-            "2026-01-19 12:00:00,25.00,USD,0.00032000,BTC,,,Buy\n")
-    rows, errors = parse_river_csv(text.encode())
-    assert _messages(errors) == [SWALLOWED]
-    assert rows == []
 
 
 def test_an_exchanges_note_with_a_line_break_and_commas_still_reads():

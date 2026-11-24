@@ -55,9 +55,6 @@ def records(content: bytes) -> Records | CSVParseError:
         rows = list(csv.reader(io.StringIO(text), strict=True))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
-    # No check for rows held in a cell here (csv_import.holds_rows): before
-    # its header is found, a file's width is unknown, and an exchange's
-    # few columns would refuse a correct note with a line break (#952).
     return [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]
 
 

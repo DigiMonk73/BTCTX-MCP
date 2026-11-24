@@ -46,9 +46,7 @@ from backend.services.calculation import btc_text
 from backend.services.csv_import import (
     _parse_decimal,
     decimal_comma_note,
-    holds_rows,
     number_limits,
-    rows_in_a_cell,
     unreadable_csv,
 )
 from backend.services.tax_time import get_tax_timezone, local_date
@@ -223,16 +221,6 @@ def parse_river_csv(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]
         return [], [unreadable_csv(exc)]
 
 
-def _decoded(content: bytes) -> str | None:
-    """The file's text: UTF-8, with or without a byte-order mark, else Latin-1."""
-    for encoding in ("utf-8-sig", "latin-1"):
-        try:
-            return content.decode(encoding)
-        except UnicodeDecodeError:
-            continue
-    return None
-
-
 def rows_in_file(rows: list[RiverRow], errors: list[CSVParseError]) -> int:
     """The file's data rows, read or refused (#455): a refused row's error
     carries its row number; an error about the whole file is row 0."""
@@ -243,13 +231,17 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
     errors: list[CSVParseError] = []
     rows: list[RiverRow] = []
 
-    text = _decoded(content)
-    if text is None:
-        errors.append(CSVParseError(
-            row_number=0, column=None, severity="error",
-            message="File encoding not supported. Please save as UTF-8.",
-        ))
-        return rows, errors
+    try:
+        text = content.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            text = content.decode("latin-1")
+        except UnicodeDecodeError:
+            errors.append(CSVParseError(
+                row_number=0, column=None, severity="error",
+                message="File encoding not supported. Please save as UTF-8.",
+            ))
+            return rows, errors
 
     reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
     if reader.fieldnames is None:
@@ -272,8 +264,6 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
         return rows, errors
 
     for row_number, raw in enumerate(reader, start=2):
-        if holds_rows(raw.values(), len(reader.fieldnames)):
-            return [], [rows_in_a_cell(row_number)]
         if None in raw:
             # More fields than the header (the reader lists the extras under
             # None): the columns no longer line up, so the row can't be read.
