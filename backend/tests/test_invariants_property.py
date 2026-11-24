@@ -376,11 +376,16 @@ def check_invariants(ledger: Ledger, txs: List[dict], model: Model) -> None:
             else:
                 amount_parts[tx.id] += d.proceeds_usd_for_that_portion
                 assert d.realized_gain_usd == d.proceeds_usd_for_that_portion - d.disposal_basis_usd, d.id
-            # Holding period: long-term only after the one-year anniversary.
+            # Holding period: long-term only after the one-year anniversary,
+            # counted from the day after acquisition; a period starting on
+            # the 1st runs in calendar months (Rev. Rul. 66-7, #950).
             acquired = local_date(d.lot.acquired_date, tz)
             sold = local_date(tx.timestamp, tz)
-            anniversary = acquired.replace(year=acquired.year + 1)
-            expected = "LONG" if sold > anniversary else "SHORT"
+            first_held = acquired + timedelta(days=1)
+            if first_held.day == 1:
+                expected = "LONG" if sold >= first_held.replace(year=first_held.year + 1) else "SHORT"
+            else:
+                expected = "LONG" if sold > acquired.replace(year=acquired.year + 1) else "SHORT"
             assert d.holding_period == expected, (acquired, sold, d.holding_period)
         for tx_id, total in fee_parts.items():
             tx = txs_db[tx_id]

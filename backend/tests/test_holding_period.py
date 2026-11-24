@@ -72,6 +72,17 @@ def test_the_month_end_is_the_tax_timezones():
     assert holding_period(acquired, datetime(2024, 3, 1, 18, tzinfo=timezone.utc)) == "SHORT"
 
 
+def test_the_month_end_east_of_utc():
+    """20:00 UTC on 27 February 2023 is 28 February in Tokyo; 16:00 UTC on
+    29 February 2024 is already 1 March there, the day it turns long-term."""
+    tokyo = ZoneInfo("Asia/Tokyo")
+    acquired = datetime(2023, 2, 27, 20, tzinfo=timezone.utc)
+    assert holding_period(acquired, datetime(2024, 2, 29, 14, tzinfo=timezone.utc), tokyo) == "SHORT"
+    assert holding_period(acquired, datetime(2024, 2, 29, 16, tzinfo=timezone.utc), tokyo) == "LONG"
+    # In UTC it was acquired on 27 February, not a month's last day: long-term from 28 February 2024
+    assert holding_period(acquired, datetime(2024, 2, 28, 12, tzinfo=timezone.utc)) == "LONG"
+
+
 BANK, EXCH_USD, EXCH_BTC, WALLET, EXTERNAL = 1, 3, 4, 2, 99
 
 
