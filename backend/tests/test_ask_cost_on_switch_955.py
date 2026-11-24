@@ -63,12 +63,28 @@ def test_a_cost_sent_with_the_switch_is_the_users(from_source):
     assert saved["cost_basis_from_price"] is False
 
 
-def test_the_market_value_sent_back_with_the_switch_is_the_users_too():
-    """An API client that sends back the value shown: sent with the switch, it's the user's figure."""
+def test_the_value_shown_sent_back_keeps_its_mark_so_a_switch_back_prices_it_again():
+    """An API client that sends back the value shown unchanged: it stays
+    marked from the price, and made income again at a new amount it's priced
+    again, never the market value kept as if it were the user's."""
     tx = _priced()
     r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "500"})
     assert r.status_code == 200, r.text
-    assert CLIENT.get(f"/api/transactions/{tx['id']}").json()["cost_basis_from_price"] is False
+    assert CLIENT.get(f"/api/transactions/{tx['id']}").json()["cost_basis_from_price"] is True
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "amount": "0.01"})
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("1000") and saved["cost_basis_from_price"] is True
+
+
+def test_a_cost_typed_with_the_switch_is_kept_made_income_again_as_before():
+    """A My BTC cost typed with the switch is the user's: made Interest again,
+    it's kept, as a value typed while not income always was (#76's
+    test_a_value_typed_while_not_income_stays_typed): #955 changes nothing there."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest"})
+    assert r.status_code == 200, r.text
+    assert Decimal(str(CLIENT.get(f"/api/transactions/{tx['id']}").json()["cost_basis_usd"])) == Decimal("120")
 
 
 def test_a_zero_cost_sent_with_the_switch_is_kept():

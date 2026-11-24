@@ -181,14 +181,14 @@ def test_the_river_import_passes_the_mark_through(auth_client):
     assert basis(partial(auth_client, tx, amount="0.002")) == Decimal("100.00")
 
 
-def test_a_round_trip_through_another_source_keeps_the_value_confirmed(auth_client):
-    """Made a Gift, its cost is the user's: the value sent with the switch,
-    even the one shown, is confirmed as theirs (#955), and kept back as
-    Interest, as a typed value is."""
+def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
+    """The value shown, sent back unchanged with a switch to Gift, stays marked
+    from the price (#955 asks only that a cost be sent), so back as Interest
+    it's priced again: a gift's basis is never reported as income."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="Gift")
-    assert tx["cost_basis_from_price"] is False
+    assert tx["cost_basis_from_price"] is True
     back = edit(auth_client, tx, source="Interest", amount="0.002")
-    assert basis(back) == Decimal("50.00") and back["cost_basis_from_price"] is False
+    assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
 
 
 def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine):
@@ -286,9 +286,9 @@ def test_a_source_change_prices_the_same_day_and_amount(auth_client):
 
 
 def test_a_deposit_that_stops_being_income_keeps_its_value(auth_client):
-    """My BTC's basis is the user's: it isn't priced. The value sent with the
-    switch (an API client's echo of the one shown) is the user's figure from
-    then on (#955); the form clears the field and asks instead."""
+    """My BTC's basis is the user's: it isn't priced, whatever the mark says
+    (an echo of the value shown keeps it; the form clears the field and asks
+    instead, #955)."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="MyBTC")
     assert basis(tx) == Decimal("50.00")
     assert basis(edit(auth_client, tx, amount="0.002")) == Decimal("50.00")

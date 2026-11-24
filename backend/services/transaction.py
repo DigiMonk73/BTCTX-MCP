@@ -755,7 +755,7 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
         # moved back with a new amount, the value is priced again. A value
         # typed meanwhile, or another type's figure, is the user's.
         is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
-        if not is_deposit or _typed_basis(tx, tx_data) or _leaves_its_price(tx, edited, db):
+        if not is_deposit or _typed_basis(tx, tx_data) or (_leaves_its_price(tx, edited, db) and _another_cost(tx, tx_data)):
             tx_data["cost_basis_from_price"] = False
         if is_deposit and "cost_basis_usd" not in tx_data and not _into_btc(edited, db):
             # A USD deposit has no basis: one left from a BTC account by a
@@ -778,13 +778,24 @@ def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
     a reward, a rebate, an inheritance) one of a source that isn't valued at
     receipt (My BTC, Gift, N/A), whose cost is the user's (#955, the owner's decision 1 on
     #972): the market value at receipt isn't what the user's own coins cost.
-    So the edit needs a cost, as a new deposit of that source does, and the
-    one it sends is the user's, even the value the form showed. Only the
-    switch itself: a row switched before keeps editing as it did."""
+    So the edit needs a cost, as a new deposit of that source does; another
+    than the one shown is the user's (_another_cost). Only the switch
+    itself: a row switched before keeps editing as it did."""
     if not tx.cost_basis_from_price or normalized(tx.source) not in VALUED_AT_RECEIPT:
         return False
     is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
     return is_deposit and normalized(edited["source"]) not in VALUED_AT_RECEIPT and _into_btc(edited, db)
+
+
+def _another_cost(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit sends a cost other than the one stored, $0 included.
+    The value shown, sent back unchanged with a switch away from income,
+    keeps its mark: made income again, it's priced again (#955), never kept
+    as if it were the user's figure."""
+    if "cost_basis_usd" not in tx_data or tx_data["cost_basis_usd"] is None:
+        return False
+    sent = Decimal(tx_data["cost_basis_usd"]).quantize(Decimal("0.01"))
+    return tx.cost_basis_usd is None or sent != Decimal(tx.cost_basis_usd).quantize(Decimal("0.01"))
 
 
 def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
