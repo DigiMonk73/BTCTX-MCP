@@ -91,7 +91,7 @@ def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engin
 
 def test_no_depth_the_parser_reads_is_a_500():
     """Every depth near either Python's parser limit: a 422, or the parser's
-    400, never a 500. On 3.11, 952 to 954 levels parsed and passed the
+    400, never a 500. On 3.11, 951 to 954 levels parsed and passed the
     check of each error alone, then failed the answer's own encoding, two
     levels deeper (#954's CI)."""
     from fastapi.testclient import TestClient

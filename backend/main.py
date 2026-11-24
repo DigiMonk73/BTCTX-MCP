@@ -355,11 +355,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     recursion limit (#954).
     """
     errors = [_encoded(_without_bytes_input(error)) for error in exc.errors()]
-    for error in errors:
-        if not _writable(error):
-            error.pop("input", None)
-            error.pop("ctx", None)
-    return Response(content=_written(errors), status_code=422, media_type="application/json")
+    return _written([error if _writable(error) else _without_echo(error) for error in errors])
 
 
 def _encoded(error: dict) -> dict:
@@ -376,20 +372,15 @@ def _without_echo(error: dict) -> dict:
     return {key: value for key, value in error.items() if key not in ("input", "ctx")}
 
 
-def _written(errors: list[dict]) -> bytes:
-    """The 422's body, written here rather than by JSONResponse, so the
-    write is the one tried: on Python 3.11 an error that passed _writable
-    alone could still recurse too deep two levels further in (#954). If the
-    whole can't be written, every error goes without its echo."""
+def _written(errors: list[dict]) -> JSONResponse:
+    """The 422, written here, so its own write is the one tried: on Python
+    3.11 an error that passed _writable alone could still recurse too deep
+    two levels further in (#954). If the whole can't be written, every
+    error goes without its echo."""
     try:
-        return _json_bytes({"detail": errors})
+        return JSONResponse(status_code=422, content={"detail": errors})
     except (ValueError, RecursionError):
-        return _json_bytes({"detail": [_without_echo(error) for error in errors]})
-
-
-def _json_bytes(content) -> bytes:
-    """JSON as JSONResponse writes it (its rules: no NaN or infinity, UTF-8)."""
-    return json.dumps(content, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode("utf-8")
+        return JSONResponse(status_code=422, content={"detail": [_without_echo(error) for error in errors]})
 
 
 @app.exception_handler(DateOutOfRange)
@@ -411,10 +402,10 @@ def _without_bytes_input(error: dict) -> dict:
 
 
 def _writable(value) -> bool:
-    """Whether `value` can be written as JSON (_json_bytes): no NaN or
-    infinity, UTF-8, not nested past Python's recursion limit."""
+    """Whether JSONResponse can write `value` (its rules: no NaN or
+    infinity, UTF-8), not nested past Python's recursion limit."""
     try:
-        _json_bytes(value)
+        json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
     except (ValueError, RecursionError):  # UnicodeEncodeError is a ValueError too
         return False
     return True
