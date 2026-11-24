@@ -4,6 +4,30 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The AI connector's import keeps rows that share a time in the order
+  given** (#951, tax figures). Rows at the same time decide, by their
+  order, which coins a sale or a move takes (first in, first out). The CSV
+  and exchange imports keep a file's order; the AI connector's import put
+  same-time rows in a fixed order by type instead (deposits, buys,
+  transfers, sales, withdrawals), so the same rows could take other coins,
+  and give another cost basis and gain, by that route. That's likely when
+  the AI enters rows by date alone, which it puts at noon: a day's rows
+  then share a time. For example, after buying 0.5 BTC for $10,000 and
+  then 0.5 BTC for $30,000, a sale of 0.5 BTC listed before a same-time
+  move of 0.5 BTC to a wallet now has a cost basis of $10,000, as a file
+  gives; the AI's import gave it $30,000 (and the moved coins the
+  $10,000). A buy listed after a same-time sale it pays for is refused, as
+  in a file. Only the AI's import changes; every earlier version with the
+  AI connector (from 0.8.0) has it. A saved ledger's figures don't change.
+  **What to do:** if an AI entered, in one request, a sale, spend or other
+  withdrawal and a move out of the same account at the same time (or on
+  the same day without a time), check that sale's cost basis against your
+  records. Where it took other coins than it should have, put the two in
+  their real order by editing a time (a minute apart is enough), and
+  BitcoinTX works the figures out again.
+
 ### Development
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
   2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about

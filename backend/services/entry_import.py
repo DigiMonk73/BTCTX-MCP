@@ -78,9 +78,6 @@ from backend.services.transaction import (
 
 logger = logging.getLogger(__name__)
 
-# Acquisitions before disposals for same-timestamp rows (mirrors execute_import)
-TYPE_ORDER = {"Deposit": 0, "Buy": 1, "Transfer": 2, "Sell": 3, "Withdrawal": 4}
-
 STATUS_READY = "ready"
 STATUS_DUPLICATE = "duplicate"
 STATUS_POSSIBLE_DUPLICATE = "possible_duplicate"
@@ -560,14 +557,15 @@ def _duplicate_warning(p: PreparedRow, tx_id: int, again: bool, book: AccountBoo
 
 # Dry run
 def _chronological(prepared: list[PreparedRow]) -> list[PreparedRow]:
+    """The writable rows by time; rows at the same time keep the order given
+    (a stable sort), as the CSV and exchange imports keep a file's: that
+    order decides which lots a same-time disposal takes, and the ledger
+    replays same-time transactions in the order they were saved (#951)."""
     writable = [
         p for p in prepared
         if p.tx_data is not None and p.result.status in WRITABLE_STATUSES
     ]
-    return sorted(
-        writable,
-        key=lambda p: (p.tx_data["timestamp"], TYPE_ORDER.get(p.tx_data["type"], 99)),
-    )
+    return sorted(writable, key=lambda p: p.tx_data["timestamp"])
 
 
 def _gain_snapshot(db: Session) -> dict[int, tuple[Decimal | None, str | None]]:
