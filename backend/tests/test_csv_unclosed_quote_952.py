@@ -4,7 +4,8 @@ that cell, and the import said nothing: the CSV module's lenient reading
 ends the cell at the end of the file. A file like that is refused, with
 the reason, by every reader of a CSV file: BitcoinTX's own import, River's
 and any exchange's. So is a closing quote followed by more text, which was
-read with the quotes dropped, and a stray quote that a second one further
+read with the quotes dropped; and, by BitcoinTX's own import and River's
+(whose headers give a row's width), a stray quote that a second one further
 down closes, which reads the rows between as one cell. A cell holding a
 line break or a doubled quote, as BitcoinTX's own export writes them, still
 reads.
@@ -76,10 +77,12 @@ def test_rivers_import_refuses_two_stray_quotes():
     assert rows == []
 
 
-def test_an_exchanges_file_with_two_stray_quotes_is_refused():
-    found = records(b"Date,Amount,Note\n2026-01-05,0.1,\"open\n2026-01-06,0.2,x\"\n2026-01-07,0.3,y\n")
-    assert not isinstance(found, list), found
-    assert found.message == SWALLOWED
+def test_an_exchanges_note_with_a_line_break_and_commas_still_reads():
+    """An exchange's file has few columns: a correct note across two lines
+    with a comma is never taken for rows held in a cell."""
+    found = records(b'Date,Note\n2026-01-05,"Bought\nfrom Bob, Alice"\n2026-01-06,x\n')
+    assert isinstance(found, list), found
+    assert [cells for _, cells in found][1:] == [["2026-01-05", "Bought\nfrom Bob, Alice"], ["2026-01-06", "x"]]
 
 
 def test_a_note_with_a_line_break_and_a_comma_still_reads():

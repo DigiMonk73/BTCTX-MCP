@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas.csv_import import CSVParseError
 from backend.services.calculation import CENT, SAT, btc_text
-from backend.services.csv_import import holds_rows, rows_in_a_cell, unreadable_csv
+from backend.services.csv_import import unreadable_csv
 from backend.services.river_import import FileRow
 
 # The header is looked for among a file's first rows: an exchange may write
@@ -55,10 +55,10 @@ def records(content: bytes) -> Records | CSVParseError:
         rows = list(csv.reader(io.StringIO(text), strict=True))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
-    numbered = [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]
-    columns = max((len(cells) for _, cells in numbered), default=0)
-    swallowed = next((number for number, cells in numbered if holds_rows(cells, columns)), None)
-    return rows_in_a_cell(swallowed) if swallowed is not None else numbered
+    # No check for rows held in a cell here (csv_import.holds_rows): before
+    # its header is found, a file's width is unknown, and an exchange's
+    # few columns would refuse a correct note with a line break (#952).
+    return [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]
 
 
 class Header:

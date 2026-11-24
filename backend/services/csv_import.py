@@ -229,10 +229,13 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
 
 def holds_rows(cells: Iterable[Any], columns: int) -> bool:
     """Whether a cell holds whole rows of the file: a line in it, after a
-    line break, with as many commas as a row. A stray quote that another
-    stray quote further down happens to close reads the rows between as
-    one cell, and a strict read can't see it (#952); a note's own line
-    break carries no row's worth of commas."""
+    line break, with as many commas as a row of `columns` (the header's).
+    A stray quote that another stray quote further down happens to close
+    reads the rows between as one cell, and a strict read can't see it
+    (#952); a note's own line break carries no row's worth of commas in a
+    file as wide as BitcoinTX's or River's. Not complete: two stray quotes
+    in one cell of rows next to each other read as a row of the right
+    width, and only the columns' own checks can catch that."""
     commas = max(columns - 1, 1)
     return any(line.count(",") >= commas
                for cell in cells if isinstance(cell, str) and "\n" in cell
