@@ -65,9 +65,9 @@ All notable changes to BitcoinTX are documented in this file.
 - **python-dateutil is no longer a dependency** (for #950). Its one use,
   `relativedelta(years=1)` in the holding period, went with #950's fix,
   which works out the anniversary with Python's own `calendar`
-  (`one_year_anniversary`). The app, the Docker
-  image and the Mac app no longer install it, nor `six`, which only it
-  needed; `desktop/BitcoinTX.spec` drops its hidden imports, and
+  (`one_year_anniversary`). The app, the Docker image and the Mac app no
+  longer install it, nor `six`, which only it needed;
+  `desktop/BitcoinTX.spec` drops its hidden imports, and
   `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
   pull request (#927) goes with it, unmerged. No figure moves.
 
