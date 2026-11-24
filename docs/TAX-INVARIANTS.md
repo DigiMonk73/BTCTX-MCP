@@ -130,9 +130,13 @@ map.
   typed value isn't asked for again by the server (it's already the user's
   figure); the form, which can't tell the user's cost from a value typed at
   receipt, clears the cost on any switch from a valued source to one that
-  isn't, and asks. Income (report, dashboard) counts only deposits into a
-  bitcoin account (`AccountBook.is_btc`): a USD deposit is dollars, whatever
-  value it carries.
+  isn't, and asks. The other way, a deposit of a source not valued at
+  receipt made one that is, its cost (a cost, never income) is valued again
+  from the price: only another value sent with it is typed, the income the
+  user states (`_leaves_its_own_cost`, `_states_its_value`, #998); the form
+  clears the cost on that switch too. Income (report, dashboard) counts only
+  deposits into a bitcoin account (`AccountBook.is_btc`): a USD deposit is
+  dollars, whatever value it carries.
 - **Rebates** (source Rebate, #98: card sats-back, shopping cash-back): valued
   like income deposits (`constants.VALUED_AT_RECEIPT`: the same filling,
   marking and re-pricing), but never income: not in the report's or the

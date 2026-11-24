@@ -762,10 +762,10 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
             # partial edit was counted as income on the report
             tx_data["cost_basis_usd"] = None
         return
-    if _typed_basis(tx, tx_data):
+    if _states_its_value(tx, tx_data):
         tx_data["cost_basis_from_price"] = False
         return
-    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db):
+    if _leaves_its_own_cost(tx) or (tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db)):
         edited["cost_basis_usd"] = None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
@@ -785,6 +785,24 @@ def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
         return False
     is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
     return is_deposit and normalized(edited["source"]) not in VALUED_AT_RECEIPT and _into_btc(edited, db)
+
+
+def _leaves_its_own_cost(tx: Transaction) -> bool:
+    """Whether the stored row is a deposit of a source not valued at receipt
+    (My BTC, Gift, N/A), whose cost basis is a cost, never income: made one
+    valued at receipt, it's valued again (#998), never the cost kept as the
+    income reported."""
+    return tx.type == "Deposit" and normalized(tx.source) not in VALUED_AT_RECEIPT
+
+
+def _states_its_value(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit gives the value at receipt itself, so it's typed: a
+    new value (_typed_basis); made income from a source whose cost is the
+    user's, only another than the cost stored, which sent back is a cost,
+    not the income (#998)."""
+    if _leaves_its_own_cost(tx):
+        return _another_cost(tx, tx_data)
+    return _typed_basis(tx, tx_data)
 
 
 def _another_cost(tx: Transaction, tx_data: dict) -> bool:

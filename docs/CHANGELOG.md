@@ -23,6 +23,21 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 
+- **A cost typed for My BTC or Gift is no longer reported as income when
+  the deposit is changed back to income** (#998, tax figures). A bitcoin
+  deposit's cost basis typed while its source was My BTC, Gift or N/A
+  (what the coins cost, or the giver's cost) was kept if the deposit was
+  later changed to a source valued from the price (income, interest, a
+  reward, a rebate, an inheritance), and reported as that income, though a
+  cost isn't income. Such a change now values the deposit again from the
+  price, as a new income deposit is valued; a value sent with it that
+  differs from the cost is kept as the income you state. The form clears
+  the Cost Basis field on that switch, so it's filled in from the price.
+  Every earlier version has it. **What to do:** if you changed a deposit
+  from My BTC, Gift or N/A to income, interest, a reward or a rebate,
+  check its value: open it and clear Cost Basis to have it valued from the
+  price again.
+
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
   closed, BitcoinTX's own CSV import, River's import and every other

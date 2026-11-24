@@ -78,15 +78,40 @@ def test_the_value_shown_sent_back_keeps_its_mark_so_a_switch_back_prices_it_aga
     assert Decimal(str(saved["cost_basis_usd"])) == Decimal("1000") and saved["cost_basis_from_price"] is True
 
 
-def test_a_cost_typed_with_the_switch_is_kept_made_income_again_as_before():
-    """A My BTC cost typed with the switch is the user's: made Interest again,
-    it's kept, as a value typed while not income always was (#76's
-    test_a_value_typed_while_not_income_stays_typed): #955 changes nothing there."""
+@pytest.mark.parametrize("away", ["MyBTC", "Gift", "N/A"])
+def test_a_cost_typed_with_the_switch_is_never_the_income(away):
+    """#998: a cost typed for My BTC, Gift or N/A, made income again without a
+    value (the AI connector's partial edit), is priced again: a cost isn't income."""
     tx = _priced()
-    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": away, "cost_basis_usd": "120"})
     r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest"})
     assert r.status_code == 200, r.text
-    assert Decimal(str(CLIENT.get(f"/api/transactions/{tx['id']}").json()["cost_basis_usd"])) == Decimal("120")
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_another_value_sent_with_the_switch_back_is_the_users_income_figure():
+    """#998: a value other than the stored cost, sent with the switch back, is
+    the income the user states: typed."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "cost_basis_usd": "480"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("480") and saved["cost_basis_from_price"] is False
+
+
+def test_a_my_btc_deposit_never_priced_made_income_is_priced():
+    """#998: a My BTC deposit saved with its cost, made Interest: valued from the price."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC", "cost_basis_usd": "120"})
+    assert r.status_code == 200, r.text
+    tx_id = r.json()["id"]
+    r = CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Reward"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx_id}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
 
 
 def test_a_zero_cost_sent_with_the_switch_is_kept():
