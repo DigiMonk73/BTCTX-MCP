@@ -248,15 +248,15 @@ chosen coins, the oldest of them first.
 - preview_transactions shows, for a row leaving a wallet, the coins it
   takes (coins.takes) and those the wallet holds then (coins.held: each
   purchase or deposit, its date acquired, BTC, cost and the term it would
-  have; coins is null, with a warning saying why, when BitcoinTX can't list
-  them yet); get_coins_moved shows the same for a saved Transfer, Sell or
-  BTC Withdrawal (coins: for a sale or a spend each also with its
-  proceeds_usd, gain_usd and term, a gift's the term only; a BTC network
-  fee is a disposal of its own, on Form 8949 apart, never among them; and,
-  when it leaves a wallet, held:
-  each with oldest_first, what the oldest coins first would take of it,
-  and acquired_in: the account it was bought or deposited into, not where
-  its coins are now).
+  have; coins is null, with a warning saying why, when BitcoinTX can't
+  list them yet); get_coins_moved shows the same for a saved Transfer,
+  Sell or BTC Withdrawal (coins: for a sale or a spend each also with its
+  proceeds_usd, gain_usd and term, a gift's, donation's or lost coins' the
+  term only; a BTC network fee is a disposal of its own, on Form 8949
+  apart, never among them; and, when it leaves a wallet, held: each with
+  oldest_first, what the oldest coins first would take of it, and
+  acquired_in: the account it was bought or deposited into, not where its
+  coins are now).
   Its dated_today is for BitcoinTX's own form: ignore it. A purchase in the same request has no
   id yet: add it first, then the row that chooses its coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in

@@ -267,7 +267,10 @@ entries come out right.
   of a gain. A bitcoin network fee is on top of the amount and is a
   disposal of its own (for a spend, it comes off the proceeds), valued in
   **Fee value (USD)**. A dollar withdrawal has no purpose: only bitcoin is
-  spent, given, donated or lost.
+  spent, given, donated or lost. Before you save a bitcoin withdrawal, the
+  form lists the coins it takes, oldest first (in a wallet you can choose
+  others): each one's date acquired, amount and cost, and for a spend its
+  proceeds, gain and term (a gift's, donation's or lost coins' the term).
 - **Transfer**: a move between your own accounts, such as an exchange's
   BTC account to a wallet, or one wallet to another, in one currency.
   Choose the **From Account** and the **To Account**, and enter **Amount
@@ -299,7 +302,11 @@ entries come out right.
 - **Sell**: bitcoin from an exchange's BTC account, the dollars into the
   same exchange's USD account. Choose the **Exchange**, then enter what the
   sale brought before the fee as **Gross Proceeds (USD)** and the fee as
-  **Fee (USD)**: the sale's proceeds are the gross less the fee.
+  **Fee (USD)**: the sale's proceeds are the gross less the fee. Once the
+  amount and the proceeds are in, the form lists the coins the sale uses,
+  oldest first, read-only: each one's date acquired, amount, cost, and the
+  proceeds, gain and term (long-term or short-term) it will have on Form
+  8949. Opening a saved sale shows the same.
 
 A Sell and a Spent withdrawal also have **Broker form (1099-DA /
 1099-B)**: leave it on **Automatic** unless the form your broker sent says
