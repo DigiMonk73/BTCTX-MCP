@@ -23,7 +23,8 @@ const SIGNED_OUT_PAGES = [SIGN_IN_PAGE, "/logout", "/register"];
 // require_login; a wrong current password is 403). A route that answered
 // 401 for anything else would send its page to the sign-in page, which,
 // finding the session open, goes on to the Dashboard: round and round if
-// the Dashboard asked that route.
+// the Dashboard asked that route. The backend keeps it as a rule:
+// docs/SECURITY-RULES.md, "Sessions" (#945).
 const OWN_401 = [`${API_BASE_URL}/login`, `${API_BASE_URL}/protected`];
 // How many holds keep the sign-in page off for now (holdSignIn)
 let holds = 0;
