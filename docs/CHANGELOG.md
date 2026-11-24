@@ -16,10 +16,9 @@ All notable changes to BitcoinTX are documented in this file.
   form clears the Cost Basis field and Save asks you to enter it (0 if
   it's unknown), and the AI connector's edit is refused until it sends
   one. A cost you enter is kept as yours. Changed back to income, the
-  deposit is valued again from the price, as before, unless you typed a
-  cost other than the value shown. Nothing saved changes by itself: a
-  deposit changed this way before keeps its value; if it's your own coins
-  or a gift, check that its cost basis is what was paid.
+  deposit is valued again from the price (#998). Nothing saved changes by
+  itself: a deposit changed this way before keeps its value; if it's your
+  own coins or a gift, check that its cost basis is what was paid.
 
 ### Fixed
 
