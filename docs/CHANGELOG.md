@@ -139,6 +139,14 @@ All notable changes to BitcoinTX are documented in this file.
   `desktop/BitcoinTX.spec` drops its hidden imports, and
   `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
   pull request (#927) goes with it, unmerged. No figure moves.
+- **Playwright 1.65.1** for the click-through tests (from 1.64.1; #972,
+  Updates row 4), by hand as `docs/MAINTENANCE.md` asks. Its notable
+  changes (text in a closed `<details>` left out of accessible names,
+  actions waiting for an element not to be inert, TypeScript class
+  fields, an empty shard set failing) touch none of our specs. Locally,
+  Chromium's suite passes; WebKit's, on a Mac, too but for two focus
+  checks that fail the same way on 1.64.1 there (`docs/TESTING.md`); CI's
+  Linux suites decide. Development only: nothing that ships changes.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
