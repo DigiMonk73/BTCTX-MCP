@@ -575,3 +575,5 @@ text. `pgrep -f` can match the waiter's own command line (always on Linux)
 or another waiter's, so the wait never ends and the session stalls. Wait on
 the process you started, or read the log it writes. A poll on a local
 command gives up after 20 minutes and then reads whatever log is there.
+
+<!-- A docs-only change, to show CI skipping the heavy jobs (#1005); never merged. -->
