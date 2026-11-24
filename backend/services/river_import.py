@@ -349,11 +349,13 @@ def _river_numbers(r: dict[str, str], row_number: int,
 
 def _in_bitcoin(r: dict[str, str], column: str) -> bool:
     """Whether River's amount in `column` is bitcoin (#953): a sent or
-    received amount by its own currency column; the fee only on a send
-    (bitcoin out, nothing received), the one kind of row River records a
-    fee in bitcoin for, whatever Fee Currency says (send, _river_file_row)."""
+    received amount by its own currency column; the fee only on a send, the
+    one kind of row River records a fee in bitcoin for, whatever Fee
+    Currency says (send). A send is bitcoin out and nothing received, unless
+    it's tagged a Sell for dollars, which _river_file_row reads first."""
     if column == "Fee Amount":
-        return r.get("sent currency", "").upper() == "BTC" and not r.get("received amount")
+        sell = r.get("tag", "").title() == "Sell" and r.get("received currency", "").upper() == "USD"
+        return r.get("sent currency", "").upper() == "BTC" and not r.get("received amount") and not sell
     return r.get(column.lower().replace("amount", "currency"), "").upper() == "BTC"
 
 

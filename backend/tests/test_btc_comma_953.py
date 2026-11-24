@@ -114,6 +114,13 @@ def test_a_river_sends_fee_with_a_comma_is_refused_whatever_its_currency_column_
         assert [(e.column, e.message) for e in errors] == [("Fee Amount", f"Invalid Fee Amount '1,000'. {BTC_NOTE}")]
 
 
+def test_a_river_sell_without_its_dollars_keeps_a_dollar_fee():
+    """Tagged a Sell for dollars, the row is read as a Sell (its fee in
+    dollars) even with Received Amount blank, never as a send."""
+    rows, errors = parse_river_csv(river_line("1.5", "BTC", "", "USD", "1,000.00", "USD").replace(b",Buy", b",Sell"))
+    assert errors == []
+
+
 def test_a_river_sells_fee_is_in_dollars_whatever_its_currency_column_says():
     rows, errors = parse_river_csv(river_line("1.5", "BTC", "100000.00", "USD", "1,000", "BTC"))
     assert errors == []
