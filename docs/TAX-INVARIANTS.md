@@ -359,6 +359,11 @@ map.
   least the app's pin) and the second calculation
   (`scripts/independent_figures.py`) also read zone rules only from the
   `tzdata` package, never the computer's (#908).
+  A time typed in the transaction form is turned into a moment by the same
+  package: the form sends it as typed, with the device's zone
+  (`typed_time`), and the server reads it (`tax_time.typed_moment`), never
+  by the device's own rules, which can be older (#964); a time the form
+  filled in itself and left alone goes as the moment it was.
   Times on screen are the device's clock (#260), except Ledger Review's
   and the past-year question's (the tax timezone, as `cli review` and the
   AI see them, labelled: #737) and a price's hour (UTC, labelled).

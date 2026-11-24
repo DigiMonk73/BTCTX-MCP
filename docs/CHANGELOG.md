@@ -23,6 +23,32 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Fixed
 
+- **A time typed in the transaction form is saved by BitcoinTX's own
+  timezone rules, not the device's** (#964, tax figures). The form turned
+  a typed Date & Time into a moment with the device's copy of the world's
+  timezone rules (the browser's, or macOS's in the Mac app), not
+  BitcoinTX's own (the `tzdata` package, IANA 2026f). On a device whose
+  copy is older, a time typed in a zone whose rules changed since was
+  saved an hour off: from 1 November 2026, British Columbia, Alberta,
+  Manitoba, the Northwest Territories and Cuba (an hour late); from 20
+  September 2026, Morocco (an hour early); Moldova in its clock-change
+  hour; and on older devices the earlier changes of 2.0.2's entry
+  (Paraguay, Kazakhstan). That moved the hour's price used for a value
+  BitcoinTX fills in, and near midnight the date: Form 8949's date, the
+  holding period and, on 31 December, the tax year. The form now sends the
+  time as typed with the device's zone, and BitcoinTX works out the moment
+  by its own rules, as the AI connector has since 2.0.2 (#908). On an
+  up-to-date device nothing changes. On an out-of-date one the right
+  moment is saved, and the form says so: the device shows that time an
+  hour off until its system or browser is updated. A time the form filled
+  in itself (a new transaction's "now", an edited transaction's saved
+  time) and left alone is saved as it was. Every earlier version has it.
+  **What to do:** if you typed transactions on a device that may have been
+  out of date, in one of those places and periods, update the device
+  first, then open each such transaction and compare its time with the
+  receipt you typed it from; where it's an hour off, type the receipt's
+  time again.
+
 - **A comma in a bitcoin amount is refused, where "1,234" was read as 1234
   BTC** (#953, tax figures). BitcoinTX's own CSV import and River's read a
   comma in any amount as a thousands separator, so a bitcoin amount
