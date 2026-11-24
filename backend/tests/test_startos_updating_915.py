@@ -87,9 +87,10 @@ UNOBSERVED = {
     "the SDK or start-cli": re.compile(r"start-sdk|start-cli|\bSDK\b"),
     # StartOS's versions are 0.x, BitcoinTX's 1.x on, so any 0.x.y is
     # StartOS's (or a 0.x BitcoinTX's, which is history), in any language and
-    # word order; and "StartOS 0.4" or "StartOS v0.4", with any space. A
-    # bitcoin amount (0.5 BTC) has one dot.
-    "a StartOS version": re.compile(r"\bv?0\.\d+\.\d|StartOS\W{1,3}v?0\.\d"),
+    # word order. A shorter one ("0.4", "v0.4") counts up to 20 characters
+    # after "StartOS" ("StartOS ab Version 0.4"). A bitcoin amount (0.5 BTC)
+    # has one dot and no "StartOS" just before it.
+    "a StartOS version": re.compile(r"\bv?0\.\d+\.\d|StartOS[^.\n`]{0,20}?\bv?0\.\d"),
 }
 # The last notes published before Start9's rule against the minimum StartOS.
 LAST_BEFORE_THE_RULE = (2, 0, 2, 0)
@@ -130,6 +131,8 @@ NOTES = "export const current = VersionInfo.of({{\n  version: '2.0.3:0',\n  rele
     ("**Update StartOS to 0.4.2 or later first.**", "a StartOS version"),
     ("Needs StartOS v0.4.2.", "a StartOS version"),
     ("Needs StartOS 0.4.", "a StartOS version"),
+    ("Benötigt StartOS ab Version 0.4.", "a StartOS version"),
+    ("Wymaga StartOS w wersji 0.4 lub nowszej.", "a StartOS version"),
     ("Necesita la versión 0.4.2 de StartOS.", "a StartOS version"),
     ("Requires 0.4.2 or later.", "a StartOS version"),
 ])
@@ -148,7 +151,8 @@ def test_the_check_would_refuse_2_0_2s_notes_today():
 @pytest.mark.parametrize("notes", [
     "Form 8949 for 2025 now shows the right date sold.",
     "A sale of 0.5 BTC now takes the coins listed first.",
-    "Update StartOS first, then BitcoinTX 2.0.3.",
+    "After updating, open Ledger Review and run Recalculate Ledger.",
+    "Make a StartOS backup first: StartOS can't undo an update.",
 ])
 def test_the_check_passes_notes_that_say_what_a_user_sees(notes):
     assert unobserved(NOTES.format(notes)) == []

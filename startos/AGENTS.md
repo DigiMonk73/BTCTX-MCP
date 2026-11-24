@@ -33,7 +33,8 @@ bare clone with no workspace, the full guide is at <https://docs.start9.com/pack
   that could be wrong) says what the user saw, which tax years and what to do, never
   which BitcoinTX versions had it; with every new `VERSION`, the AI connector's new
   version, as BitcoinTX's Settings > Connect an AI Assistant gives it; last, the
-  CHANGELOG link. BTCTX-MCP's `backend/tests/test_startos_updating_915.py` checks them.
+  CHANGELOG link. BTCTX-MCP's `backend/tests/test_startos_updating_915.py` checks the
+  notes for an issue number, the SDK or start-cli, and a StartOS version.
 - **Checks:** `npm run format:check && rm -rf javascript && make javascript/index.js && node scripts/check-manifest.mjs`
   (`make` type-checks, lints and bundles; from start-sdk 3.1.0 it formats
   instead of checking, so the format check comes first).
