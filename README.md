@@ -345,8 +345,10 @@ appears: run the **Set Login Credentials** action, which creates the login
 (`admin` and a random password) and shows it once.
 
 After that, BitcoinTX asks "Where should BitcoinTX get Bitcoin prices?"
-(your own Mempool, public price sites, or Nobody); nothing is contacted
-before you choose.
+(**My own Mempool**, **Public price sites** or **Nobody**); nothing is
+contacted before you choose. Then follow [Your first tax year in six
+steps](docs/USING.md#your-first-tax-year-in-six-steps), from the price
+source to your tax forms.
 
 ## Connect an AI (MCP)
 

@@ -62,6 +62,18 @@ All notable changes to BitcoinTX are documented in this file.
   put the rows in their real order by editing a time (a minute apart is
   enough), and BitcoinTX works the figures out again.
 
+### Documentation
+- **Your first tax year in six steps** (#959). A new user sees a
+  Dashboard of zeros and a page of Settings, with no path through them.
+  `docs/USING.md` now opens with six steps in order: choose where prices
+  come from, check the tax timezone, add each wallet, exchange and bank,
+  import or enter the transactions, go through Ledger Review, print the
+  reports. Each step links to the part of the page that says more. The
+  README's "First login" points to it, and the StartOS Instructions already
+  link the page. The page and the README now call the first price choice
+  **My own Mempool**, as the app does, and "Reports and tax forms" says
+  what a year older than BitcoinTX's IRS forms has instead.
+
 ### Development
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
   2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
