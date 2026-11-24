@@ -4,11 +4,12 @@
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
 import { test as base, expect, type Page, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { stopServer } from "./stopServer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -273,11 +274,10 @@ export const test = base.extend<Fixtures>({
         : {}),
     }));
     await use(app);
-    proc.kill();
+    await stopServer(proc, app.dir);  // its exit first, then its folder (#987)
     if (testInfo.status !== testInfo.expectedStatus) {
       await testInfo.attach("server.log", { body: log.join("") });
     }
-    rmSync(app.dir, { recursive: true, force: true });
   },
   baseURL: async ({ app }, use) => {
     await use(app.url);
