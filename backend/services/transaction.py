@@ -742,7 +742,7 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
     An income or rebate deposit's value after an edit (#76). A typed one is
     kept, but never a cost made income: a My BTC, Gift or N/A deposit made
     one valued at receipt is valued again unless the edit states another
-    value (#998). One that came from a price, or a blank or $0 one (the form sends 0
+    value above $0 (#998). One that came from a price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the hour's price (an inheritance: its
     date of death's day price) when the edit changes what it depends on:
     the account, amount or hour (date of death), or a source not
