@@ -285,6 +285,20 @@ export const test = base.extend<Fixtures>({
   baseURL: async ({ app }, use) => {
     await use(app.url);
   },
+  // A route handler still asking the server (route.fetch(), a request
+  // context) when its test ends fails, and Playwright reports that against
+  // the next test (#930). Every test's routes are dropped as it ends, while
+  // its page and server are still up, so no spec has to remember to (#961)
+  page: async ({ page }, use) => {
+    await use(page);
+    // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  },
+  context: async ({ context }, use) => {
+    await use(context);
+    // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+    await context.unrouteAll({ behavior: "ignoreErrors" });
+  },
   authedPage: async ({ page, app }, use) => {
     await claimAccount(page.request, app);
     await loginViaUi(page);
