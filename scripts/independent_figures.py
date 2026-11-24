@@ -80,7 +80,7 @@ import sys
 import zoneinfo
 from copy import copy
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal, InvalidOperation
 from fractions import Fraction
 from pathlib import Path
@@ -890,12 +890,18 @@ def _form_row(row: Row, year: int, ledger: Ledger) -> dict:
 
 
 def _is_long_term(acquired: date, sold: date) -> bool:
-    """IRS: held "more than 1 year", so the anniversary itself is short-term."""
-    try:
-        anniversary = acquired.replace(year=acquired.year + 1)
-    except ValueError:  # bought on February 29
-        anniversary = date(acquired.year + 1, 2, 28)
-    return sold > anniversary
+    """IRS: held "more than 1 year", counted from the day after acquisition
+    (Pub. 550), so the anniversary itself is short-term. A holding period
+    that starts on the first of a month (coins acquired on the last day of
+    the one before) runs in calendar months (Rev. Rul. 66-7; Caspe v.
+    United States, 694 F.2d 1116): it passes a year on the first of the same
+    month a year later, so 28 February 2023 is long-term from 1 March 2024,
+    never on 29 February (#950)."""
+    first_held = acquired + timedelta(days=1)
+    if first_held.day == 1:
+        return sold >= first_held.replace(year=first_held.year + 1)
+    # Not a month's last day, so never February 29: the date a year on exists.
+    return sold > acquired.replace(year=acquired.year + 1)
 
 
 def _box(row: Row, year: int, long_term: bool) -> str:
