@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 // The coins a sale uses (#960): the Sell form lists them, read-only, once
-// its exchange and BTC are typed (its proceeds start at $0, a sale's own), asked with the body the Save
+// its exchange, BTC and proceeds are typed (not at the proceeds' $0 start,
+// which would list only losses), asked with the body the Save
 // sends, each with its date acquired, amount, cost, proceeds, gain and
 // term, as Form 8949 will print them. An exchange's coins leave oldest
 // first: no picker.
@@ -54,7 +55,7 @@ describe("a sale's coins", () => {
     expect(screen.queryByRole("button", { name: "Choose which coins leave" })).toBeNull();
   });
 
-  it("follow the proceeds typed, and wait while the field is cleared: the save needs them", async () => {
+  it("wait for the proceeds, follow them, and wait again while the field is cleared", async () => {
     const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: SOLD }) });
     await aSale(form);
     expect(asked(form).at(-1)?.body).toMatchObject({ gross_proceeds_usd: 40000 });
@@ -62,6 +63,15 @@ describe("a sale's coins", () => {
     await form.user.clear(screen.getByLabelText("Gross Proceeds (USD)"));
     await waitForCoins(form);
     expect(asked(form).length).toBe(before);
+  });
+
+  it("aren't asked for while a new sale's proceeds are still $0", async () => {
+    const form = await renderForm({ book: MANY, respond: coinsAnswer({ status: 200, data: SOLD }) });
+    await form.pickType("Sell");
+    await form.choose("Exchange", "River");
+    await form.user.type(screen.getByLabelText("Amount BTC"), "0.4");
+    await waitForCoins(form);
+    expect(asked(form)).toEqual([]);
   });
 
   it("say what the save refuses, as a sale's", async () => {

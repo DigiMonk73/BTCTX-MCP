@@ -251,7 +251,9 @@ chosen coins, the oldest of them first.
   have; coins is null, with a warning saying why, when BitcoinTX can't list
   them yet); get_coins_moved shows the same for a saved Transfer, Sell or
   BTC Withdrawal (coins: for a sale or a spend each also with its
-  proceeds_usd, gain_usd and term; and, when it leaves a wallet, held:
+  proceeds_usd, gain_usd and term, a gift's the term only; a BTC network
+  fee is a disposal of its own, on Form 8949 apart, never among them; and,
+  when it leaves a wallet, held:
   each with oldest_first, what the oldest coins first would take of it,
   and acquired_in: the account it was bought or deposited into, not where
   its coins are now).

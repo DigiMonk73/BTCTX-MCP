@@ -49,7 +49,7 @@ export function movesCoins(values: FormAccounts, book: AccountBook): boolean {
 }
 
 /** A Withdrawal from one of your wallets: its coins leave, and can be
- * chosen (#711). An exchange's leave oldest first, and aren't listed. */
+ * chosen (#711). An exchange's leave oldest first: listed (#960), never chosen. */
 export function leavesAWallet(values: FormAccounts, book: AccountBook): boolean {
   return values.type === "Withdrawal" && accountKind(book, chosenId(values.fromAccountId)) === "wallet";
 }
@@ -73,8 +73,8 @@ export function listsCoins(values: FormAccounts, book: AccountBook): boolean {
  * add up yet (Save waits for it) asks as oldest first, so the answer still
  * says what the wallet holds. Null until there's a list to ask for: a
  * Transfer's two amounts (what arrived above 0 and no more than what left),
- * a Withdrawal's amount above 0, a Sell's BTC above 0 and its proceeds (its
- * save needs them), and a date.
+ * a Withdrawal's amount above 0, a Sell's BTC and proceeds above 0, and a
+ * date.
  */
 export function coinsPayload(values: TransactionFormData, book: AccountBook): ICreateTransactionPayload | null {
   if (!listsCoins(values, book)) return null;
@@ -90,8 +90,10 @@ function amountsToAsk(values: TransactionFormData): boolean {
     return parseDecimal(values.amountTo) > 0 && parseDecimal(values.amountFrom) >= parseDecimal(values.amountTo);
   }
   if (values.type === "Sell") {
-    const proceeds = values.grossProceedsUSD;  // typed: a number (valueAsNumber), NaN while blank
-    return parseDecimal(values.amountBTC) > 0 && typeof proceeds === "number" && Number.isFinite(proceeds);
+    // Its proceeds start at $0: a list of losses before they're typed would
+    // alarm more than it tells. A sale for $0 shows no list (a rare one)
+    const proceeds = values.grossProceedsUSD;  // a number (valueAsNumber), NaN while blank
+    return parseDecimal(values.amountBTC) > 0 && typeof proceeds === "number" && proceeds > 0;
   }
   return parseDecimal(values.amount) > 0;
 }

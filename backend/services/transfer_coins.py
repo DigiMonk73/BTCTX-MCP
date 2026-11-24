@@ -2,9 +2,9 @@
 Which coins a transaction moves, shown before it's saved (#706; the owner's
 decision, 2026-10-25), and what the form's coin picker chooses from (#711):
 a Transfer's lots its save takes from the From account and puts in the To
-account, or the coins a bitcoin Withdrawal from one of your wallets
-disposes of, each with its date acquired, amount and cost, and the bitcoin
-its network fee disposes of. They're the save's own: the write is made on a
+account, or the coins a Sell or a bitcoin Withdrawal disposes of, each with
+its date acquired, amount and cost (a disposal's also with its proceeds,
+gain and term, #960), and the bitcoin its network fee disposes of. They're the save's own: the write is made on a
 scratch copy of the ledger by the path its save takes
 (past_years.Write.apply), with the body the save is sent, so a backdated
 transaction, which replays the ledger, an edit, and a choice of coins list
@@ -54,7 +54,8 @@ def coins_moved(write: past_years.Write, db: Session) -> dict:
     takes from its From account in the order its save takes it (a
     Transfer's lots put in its To account; a Withdrawal's coins disposed
     of, its fee's apart), each {"acquired", "btc", "cost_usd", "inherited",
-    "acquired_txn_id"}; the bitcoin its fee disposes of; from a wallet,
+    "acquired_txn_id", "proceeds_usd", "gain_usd", "term"}; the bitcoin its
+    fee disposes of; from a wallet,
     what the wallet held then (else None); and whether it's dated today in
     the tax timezone. Past the past-year dry run's time budget, or once a
     newer list is asked for, coins, fee_btc and held are None and detail
@@ -91,7 +92,7 @@ def coins_moved(write: past_years.Write, db: Session) -> dict:
 
 
 def _check_listed(write: past_years.Write, db: Session) -> None:
-    """A Transfer, or a Withdrawal from one of your wallets, as sent or, for
+    """A Transfer, a Sell or a bitcoin Withdrawal, as sent or, for
     an edit that doesn't send its type or account, as saved; asked before
     the replay, which another would make for nothing. 404 for an edit of a
     row that isn't there."""

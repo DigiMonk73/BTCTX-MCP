@@ -166,9 +166,10 @@ def test_a_transfer_the_save_refuses_answers_its_refusal(owner):
     assert listed.json()["detail"] == saved.json()["detail"]
 
 
-def test_only_a_transfer_or_a_withdrawal_from_a_wallet_lists_coins(owner):
+def test_a_dollar_withdrawal_lists_no_coins(owner):
     """A dollar withdrawal moves no coins (since #711, a bitcoin Withdrawal
-    from a wallet lists the coins that leave: test_coins_picker_731.py)."""
+    from a wallet lists the coins that leave: test_coins_picker_731.py; since
+    #960 a Sell's and an exchange's too: test_coins_a_sale_used_960.py)."""
     r = owner.post("/api/transactions/coins-moved", json={
         "type": "Withdrawal", "timestamp": "2025-06-01T12:00:00Z", "from_account_id": 1,
         "to_account_id": EXTERNAL, "amount": "100", "fee_amount": "0"})

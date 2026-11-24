@@ -789,7 +789,8 @@ async def get_coins_moved(transaction_id: int) -> ToolResult:
     each piece's date acquired, BTC, cost and whether it was inherited, in the order taken,
     and the BTC its network fee disposes of. A sale's or a spend's pieces also give
     proceeds_usd, gain_usd and term (LONG or SHORT), as Form 8949 prints them; a gift's,
-    donation's or lost coins' give the term only. Without a choice,
+    donation's or lost coins' give the term only. A BTC network fee is a disposal of its own,
+    on Form 8949 apart (taxable even for a gift), never among the pieces. Without a choice,
     the From account's oldest coins first; with one (chosen_coins), the coins chosen. Leaving
     a wallet (not a move within it), held: the coins it held then (each purchase or deposit, acquired_in: the
     account it was bought or deposited into, not where its coins are now; its date acquired, BTC, cost, term,
