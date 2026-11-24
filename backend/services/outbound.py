@@ -451,6 +451,14 @@ def _note_server_settings(db: Session, stored: dict[str, str], what: str | None)
         log_unexpected("Noting the server's price settings for commands", e, logger)
 
 
+def unread(reason: str) -> None:
+    """A command that couldn't read the settings asks no one, as it says;
+    noted as such, so nothing reads the default ("unset") as a choice the
+    owner made (Ledger Review's advice, #966)."""
+    global _current
+    _current = NetworkSettings(price_source="off", server_settings_missing=reason)
+
+
 def _lacking_server_settings(noted: str | None, managed: NetworkSettings | None, tor: str | None) -> str | None:
     """
     The variable a command lacks of the server's price settings the app

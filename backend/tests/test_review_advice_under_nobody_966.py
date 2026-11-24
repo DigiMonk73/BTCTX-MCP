@@ -47,6 +47,15 @@ def test_a_command_without_the_servers_settings_keeps_the_advice(monkeypatch):
     assert actions == {key: review.CHECKS[key][1] for key in ADVISED}
 
 
+def test_a_command_that_couldnt_read_the_settings_keeps_the_advice(monkeypatch):
+    """`cli review` whose settings couldn't be read (cli._init_db) asks no
+    one, and never says the owner chose Nobody or chose nothing."""
+    monkeypatch.setattr(outbound, "_current", outbound.NetworkSettings())
+    outbound.unread("the price settings couldn't be read")
+    assert {key: review.advice(key) for key in ADVISED} == {key: review.CHECKS[key][1] for key in ADVISED}
+    assert outbound.current().price_source == "off"
+
+
 def test_a_typed_income_far_from_the_price_keeps_its_advice(monkeypatch):
     """Listed only beside a stored price, so clearing it does fill it."""
     monkeypatch.setattr(outbound, "current", lambda: outbound.NetworkSettings(price_source="off"))
