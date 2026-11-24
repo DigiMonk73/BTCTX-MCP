@@ -18,6 +18,11 @@ export function shownTime(date: Date): { iso: string; local: string } {
   return { iso: date.toISOString(), local: toDatetimeLocal(date) };
 }
 
+/** A datetime-local value with its seconds: a time typed back as shown ("…T14:15") is the one shown ("…T14:15:00"). */
+function toSeconds(local: string): string {
+  return /T\d{2}:\d{2}$/.test(local) ? `${local}:00` : local;
+}
+
 /** This device's IANA zone, or undefined where the browser doesn't say. */
 export function deviceZone(): string | undefined {
   try {
@@ -37,7 +42,7 @@ export function deviceZone(): string | undefined {
  */
 export function timePayload(data: Pick<TransactionFormData, "timestamp" | "timestampShown">):
   Pick<ICreateTransactionPayload, "timestamp" | "typed_time"> {
-  if (data.timestampShown && data.timestamp === data.timestampShown.local) {
+  if (data.timestampShown && toSeconds(data.timestamp) === toSeconds(data.timestampShown.local)) {
     return { timestamp: data.timestampShown.iso };
   }
   const zone = deviceZone();

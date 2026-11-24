@@ -53,8 +53,9 @@ export function deviceRulesWarning(payload: ICreateTransactionPayload, savedTime
   if (!payload.typed_time) return undefined;
   const minutes = Math.round((Date.parse(payload.timestamp) - Date.parse(savedTimestamp)) / 60_000);
   if (!minutes) return undefined;
-  return `Saved at the time you typed. This device's timezone rules are out of date, so it shows this ` +
-    `transaction's time ${howFar(minutes)} off until its system or browser is updated.`;
+  return `Saved at the time you typed, by BitcoinTX's timezone rules. This device's rules differ (they're ` +
+    `usually out of date), so it shows this transaction's time ${howFar(minutes)} off until they agree: ` +
+    "update this device's system or browser, and BitcoinTX.";
 }
 
 function howFar(minutes: number): string {

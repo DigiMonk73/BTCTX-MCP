@@ -325,14 +325,10 @@ class TransactionCreate(TransactionBase):
 
     @model_validator(mode="after")
     def the_typed_times_moment(self) -> TransactionCreate:
-        self.timestamp = _typed_or(self.typed_time, self.timestamp)
+        moment = self.typed_time.moment() if self.typed_time is not None else None
+        if moment is not None:  # assigned only then: an edit that sends no time keeps its own (exclude_unset)
+            self.timestamp = moment
         return self
-
-
-def _typed_or(typed: TypedTime | None, timestamp: datetime | None) -> datetime | None:
-    """The moment a typed time means (#964), else the timestamp sent."""
-    moment = typed.moment() if typed is not None else None
-    return moment if moment is not None else timestamp
 
 
 class TransactionUpdate(BaseModel):
@@ -407,7 +403,9 @@ class TransactionUpdate(BaseModel):
 
     @model_validator(mode="after")
     def the_typed_times_moment(self) -> TransactionUpdate:
-        self.timestamp = _typed_or(self.typed_time, self.timestamp)
+        moment = self.typed_time.moment() if self.typed_time is not None else None
+        if moment is not None:  # assigned only then: an edit that sends no time keeps its own (exclude_unset)
+            self.timestamp = moment
         return self
 
 

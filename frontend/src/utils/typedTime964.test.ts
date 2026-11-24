@@ -4,6 +4,7 @@
 // move it by reading its own (wrong) display again.
 import { describe, expect, it } from "vitest";
 import { deviceRulesWarning } from "../components/transactionForm/saveTransaction";
+import { ONE_OF_EACH } from "../test/books";
 import { deviceZone, mapTransactionToFormData, shownTime, timePayload } from "./transactionForm";
 
 describe("timePayload", () => {
@@ -17,6 +18,10 @@ describe("timePayload", () => {
     const sent = timePayload({ timestamp: "2026-11-15T14:00", timestampShown: shown });
     expect(sent.typed_time).toEqual({ local: "2026-11-15T14:00", zone: deviceZone() });
     expect(sent.timestamp).toBe(new Date("2026-11-15T14:00").toISOString());  // the device's reading, beside it
+  });
+
+  it("takes a time typed back as shown, without its seconds, as the one shown", () => {
+    expect(timePayload({ timestamp: "2026-11-15T13:00", timestampShown: shown })).toEqual({ timestamp: shown.iso });
   });
 
   it("treats a form with no shown time as typed", () => {
@@ -38,7 +43,7 @@ describe("a saved row's Date & Time", () => {
   it("comes back unchanged when the edit leaves it alone", () => {
     const tx = { id: 1, type: "Deposit", timestamp: "2026-11-15T21:00:00Z", from_account_id: 99, to_account_id: 1,
       amount: 100, fee_amount: 0, fee_currency: "USD", source: "N/A" } as unknown as ITransaction;
-    const data = mapTransactionToFormData(tx);
+    const data = mapTransactionToFormData(tx, ONE_OF_EACH);
     expect(timePayload(data)).toEqual({ timestamp: "2026-11-15T21:00:00.000Z" });
   });
 });
@@ -54,8 +59,9 @@ describe("deviceRulesWarning", () => {
 
   it("says the typed time is saved, and how far off this device shows it", () => {
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T21:00:00Z")).toBe(
-      "Saved at the time you typed. This device's timezone rules are out of date, so it shows this " +
-      "transaction's time an hour off until its system or browser is updated.");
+      "Saved at the time you typed, by BitcoinTX's timezone rules. This device's rules differ (they're " +
+      "usually out of date), so it shows this transaction's time an hour off until they agree: update this " +
+      "device's system or browser, and BitcoinTX.");
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T21:30:00Z")).toContain("30 minutes off");
     expect(deviceRulesWarning(typed as ICreateTransactionPayload, "2026-11-15T20:00:00Z")).toContain("2 hours off");
   });
