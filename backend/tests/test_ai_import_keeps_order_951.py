@@ -1,0 +1,187 @@
+"""
+#951: rows of the AI connector's import that share a time are written in
+the order given, as the CSV and exchange imports write a file's rows: the
+order decides which lots a same-time disposal takes (first in, first
+out). A fixed order by type (Deposit, Buy, Transfer, Sell, Withdrawal)
+would have a Sell listed before a same-time Transfer out take the coins
+the Transfer should take, and one listed before a Transfer in take the
+older coins arriving, long-term where its own are short-term.
+"""
+
+from decimal import Decimal
+
+import pytest
+
+CLIENT = None
+
+WHEN = "2024-03-01T15:00:00Z"
+HEADER = "date,type,amount,from_account,to_account,cost_basis_usd,proceeds_usd,fee_amount,fee_currency,source,purpose,notes"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _set_client(auth_client):
+    global CLIENT
+    CLIENT = auth_client
+
+
+@pytest.fixture(autouse=True)
+def _clean_ledger():
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+    yield
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+BUYS = [
+    {"date": "2024-01-01T15:00:00Z", "type": "Deposit", "amount": "40000", "from_account": "External",
+     "to_account": "Bank", "source": "N/A"},
+    {"date": "2024-01-02T15:00:00Z", "type": "Buy", "amount": "0.5", "from_account": "Bank",
+     "to_account": "Exchange BTC", "cost_basis_usd": "10000"},
+    {"date": "2024-01-03T15:00:00Z", "type": "Buy", "amount": "0.5", "from_account": "Bank",
+     "to_account": "Exchange BTC", "cost_basis_usd": "30000"},
+]
+BUYS_CSV = ("2024-01-01T15:00:00Z,Deposit,40000,External,Bank,,,,,N/A,,\n"
+            "2024-01-02T15:00:00Z,Buy,0.5,Bank,Exchange BTC,10000,,,,,,\n"
+            "2024-01-03T15:00:00Z,Buy,0.5,Bank,Exchange BTC,30000,,,,,,\n")
+
+
+def _two_buys():
+    """0.5 BTC for $10,000, then 0.5 BTC for $30,000, on the exchange."""
+    out = CLIENT.post("/api/import/entries/execute", json={"rows": BUYS})
+    assert out.status_code == 200, out.text
+
+
+SELL = {"date": WHEN, "type": "Sell", "amount": "0.5", "from_account": "Exchange BTC",
+        "to_account": "Exchange USD", "proceeds_usd": "35000"}
+MOVE = {"date": WHEN, "type": "Transfer", "amount": "0.5", "from_account": "Exchange BTC", "to_account": "Wallet"}
+
+
+def _the_sell() -> dict:
+    sells = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Sell"]
+    assert len(sells) == 1, sells
+    return sells[0]
+
+
+def test_a_sell_listed_before_a_same_time_transfer_takes_the_oldest_coins():
+    _two_buys()
+    out = CLIENT.post("/api/import/entries/execute", json={"rows": [SELL, MOVE]})
+    assert out.status_code == 200, out.text
+    sell = _the_sell()
+    assert Decimal(str(sell["cost_basis_usd"])) == Decimal("10000")
+    assert Decimal(str(sell["realized_gain_usd"])) == Decimal("25000")
+
+
+def test_the_ai_import_and_the_csv_import_give_the_same_figures():
+    """The same rows, in the same order, through each route (the CSV import
+    takes only an empty ledger)."""
+    file = (f"{HEADER}\n{BUYS_CSV}{WHEN},Sell,0.5,Exchange BTC,Exchange USD,,35000,,,,,\n"
+            f"{WHEN},Transfer,0.5,Exchange BTC,Wallet,,,,,,,\n")
+    out = CLIENT.post("/api/import/execute", files={"file": ("rows.csv", file.encode(), "text/csv")})
+    assert out.status_code == 200, out.text
+    by_csv = _the_sell()
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [*BUYS, SELL, MOVE]}).status_code == 200
+    by_ai = _the_sell()
+    assert Decimal(str(by_csv["cost_basis_usd"])) == Decimal("10000")
+    for field in ("cost_basis_usd", "realized_gain_usd", "holding_period"):
+        assert by_ai[field] == by_csv[field], field
+
+
+def test_the_preview_shows_what_the_add_saves():
+    _two_buys()
+    out = CLIENT.post("/api/import/entries/preview", json={"rows": [SELL, MOVE]})
+    assert out.status_code == 200, out.text
+    sell = out.json()["results"][0]["simulated"]
+    assert Decimal(sell["cost_basis_usd"]) == Decimal("10000")
+    assert Decimal(sell["realized_gain_usd"]) == Decimal("25000")
+
+
+def test_the_order_given_decides_when_the_transfer_comes_first():
+    _two_buys()
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [MOVE, SELL]}).status_code == 200
+    assert Decimal(str(_the_sell()["cost_basis_usd"])) == Decimal("30000")
+
+
+def test_a_sell_listed_before_a_same_time_move_in_keeps_the_accounts_own_coins():
+    """The coins moved in keep their 2020 date; the Sell, listed first,
+    takes the exchange's own of 2024: short-term, at its cost."""
+    rows = [
+        {"date": "2020-01-02T15:00:00Z", "type": "Deposit", "amount": "0.5", "from_account": "External",
+         "to_account": "Wallet", "source": "MyBTC", "cost_basis_usd": "1000"},
+        *BUYS[:1],
+        {"date": "2024-01-03T15:00:00Z", "type": "Buy", "amount": "0.5", "from_account": "Bank",
+         "to_account": "Exchange BTC", "cost_basis_usd": "30000"},
+        SELL,
+        {"date": WHEN, "type": "Transfer", "amount": "0.5", "from_account": "Wallet", "to_account": "Exchange BTC"},
+    ]
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": rows}).status_code == 200
+    sell = _the_sell()
+    assert Decimal(str(sell["cost_basis_usd"])) == Decimal("30000")
+    assert sell["holding_period"] == "SHORT"
+
+
+def test_a_spend_listed_before_a_same_time_transfer_out_takes_the_oldest_coins():
+    _two_buys()
+    spend = {"date": WHEN, "type": "Withdrawal", "amount": "0.5", "from_account": "Exchange BTC",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "35000",
+             "fee_amount": "0", "fee_currency": "BTC"}
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [spend, MOVE]}).status_code == 200
+    spent = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    assert len(spent) == 1, spent
+    assert Decimal(str(spent[0]["cost_basis_usd"])) == Decimal("10000")
+
+
+def test_a_spend_listed_before_a_same_time_sell_takes_the_oldest_coins():
+    _two_buys()
+    spend = {"date": WHEN, "type": "Withdrawal", "amount": "0.5", "from_account": "Exchange BTC",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "35000",
+             "fee_amount": "0", "fee_currency": "BTC"}
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [spend, SELL]}).status_code == 200
+    assert Decimal(str(_the_sell()["cost_basis_usd"])) == Decimal("30000")
+
+
+def test_a_move_listed_before_a_same_time_deposit_of_older_coins_leaves_them():
+    """The move out takes the exchange's 2024 coins; the deposit of coins
+    first acquired in 2020, listed after it, stays on the exchange."""
+    _two_buys()
+    older = {"date": WHEN, "type": "Deposit", "amount": "0.5", "from_account": "External",
+             "to_account": "Exchange BTC", "source": "MyBTC", "cost_basis_usd": "1000",
+             "acquired_at": "2020-01-02"}
+    spend = {"date": "2024-03-02T15:00:00Z", "type": "Withdrawal", "amount": "0.5", "from_account": "Wallet",
+             "to_account": "External", "purpose": "Spent", "proceeds_usd": "35000",
+             "fee_amount": "0", "fee_currency": "BTC"}
+    assert CLIENT.post("/api/import/entries/execute", json={"rows": [MOVE, older, spend]}).status_code == 200
+    spent = [t for t in CLIENT.get("/api/transactions").json() if t["type"] == "Withdrawal"]
+    assert len(spent) == 1, spent
+    assert Decimal(str(spent[0]["cost_basis_usd"])) == Decimal("10000")
+    assert spent[0]["holding_period"] == "SHORT"
+
+
+def test_a_confirmed_past_year_add_keeps_the_order_given(tax_year):
+    """The past-year warning's dry run and its confirmed save write the rows
+    as the add does."""
+    tax_year(2026)
+    out = CLIENT.post("/api/import/entries/execute", json={"rows": [*BUYS, SELL, MOVE]})
+    assert out.status_code == 409, out.text
+    confirmed = CLIENT.post("/api/import/entries/execute", json={"rows": [*BUYS, SELL, MOVE]},
+                            params={"confirm": out.json()["confirm"]})
+    assert confirmed.status_code == 200, confirmed.text
+    assert Decimal(str(_the_sell()["cost_basis_usd"])) == Decimal("10000")
+
+
+def test_a_buy_listed_after_a_same_time_sell_is_refused_as_the_csv_import_refuses_it():
+    buy = {"date": WHEN, "type": "Buy", "amount": "0.5", "from_account": "Bank",
+           "to_account": "Exchange BTC", "cost_basis_usd": "10000"}
+    out = CLIENT.post("/api/import/entries/preview", json={"rows": [SELL, buy]})
+    assert out.status_code == 200, out.text
+    refused = out.json()["results"][0]
+    assert refused["status"] == "rejected", refused
+    assert refused["errors"][-1].endswith(
+        "Rows are saved by date, and rows at the same time in the order given:"
+        " list a buy before a sale or move it pays for"), refused["errors"]
+    added = CLIENT.post("/api/import/entries/execute", json={"rows": [SELL, buy]})
+    assert added.status_code == 400
+    assert added.json()["detail"].endswith("list a buy before a sale or move it pays for. No transactions were saved.")
+    assert CLIENT.get("/api/transactions").json() == []
+    file = f"{HEADER}\n{WHEN},Sell,0.5,Exchange BTC,Exchange USD,,35000,,,,,\n{WHEN},Buy,0.5,Bank,Exchange BTC,10000,,,,,,\n"
+    assert CLIENT.post("/api/import/execute", files={"file": ("rows.csv", file.encode(), "text/csv")}).status_code != 200
+    assert CLIENT.get("/api/transactions").json() == []
