@@ -198,7 +198,10 @@ jobs:
         run: |
           pip install --require-hashes -r backend/requirements.txt
           pip install -r requirements-dev.txt ./mcp_server
-      - run: pytest -q -n auto mcp_server/tests
+      # The server the tests import serves the web page's folder, built or not
+      - run: |
+          mkdir -p frontend/dist
+          pytest -q -n auto mcp_server/tests
 
   frontend:
     name: Frontend lint + tests + build

@@ -127,6 +127,8 @@ def test_one_python_suite_and_the_connector_on_its_oldest():
     found = jobs()
     assert 'python: ["3.13"]' in found["python"]
     assert 'python-version: "3.11"' in found["connector"] and "pytest -q -n auto mcp_server/tests" in found["connector"]
+    # its tests import the server, which needs the web page's folder (#1005's first CI run)
+    assert "mkdir -p frontend/dist" in found["connector"]
     connector = (ROOT / "mcp_server" / "pyproject.toml").read_text()
     assert 'requires-python = ">=3.11"' in connector
 
