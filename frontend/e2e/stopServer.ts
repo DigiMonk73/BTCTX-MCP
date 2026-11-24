@@ -10,9 +10,13 @@ import { rmSync } from "node:fs";
 /** How long a server may take to exit after it's asked, before it's killed. */
 export const EXIT_GRACE_MS = 10_000;
 
-/** Stop the server, wait until it has exited, then remove its folder. */
-export async function stopServer(proc: ChildProcess, dir: string, graceMs = EXIT_GRACE_MS): Promise<void> {
-  await exited(proc, graceMs);
+/** Stop the server and wait until it has exited. */
+export function stopServer(proc: ChildProcess, graceMs = EXIT_GRACE_MS): Promise<void> {
+  return exited(proc, graceMs);
+}
+
+/** Remove a stopped server's folder. */
+export function removeServerFolder(dir: string): void {
   // A second guard: a file system that is slow to report the folder empty.
   rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }
