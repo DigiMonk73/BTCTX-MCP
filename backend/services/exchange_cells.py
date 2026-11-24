@@ -52,7 +52,7 @@ def records(content: bytes) -> Records | CSVParseError:
     except UnicodeDecodeError:
         text = content.decode("latin-1")
     try:
-        rows = list(csv.reader(io.StringIO(text)))
+        rows = list(csv.reader(io.StringIO(text), strict=True))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
     return [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]

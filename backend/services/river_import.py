@@ -243,7 +243,7 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
             ))
             return rows, errors
 
-    reader = csv.DictReader(io.StringIO(text))
+    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
     if reader.fieldnames is None:
         errors.append(CSVParseError(
             row_number=0, column=None, severity="error",
