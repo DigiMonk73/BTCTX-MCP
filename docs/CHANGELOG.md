@@ -50,8 +50,10 @@ All notable changes to BitcoinTX are documented in this file.
   the deposit again, at the hour received or at the date of death, unless
   a value above $0 other than the old one is sent with it, which is kept
   as the value you state. A change among income, interest, a reward and a
-  rebate keeps a typed value, as before: all are valued when received.
-  Every earlier version has it. **What to do:** if you changed a deposit
+  rebate keeps a typed value, as before: all are valued when received. The
+  form has cleared Cost Basis on such a switch since 1.2.8 (#154), so only
+  a change made through the AI connector or the API kept the old value;
+  every earlier version has it. **What to do:** if an AI changed a deposit
   between Inherited and income, interest, a reward or a rebate, open it
   and clear Cost Basis to have it valued again.
 

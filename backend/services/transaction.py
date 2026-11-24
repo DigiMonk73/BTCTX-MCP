@@ -740,9 +740,10 @@ _INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp"
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
     An income or rebate deposit's value after an edit (#76). A typed one is
-    kept, but never a cost made income: a My BTC, Gift or N/A deposit made
-    one valued at receipt is valued again unless the edit states another
-    value above $0 (#998). One that came from a price, or a blank or $0 one (the form sends 0
+    kept, but never a figure taken another way: made one valued at receipt
+    from a source that takes its basis otherwise (a cost, a value when
+    received, a value at the date of death: _valued_otherwise), it's valued
+    again unless the edit states another value above $0 (#998, #999). One that came from a price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the hour's price (an inheritance: its
     date of death's day price) when the edit changes what it depends on:
     the account, amount or hour (date of death), or a source not
@@ -1248,7 +1249,7 @@ def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Sess
     """Leave blank each value the save prices again: one from a price whose
     inputs the edit changes, the value sent with it included when it's the
     one shown sent back (a value sent back unchanged isn't a typed one), a
-    My BTC, Gift or N/A deposit's cost made income (#998), and
+    figure taken another way made one valued at receipt (#998, #999), and
     a gift's the save fills (_gift_priced_by_edit: a blank one, or a sale's
     $0 it becomes a gift with)."""
     if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
