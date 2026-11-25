@@ -83,10 +83,11 @@ def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engin
     with Session(test_engine) as db:
         ai_key.set_access(db, True)
         key = ai_key.create_key(db)
+    from backend.main import TOO_DEEP
     r = TestClient(app).post("/api/import/entries/preview", content='{"rows": %s}' % ("[" * 2000 + "{}" + "]" * 2000),
                              headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
-    assert r.status_code == 422, r.text[:300]
-    assert all("input" not in e for e in r.json()["detail"])
+    # Refused before its fields are checked, as any body past 64 levels (#1000)
+    assert r.status_code == 422 and r.json() == {"detail": TOO_DEEP}, r.text[:300]
 
 
 def test_no_depth_the_parser_reads_is_a_500():
@@ -101,3 +102,35 @@ def test_no_depth_the_parser_reads_is_a_500():
         nested = "[" * depth + "]" * depth
         r = raw(client, "/api/login", '{"username": %s, "password": "x"}' % nested)
         assert r.status_code in (400, 422), (depth, r.text[:200])
+
+
+def _nested(kind: str, depth: int) -> str:
+    """An array, or an object, nested `depth` levels deep."""
+    if kind == "array":
+        return "[" * depth + "]" * depth
+    return '{"a": ' * depth + "1" + "}" * depth
+
+
+@pytest.mark.parametrize("kind", ["array", "object"])
+def test_no_depth_the_parser_reads_is_a_500_on_a_logged_in_route(auth_client, kind):
+    """A logged-in route's enum field: pydantic's own message for a value
+    nested just under the parser's limit recursed past Python's (#1000),
+    before the 422 handler could run. Any body nested past what BitcoinTX
+    reads is refused first, with the parser's 400 above it."""
+    for depth in [*range(900, 1001), *range(9950, 10001)]:
+        r = raw(auth_client, "/api/transactions", '{"type": %s}' % _nested(kind, depth))
+        assert r.status_code in (400, 422), (depth, r.text[:200])
+
+
+def test_a_body_nested_past_what_bitcointx_reads_is_refused_in_plain_words(auth_client):
+    from backend.main import MAX_JSON_DEPTH, TOO_DEEP
+    r = raw(auth_client, "/api/transactions", '{"type": %s}' % _nested("array", MAX_JSON_DEPTH))
+    assert r.status_code == 422 and r.json() == {"detail": TOO_DEEP}, r.text[:200]
+
+
+def test_a_body_as_deep_as_bitcointx_reads_goes_on_to_its_checks(auth_client):
+    """One level less: the route's own 422, naming the field."""
+    from backend.main import MAX_JSON_DEPTH
+    r = raw(auth_client, "/api/transactions", '{"type": %s}' % _nested("array", MAX_JSON_DEPTH - 1))
+    assert r.status_code == 422, r.text[:200]
+    assert any(e["loc"] == ["body", "type"] for e in r.json()["detail"]), r.text[:200]
