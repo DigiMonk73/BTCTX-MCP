@@ -170,8 +170,8 @@ async def refuse_deep_nesting(request: Request) -> None:
     under the parser's limit (about 9,990 levels) recursed past Python's
     limit, a 500 the 422 handler never saw (#1000). Each logged-in router
     lists it after its login check, as the text check (LOGGED_IN); the
-    login and /api/users, outside it, have only text fields, which don't
-    recurse (#954's handler answers for them). A body
+    login and /api/users, outside it, have only text and number fields,
+    whose messages don't recurse (#954's handler answers for them). A body
     can only nest that deep with that many brackets, so the walk runs only
     then.
     """

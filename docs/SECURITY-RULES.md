@@ -218,8 +218,8 @@ map.
   #1000): pydantic's message for a value nested just under the parser's
   limit recursed past Python's, a 500. It sits in `main.LOGGED_IN` beside
   the text check, and walks a body only when it has that many brackets.
-  The login and `/api/users`, outside `LOGGED_IN`, have only text fields,
-  which don't recurse (#954's handler): one that gains an enum needs it.
+  The login and `/api/users`, outside `LOGGED_IN`, have only text and number
+  fields, whose messages don't recurse (#954's handler): one that gains an enum needs it.
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI
