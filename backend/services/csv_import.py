@@ -247,7 +247,7 @@ def cell_over_lines(numbered: list[tuple[int, list[str]]], header: list[str] | N
     first (#990), as every import reads a file: BitcoinTX's own, River's and
     each exchange's. Two stray quotes that close each other make a valid
     file whose rows between them read as one cell, the row holding them
-    taking a later row's columns; no cell of a correct row needs a line
+    able to take a later row's columns; no cell of a correct row needs a line
     break, and BitcoinTX's export writes none. `numbered`: the records, numbered
     as the import's other errors number them; `header`: the row naming
     the columns, when it is the first."""
