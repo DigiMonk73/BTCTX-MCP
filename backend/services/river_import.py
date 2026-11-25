@@ -47,6 +47,7 @@ from backend.services.csv_import import (
     BTC_COMMA,
     _parse_decimal,
     decimal_comma_note,
+    decoded,
     header_file_over_lines,
     number_limits,
     unreadable_csv,
@@ -250,18 +251,7 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
     errors: list[CSVParseError] = []
     rows: list[RiverRow] = []
 
-    try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        try:
-            text = content.decode("latin-1")
-        except UnicodeDecodeError:
-            errors.append(CSVParseError(
-                row_number=0, column=None, severity="error",
-                message="File encoding not supported. Please save as UTF-8.",
-            ))
-            return rows, errors
-
+    text = decoded(content)  # as BitcoinTX's own import reads a file: a CR file too (#988)
     over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
     if over_lines:
         errors.append(over_lines)
