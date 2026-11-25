@@ -10,6 +10,13 @@ export function withConfirm(confirm?: string): AxiosRequestConfig | undefined {
   return confirm ? { params: { confirm } } : undefined;
 }
 
+/** What the form says once a save went through. */
+export interface Saved {
+  message: string;
+  /** Set when this device's timezone rules read the typed time otherwise than the server's (#964). */
+  warning?: string;
+}
+
 /**
  * Save the form: a new transaction, or `transactionId`'s changes, with
  * `confirm` once the owner confirmed a change to an earlier tax year.
@@ -20,17 +27,44 @@ export async function saveTransaction(
   book: AccountBook,
   transactionId?: number | null,
   confirm?: string,
-): Promise<string> {
+): Promise<Saved> {
   const payload = buildTransactionPayload(data, book);
+  let tx: ITransactionRaw;
   if (transactionId) {
     const response = await api.put(`/transactions/${transactionId}`, payload, withConfirm(confirm));
     if (response.status !== 200) {
       throw new Error(`Update failed with status ${response.status}`);
     }
-    return savedMessage("updated", response.data as ITransactionRaw);
+    tx = response.data as ITransactionRaw;
+  } else {
+    tx = (await api.post("/transactions", payload, withConfirm(confirm))).data as ITransactionRaw;
   }
-  const response = await api.post("/transactions", payload, withConfirm(confirm));
-  return savedMessage("created", response.data as ITransactionRaw);
+  const warning = deviceRulesWarning(payload, tx.timestamp);
+  return { message: savedMessage(transactionId ? "updated" : "created", tx), ...(warning ? { warning } : {}) };
+}
+
+/**
+ * When the server read a typed time as another moment than this device
+ * did (#964), what to tell the owner, true whichever rules are the older:
+ * BitcoinTX saved it by its own, the device shows it off by the
+ * difference, and what to update (a saved time stays as saved, so after
+ * BitcoinTX's update it's typed again). Undefined when they agree, or
+ * nothing was typed.
+ */
+export function deviceRulesWarning(payload: ICreateTransactionPayload, savedTimestamp: string): string | undefined {
+  if (!payload.typed_time) return undefined;
+  const minutes = Math.round((Date.parse(payload.timestamp) - Date.parse(savedTimestamp)) / 60_000);
+  if (!minutes) return undefined;
+  return `This device's timezone rules and BitcoinTX's read this time ${howFar(minutes)} apart. BitcoinTX ` +
+    `saved it by its own, so this device shows it ${howFar(minutes)} off. Usually the device is out of date: ` +
+    "update its system or browser. If BitcoinTX is, update BitcoinTX, then type this time again.";
+}
+
+function howFar(minutes: number): string {
+  const all = Math.abs(minutes);
+  if (all === 60) return "an hour";
+  if (all % 60 === 0) return `${all / 60} hours`;
+  return all > 60 ? `${Math.floor(all / 60)} h ${all % 60} min` : `${all} minutes`;
 }
 
 /** Delete `transactionId`, with `confirm` once the owner confirmed a change to an earlier tax year. */

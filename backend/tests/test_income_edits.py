@@ -22,7 +22,7 @@ from decimal import Decimal
 import pytest
 from alembic import command
 from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend.migrate import alembic_config, upgrade_database
 from backend.services.reports.reporting_core import generate_report_data
@@ -182,25 +182,39 @@ def test_the_river_import_passes_the_mark_through(auth_client):
 
 
 def test_a_round_trip_through_another_source_keeps_the_mark(auth_client):
+    """The value shown, sent back unchanged with a switch to Gift, stays marked
+    from the price (#955 asks only that a cost be sent), so back as Interest
+    it's priced again: a gift's basis is never reported as income."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="Gift")
+    assert tx["cost_basis_from_price"] is True
     back = edit(auth_client, tx, source="Interest", amount="0.002")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
 
 
-@pytest.mark.parametrize("how", ["form", "partial"])
-def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine, how):
-    """Re-check of #111: Interest -> My BTC, a new amount (a My BTC value is
-    the user's, so it stays), then back to Interest on the same day: priced
-    again at the new amount, or the income would read the old $50."""
+def test_back_from_a_source_not_valued_at_receipt_is_priced_again(auth_client, test_engine):
+    """Re-check of #111, on a row an earlier version switched without asking
+    (#955 asks now: still marked from the price): Interest -> My BTC, a new
+    amount (a My BTC value is the user's, so it stays), then back to Interest
+    on the same day: priced again at the new amount, or the income would
+    read the old $50."""
     tx = deposit(auth_client, amount="0.001")
     assert basis(tx) == Decimal("50.00")
-    step = (lambda t, **c: edit(auth_client, t, **c)) if how == "form" else (lambda t, **c: partial(auth_client, t, **c))
-    mine = step(tx, source="MyBTC")
-    mine = step(mine, amount="0.002")
+    with Session(test_engine) as db:  # switched as before #955: the mark kept
+        db.execute(text("UPDATE transactions SET source = 'MyBTC' WHERE id = :id"), {"id": tx["id"]})
+        db.commit()
+    mine = partial(auth_client, {**tx, "source": "MyBTC"}, amount="0.002")
     assert basis(mine) == Decimal("50.00")
-    back = step(mine, source="Interest")
+    back = partial(auth_client, mine, source="Interest")
     assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
     assert income_reported(test_engine) == Decimal("100.00")
+
+
+def test_a_switch_to_my_btc_without_a_cost_asks_for_one(auth_client):
+    """#955: the partial edit the AI connector sends is refused in the
+    create's words; the value stays as it was."""
+    tx = deposit(auth_client, amount="0.001")
+    r = auth_client.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC"})
+    assert r.status_code == 422 and "Enter this deposit's cost basis" in r.text, r.text
 
 
 def test_the_price_day_is_the_utc_day(auth_client):
@@ -272,19 +286,23 @@ def test_a_source_change_prices_the_same_day_and_amount(auth_client):
 
 
 def test_a_deposit_that_stops_being_income_keeps_its_value(auth_client):
-    """My BTC's basis is the user's: it isn't priced, whatever the mark says."""
+    """My BTC's basis is the user's: it isn't priced, whatever the mark says
+    (an echo of the value shown keeps it; the form clears the field and asks
+    instead, #955)."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="MyBTC")
     assert basis(tx) == Decimal("50.00")
     assert basis(edit(auth_client, tx, amount="0.002")) == Decimal("50.00")
 
 
-def test_a_value_typed_while_not_income_stays_typed(auth_client):
-    """Interest (priced) -> My BTC with a new basis typed -> back to Interest:
-    the typed basis is kept, not priced again."""
+def test_a_cost_typed_while_not_income_is_never_the_income(auth_client, test_engine):
+    """#998: Interest (priced) -> My BTC with its cost typed ($4,000) -> back
+    to Interest, the cost sent back: a cost isn't income, so it's priced
+    again (#76 kept it, and reported it as the income)."""
     tx = edit(auth_client, deposit(auth_client, amount="0.001"), source="MyBTC", cost_basis_usd="4000")
     assert tx["cost_basis_from_price"] is False
     back = edit(auth_client, tx, source="Interest", amount="0.002")
-    assert basis(back) == Decimal("4000.00") and back["cost_basis_from_price"] is False
+    assert basis(back) == Decimal("100.00") and back["cost_basis_from_price"] is True
+    assert income_reported(test_engine) == Decimal("100.00")
 
 
 def test_another_type_makes_the_figure_typed(auth_client):

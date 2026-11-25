@@ -175,7 +175,7 @@ build on a Mac where BitcoinTX is installed, run it only through
 
 ## Building
 
-Requirements: macOS, Python 3.11+, Node.js 22.13+ with npm (the frontend's
+Requirements: macOS, Python 3.13, Node.js 22.13+ with npm (the frontend's
 build tools need it; CI builds with Node 24).
 
 ```bash
@@ -184,10 +184,10 @@ build tools need it; CI builds with Node 24).
 
 The script:
 
-1. Finds a Python 3.11+ interpreter: the one `BTCTX_BUILD_PYTHON` names
-   (CI passes the Python 3.13 it sets up), else the newest of `python3.13`
-   … `python3.11`, `python3`. A `desktop/.venv` made earlier keeps its
-   Python (the log says so): delete it to build with another
+1. Finds a Python 3.13 interpreter: the one `BTCTX_BUILD_PYTHON` names
+   (CI passes the Python 3.13 it sets up), else `python3.13`, else
+   `python3` if it is 3.13. A `desktop/.venv` made earlier with another
+   Python is refused: delete it and run again
 2. Creates/reuses `desktop/.venv` and installs the locks
    `backend/requirements.txt` plus `desktop/requirements.txt` (PyInstaller,
    pywebview), each package checked against its hash

@@ -59,7 +59,7 @@ backend/
     ├── test_1099da_differs_158.py        # its page for a Form 1099-DA that differs, and the limits the guides tell
     └── test_invariants_property.py       # random valid ledgers keep the tax invariants (Hypothesis)
 scripts/irs_new_year.py                   # download/verify/install a new year's templates
-.github/workflows/irs-forms-watch.yml     # weekly: an issue when new IRS drafts or final forms are out
+.github/workflows/irs-forms-watch.yml     # daily in Dec and Jan, else weekly: an issue when new IRS drafts or final forms are out
 ```
 
 `get_supported_years()` in `reports.py` lists every year folder that holds

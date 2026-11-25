@@ -118,7 +118,18 @@ Deposit: External -> any account
                column (b). Never record an inheritance as a Gift: the rules
                differ. When
                changing a deposit's source to or from Inherited, send
-               acquired_at in the same update. Suggest the user's tax
+               acquired_at in the same update. When changing a deposit's
+               source from Income, Interest, Reward, Rebate or Inherited to
+               MyBTC, Gift or N/A, ask the user what the coins cost and send
+               cost_basis_usd in the same update (the ledger refuses the
+               change without one when the value came from the price);
+               never resend the listed value as the cost. Changing one the
+               other way (MyBTC, Gift or N/A to a source valued at receipt),
+               leave cost_basis_usd out: BitcoinTX values it from the price
+               (send one, above 0, only if the user states its value when
+               received; the cost sent back is priced too). The same between
+               Inherited and Income, Interest, Reward or Rebate: valued again
+               at the new source's moment. Suggest the user's tax
                preparer if they owned the coins jointly with the person who
                died (only part may be inherited), or gave them to that
                person within a year before the death (the basis may be the
@@ -248,12 +259,15 @@ chosen coins, the oldest of them first.
 - preview_transactions shows, for a row leaving a wallet, the coins it
   takes (coins.takes) and those the wallet holds then (coins.held: each
   purchase or deposit, its date acquired, BTC, cost and the term it would
-  have; coins is null, with a warning saying why, when BitcoinTX can't list
-  them yet); get_coins_moved shows the same for a saved Transfer or BTC
-  Withdrawal from a wallet (coins, and, when it leaves the wallet, held:
-  each with oldest_first, what the oldest coins first would take of it,
-  and acquired_in: the account it was bought or deposited into, not where
-  its coins are now).
+  have; coins is null, with a warning saying why, when BitcoinTX can't
+  list them yet); get_coins_moved shows the same for a saved Transfer,
+  Sell or BTC Withdrawal (coins: for a sale or a spend each also with its
+  proceeds_usd, gain_usd and term, a gift's, donation's or lost coins' the
+  term only; a BTC network fee is a disposal of its own, on Form 8949
+  apart, never among them; and, when it leaves a wallet, held: each with
+  oldest_first, what the oldest coins first would take of it, and
+  acquired_in: the account it was bought or deposited into, not where its
+  coins are now).
   Its dated_today is for BitcoinTX's own form: ignore it. A purchase in the same request has no
   id yet: add it first, then the row that chooses its coins.
 - list_transactions shows a choice (chosen_coins) and when it was saved in

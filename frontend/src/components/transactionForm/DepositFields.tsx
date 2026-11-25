@@ -104,11 +104,17 @@ const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
   const showOriginalDate = takesOriginalDate({ ...into, source }, book);
   const inherited = source === "Inherited";
   // A date of death isn't a date originally acquired, nor a value at death a
-  // giver's cost (#154): switching to or from Inherited asks for both again
-  // (`source` is still the one before the change)
-  const clearIfInheritance = (next: string) => {
+  // giver's cost (#154): switching to or from Inherited asks for both again.
+  // Nor is a value at receipt what your own coins or a gift cost: switching
+  // from income or a rebate to a source whose cost is yours asks for it, as
+  // a new deposit does (#955); nor is a cost income: switching back, the
+  // value is filled in from the price again (#998). (`source` is still the
+  // one before the change)
+  const clearOnSourceChange = (next: string) => {
     if (inherited !== (next === "Inherited")) {
       setValue("acquiredDate", "");
+      setValue("costBasisUSD", undefined);
+    } else if (isValued !== VALUED_SOURCES.includes(next)) {
       setValue("costBasisUSD", undefined);
     }
   };
@@ -123,7 +129,7 @@ const DepositFields: React.FC<{ book: AccountBook }> = ({ book }) => {
           <select
             id="tx-source"
             className="input"
-            {...register("source", { required: true, onChange: (e) => clearIfInheritance(e.target.value) })}
+            {...register("source", { required: true, onChange: (e) => clearOnSourceChange(e.target.value) })}
           >
             <option value="N/A">N/A</option>
             <option value="MyBTC">MyBTC</option>

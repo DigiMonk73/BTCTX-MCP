@@ -3,10 +3,12 @@ import { useFormContext } from "react-hook-form";
 import { exchangeName, sellExchanges } from "../../utils/accounts";
 import AccountPicker from "./AccountPicker";
 import BrokerReportingField from "./BrokerReportingField";
+import LeavingCoins from "./LeavingCoins";
 
 /** A Sell on an exchange (from its BTC account, into its dollars): the BTC
- * sold, its gross proceeds and the fee. */
-const SellFields: React.FC<{ book: AccountBook }> = ({ book }) => {
+ * sold, its gross proceeds and the fee; then the coins it uses, read-only,
+ * with what each realizes (#960). */
+const SellFields: React.FC<{ book: AccountBook; transactionId?: number | null }> = ({ book, transactionId }) => {
   const { register, formState: { errors } } = useFormContext<TransactionFormData>();
   return (
     <>
@@ -70,6 +72,8 @@ const SellFields: React.FC<{ book: AccountBook }> = ({ book }) => {
       </div>
 
       <BrokerReportingField />
+
+      <LeavingCoins book={book} transactionId={transactionId} />
     </>
   );
 };

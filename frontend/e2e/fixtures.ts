@@ -4,11 +4,12 @@
 // Those prices are stubbed, or with `fakeInternet` come from a fake internet.
 import { test as base, expect, type Page, type APIRequestContext, type APIResponse } from "@playwright/test";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeServerFolder, stopServer } from "./stopServer";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,7 @@ async function startApp(
   const url = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 120; i++) {
     if (proc.exitCode !== null) {
+      removeServerFolder(dir);
       throw new Error(`server exited early (${proc.exitCode}):\n${log.join("")}`);
     }
     try {
@@ -75,7 +77,8 @@ async function startApp(
     }
     await new Promise((r) => setTimeout(r, 250));
   }
-  proc.kill();
+  await stopServer(proc);
+  removeServerFolder(dir);
   throw new Error(`server did not start:\n${log.join("")}`);
 }
 
@@ -273,14 +276,28 @@ export const test = base.extend<Fixtures>({
         : {}),
     }));
     await use(app);
-    proc.kill();
+    await stopServer(proc);  // its exit before its folder (#987), and its whole log
     if (testInfo.status !== testInfo.expectedStatus) {
       await testInfo.attach("server.log", { body: log.join("") });
     }
-    rmSync(app.dir, { recursive: true, force: true });
+    removeServerFolder(app.dir);
   },
   baseURL: async ({ app }, use) => {
     await use(app.url);
+  },
+  // A route handler still asking the server (route.fetch(), a request
+  // context) when its test ends fails, and Playwright reports that against
+  // the next test (#930). Every test's routes are dropped as it ends, while
+  // its page and server are still up, so no spec has to remember to (#961)
+  page: async ({ page }, use) => {
+    await use(page);
+    // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+    await page.unrouteAll({ behavior: "ignoreErrors" });
+  },
+  context: async ({ context }, use) => {
+    await use(context);
+    // eslint-disable-next-line no-restricted-syntax -- the test is over: no request of its own is left to lose (#275)
+    await context.unrouteAll({ behavior: "ignoreErrors" });
   },
   authedPage: async ({ page, app }, use) => {
     await claimAccount(page.request, app);

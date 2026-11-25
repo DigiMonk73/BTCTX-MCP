@@ -71,12 +71,18 @@ def test_the_image_runs_the_python_ci_names():
     """The image's Python is the newest the test matrix runs, and every
     workflow job that sets up one Python sets up that one (#425): the smoke,
     click-through and audit jobs stand in for the image, so a Python moved in
-    one place and not the others fails here."""
+    one place and not the others fails here. One job alone runs another on
+    purpose: the AI connector's tests on the oldest Python it accepts (#985),
+    which is its requires-python's."""
     image = re.search(r"^FROM python:(\d+\.\d+)-slim@", (ROOT / "Dockerfile").read_text(), re.M).group(1)
     ci = (ROOT / ".github/workflows/ci.yml").read_text()
     matrix = re.findall(r'"([\d.]+)"', re.search(r"^\s+python: \[(.*?)\]", ci, re.M).group(1))
     assert image == max(matrix, key=lambda v: tuple(map(int, v.split("."))))
-    named = {(w.name, v) for w in WORKFLOWS for v in re.findall(r"python-version:\s*[\"']?(\d+\.\d+)", w.read_text())}
+    connector = re.search(r"^  connector:\n(?:(?!^  \S).*\n)*", ci, re.M).group(0)
+    oldest = re.search(r'requires-python = ">=(\d+\.\d+)"', (ROOT / "mcp_server/pyproject.toml").read_text()).group(1)
+    assert re.findall(r'python-version: "([\d.]+)"', connector) == [oldest]
+    named = {(w.name, v) for w in WORKFLOWS
+             for v in re.findall(r"python-version:\s*[\"']?(\d+\.\d+)", w.read_text().replace(connector, ""))}
     assert named and {v for _, v in named} == {image}, sorted(named)
 
 

@@ -1,0 +1,210 @@
+"""
+#955: a bitcoin deposit valued from the price (income, a reward, a rebate, an inheritance)
+that an edit makes My BTC, Gift or N/A asks for its cost, as a new deposit
+of those sources does: the market value at receipt isn't what the user's
+own coins cost them. The owner's yes, decision 1 on #972 (2026-11-14). An
+edit that sends no cost is refused in the create's words; another cost than
+the one shown is the user's, so it's no longer marked as from the price,
+while the value shown sent back unchanged keeps its mark (a switch back to
+income prices it again, as before).
+"""
+
+from decimal import Decimal
+
+import pytest
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from backend.services.transaction import DEPOSIT_BASIS_REQUIRED
+from backend.tests.conftest import stub_prices_at
+
+CLIENT = None
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _set_client(auth_client):
+    global CLIENT
+    CLIENT = auth_client
+
+
+@pytest.fixture(autouse=True)
+def _ledger(monkeypatch):
+    stub_prices_at(monkeypatch, lambda when: 100000)
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+    yield
+    CLIENT.delete("/api/transactions/delete_all?confirm=DELETE")
+
+
+def _priced(source: str = "Rebate") -> dict:
+    """A deposit into the wallet left without a value, filled from the price: $500."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": source})
+    assert r.status_code == 200, r.text
+    tx = r.json()
+    assert tx["cost_basis_from_price"] is True and Decimal(str(tx["cost_basis_usd"])) == Decimal("500")
+    return tx
+
+
+@pytest.mark.parametrize("source", ["MyBTC", "Gift", "N/A"])
+def test_a_priced_deposit_made_a_source_that_needs_a_cost_asks_for_it(source):
+    tx = _priced()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": source})
+    assert r.status_code == 422, r.text
+    assert DEPOSIT_BASIS_REQUIRED in r.text
+    assert CLIENT.get(f"/api/transactions/{tx['id']}").json()["source"] == "Rebate"
+
+
+@pytest.mark.parametrize("from_source", ["Rebate", "Income", "Interest", "Reward"])
+def test_a_cost_sent_with_the_switch_is_the_users(from_source):
+    tx = _priced(from_source)
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("120")
+    assert saved["cost_basis_from_price"] is False
+
+
+def test_the_value_shown_sent_back_keeps_its_mark_so_a_switch_back_prices_it_again():
+    """An API client that sends back the value shown unchanged: it stays
+    marked from the price, and made income again at a new amount it's priced
+    again, never the market value kept as if it were the user's."""
+    tx = _priced()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "500"})
+    assert r.status_code == 200, r.text
+    assert CLIENT.get(f"/api/transactions/{tx['id']}").json()["cost_basis_from_price"] is True
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "amount": "0.01"})
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("1000") and saved["cost_basis_from_price"] is True
+
+
+@pytest.mark.parametrize("away", ["MyBTC", "Gift", "N/A"])
+def test_a_cost_typed_with_the_switch_is_never_the_income(away):
+    """#998: a cost typed for My BTC, Gift or N/A, made income again without a
+    value (the AI connector's partial edit), is priced again: a cost isn't income."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": away, "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_a_zero_sent_with_the_switch_back_is_blank_and_priced():
+    """#998: $0 is blank wherever a value at receipt is filled: never $0 income."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "cost_basis_usd": "0"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_another_value_sent_with_the_switch_back_is_the_users_income_figure():
+    """#998: a value other than the stored cost, sent with the switch back, is
+    the income the user states: typed."""
+    tx = _priced()
+    CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "120"})
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Interest", "cost_basis_usd": "480"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("480") and saved["cost_basis_from_price"] is False
+
+
+def test_a_my_btc_deposit_never_priced_made_income_is_priced():
+    """#998: a My BTC deposit saved with its cost, made Interest: valued from the price."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "MyBTC", "cost_basis_usd": "120"})
+    assert r.status_code == 200, r.text
+    tx_id = r.json()["id"]
+    r = CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Reward"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx_id}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_a_zero_cost_sent_with_the_switch_is_kept():
+    tx = _priced()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "MyBTC", "cost_basis_usd": "0"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("0") and saved["cost_basis_from_price"] is False
+
+
+def test_a_switch_between_two_priced_sources_keeps_its_value():
+    """Reward to Rebate keeps it (TAX-INVARIANTS, Income deposits)."""
+    tx = _priced("Reward")
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Rebate"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_a_later_edit_of_a_row_switched_before_isnt_refused(test_engine):
+    """A row an earlier version switched (still marked from the price) edits
+    as before: only the switch itself asks."""
+    tx = _priced()
+    with Session(test_engine) as db:
+        db.execute(text("UPDATE transactions SET source = 'MyBTC' WHERE id = :id"), {"id": tx["id"]})
+        db.commit()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"amount": "0.006"})
+    assert r.status_code == 200, r.text
+
+
+def test_a_move_to_the_bank_needs_no_cost():
+    tx = _priced()
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"to_account_id": 1, "amount": "500", "source": "N/A"})
+    assert r.status_code == 200, r.text
+
+
+def _inherited(value: str | None) -> dict:
+    """An inheritance into the wallet, its date of death in 2024: typed, or valued at that day's price."""
+    body = {"type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+            "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Inherited",
+            "acquired_at": "2024-06-01"}
+    r = CLIENT.post("/api/transactions", json={**body, **({"cost_basis_usd": value} if value else {})})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+@pytest.mark.parametrize("to", ["Income", "Interest", "Reward", "Rebate"])
+def test_an_inheritances_typed_value_made_income_is_valued_when_received(to):
+    """#999: a value at the date of death isn't the value when received: made
+    income (or a rebate), it's priced again at the hour received."""
+    tx = _inherited("777")
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": to})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("500") and saved["cost_basis_from_price"] is True
+
+
+def test_an_incomes_typed_value_made_an_inheritance_is_valued_at_the_death():
+    """#999, the other way: a typed income value made Inherited is valued at its date of death."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Income", "cost_basis_usd": "777"})
+    tx_id = r.json()["id"]
+    r = CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Inherited", "acquired_at": "2024-06-01"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx_id}").json()
+    # The date of death's day price (conftest's daily stub, $50,000), never the $777 typed for income
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("250") and saved["cost_basis_from_price"] is True
+
+
+def test_another_value_sent_with_an_inheritance_made_income_is_kept():
+    tx = _inherited("777")
+    r = CLIENT.put(f"/api/transactions/{tx['id']}", json={"source": "Income", "cost_basis_usd": "450"})
+    assert r.status_code == 200, r.text
+    saved = CLIENT.get(f"/api/transactions/{tx['id']}").json()
+    assert Decimal(str(saved["cost_basis_usd"])) == Decimal("450") and saved["cost_basis_from_price"] is False
+
+
+def test_a_switch_among_the_income_sources_keeps_a_typed_value():
+    """Valued at the same moment, received: Reward to Rebate keeps it (TAX-INVARIANTS)."""
+    r = CLIENT.post("/api/transactions", json={
+        "type": "Deposit", "timestamp": "2025-03-20T15:00:00Z", "from_account_id": 99, "to_account_id": 2,
+        "amount": "0.005", "fee_amount": "0", "fee_currency": "BTC", "source": "Reward", "cost_basis_usd": "777"})
+    tx_id = r.json()["id"]
+    assert CLIENT.put(f"/api/transactions/{tx_id}", json={"source": "Rebate"}).status_code == 200
+    assert Decimal(str(CLIENT.get(f"/api/transactions/{tx_id}").json()["cost_basis_usd"])) == Decimal("777")

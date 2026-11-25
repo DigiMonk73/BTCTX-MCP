@@ -215,13 +215,21 @@ def _why_unpriced(day) -> tuple[str, str] | None:
 
 def unreadable_csv(exc: csv.Error) -> CSVParseError:
     """The csv module couldn't read the file (a field over its 131,072
-    characters, say): a file error, not a server error (#211)."""
-    return _file_error(f"The file can't be read as CSV ({exc}).")
+    characters, say): a file error, not a server error (#211). A quote out
+    of place is said in plain words: read leniently, it swallowed the rows
+    after it into one cell, or dropped the quotes (#952)."""
+    reason = str(exc)
+    if reason == "unexpected end of data":
+        return _file_error("The file can't be read as CSV: a cell opens a quote (\") that is never closed.")
+    if reason.endswith("expected after '\"'"):
+        return _file_error("The file can't be read as CSV: a cell has more text after its closing quote (\"),"
+                           " even a space.")
+    return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
-    reader = csv.DictReader(io.StringIO(_decode(content)))
+    reader = csv.DictReader(io.StringIO(_decode(content)), strict=True)  # a stray quote refuses the file (#952)
     header_error = _header_error(reader.fieldnames)
     if header_error:
         result.errors.append(header_error)
@@ -403,8 +411,26 @@ def _check_row(row: dict[str, str], row_number: int, tz, warnings: list[CSVParse
     amounts = _optional_amounts(row, row_number)
     options = _options(row, row_number, tx_type)
     acquired_at = _optional_acquired_at(row, row_number, tz)
-    return _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, book, **amounts, **options,
-                acquired_at=acquired_at)
+    checked = _Row(row_number, timestamp, tx_type, amount, from_name, from_id, to_name, to_id, book, **amounts,
+                   **options, acquired_at=acquired_at)
+    _refuse_bitcoin_commas(row, checked)
+    return checked
+
+
+def _refuse_bitcoin_commas(row: dict[str, str], checked: _Row) -> None:
+    """_Rejected when the amount or the fee is bitcoin and written with a
+    comma (BTC_COMMA): known only once the accounts and the fee's currency are."""
+    own_fee_currency = _fee_currency_used(checked)
+    btc_columns = (
+        ("amount", _amount_currency(checked.tx_type, checked.from_id, checked.to_id, checked.book)),
+        # A fee in another currency than the row's own is the type rules' to
+        # refuse, in their words ("Buy fee must be in USD.")
+        ("fee_amount", own_fee_currency if (checked.fee_currency or own_fee_currency) == own_fee_currency else None),
+    )
+    for column, currency in btc_columns:
+        raw = (row.get(column) or "").strip()
+        if currency == "BTC" and "," in raw:
+            raise _Rejected(_error(checked.number, column, f"Invalid {column} '{raw}'. {BTC_COMMA}"))
 
 
 # What the save drops from a withdrawal from Bank or Exchange USD (#449),
@@ -789,7 +815,13 @@ _THOUSANDS = re.compile(r"[+-]?[1-9][0-9]{0,2}(,[0-9]{3})+(\.[0-9]*)?")
 # Only digits, points and commas: when such a number's commas aren't
 # thousands separators, they're why it's refused
 _DIGITS_AND_SEPARATORS = re.compile(r"[+-]?[0-9.,]+")
-_DECIMAL_COMMA = "A comma is read only as a thousands separator (1,000.50): write decimals with a point (0.5, not 0,5)."
+_DECIMAL_COMMA = ("A comma is read only as a thousands separator in dollars (1,000.50), never in bitcoin:"
+                  " write decimals with a point (0.5, not 0,5).")
+# A bitcoin amount takes no thousands separator at all: a spreadsheet that
+# writes decimals with a comma writes 2.5 BTC as "2,500", which the thousands
+# rule would read as 2500 BTC (#953). The exchange reader refuses one too.
+BTC_COMMA = ("A bitcoin amount takes no comma: write decimals with a point and no thousands separator"
+             " (2.5 or 1234, not 2,5 or 1,234).")
 
 
 def _separators_readable(value: str) -> bool:

@@ -110,9 +110,24 @@ package() {
   cp -R "$APP" dmg/
   ln -s /Applications dmg/Applications
   hdiutil create -volname "$NAME" -srcfolder dmg -ov -format UDZO "$stem.dmg" >&2
-  hdiutil verify "$stem.dmg" >&2
+  verify_dmg "$stem.dmg"
   printf '%s\n' "stem=$stem" "dmg=$stem.dmg" "zip=$stem.zip"
 }
+
+# Right after hdiutil create, hdiutil verify can't always open the image yet
+# ("Resource temporarily unavailable", #946; the re-run passed): tried again
+# after a pause, five times in all, then it fails as before
+verify_dmg() {
+  local tries=5 pause="${DMG_VERIFY_PAUSE:-3}" i
+  for ((i = 1; ; i++)); do
+    hdiutil verify "$1" >&2 && return 0
+    [ "$i" -lt "$tries" ] || fail "hdiutil verify failed $tries times: $1"
+    sleep "$pause"
+  done
+}
+
+# Run, not sourced (the tests source it for verify_dmg)
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 case "${1:-}" in
   check) check ;;

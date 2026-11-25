@@ -27,7 +27,8 @@ Other options: `YYYY --check` (verify an installed year), `YYYY --from-dir DIR`
 (use PDFs you downloaded yourself).
 
 The **IRS forms watch** workflow (`.github/workflows/irs-forms-watch.yml`)
-runs `--due` weekly, all year, and opens an issue (label `claude`) when the
+runs `--due` daily in December and January and weekly the rest of the
+year, and opens an issue (label `claude`) when the
 IRS publishes a new year's drafts (ship them as the preview) or its final
 forms.
 
@@ -68,7 +69,7 @@ issue or a pull request, which the week's work starts from.
 |---|---|---|
 | Monday report (`monday-report.yml`) | Mondays, 13:07 UTC | one issue, "Monday report: what needs attention", edited in place |
 | Start9 watch (`start9-watch.yml`) | Mondays, 08:23 UTC | an issue labelled `start9` for each new thing |
-| IRS forms watch (`irs-forms-watch.yml`) | Mondays, 14:00 UTC | an issue labelled `claude` |
+| IRS forms watch (`irs-forms-watch.yml`) | Daily in December and January, else Mondays; 14:00 UTC | an issue labelled `claude` |
 | Price history watch (`price-history-watch.yml`) | the 3rd of each month | an issue labelled `claude`, if Bitstamp changed |
 | Dependabot (`dependabot.yml`) | monthly | grouped pull requests into `develop` |
 
@@ -174,9 +175,10 @@ it changes only by pull request:
   setuptools, which must stay inside it.
 
 The CI runtimes and GitHub's runner images follow their release line: the
-Python tests run on 3.11 (the oldest supported, from source and the AI
-connector) and 3.13 (Docker, StartOS and the Mac app), both in "CI
-passed", and the other jobs on 3.13 and `node-version: 24`. Dependabot proposes the updates
+Python tests run on 3.13, the server's everywhere it runs (Docker,
+StartOS, the Mac app and from source, #985), and the AI connector's own
+tests on 3.11 too, the oldest it accepts; all in "CI passed", and the
+other jobs on 3.13 and `node-version: 24`. Dependabot proposes the updates
 (below). The Mac build uses the `pip` its venv comes with and installs no
 `wheel`; proxy-tools (under pywebview), published only as source, is built
 with the locked setuptools (`--no-build-isolation`), since pip doesn't check

@@ -7,9 +7,14 @@ import ChosenCoins from "./ChosenCoins";
 import MovedCoinsTable from "./MovedCoinsTable";
 import { useCoinsMoved, type CoinsShown } from "./useCoinsMoved";
 
+const CAPTIONS: Partial<Record<TransactionType, string>> = {
+  Withdrawal: "Coins that will leave",
+  Sell: "Coins this sale uses",  // #960
+};
+
 /** What's being done, or why there's no list; nothing beside a list that's current. */
 function statusLine({ state, stale }: CoinsShown, kind: TransactionType): React.ReactNode {
-  const go = kind === "Withdrawal" ? "leave" : "move";
+  const go = kind === "Transfer" ? "move" : "leave";
   if (state.kind === "asking" || stale) return <p className="field-hint">Working out which coins {go}…</p>;
   if (state.kind === "refused") return <p className="field-error">{noListLine(state.status, state.reason, kind)}</p>;
   if (state.kind === "listed" && state.answer.coins === null) {
@@ -25,16 +30,15 @@ function coinsList({ state, stale }: CoinsShown, kind: TransactionType, chosen: 
   const fee = feeLine(state.answer.fee_btc, chosen);
   return (
     <div className="transfer-coins-list" aria-busy={stale}>
-      <MovedCoinsTable coins={state.answer.coins}
-        caption={kind === "Withdrawal" ? "Coins that will leave" : "Coins that will move"} />
+      <MovedCoinsTable coins={state.answer.coins} caption={CAPTIONS[kind] ?? "Coins that will move"} />
       {fee && <p className="field-hint">{fee}</p>}
     </div>
   );
 }
 
 /**
- * Before a Transfer between two bitcoin accounts, or a Withdrawal from one
- * of your wallets, saves, the coins it takes (#706): the line saying which
+ * Before a Transfer between two bitcoin accounts, a Withdrawal of bitcoin or
+ * a Sell saves, the coins it takes (#706, #960): the line saying which
  * go when you don't choose them, and the list the server gives of the coins
  * its save takes, asked with the body the Save sends. Leaving one of your
  * wallets, the coins can be chosen (#711, ChosenCoins). The status line

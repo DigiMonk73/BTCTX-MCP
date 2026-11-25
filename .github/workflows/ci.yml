@@ -2,8 +2,8 @@ name: CI
 
 # Every pull request, and every push to develop, main or 2.0:
 # lint, full Python suite (split across machines, a guard checking every
-# test ran), MCP tests, frontend, end-to-end smoke test,
-# Playwright click-through tests (Chromium, WebKit), Docker image + container
+# test ran), the AI connector's tests on its oldest Python, frontend,
+# end-to-end smoke test, Playwright click-through tests (Chromium, WebKit), Docker image + container
 # smoke, StartOS package checks and an x86_64 s9pk packed from this commit's
 # image, dependency audit, the macOS app build, and the guard against
 # app code after a branch's last beta (#848). A pull request's run
@@ -12,7 +12,9 @@ name: CI
 # pull request: the pre-push hook's checks, or a run on demand from the
 # Actions tab. A pull request into
 # 2.0 runs the medium set ("CI passed", below); every other pull request
-# (into develop, main or any other branch) runs all of it. Every merge into
+# (into develop, main or any other branch) runs what its change needs
+# (#985, `changes` below): docs alone skip the heavy jobs, and the
+# click-through tests run when the app or the tests change. Every merge into
 # 2.0 starts all of it on the result, and a newer run there cancels the
 # older, so the last run tests every change merged (AGENTS.md, "Branches").
 # staging, where a night's pull requests once merged side by side on the
@@ -45,19 +47,74 @@ env:
   START_CLI_SHA256: 05a9a1c00207fb83c5d36eeb801655d5e02272a5a01c34d3588982c39fbca689
 
 jobs:
+  changes:
+    # Which jobs this change needs (#985, scripts/ci_changes.py): the jobs
+    # it may skip, by id, which "CI passed" then counts as passed. A push or
+    # a run from the Actions tab skips none. A pull request's checkout is
+    # the branch merged into its base: HEAD^1 is the base, whose copy of
+    # the rules decides, so a pull request can't loosen them for itself
+    # (as ship-freeze, below). A move lists both paths (--no-renames), so a
+    # file moved into docs/ is never docs alone
+    name: What this change needs
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.rules.outputs.skip }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - id: rules
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          git show HEAD^1:scripts/ci_changes.py > "$RUNNER_TEMP/rules.py" 2>/dev/null \
+            || cp scripts/ci_changes.py "$RUNNER_TEMP/rules.py"
+          if [ "$EVENT" = pull_request ]; then git diff --no-renames --name-only HEAD^1 HEAD; fi \
+            | python3 "$RUNNER_TEMP/rules.py" --event "$EVENT" --base "$BASE" | tee -a "$GITHUB_OUTPUT"
+
+  docs:
+    # On every change, docs alone too: the lint, and every test that reads
+    # the docs (scripts/ci_changes.py --docs-tests: the wording rules, the
+    # links, AGENTS.md's, the CHANGELOG's)
+    name: Lint and the docs' tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install dependencies
+        run: |
+          pip install --require-hashes -r backend/requirements.txt
+          pip install -r requirements-dev.txt ./mcp_server
+      - name: Lint (bug-level)
+        run: ruff check .
+      - name: The tests that read the docs
+        run: |
+          mkdir -p frontend/dist
+          python scripts/ci_changes.py --docs-tests | xargs pytest -q -n auto
+
   python:
-    # The whole suite on each version, split across machines (#814): each
-    # shard runs whole test files, shared out by how long each took
-    # (backend/tests/shards.py), and python-guard checks that every test ran
+    # The whole suite, split across machines (#814): each shard runs whole
+    # test files, shared out by how long each took (backend/tests/shards.py),
+    # and python-guard checks that every test ran
     name: Python tests (py${{ matrix.python }}, ${{ matrix.shard }}/3)
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'python') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # 3.11 = oldest supported (from source and the AI connector, #546),
-        # 3.13 = Docker, StartOS and the Mac app (#284, #425). Both are in
-        # "CI passed" (below), the one check develop's ruleset requires.
-        python: ["3.11", "3.13"]
+        # The server's Python everywhere it runs: Docker, StartOS, the Mac
+        # app and from source (#985, the owner's choice of 2026-11-23). The
+        # AI connector, which runs on the user's own Python from 3.11, has
+        # its own job below
+        python: ["3.13"]
         shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,8 +132,6 @@ jobs:
         run: |
           pip install --require-hashes -r backend/requirements.txt
           pip install -r requirements-dev.txt ./mcp_server
-      - name: Lint (bug-level)
-        run: ruff check .
       - name: Static compatibility checks
         run: python backend/tests/pre_commit_tests.py --no-api
       # The guard's list: the whole suite collected by a run of its own,
@@ -105,8 +160,8 @@ jobs:
           retention-days: 7
 
   python-guard:
-    # Fails "CI passed" unless, on each version, every test the shards
-    # collected ran in exactly one shard; and hands out the run's per-file
+    # Fails "CI passed" unless every test the shards collected ran in
+    # exactly one shard; and hands out the run's per-file
     # timings, the next backend/tests/test_durations.json (docs/TESTING.md)
     name: Python tests, every one run once
     needs: python
@@ -124,8 +179,34 @@ jobs:
           path: test_durations.json
           retention-days: 30
 
+  connector:
+    # The AI connector on the oldest Python it accepts (mcp_server's
+    # requires-python, 3.11): it runs on the user's own computer with the
+    # Python uvx finds there (#985). Its tests import the server's code, so
+    # the server's locked dependencies are installed too
+    name: AI connector tests (py3.11)
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'connector') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install --require-hashes -r backend/requirements.txt
+          pip install -r requirements-dev.txt ./mcp_server
+      # The server the tests import serves the web page's folder, built or not
+      - run: |
+          mkdir -p frontend/dist
+          pytest -q -n auto mcp_server/tests
+
   frontend:
     name: Frontend lint + tests + build
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'frontend') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -154,7 +235,8 @@ jobs:
 
   smoke:
     name: End-to-end smoke test
-    needs: frontend
+    needs: [changes, frontend]
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'smoke') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -176,10 +258,10 @@ jobs:
     # test starts its own server on a fresh database, so the specs split
     # across machines (--shard) as they are; each machine keeps one worker.
     name: Click-through tests (${{ matrix.browser }} ${{ matrix.shard }})
-    needs: frontend
-    # The full set only (below: "The medium set"): skipped on a pull request
-    # into 2.0 and nowhere else (an allow-list)
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == '2.0') }}
+    needs: [changes, frontend]
+    # When the change is one they can see, and not on a pull request into
+    # 2.0 (the medium set, below): scripts/ci_changes.py
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'e2e') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -238,9 +320,10 @@ jobs:
 
   docker:
     name: Docker image + container smoke
-    # The full set only (below: "The medium set"): skipped on a pull request
-    # into 2.0 and nowhere else (an allow-list)
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == '2.0') }}
+    # Not for docs alone, nor on a pull request into 2.0 (the medium set,
+    # below): scripts/ci_changes.py
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'docker') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -318,6 +401,8 @@ jobs:
 
   startos:
     name: StartOS package checks
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'startos') }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -349,9 +434,10 @@ jobs:
 
   startos-pack:
     name: StartOS package pack (x86_64, image from this commit)
-    # The full set only (below: "The medium set"): skipped on a pull request
-    # into 2.0 and nowhere else (an allow-list)
-    if: ${{ !(github.event_name == 'pull_request' && github.base_ref == '2.0') }}
+    # Not for docs alone, nor on a pull request into 2.0 (the medium set,
+    # below): scripts/ci_changes.py
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'startos-pack') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -396,10 +482,12 @@ jobs:
 
   # pip-audit reads only the lock entries for the machine it runs on, so the
   # locks are audited here on Linux (the Docker image) and in audit-macos
-  # (the Mac app's pyobjc packages). This job's name is a required check on
-  # develop: keep it.
+  # (the Mac app's pyobjc packages). Not for docs alone, whose change
+  # touches no lock (scripts/ci_changes.py).
   audit:
     name: Dependency vulnerability audit
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'audit') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -416,6 +504,8 @@ jobs:
 
   audit-macos:
     name: Dependency vulnerability audit (macOS)
+    needs: changes
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'audit-macos') }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -427,12 +517,14 @@ jobs:
 
   macos-app:
     name: macOS app build + launch check
-    # Every pull request too, those into 2.0 included (about two
-    # minutes, on macOS runners that don't hold up the Linux jobs), so
+    # Every pull request too but one of docs alone (#985), those into 2.0
+    # included (about two minutes, on macOS runners that don't hold up the
+    # Linux jobs), so
     # packaging breaks show up before a merge and a dependency update can
     # wait for it (MAINTENANCE.md, "The Mac app"); not a required check, so
     # a macOS hiccup never blocks one. Free on public repos.
-    needs: [python, frontend]
+    needs: [changes, python, frontend]
+    if: ${{ !contains(fromJSON(needs.changes.outputs.skip), 'macos-app') }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -502,31 +594,29 @@ jobs:
   # required by being listed here, so renaming or splitting one never needs
   # a ruleset changed.
   #
-  # The medium set (the owner's choice, 2026-10-22, for staging and 2.0;
-  # staging retired in #901): a pull request into 2.0, and only there (an
-  # allow-list: a pull request into any other branch, develop included,
-  # gets the full set), runs the Python suite on both versions
-  # (every tax and figures test among them) and its guard, lint, the frontend, the smoke
-  # test, the StartOS checks and the audit, so a night's batch of pull
-  # requests clears side by side within GitHub's runner limits; the macOS
-  # build and its audit run there too, as on every pull request. Only
-  # click-through, Docker and the StartOS pack are skipped there; they run
-  # on every merge into 2.0 (the full set, whose last run tests
-  # every change merged) and on every other pull request. Only those three
-  # can be skipped, and only there; anything else skipped (a job whose need
-  # failed) fails this check.
+  # A job counts as passed when it passed, or was skipped because `changes`
+  # said this change may skip it (scripts/ci_changes.py, #985):
+  # - docs alone: everything but `changes`, the lint and the docs' tests,
+  #   and ship-freeze;
+  # - a change the click-through tests can't see: those;
+  # - a pull request into 2.0 (the medium set, the owner's choice of
+  #   2026-10-22): the click-through tests, Docker and the StartOS pack,
+  #   which run on every merge into 2.0, whose last run tests every change
+  #   merged.
+  # Any other skip (a job whose need failed, or `changes` itself failing)
+  # fails this check.
   ci-passed:
     name: CI passed
     if: always()
-    needs: [python, python-guard, frontend, smoke, e2e, docker, startos, startos-pack, audit, ship-freeze]
+    needs: [changes, docs, python, python-guard, connector, frontend, smoke, e2e, docker, startos, startos-pack, audit,
+            ship-freeze]
     runs-on: ubuntu-latest
     steps:
-      - name: Every required job passed
+      - name: Every required job passed, or was skipped as this change allows
         env:
           RESULTS: ${{ toJSON(needs) }}
-          MEDIUM: ${{ github.event_name == 'pull_request' && github.base_ref == '2.0' }}
+          SKIP: ${{ needs.changes.outputs.skip || '[]' }}
         run: |
-          echo "$RESULTS" | jq -e --argjson medium "$MEDIUM" '
+          echo "$RESULTS" | jq -e --argjson skip "$SKIP" '
             to_entries | all(.value.result == "success"
-              or ($medium and (.key == "e2e" or .key == "docker" or .key == "startos-pack")
-                  and .value.result == "skipped"))'
+              or (.value.result == "skipped" and (.key as $job | $skip | any(.[]; . == $job))))'

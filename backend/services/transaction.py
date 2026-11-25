@@ -690,6 +690,8 @@ def _check_edit(tx: Transaction, tx_data: dict, type_changed: bool, db: Session)
     merged = {k: getattr(tx, k) for k in _VALIDATED_FIELDS}
     merged.update({k: v for k, v in tx_data.items() if k in _VALIDATED_FIELDS})
     _complete_sell_proceeds(merged, tx_data)
+    if _leaves_its_price(tx, merged, db) and "cost_basis_usd" not in tx_data:
+        merged["cost_basis_usd"] = None  # so the check asks for the cost, as a new deposit's does
     # Only a source this edit sets (or a new type) is checked against the list
     check_source = ("source" in tx_data and tx_data["source"] != tx.source) or type_changed
     # Text an edit leaves as stored stays as it is (rows saved before the
@@ -738,7 +740,10 @@ _INCOME_VALUE_INPUTS = ("type", "source", "to_account_id", "amount", "timestamp"
 def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None:
     """
     An income or rebate deposit's value after an edit (#76). A typed one is
-    kept. One that came from a price, or a blank or $0 one (the form sends 0
+    kept, but never a figure taken another way: made one valued at receipt
+    from a source that takes its basis otherwise (a cost, a value when
+    received, a value at the date of death: _valued_otherwise), it's valued
+    again unless the edit states another value above $0 (#998, #999). One that came from a price, or a blank or $0 one (the form sends 0
     for a blank), is valued again at the hour's price (an inheritance: its
     date of death's day price) when the edit changes what it depends on:
     the account, amount or hour (date of death), or a source not
@@ -753,22 +758,76 @@ def _revalue_income_deposit(tx: Transaction, tx_data: dict, db: Session) -> None
         # moved back with a new amount, the value is priced again. A value
         # typed meanwhile, or another type's figure, is the user's.
         is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
-        if not is_deposit or _typed_basis(tx, tx_data):
+        if not is_deposit or _typed_basis(tx, tx_data) or (_leaves_its_price(tx, edited, db) and _another_cost(tx, tx_data)):
             tx_data["cost_basis_from_price"] = False
         if is_deposit and "cost_basis_usd" not in tx_data and not _into_btc(edited, db):
             # A USD deposit has no basis: one left from a BTC account by a
             # partial edit was counted as income on the report
             tx_data["cost_basis_usd"] = None
         return
-    if _typed_basis(tx, tx_data):
+    if _states_its_value(tx, tx_data, edited):
         tx_data["cost_basis_from_price"] = False
         return
-    if tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db):
+    if _valued_otherwise(tx, edited) or (tx.cost_basis_from_price and _income_inputs_changed(tx, tx_data, db)):
         edited["cost_basis_usd"] = None
     if _value_at_receipt(edited, db):
         tx_data["cost_basis_usd"] = edited["cost_basis_usd"]
         tx_data["cost_basis_from_price"] = True
         _note_moment(tx_data, edited["price_moment"])
+
+
+def _leaves_its_price(tx: Transaction, edited: dict, db: Session) -> bool:
+    """Whether the edit makes a bitcoin deposit valued from the price (income,
+    a reward, a rebate, an inheritance) one of a source that isn't valued at
+    receipt (My BTC, Gift, N/A), whose cost is the user's (#955, the owner's decision 1 on
+    #972): the market value at receipt isn't what the user's own coins cost.
+    So the edit needs a cost, as a new deposit of that source does; another
+    than the one shown is the user's (_another_cost). Only the switch
+    itself: a row switched before keeps editing as it did."""
+    if not tx.cost_basis_from_price or normalized(tx.source) not in VALUED_AT_RECEIPT:
+        return False
+    is_deposit = getattr(edited["type"], "value", edited["type"]) == "Deposit"
+    return is_deposit and normalized(edited["source"]) not in VALUED_AT_RECEIPT and _into_btc(edited, db)
+
+
+def _valued_otherwise(tx: Transaction, edited: dict) -> bool:
+    """Whether the stored deposit's basis was taken otherwise than the edited
+    source takes it: a cost (My BTC, Gift, N/A), a value when received
+    (income, interest, a reward, a rebate) or a value at the date of death
+    (an inheritance). Made one valued at receipt from another kind, it's
+    valued again, never the old figure kept: a cost isn't income (#998), nor
+    a value at someone's death the value when received (#999)."""
+    return tx.type == "Deposit" and _valuation(tx.source) != _valuation(edited.get("source"))
+
+
+def _valuation(source: str | None) -> str:
+    """How a deposit of `source` takes its basis: "cost", "received" or "death"."""
+    name = normalized(source)
+    if name == INHERITED_SOURCE:
+        return "death"
+    return "received" if name in VALUED_AT_RECEIPT else "cost"
+
+
+def _states_its_value(tx: Transaction, tx_data: dict, edited: dict) -> bool:
+    """Whether the edit gives the value at receipt itself, so it's typed: a
+    new value (_typed_basis); made one valued another way (_valued_otherwise),
+    only another than the figure stored, which sent back is the old kind's,
+    not this one's (#998, #999)."""
+    if _valued_otherwise(tx, edited):
+        # $0 is blank here as everywhere a value at receipt is filled (never $0 income)
+        return _another_cost(tx, tx_data) and Decimal(tx_data["cost_basis_usd"]) > 0
+    return _typed_basis(tx, tx_data)
+
+
+def _another_cost(tx: Transaction, tx_data: dict) -> bool:
+    """Whether the edit sends a cost other than the one stored, $0 included.
+    The value shown, sent back unchanged with a switch away from income,
+    keeps its mark: made income again, it's priced again (#955), never kept
+    as if it were the user's figure."""
+    if "cost_basis_usd" not in tx_data or tx_data["cost_basis_usd"] is None:
+        return False
+    sent = Decimal(tx_data["cost_basis_usd"]).quantize(Decimal("0.01"))
+    return tx.cost_basis_usd is None or sent != Decimal(tx.cost_basis_usd).quantize(Decimal("0.01"))
 
 
 def _typed_basis(tx: Transaction, tx_data: dict) -> bool:
@@ -1189,11 +1248,14 @@ def _gift_left_blank(row: dict, book: AccountBook) -> bool:
 def _blank_what_the_save_prices(row: dict, tx: Transaction, edit: dict, db: Session, book: AccountBook) -> None:
     """Leave blank each value the save prices again: one from a price whose
     inputs the edit changes, the value sent with it included when it's the
-    one shown sent back (a value sent back unchanged isn't a typed one), and
+    one shown sent back (a value sent back unchanged isn't a typed one), a
+    figure taken another way made one valued at receipt (#998, #999), and
     a gift's the save fills (_gift_priced_by_edit: a blank one, or a sale's
     $0 it becomes a gift with)."""
     if tx.cost_basis_from_price and not _typed_basis(tx, edit) and _income_inputs_changed(tx, edit, db):
         row["cost_basis_usd"] = None
+    elif _valued_otherwise(tx, row) and _valued_at_receipt(row, db) and not _states_its_value(tx, edit, row):
+        row["cost_basis_usd"] = None  # valued again at the new source's moment (#998, #999)
     if tx.proceeds_from_price and not _typed_proceeds(tx, edit) and _proceeds_priced_by_edit(tx, edit):
         row["proceeds_usd"] = row["gross_proceeds_usd"] = None
     if _gift_priced_by_edit(tx, edit, book):  # a sale's $0 made a gift too (_moments_priced reads only a gift's)

@@ -4,7 +4,175 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **The Sell form shows the coins a sale uses** (#960, the owner's go,
+  2026-11-10). Before you save a sale, or when you open a saved one, the
+  Sell form lists, read-only, the coins it takes from the exchange, oldest
+  first: each lot's date acquired, amount and cost, and the proceeds, gain
+  and term (long-term or short-term) it will have on Form 8949. A
+  withdrawal from an exchange (a spend, gift, donation or lost coins)
+  lists its coins too, as one from a wallet already did; a gift's,
+  donation's or lost coins' show their term only. Until now a sale's coins
+  showed only in the tax report's PDF. The AI connector's get_coins_moved
+  answers for a saved sale too, with the same figures. Nothing is computed
+  differently: the list is the save's own.
+
+### Changed
+
+- **Changing a priced deposit to My BTC or Gift asks for what the coins
+  cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
+  valued from the price when it came in (income, interest, a reward, a
+  rebate, an inheritance) kept that market value as its cost basis when
+  edited to My BTC, Gift or N/A, still marked "from the price", though the
+  cost of your own coins, or a gift's, is what was paid for them. Such an
+  edit now asks for the cost, as a new deposit of those sources does: the
+  form clears the Cost Basis field and Save asks you to enter it (0 if
+  it's unknown), and the AI connector's edit is refused until it sends
+  one. A cost you enter is kept as yours. Changed back to income, the
+  deposit is valued again from the price (#998). Nothing saved changes by
+  itself: a deposit changed this way before keeps its value; if it's your
+  own coins or a gift, check that its cost basis is what was paid.
+
+### Python 3.13 for running from source
+
+- **BitcoinTX's server needs Python 3.13** (#985, the owner's choice,
+  2026-11-23). Docker, StartOS and the Mac app already run it on 3.13;
+  running it from source, or building the Mac app yourself, now needs
+  3.13 too, where the README and `docs/MACOS_DESKTOP_APP.md` said 3.11 or
+  newer, and `desktop/build-mac.sh` looks for 3.13. CI tests the server
+  on 3.13 alone. The AI connector still runs on Python 3.11 or newer,
+  whichever `uvx` finds on your computer, and CI tests it on 3.11 too.
+  Python 3.11 is supported until October 2027; raising the connector's
+  minimum then will be a release note of its own. **What to do:** only if
+  you run BitcoinTX from source, install Python 3.13 and make its virtual
+  environment again with it.
+
 ### Fixed
+
+- **A cost typed for My BTC or Gift is no longer kept as the value
+  received when the deposit is changed to income, a rebate or an
+  inheritance** (#998, tax figures). A bitcoin deposit's cost basis typed
+  while its source was My BTC, Gift or N/A (what the coins cost, or the
+  giver's cost) was kept if the deposit was later changed to a source
+  valued when received (income, interest, a reward, a rebate, an
+  inheritance): reported as that income, or taken as the rebate's or
+  inheritance's value, though a cost is neither. Such a change now values
+  the deposit again from the price (an inheritance's at its date of
+  death), as a new one of that source is valued; without a price it's
+  refused, as a new one is, until a value is given. A value above $0 sent
+  with it, other than the cost, is kept as the value you state. The form
+  clears the Cost Basis field on that switch, so it's filled in from the
+  price. Every earlier version has it. **What to do:** if you changed a
+  deposit from My BTC, Gift or N/A to income, interest, a reward, a rebate
+  or an inheritance, check its value: open it and clear Cost Basis to have
+  it valued from the price again.
+
+- **An inheritance's value is no longer kept as income, nor income's as an
+  inheritance's, when a deposit's source is changed** (#999, tax figures).
+  A bitcoin deposit's value typed for an inheritance (its value at the
+  date of death) was kept if the deposit was changed to income, interest,
+  a reward or a rebate, and reported as income when received; and a value
+  typed for income was kept when changed to Inherited, as the value at the
+  death. The two are taken on different dates. Such a change now values
+  the deposit again, at the hour received or at the date of death, unless
+  a value above $0 other than the old one is sent with it, which is kept
+  as the value you state. A change among income, interest, a reward and a
+  rebate keeps a typed value, as before: all are valued when received. The
+  form has cleared Cost Basis on such a switch since 1.2.8 (#154), so only
+  a change made through the AI connector or the API kept the old value;
+  every earlier version has it. **What to do:** if an AI changed a deposit
+  between Inherited and income, interest, a reward or a rebate, open it
+  and clear Cost Basis to have it valued again.
+
+- **A time typed in the transaction form is saved by BitcoinTX's own
+  timezone rules, not the device's** (#964, tax figures). The form turned
+  a typed Date & Time into a moment with the device's copy of the world's
+  timezone rules (the browser's, or macOS's in the Mac app), not
+  BitcoinTX's own (the `tzdata` package, IANA 2026f). On a device whose
+  copy is older, a time typed in a zone whose rules changed since was
+  saved an hour off: from 1 November 2026, British Columbia, Alberta,
+  Manitoba, the Northwest Territories and Cuba (an hour late); from 20
+  September 2026, Morocco (an hour early); Moldova in its clock-change
+  hour; and on older devices the earlier changes of 2.0.2's entry
+  (Paraguay, Kazakhstan). That moved the hour's price used for a value
+  BitcoinTX fills in, and near midnight the date: Form 8949's date, the
+  holding period and, on 31 December, the tax year. The form now sends the
+  time as typed with the device's zone, and BitcoinTX works out the moment
+  by its own rules, as the AI connector has since 2.0.2 (#908). On an
+  up-to-date device nothing changes. On an out-of-date one the right
+  moment is saved, and the form says so: the device shows that time an
+  hour off until its system or browser is updated. A time the form filled
+  in itself (a new transaction's "now", an edited transaction's saved
+  time) and left alone is saved as it was. Every earlier version has it.
+  **What to do:** if you typed transactions on a device that may have been
+  out of date, in one of those places and periods, update the device
+  first, then open each such transaction and compare its time with the
+  receipt you typed it from; where it's an hour off, type the receipt's
+  time again.
+
+- **A comma in a bitcoin amount is refused, where "1,234" was read as 1234
+  BTC** (#953, tax figures). BitcoinTX's own CSV import and River's read a
+  comma in any amount as a thousands separator, so a bitcoin amount
+  written "1,234" became 1234 BTC, and a spreadsheet that writes decimals
+  with a comma, in a cell shown with three decimals, wrote 2.5 BTC as
+  "2,500", read as 2500 BTC, with no error: only the preview's amount
+  showed it. A bitcoin amount takes no comma now: the CSV import refuses
+  one in `amount` when the row's amount is bitcoin and in `fee_amount`
+  when its fee is (a fee_currency left blank counts as the one the row
+  pays in), and River's import in a sent or received amount in BTC and in
+  a send's fee (River records a send's fee in bitcoin), saying to write
+  decimals with a point and no thousands separator. Dollars keep their
+  thousands separator ("1,000.50"), and the note on a comma a number can't
+  take says so. The import of any other exchange's file already refused a
+  separator in bitcoin. Every earlier version has it. **What to do:** if
+  you imported a file from a spreadsheet, look for a bitcoin amount a
+  thousand times too large: the dashboard's holdings would show it at
+  once.
+
+- **Ledger Review's advice for a value left blank or $0 says to type it
+  when BitcoinTX asks no one for prices** (#966). For an income or rebate
+  deposit, a gift, donation or lost coins, or a spend at $0, Ledger Review
+  said to clear the value "to use that hour's price". With the price
+  source Nobody, none chosen yet, one not confirmed, or a server's
+  settings not valid, clearing it fills nothing unless that hour's price
+  is already stored, and the item stayed listed. The advice now says to
+  type the value, and why, as the Edit form already does. No figure
+  changes.
+
+- **A request nested a thousand levels deep is refused with a 422, not a
+  server error** (#954). A JSON body nested about 1,000 to 10,000 levels
+  deep (a few kilobytes), sent to the login or to a route that takes JSON,
+  made the answer's encoding run past Python's recursion limit: a 500
+  instead of the 422 that says what's wrong. Nothing was saved, and
+  nothing leaked: the answer was one fixed sentence. Now it's the 422,
+  without the nested input echoed back. On Python 3.11 (a from-source
+  install's oldest) the JSON reader refuses a body past about 950 levels
+  itself, a 400, and the few levels just under that are the 422 too. Two
+  levels just under the depth where a body is refused outright still
+  answer 500 on a logged-in route, from the data checks themselves: #1000.
+
+- **A file with a quote out of place is refused, with the reason, instead
+  of losing rows** (#952, tax figures). In a cell whose quote (") is never
+  closed, BitcoinTX's own CSV import, River's import and every other
+  exchange's read the rest of the file as that one cell: those rows
+  vanished, and the preview and the import said nothing. A cell with more
+  text after its closing quote was read with the quotes left out. Each
+  import now refuses such a file and says what it found (a quote never
+  closed; text, even a space, after a closing quote). One case can't be
+  detected: a stray quote that a second stray quote further down happens
+  to close makes a valid file, read with the rows between as one cell
+  (#990). So with a hand-edited file, compare the preview's row count with
+  the file's. Only a hand-edited or damaged file has a stray quote;
+  BitcoinTX's own export never writes one, and a cell with a line break or
+  a doubled quote ("") still reads. Every earlier version has it. **What
+  to do:** if you imported a file you had edited by hand, compare the
+  number of transactions the import saved with the file's rows. Add a
+  missing one by hand; for River's or another exchange's file, importing
+  the corrected file again also works, since the rows already saved are
+  found as duplicates and left out. The row just before the missing ones
+  read their text into the cell where the stray quote was (River's tag,
+  which decides its type, or a note): check that transaction too.
 
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding
@@ -110,6 +278,41 @@ All notable changes to BitcoinTX are documented in this file.
 - **start-cli 2.8.0** (from 2.7.0) packs `btctx.s9pk` in CI and the
   release (#965). It reads both community registries on start-registry
   1.6.0. The SHA-256 is the release notes' for `start-cli_x86_64-linux`.
+- **CI runs what a change needs** (#985, the owner's agreement,
+  2026-11-23). Every change ran the same 22 jobs, about 95 minutes of
+  machine time. Now `scripts/ci_changes.py` reads what a pull request
+  changes:
+  - Docs alone run the lint and the tests that read the docs, in a few
+    minutes, and skip the rest.
+  - The click-through tests run when the app, the tests or CI itself
+    change, on both engines.
+  - The Python suite runs once, on 3.13; the AI connector's tests on 3.11
+    as well.
+  - A path the script doesn't name runs every job (into `2.0`, all but
+    the medium set's three), and a push to `develop`, `main` or `2.0`
+    runs everything. The base branch's copy of the script decides, so a
+    pull request can't loosen it for itself.
+
+  "CI passed" is still the one required check: it counts a skipped job as
+  passed only when the script said the change may skip it.
+  `backend/tests/test_ci_changes_985.py` holds the rules and `ci.yml` to
+  each other.
+- **The .dmg check tries again when the image can't be opened yet**
+  (#946). Right after `hdiutil create`, `hdiutil verify` once couldn't
+  open the new disk image ("Resource temporarily unavailable") and failed
+  the Mac build; the re-run passed. `scripts/mac-app.sh` now verifies up
+  to five times, a few seconds apart, then fails as before. A test stands
+  in an `hdiutil` that fails once.
+- **The click-through tests drop every test's routes as it ends** (#961).
+  A route handler still asking the server when its test ended failed the
+  next test (#930); two specs dropped their routes themselves, and a
+  static check (#958) read every spec for one that forgot. The fixtures
+  now do it for every test, the page's and the context's routes, and the
+  static check, with its nine open nits, is gone.
+  `e2e/unroute-at-teardown-961.e2e.ts` fails the old way without it.
+- **The IRS forms watch runs every day in December and January**, when
+  the next year's final forms usually come, and weekly the rest of the
+  year (#972, Fix row 9).
 - **Maintenance runs in lanes, not numbered sessions** (the owner,
   2026-11-09; plan: #869). `docs/MAINTENANCE-LEAD.md` is rewritten: about
   once a month the lead runs a cycle of at most three lanes (Updates,
@@ -135,6 +338,14 @@ All notable changes to BitcoinTX are documented in this file.
   `desktop/BitcoinTX.spec` drops its hidden imports, and
   `docs/MAINTENANCE.md` its risk row. Dependabot's python-dateutil 4.0.0
   pull request (#927) goes with it, unmerged. No figure moves.
+- **Playwright 1.65.1** for the click-through tests (from 1.64.1; #972,
+  Updates row 4), by hand as `docs/MAINTENANCE.md` asks. Its notable
+  changes (text in a closed `<details>` left out of accessible names,
+  actions waiting for an element not to be inert, TypeScript class
+  fields, an empty shard set failing) touch none of our specs. Locally,
+  Chromium's suite passes; WebKit's, on a Mac, too but for two focus
+  checks that fail the same way on 1.64.1 there (`docs/TESTING.md`); CI's
+  Linux suites decide. Development only: nothing that ships changes.
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 

@@ -14,7 +14,9 @@ How the pipeline works: [IRS_FORM_GENERATION.md](IRS_FORM_GENERATION.md).
 
 1. **Alert.** The *IRS forms watch* workflow
    (`.github/workflows/irs-forms-watch.yml`) runs
-   `python scripts/irs_new_year.py --due` every Monday, all year, and opens
+   `python scripts/irs_new_year.py --due` every day in December and
+   January (when the final forms usually come) and every Monday the rest of
+   the year, and opens
    an issue (label `claude`) for each yearly step irs.gov calls for, once
    while it's open:
    - "IRS forms: ship the YYYY draft as the preview" when the IRS publishes

@@ -434,12 +434,13 @@ def test_into_wallet_it_would_be_a_consolidation_which_needs_a_fee(missing_accou
 # The server review's findings
 
 def test_an_income_change_asks(ledger):
-    """A deposit made income with its typed value kept: no stored figure,
-    lot or box moves, but the year's income does."""
+    """A My BTC deposit made income, its cost sent back: a cost isn't income,
+    so it's valued again from the price (#998), and the year's income moves,
+    with the lot's cost: it asks."""
     client, rows = ledger
     r = client.put(f"/api/transactions/{rows['deposit 2024']}", json={"source": "Income", "cost_basis_usd": "1000"})
     assert r.status_code == 409, r.text
-    assert [i["change"] for i in r.json()["changes"]] == ["Income and rebates: none -> Income 1000.00."]
+    assert "income and rebates: none -> Income 50000.00." in r.json()["changes"][0]["change"]
 
 
 def test_income_made_a_rebate_asks(ledger):

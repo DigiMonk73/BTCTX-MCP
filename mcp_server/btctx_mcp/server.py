@@ -665,7 +665,10 @@ async def update_transaction(
     An Income/Interest/Reward/Rebate deposit's value that came from the price is priced again
     (at the hour) when you change its amount, the time's hour or the account, or move it there
     from another source (a switch among those four keeps it; sending back the value it already
-    has doesn't make it typed); a Spent's proceeds that came from the price, when you change
+    has doesn't make it typed); a MyBTC, Gift or N/A deposit's cost made one of those sources
+    (or Inherited), or an Inherited deposit's value made one of them and back, is valued from
+    the price at the new source's moment, never the old figure kept: send cost_basis_usd only
+    with the value the user states, and above 0; a Spent's proceeds that came from the price, when you change
     its amount or the time's hour, or send proceeds_usd 0 (a change of purpose makes them typed);
     a Gift/Donation/Lost withdrawal's, when you change its amount or the time's hour, and a blank
     one (or a Spent's $0 made a gift without fmv_usd) is filled from the price by any change.
@@ -785,9 +788,12 @@ async def _complete_for_server_rules(transaction_id: int, changes: dict[str, Any
 @mcp.tool(annotations=READ_ONLY)
 @with_version_notice
 async def get_coins_moved(transaction_id: int) -> ToolResult:
-    """The coins a saved Transfer, or BTC Withdrawal from one of the user's wallets, takes, as
-    BitcoinTX works them out: each piece's date acquired, BTC, cost and whether it was
-    inherited, in the order taken, and the BTC its network fee disposes of. Without a choice,
+    """The coins a saved Transfer, Sell or BTC Withdrawal takes, as BitcoinTX works them out:
+    each piece's date acquired, BTC, cost and whether it was inherited, in the order taken,
+    and the BTC its network fee disposes of. A sale's or a spend's pieces also give
+    proceeds_usd, gain_usd and term (LONG or SHORT), as Form 8949 prints them; a gift's,
+    donation's or lost coins' give the term only. A BTC network fee is a disposal of its own,
+    on Form 8949 apart (taxable even for a gift), never among the pieces. Without a choice,
     the From account's oldest coins first; with one (chosen_coins), the coins chosen. Leaving
     a wallet (not a move within it), held: the coins it held then (each purchase or deposit, acquired_in: the
     account it was bought or deposited into, not where its coins are now; its date acquired, BTC, cost, term,

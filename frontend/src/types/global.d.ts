@@ -250,6 +250,9 @@ declare global {
     type: TransactionType;
     amount: number;
     timestamp: string;    // ISO8601
+    // The time as typed and the device's zone: the server reads its moment
+    // by its own timezone rules, in place of timestamp's (#964)
+    typed_time?: { local: string; zone: string };
     fee_amount: number;
     fee_currency: Currency;
     cost_basis_usd: number | null; // null = not given (server fills an income basis)
@@ -294,6 +297,10 @@ declare global {
   interface TransactionFormData {
     type: TransactionType;
     timestamp: string;
+    // The moment the form put in Date & Time itself (a saved row's, a new
+    // form's "now"), with the text it showed: sent as it was while that text
+    // stands, never read again (#964)
+    timestampShown?: { iso: string; local: string };
 
     // Both of the row's accounts, by id, for every type (2.0 spec 5.13): a
     // Deposit's is its To, a Withdrawal's and a Sell's its From; a Sell's To
