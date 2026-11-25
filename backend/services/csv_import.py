@@ -215,13 +215,13 @@ def _why_unpriced(day) -> tuple[str, str] | None:
 
 # A CR alone in a file whose lines end in LF (#988): the csv module's words
 # ask a programmer's question
-STRAY_CR = ("The file can't be read as CSV: line {line} has a carriage return (CR) alone, though the file's lines"
-            " end in a line feed (LF). If it is inside a cell, remove it; if it ends a row, save the file again"
-            " with one kind of line ending (Windows or Unix).")
+STRAY_CR = ("The file can't be read as CSV: {place} has a carriage return (CR) alone, and the file has line feeds"
+            " (LF) too. If it is inside a cell, remove it; if it ends a row, save the file again with one kind of"
+            " line ending (Windows or Unix).")
 
 
 class UnreadableLine(csv.Error):
-    """A csv.Error with the file's line it was raised on, as an editor numbers lines."""
+    """A csv.Error with the file's line it was raised on, its lines counted by LF."""
 
     def __init__(self, exc: csv.Error, line: int):
         super().__init__(str(exc))
@@ -235,7 +235,8 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     after it into one cell, or dropped the quotes (#952)."""
     reason = str(exc)
     if reason.startswith("new-line character seen in unquoted field"):
-        return _file_error(STRAY_CR.format(line=getattr(exc, "line", None) or "?"))
+        line = getattr(exc, "line", None)
+        return _file_error(STRAY_CR.format(place=f"line {line}" if line else "a line"))
     if reason == "unexpected end of data":
         return _file_error("The file can't be read as CSV: a cell opens a quote (\") that is never closed.")
     if reason.endswith("expected after '\"'"):

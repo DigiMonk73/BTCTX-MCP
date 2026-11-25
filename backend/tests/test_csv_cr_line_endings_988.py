@@ -10,12 +10,13 @@ split that row in two, and the first half could lose its later columns
 (its date acquired among them).
 """
 
+import csv
 import io
 from pathlib import Path
 
 import pytest
 
-from backend.services.csv_import import CELL_OVER_LINES, CSV_COLUMNS, STRAY_CR, parse_csv_file
+from backend.services.csv_import import CELL_OVER_LINES, CSV_COLUMNS, STRAY_CR, parse_csv_file, unreadable_csv
 from backend.services.exchange_cells import records
 from backend.services.river_import import parse_river_csv
 
@@ -91,7 +92,7 @@ def _stray_cr(content: bytes, line: int) -> bytes:
 
 @pytest.mark.parametrize("line", [1, 3])
 def test_a_cr_alone_in_a_file_of_lf_lines_is_refused_naming_its_line(line):
-    expected = STRAY_CR.format(line=line)
+    expected = STRAY_CR.format(place=f"line {line}")
     assert _messages(parse_csv_file(_stray_cr(_ours(), line)).errors) == [expected]
     rows, errors = parse_river_csv(_stray_cr(RIVER, line))
     assert rows == [] and _messages(errors) == [expected]
@@ -103,20 +104,34 @@ def test_a_line_ended_by_cr_alone_among_crlf_lines_is_refused_naming_it():
     content = _ours().replace(b"\n", b"\r\n")
     lines = content.split(b"\r\n")
     content = b"\r\n".join(lines[:2]) + b"\r" + b"\r\n".join(lines[2:])
-    assert _messages(parse_csv_file(content).errors) == [STRAY_CR.format(line=2)]
+    assert _messages(parse_csv_file(content).errors) == [STRAY_CR.format(place="line 2")]
 
 
 def test_the_message_is_in_plain_words():
-    assert CSV_MODULES_WORDS not in STRAY_CR and "CR" in STRAY_CR and "{line}" in STRAY_CR
+    assert CSV_MODULES_WORDS not in STRAY_CR and "CR" in STRAY_CR and "{place}" in STRAY_CR
+
+
+def test_a_cr_file_with_a_line_feed_in_a_quoted_cell_is_refused_in_true_words():
+    """No LF ends its lines, but one is in a cell: left as it is, its first
+    CR is refused, the message true of it too (the review of #988)."""
+    found = parse_csv_file(b'date,type\r"x\ny",Deposit\r1,2\r').errors
+    assert _messages(found) == [STRAY_CR.format(place="line 1")]
+
+
+def test_the_message_without_a_line_says_a_line():
+    error = unreadable_csv(csv.Error("new-line character seen in unquoted field - do you need to open the file"
+                                     " with newline=''?"))
+    assert error.message == STRAY_CR.format(place="a line")
 
 
 def test_each_preview_reads_a_cr_file(auth_client):
     ours = auth_client.post("/api/import/preview", files={"file": ("ours.csv", cr_only(_ours()), "text/csv")})
     assert ours.status_code == 200 and ours.json()["errors"] == [], ours.text
     assert len(ours.json()["transactions"]) == 3
-    for url, form in (("/api/import/river/preview", {}), ("/api/import/exchange/preview", {"mapping_id": "strike"})):
+    for url, form in (("/api/import/river/preview", {}), ("/api/import/exchange/preview", {"mapping_id": "strike"}),
+                      ("/api/import/exchange/columns", {})):
         content = RIVER if "river" in url else STRIKE
         lf = auth_client.post(url, files={"file": ("f.csv", io.BytesIO(content), "text/csv")}, data=form).json()
         cr = auth_client.post(url, files={"file": ("f.csv", io.BytesIO(cr_only(content)), "text/csv")},
                               data=form).json()
-        assert cr == lf and not any(CSV_MODULES_WORDS in e["message"] for e in cr["errors"]), (url, cr)
+        assert cr == lf and not any(CSV_MODULES_WORDS in e["message"] for e in cr.get("errors", [])), (url, cr)
