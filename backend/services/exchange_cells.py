@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas.csv_import import CSVParseError
 from backend.services.calculation import CENT, SAT, btc_text
-from backend.services.csv_import import cell_over_lines, strict_rows, unreadable_csv
+from backend.services.csv_import import cell_over_lines, decoded, strict_rows, unreadable_csv
 from backend.services.river_import import FileRow
 
 # The header is looked for among a file's first rows: an exchange may write
@@ -45,13 +45,9 @@ def records(content: bytes) -> Records | CSVParseError:
     """The file's rows, each with its number as a spreadsheet shows it (the
     first row is 1), blank rows left out; or what stops it being read.
     UTF-8, with or without a byte-order mark, else Latin-1, as the CSV
-    import reads a file."""
+    import reads a file (decoded)."""
     try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = content.decode("latin-1")
-    try:
-        numbered = list(enumerate(strict_rows(text), start=1))  # a stray quote refuses the file (#952)
+        numbered = list(enumerate(strict_rows(decoded(content)), start=1))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
     # The header, among the first rows, isn't known yet: a column is named by its letter

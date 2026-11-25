@@ -213,12 +213,30 @@ def _why_unpriced(day) -> tuple[str, str] | None:
     return None
 
 
+# A CR alone in a file whose lines end in LF (#988): the csv module's words
+# ask a programmer's question
+STRAY_CR = ("The file can't be read as CSV: {place} has a carriage return (CR) alone, and the file has line feeds"
+            " (LF) too. If it is inside a cell, remove it; if it ends a row, save the file again with one kind of"
+            " line ending (Windows or Unix).")
+
+
+class UnreadableLine(csv.Error):
+    """A csv.Error with the file's line it was raised on, its lines counted by LF."""
+
+    def __init__(self, exc: csv.Error, line: int):
+        super().__init__(str(exc))
+        self.line = line
+
+
 def unreadable_csv(exc: csv.Error) -> CSVParseError:
     """The csv module couldn't read the file (a field over its 131,072
     characters, say): a file error, not a server error (#211). A quote out
     of place is said in plain words: read leniently, it swallowed the rows
     after it into one cell, or dropped the quotes (#952)."""
     reason = str(exc)
+    if reason.startswith("new-line character seen in unquoted field"):
+        line = getattr(exc, "line", None)
+        return _file_error(STRAY_CR.format(place=f"line {line}" if line else "a line"))
     if reason == "unexpected end of data":
         return _file_error("The file can't be read as CSV: a cell opens a quote (\") that is never closed.")
     if reason.endswith("expected after '\"'"):
@@ -238,8 +256,15 @@ CELL_OVER_LINES = ("The file can't be read as CSV: row {row}'s cell in column {c
 
 def strict_rows(text: str) -> list[list[str]]:
     """A file's records, read strictly: a quote out of place raises
-    csv.Error instead of swallowing rows (#952)."""
-    return list(csv.reader(io.StringIO(text), strict=True))
+    csv.Error instead of swallowing rows (#952), with the line it was on.
+    A line ends at LF alone (CRLF too): a CR alone ending a row would
+    split a row in two at a stray CR, the first half losing its later
+    columns; a file of CR lines is read by decoded()."""
+    reader = csv.reader(io.StringIO(text), strict=True)
+    try:
+        return list(reader)
+    except csv.Error as exc:
+        raise UnreadableLine(exc, reader.line_num) from exc
 
 
 def cell_over_lines(numbered: list[tuple[int, list[str]]], header: list[str] | None = None) -> CSVParseError | None:
@@ -280,7 +305,7 @@ def _column(place: int, header: list[str] | None) -> str:
 
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
-    text = _decode(content)
+    text = decoded(content)
     over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
     if over_lines:
         result.errors.append(over_lines)
@@ -333,14 +358,18 @@ def _read_choice(tx_data: dict[str, Any], row: dict[str, str], row_number: int, 
     return True
 
 
-def _decode(content: bytes) -> str:
-    """UTF-8, with or without a byte-order mark (Excel's "CSV UTF-8" adds
-    one; plain utf-8 would keep it in the first header), else Latin-1, which
-    reads any bytes."""
+def decoded(content: bytes) -> str:
+    """A file's text, as every import reads it: UTF-8, with or without a
+    byte-order mark (Excel's "CSV UTF-8" adds one; plain utf-8 would keep it
+    in the first header), else Latin-1, which reads any bytes. A file whose
+    lines end in CR alone (an old Mac's "CSV (Macintosh)", #988) gets LF
+    line ends, as the csv module reads them; one with any LF is left as it
+    is, a CR alone in it refused by strict_rows."""
     try:
-        return content.decode("utf-8-sig")
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
-        return content.decode("latin-1")
+        text = content.decode("latin-1")
+    return text if "\n" in text else text.replace("\r", "\n")
 
 
 def _header_error(fieldnames) -> CSVParseError | None:
