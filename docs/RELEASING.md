@@ -44,7 +44,10 @@ the rules.
    and ours in `startos/AGENTS.md`: each `tax-figures` fix, what was
    wrong, which tax years, what to do. Once it has merged, wait for CI on
    `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
-   commit's CI artifacts; a blocker FAIL stops the release. Meanwhile a
+   commit's CI artifacts; a blocker FAIL stops the release. First the
+   start-cli that packs and installs it is the one CI pins, and the VM runs
+   the newest StartOS the release supports (its update asks for the StartOS
+   password: the owner's; `docs/STARTOS-PACKAGE.md`, "Watching Start9"). Meanwhile a
    fresh Claude, one that didn't write the release, reads every doc
    against what it ships (owner's rule, 2026-10-10): the READMEs,
    `startos/instructions.md`, the store descriptions

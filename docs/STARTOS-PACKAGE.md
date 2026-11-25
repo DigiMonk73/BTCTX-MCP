@@ -183,6 +183,13 @@ their fork not taken back. In BTCTX-MCP, `scripts/start9-watch.sh --dry-run` sho
 same without opening anything. Each issue says what to do; the Monday report
 lists the open ones.
 
+The watch reads only what `develop` pins, never the machines we pack and
+test with. So before a release's test sitting, the start-cli that packs and
+installs the package is the version CI pins (`START_CLI_VERSION`), checked
+against the SHA-256 in Start9's release notes, and the test VM is updated to
+the newest StartOS the release supports. That update asks for the VM's
+StartOS password, so it is the owner's step.
+
 ## Bumping the SDK
 
 **When:** BitcoinTX follows Start9's newest start-sdk once the StartOS
