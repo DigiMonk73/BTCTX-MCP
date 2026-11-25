@@ -115,7 +115,7 @@ check_start_cli() {
   read -r -d '' body <<EOF || true
 Start9 released start-cli $latest_cli; \`develop\`'s CI and release pack \`btctx.s9pk\` with $pinned (\`START_CLI_VERSION\` in \`.github/workflows/ci.yml\` and \`release.yml\`). Start9's own builds pack with the newest.
 
-Read its release notes ($NOTES/start-cli/v$latest_cli), check that a package it packs installs on the oldest StartOS the package supports (the lab VM), then bump \`START_CLI_VERSION\` and \`START_CLI_SHA256\` (\`start-cli_x86_64-linux\`) in both (docs/STARTOS-PACKAGE.md, "Bumping the SDK", step 3). Tell Silas if the lab's own start-cli needs it (a Mac mini setup change).
+Read its release notes ($NOTES/start-cli/v$latest_cli), check that a package it packs installs on the lab VM's StartOS, then bump \`START_CLI_VERSION\` and \`START_CLI_SHA256\` (\`start-cli_x86_64-linux\`) in both (docs/STARTOS-PACKAGE.md, "Bumping the SDK", step 3). Tell Silas if the lab's own start-cli needs it (a Mac mini setup change).
 EOF
   open_once "start-cli $latest_cli is available" "$body"
 }

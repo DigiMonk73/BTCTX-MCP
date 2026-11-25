@@ -370,9 +370,12 @@ def test_set_login_credentials_says_what_a_reset_leaves_valid():
     cli = (ROOT / "backend" / "cli.py").read_text()
     reset = cli.split("def cmd_set_password", 1)[1].split("\ndef ", 1)[0]
     assert "end_all_sessions(db)" in reset
-    assert "ai_key" not in reset.lower()
+    for name in ("ai_key", "mcp_key", "HASH_KEY"):  # the key's setting (services/ai_key.py)
+        assert name not in reset, name
     action = " ".join(read("startos/actions/setCredentials.ts").split())
-    warning = re.search(r"\? i18n\( '([^']+)', \)", action).group(1)
+    found = re.search(r"\? i18n\( (['\"])(.+?)\1, \)", action)
+    assert found, "setCredentials.ts: no warning where this test looks"
+    warning = found.group(2)
     assert "signs out every browser" in warning
     assert "An AI key you created keeps working" in warning
     assert "Settings > Connect an AI Assistant" in warning
