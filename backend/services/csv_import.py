@@ -227,9 +227,65 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
+# A line break in a cell, as the csv module keeps one: \r, \n or \r\n alike
+LINE_BREAK = re.compile(r"[\r\n]")
+# A header's name longer than this isn't quoted in an error: its letter is enough
+COLUMN_NAME_QUOTED = 40
+CELL_OVER_LINES = ("The file can't be read as CSV: row {row}'s cell in column {column} runs over more than one"
+                   " line. Put that cell on one line. If it starts with a stray quote (\"), that quote joined the"
+                   " rows after it into the cell: remove it.")
+
+
+def strict_rows(text: str) -> list[list[str]]:
+    """A file's records, read strictly: a quote out of place raises
+    csv.Error instead of swallowing rows (#952)."""
+    return list(csv.reader(io.StringIO(text), strict=True))
+
+
+def cell_over_lines(numbered: list[tuple[int, list[str]]], header: list[str] | None = None) -> CSVParseError | None:
+    """The refusal of a file with a cell over more than one line, naming the
+    first (#990), as every import reads a file: BitcoinTX's own, River's and
+    each exchange's. Two stray quotes that close each other make a valid
+    file whose rows between them read as one cell, the row holding them
+    able to take a later row's columns; no cell of a correct row needs a line
+    break, and BitcoinTX's export writes none. `numbered`: the records, numbered
+    as the import's other errors number them; `header`: the row naming
+    the columns, when it is the first."""
+    for number, cells in numbered:
+        for place, cell in enumerate(cells):
+            if LINE_BREAK.search(cell):
+                return _file_error(CELL_OVER_LINES.format(row=number, column=_column(place, header)))
+    return None
+
+
+def header_file_over_lines(text: str) -> CSVParseError | None:
+    """cell_over_lines for a file whose first row is its header (BitcoinTX's
+    and River's), its rows numbered as csv.DictReader reads them: the
+    header 1, blank lines skipped."""
+    records = [cells for cells in strict_rows(text) if cells]
+    return cell_over_lines(list(enumerate(records, start=1)), records[0] if records else None)
+
+
+def _column(place: int, header: list[str] | None) -> str:
+    """A column as a spreadsheet shows it (A, …, Z, AA…), with its header's
+    name when the header has a short one on one line."""
+    letters, n = "", place + 1
+    while n:
+        n, rest = divmod(n - 1, 26)
+        letters = chr(ord("A") + rest) + letters
+    name = header[place].strip() if header and place < len(header) else ""
+    named = name and len(name) <= COLUMN_NAME_QUOTED and not LINE_BREAK.search(name)
+    return f"{letters} ({name})" if named else letters
+
+
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
-    reader = csv.DictReader(io.StringIO(_decode(content)), strict=True)  # a stray quote refuses the file (#952)
+    text = _decode(content)
+    over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
+    if over_lines:
+        result.errors.append(over_lines)
+        return result
+    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
     header_error = _header_error(reader.fieldnames)
     if header_error:
         result.errors.append(header_error)

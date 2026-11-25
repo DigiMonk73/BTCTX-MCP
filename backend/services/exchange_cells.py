@@ -8,7 +8,6 @@ numbers and moments exchanges write ("-$1,234.56", "(1.50)", "0.01 BTC",
 from __future__ import annotations
 
 import csv
-import io
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -18,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas.csv_import import CSVParseError
 from backend.services.calculation import CENT, SAT, btc_text
-from backend.services.csv_import import unreadable_csv
+from backend.services.csv_import import cell_over_lines, strict_rows, unreadable_csv
 from backend.services.river_import import FileRow
 
 # The header is looked for among a file's first rows: an exchange may write
@@ -52,10 +51,14 @@ def records(content: bytes) -> Records | CSVParseError:
     except UnicodeDecodeError:
         text = content.decode("latin-1")
     try:
-        rows = list(csv.reader(io.StringIO(text), strict=True))  # a stray quote refuses the file (#952)
+        numbered = list(enumerate(strict_rows(text), start=1))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
-    return [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]
+    # The header, among the first rows, isn't known yet: a column is named by its letter
+    over_lines = cell_over_lines(numbered)
+    if over_lines:
+        return over_lines
+    return [(number, cells) for number, cells in numbered if any(c.strip() for c in cells)]
 
 
 class Header:

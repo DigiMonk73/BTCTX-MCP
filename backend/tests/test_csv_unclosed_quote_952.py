@@ -4,10 +4,10 @@ that cell, and the import said nothing: the CSV module's lenient reading
 ends the cell at the end of the file. A file like that is refused, with
 the reason, by every reader of a CSV file: BitcoinTX's own import, River's
 and any exchange's. So is a closing quote followed by more text, which was
-read with the quotes dropped. A cell holding a line break or a doubled
-quote, as BitcoinTX's own export writes them, still reads. (Two stray
-quotes that close each other make a valid file, which no reader can tell
-from a correct one: #990.)
+read with the quotes dropped. A cell holding commas or a doubled quote,
+as BitcoinTX's own export writes them, still reads. (Two stray quotes that
+close each other make a valid file, with a cell over more than one line,
+refused as no cell needs one: test_csv_paired_quotes_990.)
 """
 
 from backend.services.csv_import import parse_csv_file
@@ -49,22 +49,20 @@ def test_a_space_after_a_closing_quote_refuses_the_file():
     assert _messages(parse_csv_file(text.encode()).errors) == [TEXT_AFTER]
 
 
-def test_an_exchanges_note_with_a_line_break_and_commas_still_reads():
-    """An exchange's file has few columns: a correct note across two lines
-    with a comma is never taken for rows held in a cell."""
-    found = records(b'Date,Note\n2026-01-05,"Bought\nfrom Bob, Alice"\n2026-01-06,x\n')
+def test_an_exchanges_note_with_commas_still_reads():
+    found = records(b'Date,Note\n2026-01-05,"Bought from Bob, Alice"\n2026-01-06,x\n')
     assert isinstance(found, list), found
-    assert [cells for _, cells in found][1:] == [["2026-01-05", "Bought\nfrom Bob, Alice"], ["2026-01-06", "x"]]
+    assert [cells for _, cells in found][1:] == [["2026-01-05", "Bought from Bob, Alice"], ["2026-01-06", "x"]]
 
 
-def test_a_note_with_a_line_break_and_a_comma_still_reads():
-    text = f"{HEADER}\n2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"rent, March\nand April, paid\"\n"
+def test_a_note_with_commas_still_reads():
+    text = f"{HEADER}\n2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"rent, March and April, paid\"\n"
     result = parse_csv_file(text.encode())
     assert result.errors == [], _messages(result.errors)
 
 
-def test_a_cell_with_a_line_break_or_a_doubled_quote_still_reads():
-    text = (f"{HEADER}\n2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"a \"\"rent\"\"\nnote\"\n"
+def test_a_cell_with_a_doubled_quote_still_reads():
+    text = (f"{HEADER}\n2024-01-05,Deposit,1000,External,Bank,,,,,N/A,,\"a \"\"rent\"\" note\"\n"
             "2024-01-06,Deposit,500,External,Bank,,,,,N/A,,plain\n")
     result = parse_csv_file(text.encode())
     assert result.errors == [], _messages(result.errors)

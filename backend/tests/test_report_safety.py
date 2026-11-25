@@ -30,7 +30,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate
 from sqlalchemy import text
 
 from backend.main import app
-from backend.services.csv_import import parse_csv_file
+from backend.services.csv_import import CELL_OVER_LINES, parse_csv_file
 from backend.services.reports.complete_tax_report import generate_comprehensive_tax_report
 from backend.services.reports.safe_text import csv_text
 from backend.tests.conftest import default_login
@@ -359,16 +359,27 @@ def test_an_edit_by_the_ai_key_is_checked_too(ai_key_headers):
     assert (kept["purpose"], kept["fee_currency"]) == ("rent", "USD")
 
 
+CSV_HEADER = "date,type,amount,from_account,to_account,fee_amount,fee_currency,source,purpose\n"
+
+
 def test_the_csv_import_refuses_text_on_two_lines():
-    header = "date,type,amount,from_account,to_account,fee_amount,fee_currency,source,purpose\n"
+    """A file with any cell over lines is refused, naming the first (#990)."""
     rows = ('2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,USD,,"rent\n=1+1"\n'
-            '2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,USD,"x\n=1+1",\n'
-            '2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,"USD\n=2+2",,\n')
-    errors = [(e.row_number, e.column, e.message) for e in parse_csv_file((header + rows).encode()).errors]
+            '2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,USD,"x\n=1+1",\n')
+    errors = [(e.row_number, e.column, e.message) for e in parse_csv_file((CSV_HEADER + rows).encode()).errors]
+    assert errors == [(0, None, CELL_OVER_LINES.format(row=2, column="I (purpose)"))]
+
+
+@pytest.mark.parametrize("control", ["\t", "\x85", "\u2028"], ids=["tab", "NEL", "line separator"])
+def test_the_csv_import_refuses_other_control_characters_cell_by_cell(control):
+    rows = (f'2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,USD,,"rent{control}=1+1"\n'
+            f'2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,USD,"x{control}=1+1",\n'
+            f'2024-03-02T12:00:00Z,Withdrawal,40,Bank,External,0,"USD{control}=2+2",,\n')
+    errors = [(e.row_number, e.column, e.message) for e in parse_csv_file((CSV_HEADER + rows).encode()).errors]
     assert errors == [
         (2, "purpose", f"purpose {ONE_LINE}"),
         (3, "source", f"source {ONE_LINE}"),
-        (4, "fee_currency", "Invalid fee currency 'USD\n=2+2'. Must be USD or BTC."),
+        (4, "fee_currency", f"Invalid fee currency 'USD{control}=2+2'. Must be USD or BTC."),
     ]
 
 
