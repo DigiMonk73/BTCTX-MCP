@@ -47,8 +47,8 @@ from backend.services.csv_import import (
     BTC_COMMA,
     _parse_decimal,
     decimal_comma_note,
+    header_file_over_lines,
     number_limits,
-    rows_joined_in_a_cell,
     unreadable_csv,
 )
 from backend.services.tax_time import get_tax_timezone, local_date
@@ -262,11 +262,9 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
             ))
             return rows, errors
 
-    # Rows two stray quotes joined into one cell read as valid CSV (#990),
-    # numbered as the rows below, which skip blank lines
-    joined = rows_joined_in_a_cell([cells for cells in csv.reader(io.StringIO(text), strict=True) if cells])
-    if joined:
-        errors.append(joined)
+    over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
+    if over_lines:
+        errors.append(over_lines)
         return rows, errors
 
     reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)

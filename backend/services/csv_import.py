@@ -227,68 +227,63 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
-# A line a cell holds after a line break, as the csv module reads one
-LINE_BREAK = re.compile(r"\r\n|\r|\n")
-# A cell shaped as one of its column's tells a row's start only this long,
-# with a digit (a date, a time, an id): not a note's "3" or "0.1"
-ROW_START_LENGTH = 8
-JOINED_ROWS = ("The file can't be read as CSV: row {row} has a cell holding, after a line break, what starts like"
-               " another row (“{start}”). Two stray quotes (\") may have joined rows into that cell: remove them,"
-               " or write each twice (\"\"). If that cell is a note across lines, start that line with a word"
-               " instead.")
+# A line break in a cell, as the csv module keeps one: \r, \n or \r\n alike
+LINE_BREAK = re.compile(r"[\r\n]")
+# A header's name longer than this isn't quoted in an error: its letter is enough
+COLUMN_NAME_QUOTED = 40
+CELL_OVER_LINES = ("The file can't be read as CSV: row {row}'s cell in column {column} runs over more than one"
+                   " line. Put that cell on one line. If it starts with a stray quote (\"), that quote joined the"
+                   " rows after it into the cell: remove it.")
 
 
-def rows_joined_in_a_cell(rows: list[list[str]]) -> CSVParseError | None:
-    """Two stray quotes that close each other make a valid file whose rows
-    between them the csv module reads as one cell: they vanish, and the row
-    holding them takes a later row's columns (#990). Such a cell holds,
-    after a line break, the start of a row: one of its cells shaped as its
-    column's are in the file's rows (2024-01-07T12:00:00Z as
-    9999-99-99a99:99:99a), with as many cells before its last as come
-    before the cell in its own row; or, if the row holding it is wider than
-    any row without a line break (the header among them: the second quote
-    in an earlier column than the first), with any cells at all. A correct
-    note across lines seldom starts a line with a date or an id shaped as
-    the file's; in a wide file, with a row's worth of cells after it, only
-    in a row wider than the header. What this can't see: a joined line
-    with no cell so shaped (a lone row's, an id that's random), as the
-    CHANGELOG's #952 entry says. `rows` are the file's records, numbered as
-    the caller's errors are."""
-    shapes = {(place, _shape(cell)) for cells in rows for place, cell in enumerate(cells) if _telling(cell)}
-    width = max((len(cells) for cells in rows if not any(LINE_BREAK.search(c) for c in cells)), default=0)
-    for number, cells in enumerate(rows, start=1):
+def strict_rows(text: str) -> list[list[str]]:
+    """A file's records, read strictly: a quote out of place raises
+    csv.Error instead of swallowing rows (#952)."""
+    return list(csv.reader(io.StringIO(text), strict=True))
+
+
+def cell_over_lines(numbered: list[tuple[int, list[str]]], header: list[str] | None = None) -> CSVParseError | None:
+    """The refusal of a file with a cell over more than one line, naming the
+    first (#990), as every import reads a file: BitcoinTX's own, River's and
+    each exchange's. Two stray quotes that close each other make a valid
+    file whose rows between them read as one cell, the row holding them
+    taking a later row's columns; no cell of a correct row needs a line
+    break, and BitcoinTX's export writes none. `numbered`: the records, numbered
+    as the import's other errors number them; `header`: the row naming
+    the columns, when it is the first."""
+    for number, cells in numbered:
         for place, cell in enumerate(cells):
-            for line in LINE_BREAK.split(cell)[1:]:
-                # Each is a whole cell: strict reading ends the stray quote's
-                # cell at the quote, so the last is a row's cell too
-                pieces = line.split(",")
-                if len(pieces) - 1 < place and len(cells) <= width:
-                    continue
-                start = next((p for at, p in enumerate(pieces) if _telling(p) and (at, _shape(p)) in shapes), None)
-                if start is not None:
-                    return _file_error(JOINED_ROWS.format(row=number, start=start))
+            if LINE_BREAK.search(cell):
+                return _file_error(CELL_OVER_LINES.format(row=number, column=_column(place, header)))
     return None
 
 
-def _telling(cell: str) -> bool:
-    """Whether a cell's shape can tell a row's start: long enough, with a
-    digit, on one line."""
-    return len(cell) >= ROW_START_LENGTH and any(c.isdigit() for c in cell) and LINE_BREAK.search(cell) is None
+def header_file_over_lines(text: str) -> CSVParseError | None:
+    """cell_over_lines for a file whose first row is its header (BitcoinTX's
+    and River's), its rows numbered as csv.DictReader reads them: the
+    header 1, blank lines skipped."""
+    records = [cells for cells in strict_rows(text) if cells]
+    return cell_over_lines(list(enumerate(records, start=1)), records[0] if records else None)
 
 
-def _shape(cell: str) -> str:
-    """A cell's digits as 9, its letters as a, the rest as it is."""
-    return "".join("9" if c.isdigit() else "a" if c.isalpha() else c for c in cell)
+def _column(place: int, header: list[str] | None) -> str:
+    """A column as a spreadsheet shows it (A, …, Z, AA…), with its header's
+    name when the header has a short one on one line."""
+    letters, n = "", place + 1
+    while n:
+        n, rest = divmod(n - 1, 26)
+        letters = chr(ord("A") + rest) + letters
+    name = header[place].strip() if header and place < len(header) else ""
+    named = name and len(name) <= COLUMN_NAME_QUOTED and not LINE_BREAK.search(name)
+    return f"{letters} ({name})" if named else letters
 
 
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
     text = _decode(content)
-    # Rows two stray quotes joined into one cell read as valid CSV: looked for
-    # first (#990), numbered as the rows below, which skip blank lines
-    joined = rows_joined_in_a_cell([cells for cells in csv.reader(io.StringIO(text), strict=True) if cells])
-    if joined:
-        result.errors.append(joined)
+    over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
+    if over_lines:
+        result.errors.append(over_lines)
         return result
     reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
     header_error = _header_error(reader.fieldnames)

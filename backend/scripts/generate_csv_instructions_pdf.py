@@ -28,7 +28,7 @@ COLUMNS = [
     ["fee_currency", "No", "USD or BTC. Blank = USD for a Buy or Sell, else the currency of the account it's paid from (a deposit's: the account it goes into), the only one it may be in"],
     ["source", "No", "For Deposits: N/A, MyBTC, Gift, Inherited, Income, Interest, Reward, Rebate"],
     ["purpose", "Conditional", "A BTC withdrawal (from a wallet or an exchange's BTC): Spent, Gift, Donation or Lost. From a bank or an exchange's USD: any short text on one line, or blank; Spent, Gift, Donation or Lost isn't kept there"],
-    ["notes", "No", "Optional notes (not imported, for your reference only)"],
+    ["notes", "No", "Optional notes on one line (not imported, for your reference only)"],
     ["fee_usd", "No", "Transfer/Withdrawal with a BTC fee: what the fee was worth in USD. Blank = fee x that hour's BTC price"],
     ["fmv_usd", "No", "Gift, Donation or Lost withdrawal: its fair market value when it left (shown in the tax report); blank = the BTC price when its hour began x the amount (that day's where there's no hourly price), or blank without a price"],
     ["broker_reporting", "No", "Sell/Withdrawal: only when your broker's 1099-DA/1099-B differs: none, proceeds or basis. Blank = automatic"],
@@ -128,6 +128,7 @@ COMMON_ERRORS = [
     ["\"A Deposit comes from External\"", "Deposit must be: from External, to one of your accounts"],
     ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only a wallet or an exchange's BTC can send to itself (a consolidation); a dollar account can't"],
     ["\"A consolidation within the same wallet or exchange records only its network fee\"", "A transfer from a wallet (or an exchange's BTC) to itself needs its fee_amount in BTC"],
+    ["\"Row N's cell in column X runs over more than one line\"", "Put that cell on one line: no cell may hold a line break. If it starts with a quote (\"), remove it: a stray quote joins the rows after it into one cell"],
 ]
 
 TABLE_STYLE = TableStyle([
