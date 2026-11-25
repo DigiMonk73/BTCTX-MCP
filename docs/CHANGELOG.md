@@ -200,12 +200,13 @@ All notable changes to BitcoinTX are documented in this file.
   carriage return (CR) alone, was refused by BitcoinTX's own CSV import,
   River's and every other exchange's, in the csv module's own words
   ("new-line character seen in unquoted field"). Such a file now reads
-  exactly as the same file with Windows or Unix line endings. A CR alone
-  in a file whose lines end otherwise (inside a cell that isn't quoted,
-  or one line ended another way) is still refused, now in plain words
-  naming its line: read as a line's end, it would split its row in two,
-  and the first half could lose its later columns. Nothing was half-read
-  before: such a file was refused whole.
+  exactly as the same file with Windows or Unix line endings (one with a
+  line feed inside a quoted cell is refused, as a cell over lines is). A
+  CR alone in a file whose lines end otherwise (inside a cell that isn't
+  quoted, or one line ended another way) is still refused, now in plain
+  words naming its line: read as a line's end, it would split its row in
+  two, and the first half could lose its later columns. Nothing was
+  half-read before: such a file was refused whole.
 
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding
