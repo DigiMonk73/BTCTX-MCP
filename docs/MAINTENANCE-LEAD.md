@@ -104,16 +104,22 @@ and its fix is released the same day, outside the cycle
 - a failed build on the mirror or on Start9's fork;
 - a change on Start9's fork not yet taken back.
 
-Two things it can't see:
-- the start-cli on the machine the lead builds and tests with;
-- the StartOS on the test machine.
+What it can't see, so the lead looks itself:
+- **Our open pull request on Start9's fork**, and Start9's review on
+  it. The Monday report lists issues only.
+- **The start-cli on the machine the sessions pack and test with**, and
+  **the StartOS on the test machine**. Before the release tests on the
+  StartOS test machine, the start-cli goes to the version CI pins, and
+  the test machine to the newest StartOS the release supports. Its
+  update asks for its StartOS password, which is the owner's.
+- **Start9's sibling packages the package builds against**
+  (`mempool-startos` and `tor-startos` in `startos/package.json`).
+  Dependabot ignores them, and they move only with an SDK bump
+  (`startos/UPDATING.md`, "Bumping the SDK").
 
-Before a release's test sitting, both are brought to what the release
-needs. The test machine's update asks for its StartOS password, which
-is the owner's.
-
-**The SDK rule** (the owner, 2026-11-14): BitcoinTX follows Start9's
-newest start-sdk once the StartOS it needs has been out four weeks.
+**The SDK rule** (the owner, 2026-11-14; #972, decision 2): BitcoinTX
+follows Start9's newest start-sdk once the StartOS it needs has been
+out four weeks.
 
 **Between cycles**, each week the lead reads the Monday report and the
 new `start9` issues, and answers an outside report within a week. It

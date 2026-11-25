@@ -296,15 +296,18 @@ All notable changes to BitcoinTX are documented in this file.
   reviews for 173 shipped lines by its fifth merged step, where
   2.0.1's release took a lead and one release session.
 - **The lead checks Start9's latest by hand** (the owner, 2026-11-14
-  and 2026-11-25). Until now only the lead's own notes said so.
-  `docs/MAINTENANCE-LEAD.md` now says it: `scripts/start9-watch.sh
-  --dry-run` runs when the lead starts, before a StartOS lane's "go" and
-  before a release, since the Monday watch can be days behind.
-  - It names the StartOS lane's full list, and the two things the watch
-    can't see: the start-cli on the machine the lead builds and tests
-    with, and the test machine's StartOS.
-  - It adds the SDK rule: follow Start9's newest start-sdk once the
-    StartOS it needs has been out four weeks.
+  and 2026-11-25; for #869, for #972). Until now only the lead's own
+  notes said so. `docs/MAINTENANCE-LEAD.md` now says it:
+  `scripts/start9-watch.sh --dry-run` runs when the lead starts, before
+  a StartOS lane's "go" and before a release, since the Monday watch can
+  be days behind.
+  - It names the StartOS lane's full list.
+  - It names what the watch can't see: our open pull request on
+    Start9's fork, the start-cli on the machine the sessions pack and
+    test with, the test machine's StartOS, and Start9's sibling packages
+    the package builds against.
+  - It adds the SDK rule (#972, decision 2): follow Start9's newest
+    start-sdk once the StartOS it needs has been out four weeks.
 - **python-dateutil is no longer a dependency** (for #950). Its one use,
   `relativedelta(years=1)` in the holding period, went with #950's fix,
   which works out the anniversary with Python's own `calendar`
