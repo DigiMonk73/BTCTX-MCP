@@ -70,6 +70,11 @@ by pull request.
    the week's Monday report, the mailbox (`gh issue list -R
    DigiMonk73/mac-mini-setup --label for-claude`), and the sessions
    still running.
+   - **And Start9's latest, by hand** (the owner, 2026-11-14): the
+     Monday watch can be days behind. `scripts/start9-watch.sh
+     --dry-run` runs its checks now and opens nothing. Tell the owner
+     what is newer. Run it again before a StartOS lane's "go" and
+     before a release.
 4. Carry on from the kickoff's "Next".
 
 ## The cycle: three lanes
@@ -88,6 +93,27 @@ out:
 to a draft advisory, never an issue, a card or a public pull request,
 and its fix is released the same day, outside the cycle
 (`docs/HOW-CHANGES-FLOW.md`, "Bugs and security").
+
+**What the StartOS lane keeps up with.** The full list is in
+`scripts/start9-watch.sh`'s header, and the Monday watch opens one
+`start9` issue for each item:
+- a newer start-sdk or start-cli than `develop` pins;
+- a StartOS release, and a start-registry release;
+- a change to Start9's packaging guide or to their shared package
+  workflows;
+- a failed build on the mirror or on Start9's fork;
+- a change on Start9's fork not yet taken back.
+
+Two things it can't see:
+- the start-cli on the machine the lead builds and tests with;
+- the StartOS on the test machine.
+
+Before a release's test sitting, both are brought to what the release
+needs. The test machine's update asks for its StartOS password, which
+is the owner's.
+
+**The SDK rule** (the owner, 2026-11-14): BitcoinTX follows Start9's
+newest start-sdk once the StartOS it needs has been out four weeks.
 
 **Between cycles**, each week the lead reads the Monday report and the
 new `start9` issues, and answers an outside report within a week. It
@@ -253,6 +279,10 @@ on the StartOS test machine and the fresh docs read, then the owner's
 - A new tax year's forms, or a big Start9 change, may be too much for
   one session: then it is big work (`docs/BIG-WORK.md`), and the lead
   says so to the owner first.
+- **Before the release session's "go"**, the lead checks Start9's
+  latest by hand (`scripts/start9-watch.sh --dry-run`, "Starting as
+  lead"). Anything newer that the release should carry goes to the
+  StartOS lane first.
 
 ## Reviews and the figures rule
 
