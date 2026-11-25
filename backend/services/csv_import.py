@@ -9,6 +9,7 @@ from __future__ import annotations
 import csv
 import io
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -234,25 +235,32 @@ LINE_BREAK = re.compile(r"\r\n|\r|\n")
 ROW_START_LENGTH = 8
 JOINED_ROWS = ("The file can't be read as CSV: row {row} has a cell holding, after a line break, what starts like"
                " another row (“{start}”). Two stray quotes (\") may have joined rows into that cell: remove them,"
-               " or write each twice (\"\").")
+               " or write each twice (\"\"). If that cell is a note across lines, start that line with a word"
+               " instead.")
 
 
 def rows_joined_in_a_cell(rows: list[list[str]]) -> CSVParseError | None:
     """Two stray quotes that close each other make a valid file whose rows
     between them the csv module reads as one cell: they vanish, and the row
     holding them takes a later row's columns (#990). Such a cell holds,
-    after a line break, the start of a row: as many cells as come before
-    it in its own row, at least, one of them shaped as its column's cells
-    are in the file's rows (2024-01-07T12:00:00Z as 9999-99-99a99:99:99a).
-    A correct note across lines doesn't: its lines rarely start with a
-    date or an id shaped as the file's, and never with a row's worth of
-    cells before one in a wide file. `rows` are the file's, header and all."""
+    after a line break, the start of a row: one of its cells shaped as its
+    column's are in the file's rows (2024-01-07T12:00:00Z as
+    9999-99-99a99:99:99a), and as many cells as come before it in its own
+    row, unless that row is wider than the file's (the second quote in an
+    earlier column than the first, an exchange's empty cells after them).
+    A correct note across lines seldom starts a line with a date or an id
+    shaped as the file's, and in a wide file never with a row's worth of
+    cells before it. What this can't see: a joined line with no cell so
+    shaped (a lone row's, an id that's random), as CHANGELOG's #952 entry
+    says. `rows` are the file's records, numbered as the caller's errors
+    are."""
     shapes = {(place, _shape(cell)) for cells in rows for place, cell in enumerate(cells) if _telling(cell)}
+    width = Counter(len(cells) for cells in rows).most_common(1)[0][0] if rows else 0
     for number, cells in enumerate(rows, start=1):
         for place, cell in enumerate(cells):
             for line in LINE_BREAK.split(cell)[1:]:
                 pieces = line.split(",")[:-1]  # its whole cells: the last runs on, or is the stray quote's
-                if len(pieces) < place:
+                if len(pieces) < place and len(cells) <= width:
                     continue
                 start = next((p for at, p in enumerate(pieces) if _telling(p) and (at, _shape(p)) in shapes), None)
                 if start is not None:
@@ -274,7 +282,9 @@ def _shape(cell: str) -> str:
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
     text = _decode(content)
-    joined = rows_joined_in_a_cell(list(csv.reader(io.StringIO(text), strict=True)))
+    # Rows two stray quotes joined into one cell read as valid CSV: looked for
+    # first (#990), numbered as the rows below, which skip blank lines
+    joined = rows_joined_in_a_cell([cells for cells in csv.reader(io.StringIO(text), strict=True) if cells])
     if joined:
         result.errors.append(joined)
         return result

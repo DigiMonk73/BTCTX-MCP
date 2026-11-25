@@ -262,7 +262,9 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
             ))
             return rows, errors
 
-    joined = rows_joined_in_a_cell(list(csv.reader(io.StringIO(text), strict=True)))  # #990
+    # Rows two stray quotes joined into one cell read as valid CSV (#990),
+    # numbered as the rows below, which skip blank lines
+    joined = rows_joined_in_a_cell([cells for cells in csv.reader(io.StringIO(text), strict=True) if cells])
     if joined:
         errors.append(joined)
         return rows, errors

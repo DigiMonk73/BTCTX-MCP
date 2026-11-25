@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NOTES = CSV_COLUMNS.index("notes")  # the export's 12th of 24 columns
 JOINED = ("The file can't be read as CSV: row {row} has a cell holding, after a line break, what starts like"
           " another row (“{start}”). Two stray quotes (\") may have joined rows into that cell: remove them,"
-          " or write each twice (\"\").")
+          " or write each twice (\"\"). If that cell is a note across lines, start that line with a word instead.")
 
 
 def _messages(errors) -> list[str]:
@@ -45,8 +45,8 @@ def _export(*notes: str) -> bytes:
 
 
 def test_the_issues_file_two_neighbouring_rows_is_refused():
-    """Row 2's notes `"oops`, row 3's `a 12"`: read as valid CSV, row 3 is
-    gone and row 2 takes its acquired_at."""
+    """Row 3's notes `"oops`, row 4's `a 12"`: read as valid CSV, row 4 is
+    gone and row 3 takes its acquired_at."""
     result = parse_csv_file(_export("", '"oops', 'a 12"'))
     assert _messages(result.errors) == [JOINED.format(row=3, start="2024-01-03T12:00:00Z")]
     assert result.transactions == []
@@ -86,6 +86,39 @@ def test_an_exchanges_file_is_refused_by_its_dates():
     found = records(text.encode())
     assert not isinstance(found, list), found
     assert found.message == JOINED.format(row=2, start=second[1])
+
+
+def test_a_second_quote_in_an_earlier_column_is_refused():
+    """Strike's statement: the Note (its last column) opens a quote that the
+    next row's Description closes. The row holding them is two cells wider
+    than the file's, both empty, which the exchange import lets by; the
+    joined line holds fewer cells than come before the Note (the review of
+    #990)."""
+    strike = (ROOT / "testdata" / "exchange_files" / "strike_statement.csv").read_text().splitlines()
+    sale = strike[3].split(",")
+    sale[10] = 'Sale 12"'
+    text = "\n".join([*strike[:2], strike[2] + '"for rent', ",".join(sale), *strike[4:]])
+    found = records(text.encode())
+    assert not isinstance(found, list), found
+    assert found.message == JOINED.format(row=3, start=sale[0])
+
+
+def test_a_quote_opened_in_the_header_is_refused():
+    """The header's proceeds_usd opens a quote the first row's type closes:
+    the header takes the row's later columns, and the row is gone."""
+    header = ",".join(CSV_COLUMNS).replace("proceeds_usd", '"proceeds_usd')
+    first = _row(1, "").replace(",Deposit,", ',Deposit",', 1)
+    text = "\n".join([header, first, _row(2, ""), _row(3, "")]) + "\n"
+    result = parse_csv_file(text.encode())
+    assert _messages(result.errors) == [JOINED.format(row=1, start="2024-01-01T12:00:00Z")]
+
+
+def test_a_blank_line_counts_as_the_other_errors_count_it():
+    """BitcoinTX's import numbers its rows without the blank lines, as the
+    csv module's DictReader reads them: so does this error."""
+    rows = _export("", '"oops', 'a 12"').decode().split("\n")
+    text = "\n".join([rows[0], "", *rows[1:]])
+    assert _messages(parse_csv_file(text.encode()).errors) == [JOINED.format(row=3, start="2024-01-03T12:00:00Z")]
 
 
 def test_a_narrow_exchange_file_is_refused():
