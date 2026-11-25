@@ -168,30 +168,32 @@ All notable changes to BitcoinTX are documented in this file.
   never writes one, and a doubled quote ("") still reads. Every earlier
   version has it. **What to do:** if you imported a file you had edited
   by hand, compare the number of transactions the import saved with the
-  file's rows. Add a missing one by hand; for River's or another exchange's file, importing
-  the corrected file again also works, since the rows already saved are
-  found as duplicates and left out. The row just before the missing ones
-  read their text into the cell where the stray quote was (River's tag,
-  which decides its type, or a note): check that transaction too.
+  file's rows. Add a missing one by hand; for River's or another
+  exchange's file, importing the corrected file again also works, since
+  the rows already saved are found as duplicates and left out. The row
+  just before the missing ones read their text into the cell where the
+  stray quote was (River's tag, which decides its type, or a note):
+  check that transaction too.
 
 - **A file with a cell over more than one line is refused, naming that
   cell** (#990, tax figures; the owner's choice, 2026-11-25). Two stray
   quotes (") that close each other make a file the CSV format allows:
   every row between them was read as one cell and vanished, and the row
-  holding the first quote took a later row's columns, its date acquired
-  among them, with no error. No import can tell that cell from one meant
-  to hold a line break, and no cell of a row needs one. So BitcoinTX's
-  own CSV import, River's import and every other exchange's now refuse a
-  file with a cell over more than one line, and name its row and column:
-  put that cell on one line, or remove the stray quote at its start. A
-  note across lines, which no import reads, goes on one line too.
-  BitcoinTX's export never writes such a cell, unless a source, purpose
-  or fee currency was saved with a line break before 1.2.8 refused one:
-  its import then names that cell, to put on one line. Every earlier
-  version has it. **What to do:** as for #952,
+  holding the first quote could take a later row's columns (its date
+  acquired among them), with no error. No import can tell that cell from
+  one meant to hold a line break, and no cell of a row needs one. So
+  BitcoinTX's own CSV import, River's import and every other exchange's
+  now refuse a file with a cell over more than one line, and name its
+  row and column: put that cell on one line, or remove the stray quote
+  at its start. A note across lines, which no import reads, goes on one
+  line too. BitcoinTX's export never writes such a cell, unless a
+  source, purpose or fee currency was saved with a line break before
+  1.2.8 refused one: its import then names that cell, to put on one
+  line. Every earlier version has it. **What to do:** as for #952,
   above: if you imported a file you had edited by hand, compare the
-  number of transactions the import saved with the file's rows, and check
-  the transaction just before any missing ones, its date acquired too.
+  number of transactions the import saved with the file's rows, and
+  check the transaction just before any missing ones, its date acquired
+  too.
 
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding

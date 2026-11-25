@@ -128,7 +128,7 @@ COMMON_ERRORS = [
     ["\"A Deposit comes from External\"", "Deposit must be: from External, to one of your accounts"],
     ["\"A Transfer goes to another account: only a bitcoin account can send to itself\"", "Only a wallet or an exchange's BTC can send to itself (a consolidation); a dollar account can't"],
     ["\"A consolidation within the same wallet or exchange records only its network fee\"", "A transfer from a wallet (or an exchange's BTC) to itself needs its fee_amount in BTC"],
-    ["\"Row N's cell in column X runs over more than one line\"", "Put that cell on one line: no cell may hold a line break. If it starts with a quote (\"), remove it: a stray quote joins the rows after it into one cell"],
+    ["\"row N's cell in column X runs over more than one line\"", "Put that cell on one line: no cell may hold a line break. If it starts with a quote (\"), remove it: a stray quote joins the rows after it into one cell"],
 ]
 
 TABLE_STYLE = TableStyle([
