@@ -6,8 +6,7 @@ the reason, by every reader of a CSV file: BitcoinTX's own import, River's
 and any exchange's. So is a closing quote followed by more text, which was
 read with the quotes dropped. A cell holding a line break or a doubled
 quote, as BitcoinTX's own export writes them, still reads. (Two stray
-quotes that close each other make a valid file, which no reader can tell
-from a correct one: #990.)
+quotes that close each other make a valid file: test_csv_paired_quotes_990.)
 """
 
 from backend.services.csv_import import parse_csv_file

@@ -159,13 +159,17 @@ All notable changes to BitcoinTX are documented in this file.
   vanished, and the preview and the import said nothing. A cell with more
   text after its closing quote was read with the quotes left out. Each
   import now refuses such a file and says what it found (a quote never
-  closed; text, even a space, after a closing quote). One case can't be
-  detected: a stray quote that a second stray quote further down happens
-  to close makes a valid file, read with the rows between as one cell
-  (#990). So with a hand-edited file, compare the preview's row count with
-  the file's. Only a hand-edited or damaged file has a stray quote;
-  BitcoinTX's own export never writes one, and a cell with a line break or
-  a doubled quote ("") still reads. Every earlier version has it. **What
+  closed; text, even a space, after a closing quote). A stray quote that
+  a second stray quote further down happens to close makes a valid file,
+  read with the rows between as one cell, and the row before them took a
+  later row's columns, its date acquired among them (#990, tax figures).
+  Such a cell holds, after a line break, what starts like one of the
+  file's rows: as many cells as come before it in its row, one of them
+  shaped as its column's are (a date, a time, an id). Each import now
+  refuses that file too, and says which row. Only a hand-edited or damaged
+  file has a stray quote; BitcoinTX's own export never writes one, and a
+  cell with a line break, commas or a doubled quote ("") still reads, as a
+  correct note across lines does. Every earlier version has it. **What
   to do:** if you imported a file you had edited by hand, compare the
   number of transactions the import saved with the file's rows. Add a
   missing one by hand; for River's or another exchange's file, importing

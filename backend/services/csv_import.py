@@ -227,9 +227,58 @@ def unreadable_csv(exc: csv.Error) -> CSVParseError:
     return _file_error(f"The file can't be read as CSV ({reason}).")
 
 
+# A line a cell holds after a line break, as the csv module reads one
+LINE_BREAK = re.compile(r"\r\n|\r|\n")
+# A cell shaped as one of its column's tells a row's start only this long,
+# with a digit (a date, a time, an id): not a note's "3" or "0.1"
+ROW_START_LENGTH = 8
+JOINED_ROWS = ("The file can't be read as CSV: row {row} has a cell holding, after a line break, what starts like"
+               " another row (“{start}”). Two stray quotes (\") may have joined rows into that cell: remove them,"
+               " or write each twice (\"\").")
+
+
+def rows_joined_in_a_cell(rows: list[list[str]]) -> CSVParseError | None:
+    """Two stray quotes that close each other make a valid file whose rows
+    between them the csv module reads as one cell: they vanish, and the row
+    holding them takes a later row's columns (#990). Such a cell holds,
+    after a line break, the start of a row: as many cells as come before
+    it in its own row, at least, one of them shaped as its column's cells
+    are in the file's rows (2024-01-07T12:00:00Z as 9999-99-99a99:99:99a).
+    A correct note across lines doesn't: its lines rarely start with a
+    date or an id shaped as the file's, and never with a row's worth of
+    cells before one in a wide file. `rows` are the file's, header and all."""
+    shapes = {(place, _shape(cell)) for cells in rows for place, cell in enumerate(cells) if _telling(cell)}
+    for number, cells in enumerate(rows, start=1):
+        for place, cell in enumerate(cells):
+            for line in LINE_BREAK.split(cell)[1:]:
+                pieces = line.split(",")[:-1]  # its whole cells: the last runs on, or is the stray quote's
+                if len(pieces) < place:
+                    continue
+                start = next((p for at, p in enumerate(pieces) if _telling(p) and (at, _shape(p)) in shapes), None)
+                if start is not None:
+                    return _file_error(JOINED_ROWS.format(row=number, start=start))
+    return None
+
+
+def _telling(cell: str) -> bool:
+    """Whether a cell's shape can tell a row's start: long enough, with a
+    digit, on one line."""
+    return len(cell) >= ROW_START_LENGTH and any(c.isdigit() for c in cell) and LINE_BREAK.search(cell) is None
+
+
+def _shape(cell: str) -> str:
+    """A cell's digits as 9, its letters as a, the rest as it is."""
+    return "".join("9" if c.isdigit() else "a" if c.isalpha() else c for c in cell)
+
+
 def _parse_rows(content: bytes, tz, book: AccountBook) -> ParseResult:
     result = ParseResult()
-    reader = csv.DictReader(io.StringIO(_decode(content)), strict=True)  # a stray quote refuses the file (#952)
+    text = _decode(content)
+    joined = rows_joined_in_a_cell(list(csv.reader(io.StringIO(text), strict=True)))
+    if joined:
+        result.errors.append(joined)
+        return result
+    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
     header_error = _header_error(reader.fieldnames)
     if header_error:
         result.errors.append(header_error)

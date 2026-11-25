@@ -48,6 +48,7 @@ from backend.services.csv_import import (
     _parse_decimal,
     decimal_comma_note,
     number_limits,
+    rows_joined_in_a_cell,
     unreadable_csv,
 )
 from backend.services.tax_time import get_tax_timezone, local_date
@@ -228,6 +229,23 @@ def rows_in_file(rows: list[RiverRow], errors: list[CSVParseError]) -> int:
     return len({row.row_number for row in rows} | {e.row_number for e in errors if e.row_number > 0})
 
 
+def _header_error(fieldnames) -> CSVParseError | None:
+    """What makes a file's header not River's, if anything."""
+    if fieldnames is None:
+        return CSVParseError(row_number=0, column=None, severity="error",
+                             message="CSV file is empty or has no headers.")
+    missing = RIVER_REQUIRED_COLUMNS - {h.lower().strip() for h in fieldnames if h}
+    if missing:
+        return CSVParseError(
+            row_number=0, column=None, severity="error",
+            message=(
+                "This does not look like a River bitcoin-activity CSV. "
+                f"Missing columns: {', '.join(sorted(missing))}"
+            ),
+        )
+    return None
+
+
 def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
     errors: list[CSVParseError] = []
     rows: list[RiverRow] = []
@@ -244,24 +262,15 @@ def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseErro
             ))
             return rows, errors
 
-    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
-    if reader.fieldnames is None:
-        errors.append(CSVParseError(
-            row_number=0, column=None, severity="error",
-            message="CSV file is empty or has no headers.",
-        ))
+    joined = rows_joined_in_a_cell(list(csv.reader(io.StringIO(text), strict=True)))  # #990
+    if joined:
+        errors.append(joined)
         return rows, errors
 
-    headers = {h.lower().strip() for h in reader.fieldnames if h}
-    missing = RIVER_REQUIRED_COLUMNS - headers
-    if missing:
-        errors.append(CSVParseError(
-            row_number=0, column=None, severity="error",
-            message=(
-                "This does not look like a River bitcoin-activity CSV. "
-                f"Missing columns: {', '.join(sorted(missing))}"
-            ),
-        ))
+    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
+    header_error = _header_error(reader.fieldnames)
+    if header_error:
+        errors.append(header_error)
         return rows, errors
 
     for row_number, raw in enumerate(reader, start=2):

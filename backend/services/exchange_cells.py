@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas.csv_import import CSVParseError
 from backend.services.calculation import CENT, SAT, btc_text
-from backend.services.csv_import import unreadable_csv
+from backend.services.csv_import import rows_joined_in_a_cell, unreadable_csv
 from backend.services.river_import import FileRow
 
 # The header is looked for among a file's first rows: an exchange may write
@@ -55,6 +55,9 @@ def records(content: bytes) -> Records | CSVParseError:
         rows = list(csv.reader(io.StringIO(text), strict=True))  # a stray quote refuses the file (#952)
     except csv.Error as exc:
         return unreadable_csv(exc)
+    joined = rows_joined_in_a_cell(rows)  # two stray quotes that close each other (#990)
+    if joined:
+        return joined
     return [(number, cells) for number, cells in enumerate(rows, start=1) if any(c.strip() for c in cells)]
 
 
