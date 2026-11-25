@@ -213,6 +213,12 @@ map.
   have their own check (#210): a login or current password that isn't text
   is a wrong one; a new username or password, a 422. Form data is each
   route's own to check (a backup's password: `backup._require_text_password`).
+- A JSON body nested more than `MAX_JSON_DEPTH` (64) lists or objects deep
+  is refused, 422, before its fields are checked (`main.refuse_deep_nesting`,
+  #1000): pydantic's message for a value nested just under the parser's
+  limit recursed past Python's, a 500. It sits in `main.LOGGED_IN` beside
+  the text check, and walks a body only when it has that many brackets.
+  The anonymous routes have no field that recursed (#954's handler).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI

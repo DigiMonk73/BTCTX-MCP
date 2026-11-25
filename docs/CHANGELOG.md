@@ -137,8 +137,10 @@ All notable changes to BitcoinTX are documented in this file.
   source Nobody, none chosen yet, one not confirmed, or a server's
   settings not valid, clearing it fills nothing unless that hour's price
   is already stored, and the item stayed listed. The advice now says to
-  type the value, and why, as the Edit form already does. No figure
-  changes.
+  type the value, and why, as the Edit form already does. So it does with
+  your own Mempool chosen without its backup (#1001): to type the value
+  while Mempool isn't installed on this server yet, and for an hour
+  before your Mempool began recording. No figure changes.
 
 - **A request nested a thousand levels deep is refused with a 422, not a
   server error** (#954). A JSON body nested about 1,000 to 10,000 levels
@@ -148,9 +150,12 @@ All notable changes to BitcoinTX are documented in this file.
   nothing leaked: the answer was one fixed sentence. Now it's the 422,
   without the nested input echoed back. On Python 3.11 (a from-source
   install's oldest) the JSON reader refuses a body past about 950 levels
-  itself, a 400, and the few levels just under that are the 422 too. Two
-  levels just under the depth where a body is refused outright still
-  answer 500 on a logged-in route, from the data checks themselves: #1000.
+  itself, a 400, and the few levels just under that are the 422 too. A
+  logged-in route also answered 500 for the two levels just under the
+  depth where a body is refused outright (about 9,990), from the data
+  checks themselves (#1000): it now refuses any body nested more than 64
+  levels deep, a 422, before checking its fields. No BitcoinTX screen or
+  the AI connector sends one deeper than a few.
 
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never

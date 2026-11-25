@@ -157,6 +157,45 @@ async def refuse_text_that_isnt_text(request: Request) -> None:
         raise HTTPException(status_code=422, detail=refusal)
 
 
+# No BitcoinTX request nests deeper than a few levels (rows, a row, its
+# chosen coins); this leaves room, and stays far below Python's recursion limit
+MAX_JSON_DEPTH = 64
+TOO_DEEP = f"The request nests deeper than BitcoinTX reads ({MAX_JSON_DEPTH} levels of lists or objects)."
+
+
+async def refuse_deep_nesting(request: Request) -> None:
+    """
+    A JSON body nested past MAX_JSON_DEPTH: refused with a 422 before its
+    fields are checked. Pydantic's own message for a value nested just
+    under the parser's limit (about 9,990 levels) recursed past Python's
+    limit, a 500 the 422 handler never saw (#1000). Each logged-in router
+    lists it after its login check, as the text check (LOGGED_IN). A body
+    can only nest that deep with that many brackets, so the walk runs only
+    then.
+    """
+    if not _takes_json(request):
+        return
+    body = await request.body()
+    if body.count(b"[") + body.count(b"{") <= MAX_JSON_DEPTH:
+        return
+    if _depth(await request.json()) > MAX_JSON_DEPTH:
+        raise HTTPException(status_code=422, detail=TOO_DEEP)
+
+
+def _depth(body) -> int:
+    """How many lists or objects deep `body` nests (a bare value: 0),
+    walked without recursion, as it may nest as deep as JSON allows."""
+    deepest, pending = 0, [(body, 1)]
+    while pending:
+        value, level = pending.pop()
+        items = value.values() if isinstance(value, dict) else value if isinstance(value, list) else None
+        if items is None:
+            continue
+        deepest = max(deepest, level)
+        pending.extend((item, level + 1) for item in items if isinstance(item, (dict, list)))
+    return deepest
+
+
 def _may_hold_a_surrogate(body: bytes) -> bool:
     """Whether the walk is needed. A body in UTF-16 or UTF-32, which JSON
     allows and the parser reads letting surrogates through, always is. A
@@ -468,9 +507,9 @@ def require_login_dependency(request: Request, db: Session = Depends(get_db)) ->
 
 from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, exchange_import, entry_import, settings, review
 
-# Every logged-in router: the login (or the AI key), then the text check
-# (#313), which an anonymous request never reaches
-LOGGED_IN = [Depends(get_current_user), Depends(refuse_text_that_isnt_text)]
+# Every logged-in router: the login (or the AI key), then the depth check
+# (#1000) and the text check (#313), which an anonymous request never reaches
+LOGGED_IN = [Depends(get_current_user), Depends(refuse_deep_nesting), Depends(refuse_text_that_isnt_text)]
 
 include(transaction.router, "/api/transactions", tags=["transactions"], dependencies=LOGGED_IN)
 include(user.router, "/api/users", tags=["users"])  # No auth — register must work
@@ -489,7 +528,8 @@ include(review.router, "/api/review", tags=["review"], dependencies=LOGGED_IN)
 # Debug routes: a logged-in session only, never the AI key.
 try:
     from backend.routers import debug
-    include(debug.router, "/api/debug", tags=["debug"], dependencies=[Depends(require_login_dependency), Depends(refuse_text_that_isnt_text)])
+    include(debug.router, "/api/debug", tags=["debug"],
+            dependencies=[Depends(require_login_dependency), Depends(refuse_deep_nesting), Depends(refuse_text_that_isnt_text)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
