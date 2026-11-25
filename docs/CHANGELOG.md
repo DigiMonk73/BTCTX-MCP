@@ -163,21 +163,21 @@ All notable changes to BitcoinTX are documented in this file.
   a second stray quote further down happens to close makes a valid file,
   read with the rows between as one cell, and the row before them took a
   later row's columns, its date acquired among them (#990, tax figures).
-  Such a cell holds, after a line break, what starts like one of the
-  file's rows: a date, a time or an id written as that column's are in
-  the file's other rows. Each import now refuses that file too, and says
-  which row. It can't see joined rows that hold no such cell: an id made
-  of random letters and digits, a date written as no other row's is (a
-  file of a few rows, typed by hand). So with a hand-edited file, still
-  compare the preview's row count with the file's. Only a hand-edited or
-  damaged file has a stray quote; BitcoinTX's own export never writes
-  one, and a cell with a line break, commas or a doubled quote ("") still
-  reads. A note across lines whose line starts with a date and a comma,
-  in a file of few columns or with its notes early, is taken for joined
-  rows: the message says to start that line with a word. Every earlier
-  version has it. **What to do:** if you imported a file you had edited
-  by hand, compare the
-  number of transactions the import saved with the file's rows. Add a
+  Every earlier version has both. Such a cell holds, after a line break,
+  what starts like one of the file's rows: a date, a time or an id
+  written as that column's are in the file's other rows. Each import now
+  refuses that file too, and says which row. It can't see joined rows
+  that hold no such cell: an id made of random letters and digits, a date
+  written as no other row's is (a file of a few rows, typed by hand). So
+  with a hand-edited file, still compare the preview's row count with the
+  file's. Only a hand-edited or damaged file has a stray quote;
+  BitcoinTX's own export never writes one, and a cell with a line break,
+  commas or a doubled quote ("") still reads. A note across lines whose
+  line starts with a date and a comma, in a file of few columns, with
+  its notes early or in a row wider than the header, is taken for joined
+  rows: the message says to start that line with a word. **What to do:** if you imported a file you had
+  edited by hand, compare the number of transactions the import saved
+  with the file's rows. Add a
   missing one by hand; for River's or another exchange's file, importing
   the corrected file again also works, since the rows already saved are
   found as duplicates and left out. The row just before the missing ones

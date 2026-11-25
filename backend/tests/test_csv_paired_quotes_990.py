@@ -103,6 +103,36 @@ def test_a_second_quote_in_an_earlier_column_is_refused():
     assert found.message == JOINED.format(row=3, start=sale[0])
 
 
+def test_a_second_quote_ending_a_rows_first_cell_is_refused():
+    """The joined line's last cell is a whole one: strict reading ends it
+    at the stray quote. Here it is the Sale's Reference (the re-check of
+    #990)."""
+    strike = (ROOT / "testdata" / "exchange_files" / "strike_statement.csv").read_text().splitlines()
+    sale = strike[3].split(",")
+    text = "\n".join([*strike[:2], strike[2] + '"for rent', sale[0] + '",' + ",".join(sale[1:]), *strike[4:]])
+    found = records(text.encode())
+    assert not isinstance(found, list), found
+    assert found.message == JOINED.format(row=3, start=sale[0])
+
+
+def test_a_correct_note_in_a_row_wider_than_the_others_still_reads():
+    """A hand-written file whose rows leave the later columns off, but for
+    one, whose note has a line starting with a date and a comma: no wider
+    than the header, it isn't taken for joined rows (the re-check of #990)."""
+    header = ",".join(CSV_COLUMNS[:CSV_COLUMNS.index("acquired_at") + 1])
+    deposit = "2024-01-0{day}T12:00:00Z,Deposit,0.{day},External,Wallet,{day}000,,,,MyBTC,,"
+    text = "\n".join([
+        header,
+        deposit.format(day=1) + "first",
+        deposit.format(day=2) + '"Old coins\n2023-01-05T12:00:00Z, bought on an exchange",,,,,,2023-01-05',
+        deposit.format(day=3) + "third",
+        deposit.format(day=4) + "fourth",
+    ]) + "\n"
+    result = parse_csv_file(text.encode())
+    assert result.errors == [], _messages(result.errors)
+    assert len(result.transactions) == 4
+
+
 def test_a_quote_opened_in_the_header_is_refused():
     """The header's proceeds_usd opens a quote the first row's type closes:
     the header takes the row's later columns, and the row is gone."""

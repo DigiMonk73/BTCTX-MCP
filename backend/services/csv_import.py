@@ -9,7 +9,6 @@ from __future__ import annotations
 import csv
 import io
 import re
-from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -245,22 +244,25 @@ def rows_joined_in_a_cell(rows: list[list[str]]) -> CSVParseError | None:
     holding them takes a later row's columns (#990). Such a cell holds,
     after a line break, the start of a row: one of its cells shaped as its
     column's are in the file's rows (2024-01-07T12:00:00Z as
-    9999-99-99a99:99:99a), and as many cells as come before it in its own
-    row, unless that row is wider than the file's (the second quote in an
-    earlier column than the first, an exchange's empty cells after them).
-    A correct note across lines seldom starts a line with a date or an id
-    shaped as the file's, and in a wide file never with a row's worth of
-    cells before it. What this can't see: a joined line with no cell so
-    shaped (a lone row's, an id that's random), as CHANGELOG's #952 entry
-    says. `rows` are the file's records, numbered as the caller's errors
-    are."""
+    9999-99-99a99:99:99a), with as many cells before its last as come
+    before the cell in its own row; or, if the row holding it is wider than
+    any row without a line break (the header among them: the second quote
+    in an earlier column than the first), with any cells at all. A correct
+    note across lines seldom starts a line with a date or an id shaped as
+    the file's; in a wide file, with a row's worth of cells after it, only
+    in a row wider than the header. What this can't see: a joined line
+    with no cell so shaped (a lone row's, an id that's random), as the
+    CHANGELOG's #952 entry says. `rows` are the file's records, numbered as
+    the caller's errors are."""
     shapes = {(place, _shape(cell)) for cells in rows for place, cell in enumerate(cells) if _telling(cell)}
-    width = Counter(len(cells) for cells in rows).most_common(1)[0][0] if rows else 0
+    width = max((len(cells) for cells in rows if not any(LINE_BREAK.search(c) for c in cells)), default=0)
     for number, cells in enumerate(rows, start=1):
         for place, cell in enumerate(cells):
             for line in LINE_BREAK.split(cell)[1:]:
-                pieces = line.split(",")[:-1]  # its whole cells: the last runs on, or is the stray quote's
-                if len(pieces) < place and len(cells) <= width:
+                # Each is a whole cell: strict reading ends the stray quote's
+                # cell at the quote, so the last is a row's cell too
+                pieces = line.split(",")
+                if len(pieces) - 1 < place and len(cells) <= width:
                     continue
                 start = next((p for at, p in enumerate(pieces) if _telling(p) and (at, _shape(p)) in shapes), None)
                 if start is not None:
