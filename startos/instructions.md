@@ -78,7 +78,7 @@ The connector's version, after `btctx-mcp==` in your AI app's configuration, sho
 - **Price Source & Privacy**: where BitcoinTX gets Bitcoin prices, as above. BitcoinTX restarts to apply it.
 - **Connect an AI Assistant**: everything an AI client needs, as above.
 - **Recalculate Ledger**: rebuilds every lot and gain from your transactions, like **Settings > Account > Recalculate Ledger** in the app. Your transactions are not changed. Before you run it, open **Settings > Ledger Review** in the app: it lists every figure a recalculation would change. When an update changes how BitcoinTX calculates some gains, StartOS asks for it under **Tasks** on BitcoinTX's page, once (and again after a restore, until you have run it). If you recalculated in the app instead, dismiss the task there: its trash icon, then **Dismiss**.
-- **Set Login Credentials**: if you are locked out, stop BitcoinTX and run it: it sets the username back to `admin` with a new random password. Your transactions are not touched.
+- **Set Login Credentials**: if you are locked out, stop BitcoinTX and run it: it sets the username back to `admin` with a new random password and signs out every browser. An AI key you created keeps working: revoke it in **Settings > Connect an AI Assistant** in the app if someone else may have it. Your transactions are not touched.
 
 ## Limitations
 

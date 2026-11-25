@@ -1654,8 +1654,10 @@ the owner's to decide. Until it is, ask the lead which way a run goes.
 - **LCK-1** With the service running, expect **Set Login Credentials**
   unavailable: it runs only while stopped.
 - **LCK-2** Stop the service, run **Set Login Credentials**. Expect its
-  warning "This replaces your current username and password. Your
-  transactions are not touched.", then "Login Credentials" with `admin`
+  warning "This replaces your current username and password and signs
+  out every browser. An AI key you created keeps working: revoke it in
+  BitcoinTX Settings > Connect an AI Assistant if someone else may have
+  it. Your transactions are not touched.", then "Login Credentials" with `admin`
   and a new password; record it. Start the service. Expect: `tester` no
   longer logs in; `admin` with the new password does; every golden figure
   is intact.

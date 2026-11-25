@@ -359,3 +359,20 @@ def test_the_format_check_runs_before_the_sdks_make():
     assert job.index("npm run format:check") < job.index("make javascript/index.js")
     hook = (ROOT / ".githooks" / "pre-push").read_text()
     assert "npm run -s format:check && rm -rf javascript && make" in hook
+
+
+def test_set_login_credentials_says_what_a_reset_leaves_valid():
+    """Start9's recipe-reset-password.md (2026-11-24): a new password doesn't
+    by itself sign anyone out, so the action revokes what it can and its
+    warning says what survives. The app's set-password ends every browser's
+    session and leaves the AI key (which Settings > Connect an AI Assistant
+    revokes), so the warning says both."""
+    cli = (ROOT / "backend" / "cli.py").read_text()
+    reset = cli.split("def cmd_set_password", 1)[1].split("\ndef ", 1)[0]
+    assert "end_all_sessions(db)" in reset
+    assert "ai_key" not in reset.lower()
+    action = " ".join(read("startos/actions/setCredentials.ts").split())
+    warning = re.search(r"\? i18n\( '([^']+)', \)", action).group(1)
+    assert "signs out every browser" in warning
+    assert "An AI key you created keeps working" in warning
+    assert "Settings > Connect an AI Assistant" in warning

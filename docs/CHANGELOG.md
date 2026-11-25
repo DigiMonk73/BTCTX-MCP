@@ -255,6 +255,11 @@ All notable changes to BitcoinTX are documented in this file.
   Start9's rule leaves out the minimum StartOS, which only a server that
   meets it sees.
   `test_startos_updating_915.py` checks it for every version after 2.0.2:0.
+- **Set Login Credentials says what a new password leaves valid** (for
+  #980): Start9's guide (`recipe-reset-password.md`, 2026-11-24) has a
+  reset say what survives it. The action already signed every browser
+  out, and an AI key kept working; its warning, in every language, and
+  the Instructions now say both, and where the app revokes the AI key.
 
 ### Documentation
 - **Your first tax year in six steps** (#959). A new user sees a

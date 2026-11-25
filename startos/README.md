@@ -130,7 +130,7 @@ Set Login Credentials and Recalculate Ledger run a `python -m backend.cli` comma
 
 ### Set Login Credentials
 
-Besides its task, run it when the owner has lost the password. Sets the username to `admin` and a new random password through `set-password` (creating the database on a fresh install), records `loginSet` (never the password), and returns the password once; nothing shows it again. Transactions and settings are untouched. Destructive on a second run: each run replaces the login, one set in the app included, and the old password stops working.
+Besides its task, run it when the owner has lost the password. Sets the username to `admin` and a new random password through `set-password` (creating the database on a fresh install), records `loginSet` (never the password), and returns the password once; nothing shows it again. Every browser is signed out (the app's `set-password` ends every session); an AI key keeps working until it is revoked in the app's Settings > Connect an AI Assistant, which the action's warning says (Start9's `recipe-reset-password.md`). Transactions and settings are untouched. Destructive on a second run: each run replaces the login, one set in the app included, and the old password stops working.
 
 ### Price Source & Privacy
 
