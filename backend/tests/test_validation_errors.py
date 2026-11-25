@@ -83,10 +83,11 @@ def test_a_deeply_nested_row_through_the_ai_key_is_a_422(auth_client, test_engin
     with Session(test_engine) as db:
         ai_key.set_access(db, True)
         key = ai_key.create_key(db)
+    from backend.main import TOO_DEEP
     r = TestClient(app).post("/api/import/entries/preview", content='{"rows": %s}' % ("[" * 2000 + "{}" + "]" * 2000),
                              headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"})
-    assert r.status_code == 422, r.text[:300]
-    assert all("input" not in e for e in r.json()["detail"])
+    # Refused before its fields are checked, as any body past 64 levels (#1000)
+    assert r.status_code == 422 and r.json() == {"detail": TOO_DEEP}, r.text[:300]
 
 
 def test_no_depth_the_parser_reads_is_a_500():

@@ -169,7 +169,9 @@ async def refuse_deep_nesting(request: Request) -> None:
     fields are checked. Pydantic's own message for a value nested just
     under the parser's limit (about 9,990 levels) recursed past Python's
     limit, a 500 the 422 handler never saw (#1000). Each logged-in router
-    lists it after its login check, as the text check (LOGGED_IN). A body
+    lists it after its login check, as the text check (LOGGED_IN); the
+    login and /api/users, outside it, have only text fields, which don't
+    recurse (#954's handler answers for them). A body
     can only nest that deep with that many brackets, so the walk runs only
     then.
     """
@@ -178,22 +180,22 @@ async def refuse_deep_nesting(request: Request) -> None:
     body = await request.body()
     if body.count(b"[") + body.count(b"{") <= MAX_JSON_DEPTH:
         return
-    if _depth(await request.json()) > MAX_JSON_DEPTH:
+    if _nests_too_deep(await request.json()):
         raise HTTPException(status_code=422, detail=TOO_DEEP)
 
 
-def _depth(body) -> int:
-    """How many lists or objects deep `body` nests (a bare value: 0),
-    walked without recursion, as it may nest as deep as JSON allows."""
-    deepest, pending = 0, [(body, 1)]
+def _nests_too_deep(body) -> bool:
+    """Whether `body` nests more than MAX_JSON_DEPTH lists or objects deep,
+    walked without recursion, as it may nest as deep as JSON allows, and
+    only until a level past the limit is found."""
+    pending = [(body, 1)] if isinstance(body, (dict, list)) else []
     while pending:
         value, level = pending.pop()
-        items = value.values() if isinstance(value, dict) else value if isinstance(value, list) else None
-        if items is None:
-            continue
-        deepest = max(deepest, level)
+        if level > MAX_JSON_DEPTH:
+            return True
+        items = value.values() if isinstance(value, dict) else value
         pending.extend((item, level + 1) for item in items if isinstance(item, (dict, list)))
-    return deepest
+    return False
 
 
 def _may_hold_a_surrogate(body: bytes) -> bool:
