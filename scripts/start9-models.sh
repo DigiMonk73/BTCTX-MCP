@@ -16,8 +16,9 @@
 #
 # Prints nothing when no AI model co-wrote those commits. A Claude co-author
 # ("Claude Opus 5.5 <noreply@anthropic.com>") becomes its id
-# (claude-opus-5-5); any other co-author, or a Claude name that gives no
-# model id, is named on stderr for a person to decide, and left out.
+# (claude-opus-5-5); a GitHub app ("dependabot[bot]") is no model; any other
+# co-author, or a Claude name that gives no model id, is named on stderr for
+# a person to decide, and left out.
 #
 # START9_FORK, START9_BRANCH, FORK_URL  their fork, as for start9-pull.sh
 set -euo pipefail
@@ -36,10 +37,11 @@ if [ "$SINCE" = --fork ]; then
     read -r START9_FORK START9_BRANCH <<< "$("$ROOT/scripts/start9-pull.sh" --fork)" || true
   fi
   [ -n "${START9_FORK:-}" ] || { echo "Start9 hasn't forked the mirror yet: no pull request to name models for." >&2; exit 1; }
+  [ -n "${START9_BRANCH:-}" ] || { echo "START9_FORK is set, START9_BRANCH isn't: set both" >&2; exit 1; }
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
   git init -q --bare "$TMP/fork"
-  git -C "$TMP/fork" fetch -q "${FORK_URL:-https://github.com/$START9_FORK.git}" "${START9_BRANCH:?START9_BRANCH}" \
+  git -C "$TMP/fork" fetch -q "${FORK_URL:-https://github.com/$START9_FORK.git}" "$START9_BRANCH" \
     || { echo "can't fetch $START9_FORK ($START9_BRANCH)" >&2; exit 1; }
   # Every sync of ours they hold, also inside a squash's message; the newest
   # one here is what they have.
@@ -72,12 +74,13 @@ while IFS= read -r author; do
       # "Claude Opus 5.5" -> "claude-opus-5-5", as the harness names it; a
       # note after the name ("(1M context)") isn't part of the id.
       name="$(printf '%s' "${author% <*}" | sed -E 's/ *[([].*$//')"
-      id="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr ' .' '--')"
+      id="$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | tr ' .' '-')"
       if printf '%s' "$id" | grep -Eq '^claude(-[a-z0-9]+)+$' && printf '%s' "$id" | grep -q '[0-9]'; then
         ids+=("$id")
       else
         echo "A Claude co-author with no model id, left out of the model: line: $author" >&2
       fi ;;
+    *"[bot] <"*) ;;  # a GitHub app (Dependabot): no model, no question
     *) echo "Not a model this script knows, left out of the model: line: $author" >&2 ;;
   esac
 done <<< "$authors"

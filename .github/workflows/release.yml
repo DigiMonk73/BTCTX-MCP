@@ -393,7 +393,7 @@ jobs:
           CHECK=""
           if [ -n "$LEFT" ]; then
             echo "::warning::$LEFT"
-            CHECK=" Check it by hand: \`scripts/start9-models.sh\` said \"${LEFT% }\", and a co-author it leaves out may be an AI model too (docs/STARTOS-PACKAGE.md)."
+            CHECK=" Check the \`model:\` line by hand, which Start9 needs on any pull request an AI model co-wrote: \`scripts/start9-models.sh\` said \"${LEFT% }\" (a co-author it leaves out may be an AI model too; docs/STARTOS-PACKAGE.md)."
           fi
           OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number \
             --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | .number')"
@@ -405,6 +405,7 @@ jobs:
             # spacing after the commas), as words; never patterns.
             set -f
             HAVE="$(printf '%s\n' "$BODY" | tr -d '\r`' | grep -m1 -iE '^[[:space:]>]*model:' | sed -E 's/^[^:]*://' | tr ',' ' ')"
+            HAVE="$(printf '%s\n' $HAVE | grep -E '^[a-z0-9][a-z0-9.-]*[a-z0-9]$' | tr '\n' ' ')"  # ids only: no notes, no stray marks
             MISSING=""
             for id in $(printf '%s' "${MODELS#model: }" | tr ',' ' '); do
               found=""

@@ -120,15 +120,16 @@ def test_a_squash_carries_its_commits_lines_in_its_middle(proj):
 
 # --- what the fork holds, and the release workflow's own steps ---
 
-def fork_holding(tmp_path, proj, rev):
-    """Start9's fork: their commits, and a squash holding our sync of `rev`."""
+def fork_holding(tmp_path, proj, *revs):
+    """Start9's fork: our syncs of `revs`, oldest first, with their own
+    commits between; the last inside a squash of our pull request."""
     fork = tmp_path / "fork"
     git(tmp_path, "init", "-q", "-b", "main", str(fork))
-    sha = git(proj, "rev-parse", "--short", rev).strip()
-    older = git(proj, "rev-list", "--max-parents=0", "HEAD").strip()[:7]
-    for message in (f"Sync from DigiMonk73/BTCTX-MCP@{older} (0.1)", "Their template update",
-                    f"BitcoinTX v1 (#4)\n\n* Sync from DigiMonk73/BTCTX-MCP@{sha} (1)"):
-        git(fork, "commit", "-q", "--allow-empty", "-m", message)
+    *older, newest = [git(proj, "rev-parse", "--short", rev).strip() for rev in revs]
+    for sha in older:
+        git(fork, "commit", "-q", "--allow-empty", "-m", f"Sync from DigiMonk73/BTCTX-MCP@{sha} (0.1)")
+    git(fork, "commit", "-q", "--allow-empty", "-m", "Their template update")
+    git(fork, "commit", "-q", "--allow-empty", "-m", f"BitcoinTX v1 (#4)\n\n* Sync from DigiMonk73/BTCTX-MCP@{newest} (1)")
     return fork
 
 
@@ -139,6 +140,36 @@ def test_since_what_the_fork_holds(tmp_path, proj, monkeypatch):
     monkeypatch.setenv("FORK_URL", str(fork_holding(tmp_path, proj, "v1")))
     assert run(proj).stdout == "model: claude-opus-5-5\n"  # not v1's claude-opus-4-6
     assert run(proj, "--fork").stdout == "model: claude-opus-5-5\n"
+
+
+def test_since_the_newest_sync_the_fork_holds_not_the_last_tag(tmp_path, proj, monkeypatch):
+    # A docs-only sync after v1, by hand, which Start9 merged: its model is
+    # theirs already. Counting from v1, the last tag, or from the oldest sync
+    # they hold, would name it again.
+    commit(proj, "startos/README.md", "docs only", "Claude Sonnet 5.5 <noreply@anthropic.com>")
+    docs_sync = git(proj, "rev-parse", "HEAD").strip()
+    commit(proj, "startos/a.ts", "sent", "Claude Opus 5.5 <noreply@anthropic.com>")
+    monkeypatch.setenv("START9_FORK", "Start9-Community/BTCTX-StartOS")
+    monkeypatch.setenv("START9_BRANCH", "main")
+    monkeypatch.setenv("FORK_URL", str(fork_holding(tmp_path, proj, "v1", docs_sync)))
+    assert run(proj).stdout == "model: claude-opus-5-5\n"
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setenv("FORK_URL", str(fork_holding(other, proj, docs_sync, "v1")))
+    assert run(proj).stdout == "model: claude-opus-5-5\n"  # the newest, whatever order they hold them in
+
+
+def test_the_fork_alone_is_not_enough(proj, monkeypatch):
+    monkeypatch.setenv("START9_FORK", "Start9-Community/BTCTX-StartOS")
+    monkeypatch.delenv("START9_BRANCH", raising=False)
+    r = run(proj, "--fork")
+    assert r.returncode != 0 and r.stdout == ""
+
+
+def test_a_bot_is_no_model_and_no_question(proj):
+    commit(proj, "startos/a.ts", "bumped", "dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>")
+    r = run(proj, "v1")
+    assert (r.returncode, r.stdout, r.stderr) == (0, "", "")
 
 
 RELEASE = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "release.yml"
@@ -192,7 +223,7 @@ def test_the_send_issue_gives_the_model_line(release):
     assert r.returncode == 0, r.stderr
     assert len(issues) == 1 and "Click **Create pull request**" in issues[0]
     assert "`model: claude-opus-5-5`" in issues[0]
-    assert "Check it by hand" not in issues[0]
+    assert "by hand" not in issues[0]
 
 
 def test_an_open_pull_request_gets_the_whole_line(release, monkeypatch):
@@ -203,6 +234,14 @@ def test_an_open_pull_request_gets_the_whole_line(release, monkeypatch):
     assert len(issues) == 1
     assert "`model: claude-opus-4-6, claude-opus-5-5`" in issues[0]
     assert "pull/12" in issues[0]
+
+
+def test_the_whole_line_keeps_only_ids(release, monkeypatch):
+    monkeypatch.setenv("FAKE_OPEN", "12")
+    monkeypatch.setenv("FAKE_BODY", "Notes\n\nmodel: claude-opus-4-6 (the first) *\n")
+    r, issues = release()
+    assert r.returncode == 0, r.stderr
+    assert "`model: claude-opus-4-6, claude-opus-5-5`" in issues[0]
 
 
 @pytest.mark.parametrize("line", ["model: claude-opus-5-5", "  `model: claude-opus-4-6,claude-opus-5-5`"])
@@ -226,5 +265,5 @@ def test_a_co_author_left_out_reaches_the_owner(release, proj):
     git(proj, "tag", "-f", "v2")
     r, issues = release()
     assert r.returncode == 0, r.stderr
-    assert "Check it by hand" in issues[0] and "Cursor <cursoragent@cursor.com>" in issues[0]
+    assert "by hand" in issues[0] and "Cursor <cursoragent@cursor.com>" in issues[0]
     assert "::warning::" in r.stdout
