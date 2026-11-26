@@ -137,8 +137,10 @@ All notable changes to BitcoinTX are documented in this file.
   source Nobody, none chosen yet, one not confirmed, or a server's
   settings not valid, clearing it fills nothing unless that hour's price
   is already stored, and the item stayed listed. The advice now says to
-  type the value, and why, as the Edit form already does. No figure
-  changes.
+  type the value, and why, as the Edit form already does. So it does with
+  your own Mempool chosen without its backup (#1001): to type the value
+  while Mempool isn't installed on this server yet, and for an hour
+  before your Mempool began recording. No figure changes.
 
 - **A request nested a thousand levels deep is refused with a 422, not a
   server error** (#954). A JSON body nested about 1,000 to 10,000 levels
@@ -146,11 +148,12 @@ All notable changes to BitcoinTX are documented in this file.
   made the answer's encoding run past Python's recursion limit: a 500
   instead of the 422 that says what's wrong. Nothing was saved, and
   nothing leaked: the answer was one fixed sentence. Now it's the 422,
-  without the nested input echoed back. On Python 3.11 (a from-source
-  install's oldest) the JSON reader refuses a body past about 950 levels
-  itself, a 400, and the few levels just under that are the 422 too. Two
-  levels just under the depth where a body is refused outright still
-  answer 500 on a logged-in route, from the data checks themselves: #1000.
+  without the nested input echoed back. A logged-in route also answered
+  500 for the two levels just under the depth where a body is refused
+  outright (about 9,990), from the data checks themselves (#1000): it now
+  refuses any body nested more than 64 levels deep, a 422, before
+  checking its fields. Neither BitcoinTX's screens nor the AI connector
+  send one deeper than a few levels.
 
 - **A file with a quote out of place is refused, with the reason, instead
   of losing rows** (#952, tax figures). In a cell whose quote (") is never
@@ -159,20 +162,51 @@ All notable changes to BitcoinTX are documented in this file.
   vanished, and the preview and the import said nothing. A cell with more
   text after its closing quote was read with the quotes left out. Each
   import now refuses such a file and says what it found (a quote never
-  closed; text, even a space, after a closing quote). One case can't be
-  detected: a stray quote that a second stray quote further down happens
-  to close makes a valid file, read with the rows between as one cell
-  (#990). So with a hand-edited file, compare the preview's row count with
-  the file's. Only a hand-edited or damaged file has a stray quote;
-  BitcoinTX's own export never writes one, and a cell with a line break or
-  a doubled quote ("") still reads. Every earlier version has it. **What
-  to do:** if you imported a file you had edited by hand, compare the
-  number of transactions the import saved with the file's rows. Add a
-  missing one by hand; for River's or another exchange's file, importing
-  the corrected file again also works, since the rows already saved are
-  found as duplicates and left out. The row just before the missing ones
-  read their text into the cell where the stray quote was (River's tag,
-  which decides its type, or a note): check that transaction too.
+  closed; text, even a space, after a closing quote). A stray quote that
+  a second stray quote further down closes is the next entry (#990). Only
+  a hand-edited or damaged file has a stray quote; BitcoinTX's own export
+  never writes one, and a doubled quote ("") still reads. Every earlier
+  version has it. **What to do:** if you imported a file you had edited
+  by hand, compare the number of transactions the import saved with the
+  file's rows. Add a missing one by hand; for River's or another
+  exchange's file, importing the corrected file again also works, since
+  the rows already saved are found as duplicates and left out. The row
+  just before the missing ones read their text into the cell where the
+  stray quote was (River's tag, which decides its type, or a note):
+  check that transaction too.
+
+- **A file with a cell over more than one line is refused, naming that
+  cell** (#990, tax figures; the owner's choice, 2026-11-25). Two stray
+  quotes (") that close each other make a file the CSV format allows:
+  every row between them was read as one cell and vanished, and the row
+  holding the first quote could take a later row's columns (its date
+  acquired among them), with no error. No import can tell that cell from
+  one meant to hold a line break, and no cell of a row needs one. So
+  BitcoinTX's own CSV import, River's import and every other exchange's
+  now refuse a file with a cell over more than one line, and name its
+  row and column: put that cell on one line, or remove the stray quote
+  at its start. A note across lines, which no import reads, goes on one
+  line too. BitcoinTX's export never writes such a cell, unless a
+  source, purpose or fee currency was saved with a line break before
+  1.2.8 refused one: its import then names that cell, to put on one
+  line. Every earlier version has it. **What to do:** as for #952,
+  above: if you imported a file you had edited by hand, compare the
+  number of transactions the import saved with the file's rows, and
+  check the transaction just before any missing ones, its date acquired
+  too.
+
+- **A file whose lines end in a carriage return alone reads** (#988). A
+  CSV file saved as an old Mac's "CSV (Macintosh)", each line ended by a
+  carriage return (CR) alone, was refused by BitcoinTX's own CSV import,
+  River's and every other exchange's, in the csv module's own words
+  ("new-line character seen in unquoted field"). Such a file now reads
+  exactly as the same file with Windows or Unix line endings (one with a
+  line feed inside a quoted cell is refused, as a cell over lines is). A
+  CR alone in a file whose lines end otherwise (inside a cell that isn't
+  quoted, or one line ended another way) is still refused, now in plain
+  words naming its line: read as a line's end, it would split its row in
+  two, and the first half could lose its later columns. Nothing was
+  half-read before: such a file was refused whole.
 
 - **Coins acquired on 28 February and sold on 29 February of the next
   year are short-term** (#950, tax figures). The IRS counts a holding
@@ -335,6 +369,19 @@ All notable changes to BitcoinTX are documented in this file.
   had taken 15 sessions and about 54,000 words of plans, prompts and
   reviews for 173 shipped lines by its fifth merged step, where
   2.0.1's release took a lead and one release session.
+- **The lead checks Start9's latest by hand** (the owner, 2026-11-14
+  and 2026-11-25; for #869, for #972). Until now only the lead's own
+  notes said so. `docs/MAINTENANCE-LEAD.md` now says it:
+  `scripts/start9-watch.sh --dry-run` runs when the lead starts, before
+  a StartOS lane's "go" and before a release, since the Monday watch can
+  be days behind.
+  - It names the StartOS lane's full list.
+  - It names what the watch can't see: our open pull request on
+    Start9's fork, the start-cli on the machine the sessions pack and
+    test with, the test machine's StartOS, and Start9's sibling packages
+    the package builds against.
+  - It adds the SDK rule (#972, decision 2): follow Start9's newest
+    start-sdk once the StartOS it needs has been out four weeks.
 - **python-dateutil is no longer a dependency** (for #950). Its one use,
   `relativedelta(years=1)` in the holding period, went with #950's fix,
   which works out the anniversary with Python's own `calendar`

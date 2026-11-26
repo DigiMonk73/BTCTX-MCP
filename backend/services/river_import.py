@@ -47,6 +47,8 @@ from backend.services.csv_import import (
     BTC_COMMA,
     _parse_decimal,
     decimal_comma_note,
+    decoded,
+    header_file_over_lines,
     number_limits,
     unreadable_csv,
 )
@@ -228,40 +230,37 @@ def rows_in_file(rows: list[RiverRow], errors: list[CSVParseError]) -> int:
     return len({row.row_number for row in rows} | {e.row_number for e in errors if e.row_number > 0})
 
 
-def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
-    errors: list[CSVParseError] = []
-    rows: list[RiverRow] = []
-
-    try:
-        text = content.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        try:
-            text = content.decode("latin-1")
-        except UnicodeDecodeError:
-            errors.append(CSVParseError(
-                row_number=0, column=None, severity="error",
-                message="File encoding not supported. Please save as UTF-8.",
-            ))
-            return rows, errors
-
-    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
-    if reader.fieldnames is None:
-        errors.append(CSVParseError(
-            row_number=0, column=None, severity="error",
-            message="CSV file is empty or has no headers.",
-        ))
-        return rows, errors
-
-    headers = {h.lower().strip() for h in reader.fieldnames if h}
-    missing = RIVER_REQUIRED_COLUMNS - headers
+def _header_error(fieldnames) -> CSVParseError | None:
+    """What makes a file's header not River's, if anything."""
+    if fieldnames is None:
+        return CSVParseError(row_number=0, column=None, severity="error",
+                             message="CSV file is empty or has no headers.")
+    missing = RIVER_REQUIRED_COLUMNS - {h.lower().strip() for h in fieldnames if h}
     if missing:
-        errors.append(CSVParseError(
+        return CSVParseError(
             row_number=0, column=None, severity="error",
             message=(
                 "This does not look like a River bitcoin-activity CSV. "
                 f"Missing columns: {', '.join(sorted(missing))}"
             ),
-        ))
+        )
+    return None
+
+
+def _parse_river_rows(content: bytes) -> tuple[list[RiverRow], list[CSVParseError]]:
+    errors: list[CSVParseError] = []
+    rows: list[RiverRow] = []
+
+    text = decoded(content)  # as BitcoinTX's own import reads a file: a CR file too (#988)
+    over_lines = header_file_over_lines(text)  # two stray quotes joined rows into a cell (#990)
+    if over_lines:
+        errors.append(over_lines)
+        return rows, errors
+
+    reader = csv.DictReader(io.StringIO(text), strict=True)  # a stray quote refuses the file (#952)
+    header_error = _header_error(reader.fieldnames)
+    if header_error:
+        errors.append(header_error)
         return rows, errors
 
     for row_number, raw in enumerate(reader, start=2):

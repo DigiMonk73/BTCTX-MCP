@@ -330,6 +330,10 @@ WHEN_NOTHING_IS_ASKED: dict[str, str] = {
     "zero_proceeds_spend": "If you didn't really get $0, edit the proceeds. Clearing them fills them in only if "
                            "BitcoinTX already has that hour's price, since {why}.",
 }
+# Your Mempool alone, after CHECKS' advice: an hour before it began
+# recording has no price there, as the Edit form says (#1001)
+MEMPOOL_ALONE = ("Your Mempool has prices only from when it began recording: for an older hour, unless BitcoinTX "
+                 "already has its price, type the value.")
 
 
 LISTED_FROM = Decimal("1.00")
@@ -510,28 +514,36 @@ def _lots_made(db: Session, tz) -> dict[int, dict[str, Any]]:
 
 def advice(key: str) -> str:
     """A check's advice for the price choice in use: CHECKS' own, or, for a
-    value to fill from a price while BitcoinTX asks no one, WHEN_NOTHING_IS_ASKED's."""
-    why = _why_nothing_is_asked(outbound.current())
-    if why is None or key not in WHEN_NOTHING_IS_ASKED:
+    value to fill from a price, WHEN_NOTHING_IS_ASKED's while BitcoinTX asks
+    no one, and MEMPOOL_ALONE after it while it asks your Mempool alone."""
+    settings = outbound.current()
+    if key not in WHEN_NOTHING_IS_ASKED:
         return CHECKS[key][1]
-    return WHEN_NOTHING_IS_ASKED[key].format(why=why)
+    why = _why_nothing_is_asked(settings)
+    if why is not None:
+        return WHEN_NOTHING_IS_ASKED[key].format(why=why)
+    if settings.own_node and not settings.mempool_fallback:
+        return f"{CHECKS[key][1]} {MEMPOOL_ALONE}"
+    return CHECKS[key][1]
 
 
 def _why_nothing_is_asked(settings: outbound.NetworkSettings) -> str | None:
-    """Why no one is asked for a price, in the form's order; None when someone
-    is, or when this is a command run without the server's own settings
-    (#461), which can't tell what the app asks."""
+    """Why no one is asked for a price, in the form's order (your Mempool
+    alone, not installed, too: #1001); None when someone is, or when this
+    is a command run without the server's own settings (#461), which can't
+    tell what the app asks."""
     if settings.server_settings_missing:
         return None
-    if settings.invalid:
-        return "this server's price settings aren't valid"
-    if settings.waiting:
-        return "the price source isn't confirmed yet (confirm it on the Dashboard)"
-    if settings.price_source == "unset":
-        return "no price source is chosen yet (choose one on the Dashboard)"
-    if settings.price_source == "off":
-        return "you chose Nobody"
-    return None
+    reasons = (
+        (settings.invalid, "this server's price settings aren't valid"),
+        (settings.waiting, "the price source isn't confirmed yet (confirm it on the Dashboard)"),
+        (settings.price_source == "unset", "no price source is chosen yet (choose one on the Dashboard)"),
+        (settings.price_source == "off", "you chose Nobody"),
+        # StartOS gives your Mempool no address until it's installed
+        (settings.price_source == "mempool" and not settings.mempool_url and not settings.mempool_fallback,
+         "Mempool isn't installed on this server yet"),
+    )
+    return next((why for applies, why in reasons if applies), None)
 
 
 def build_review(db: Session) -> dict[str, Any]:
