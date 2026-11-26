@@ -88,11 +88,11 @@ the rules.
    `scripts/start9-pull.sh --fork`). Its description names, on a line of
    its own, each AI model that wrote any of it: `model: claude-opus-5-5`,
    comma-separated, from the `Co-Authored-By` lines of the commits it
-   carries (`scripts/start9-models.sh <the last release Start9 merged>`
-   prints it; Start9's `publishing.md`, "The Pipeline"). While a pull
-   request of ours is still open there, it carries the new release too, and
-   no issue is opened, unless the release brings a model its `model:` line
-   doesn't name: then an issue asks to add it.
+   carries (`scripts/start9-models.sh` prints it; Start9's `publishing.md`,
+   "The Pipeline"; `docs/STARTOS-PACKAGE.md`). While a pull request of
+   ours is still open there, it carries the new release too, and no "Send"
+   issue is opened; if the release brings a model its `model:` line doesn't
+   name, an issue gives the whole line to put there.
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
@@ -123,7 +123,8 @@ mirror's Tag and Release ignores root-level `*.md`, so nothing is rebuilt;
 check the sync's commit lists only those files. Anything else in `startos/`
 (code, `icon.*`, `assets/`, workflows) waits for a release. Once Start9 has
 forked, such a sync also needs its pull request to their fork (or rides in
-one of ours still open), or Start9 never gets it. Before a release, bring
+one of ours still open), or Start9 never gets it; its description, or the
+open one's, names the models (`scripts/start9-models.sh`, step 4). Before a release, bring
 Start9's changes to their fork back into `startos/` with
 `scripts/start9-pull.sh` (`--apply` on a branch cut from `develop`, then a
 pull request into `develop`), or the sync undoes them;

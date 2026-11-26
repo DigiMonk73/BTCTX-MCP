@@ -86,4 +86,145 @@ def test_until_a_commit(proj):
     git(proj, "tag", "v2")
     commit(proj, "startos/a.ts", "after", "Claude Sonnet 5.5 <noreply@anthropic.com>")
     assert run(proj, "v1", "v2").stdout == "model: claude-opus-5-5\n"
-    assert run(proj).returncode == 2
+
+
+@pytest.mark.parametrize("args", [("v0",), ("", "v1"), ("v1", "")])
+def test_a_range_that_isnt_one_is_refused(proj, args):
+    # Never "no models": that would leave the line off without a word.
+    r = run(proj, *args)
+    assert r.returncode == 2 and r.stdout == ""
+    assert "not a commit here" in r.stderr
+
+
+@pytest.mark.parametrize("co_author", ["Claude <noreply@anthropic.com>"])
+def test_a_claude_name_with_no_model_id_is_named_not_guessed(proj, co_author):
+    commit(proj, "startos/a.ts", "bare", co_author)
+    r = run(proj, "v1")
+    assert (r.returncode, r.stdout) == (0, "")
+    assert co_author in r.stderr
+
+
+def test_a_note_after_the_name_is_not_part_of_the_id(proj):
+    commit(proj, "startos/a.ts", "long", "Claude Opus 4.7 (1M context) <noreply@anthropic.com>")
+    assert run(proj, "v1").stdout == "model: claude-opus-4-7\n"
+
+
+def test_a_squash_carries_its_commits_lines_in_its_middle(proj):
+    # GitHub's squash message: each commit's message, then its own trailer.
+    (proj / "startos" / "a.ts").write_text("squashed\n")
+    git(proj, "add", "-A")
+    git(proj, "commit", "-qm", "Squash (#1)\n\n* one\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n\n"
+        "* two\n\n---------\n\nCo-authored-by: Claude Sonnet 5.5 <noreply@anthropic.com>")
+    assert run(proj, "v1").stdout == "model: claude-opus-5-5, claude-sonnet-5-5\n"
+
+
+# --- what the fork holds, and the release workflow's own steps ---
+
+def fork_holding(tmp_path, proj, rev):
+    """Start9's fork: their commits, and a squash holding our sync of `rev`."""
+    fork = tmp_path / "fork"
+    git(tmp_path, "init", "-q", "-b", "main", str(fork))
+    sha = git(proj, "rev-parse", "--short", rev).strip()
+    older = git(proj, "rev-list", "--max-parents=0", "HEAD").strip()[:7]
+    for message in (f"Sync from DigiMonk73/BTCTX-MCP@{older} (0.1)", "Their template update",
+                    f"BitcoinTX v1 (#4)\n\n* Sync from DigiMonk73/BTCTX-MCP@{sha} (1)"):
+        git(fork, "commit", "-q", "--allow-empty", "-m", message)
+    return fork
+
+
+def test_since_what_the_fork_holds(tmp_path, proj, monkeypatch):
+    commit(proj, "startos/a.ts", "sent", "Claude Opus 5.5 <noreply@anthropic.com>")
+    monkeypatch.setenv("START9_FORK", "Start9-Community/BTCTX-StartOS")
+    monkeypatch.setenv("START9_BRANCH", "main")
+    monkeypatch.setenv("FORK_URL", str(fork_holding(tmp_path, proj, "v1")))
+    assert run(proj).stdout == "model: claude-opus-5-5\n"  # not v1's claude-opus-4-6
+    assert run(proj, "--fork").stdout == "model: claude-opus-5-5\n"
+
+
+RELEASE = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "release.yml"
+FAKE_GH = """#!/bin/sh
+case "$1 $2" in
+  "pr list") [ -z "$FAKE_LIST_FAILS" ] || { echo "gh: HTTP 502" >&2; exit 1; }; printf '%s' "$FAKE_OPEN" ;;
+  "pr view") printf '%s' "$FAKE_BODY" ;;
+  "issue create") cp body.md "$ISSUES/$(ls "$ISSUES" | wc -l | tr -d ' ').md" ;;
+esac
+"""
+
+
+def mirror_step():
+    """release.yml's mirror step, from finding the fork to the issue."""
+    text = RELEASE.read_text()
+    start = text.index('          FORK_INFO="$(scripts/start9-pull.sh --fork)"')
+    end = text.index("\n", text.index('echo "::warning::Open the pull request to $FORK'))
+    return "\n".join(line[10:] for line in text[start:end].split("\n"))
+
+
+@pytest.fixture
+def release(tmp_path, proj, monkeypatch):
+    """Run the step on proj's tag v2, Start9's fork holding v1."""
+    commit(proj, "startos/a.ts", "in v2", "Claude Opus 5.5 <noreply@anthropic.com>")
+    git(proj, "tag", "v2")
+    (proj / "scripts" / "start9-pull.sh").write_text('#!/bin/sh\necho "Start9-Community/BTCTX-StartOS main"\n')
+    (proj / "scripts" / "start9-pull.sh").chmod(0o755)
+    (proj / "step.sh").write_text(mirror_step())
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    (bin_dir / "gh").write_text(FAKE_GH)
+    (bin_dir / "gh").chmod(0o755)
+    issues = tmp_path / "issues"
+    issues.mkdir()
+    for var in ("START9_FORK", "START9_BRANCH", "FAKE_OPEN", "FAKE_BODY", "FAKE_LIST_FAILS"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("ISSUES", str(issues))
+    monkeypatch.setenv("FORK_URL", str(fork_holding(tmp_path, proj, "v1")))
+    monkeypatch.setenv("TAG", "v2")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "DigiMonk73/BTCTX-MCP")
+
+    def step():
+        r = subprocess.run(["bash", "-e", "step.sh"], cwd=proj, capture_output=True, text=True)
+        return r, [path.read_text() for path in sorted(issues.iterdir())]
+    return step
+
+
+def test_the_send_issue_gives_the_model_line(release):
+    r, issues = release()
+    assert r.returncode == 0, r.stderr
+    assert len(issues) == 1 and "Click **Create pull request**" in issues[0]
+    assert "`model: claude-opus-5-5`" in issues[0]
+    assert "Check it by hand" not in issues[0]
+
+
+def test_an_open_pull_request_gets_the_whole_line(release, monkeypatch):
+    monkeypatch.setenv("FAKE_OPEN", "12")
+    monkeypatch.setenv("FAKE_BODY", "Notes\r\n\r\nmodel:claude-opus-4-6\r\n")
+    r, issues = release()
+    assert r.returncode == 0, r.stderr
+    assert len(issues) == 1
+    assert "`model: claude-opus-4-6, claude-opus-5-5`" in issues[0]
+    assert "pull/12" in issues[0]
+
+
+@pytest.mark.parametrize("line", ["model: claude-opus-5-5", "  `model: claude-opus-4-6,claude-opus-5-5`"])
+def test_an_open_pull_request_that_names_them_gets_no_issue(release, monkeypatch, line):
+    monkeypatch.setenv("FAKE_OPEN", "12")
+    monkeypatch.setenv("FAKE_BODY", f"Notes\n\n{line}\n")
+    r, issues = release()
+    assert r.returncode == 0, r.stderr
+    assert issues == []
+
+
+def test_a_failed_lookup_stops_rather_than_send_a_second_pull_request(release, monkeypatch):
+    monkeypatch.setenv("FAKE_LIST_FAILS", "1")
+    r, issues = release()
+    assert r.returncode != 0
+    assert issues == []
+
+
+def test_a_co_author_left_out_reaches_the_owner(release, proj):
+    commit(proj, "startos/a.ts", "paired", "Cursor <cursoragent@cursor.com>")
+    git(proj, "tag", "-f", "v2")
+    r, issues = release()
+    assert r.returncode == 0, r.stderr
+    assert "Check it by hand" in issues[0] and "Cursor <cursoragent@cursor.com>" in issues[0]
+    assert "::warning::" in r.stdout

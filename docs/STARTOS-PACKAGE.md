@@ -107,19 +107,25 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
   pull request", with a link that opens GitHub's pull-request page ready to
   create; or `gh pr create -R <fork> --head DigiMonk73:main`. Start9 reviews and merges it and publishes to the
   community registry. While a pull request of ours is still open there, the
-  mirror push adds the new release to it, and no issue is opened.
+  mirror push adds the new release to it, and no "Send" issue is opened
+  (one may ask to update its `model:` line, next).
 - **Name the models in its description** (Start9's `publishing.md`, "The
   Pipeline", 2026-11-26): on a line of its own, `model: <model id>`, each
   AI model that wrote any of it, comma-separated (`model: claude-opus-5-5`);
-  Start9 picks its AI reviewer from that line. The mirror's commits carry no
-  co-authors, so the models are the `Co-Authored-By` lines of this
-  repository's commits that changed `startos/` since the last release Start9
-  merged, one id each, as the harness names it ("Claude Opus 5.5" is
-  `claude-opus-5-5`): `scripts/start9-models.sh <that release's tag>` prints
-  the line. The release workflow puts it in the "Send vX.Y.Z to Start9"
-  issue; while a pull request of ours is still open there, it opens an
-  issue to update that pull request's `model:` line when the new release
-  brings a model the line doesn't name.
+  Start9 picks its AI reviewer from that line, so it is updated when a later
+  push brings another model. The mirror's commits carry no co-authors, so
+  the models are the `Co-Authored-By` lines of this repository's commits
+  that changed `startos/` since the newest one Start9's fork holds (its
+  newest "Sync from DigiMonk73/BTCTX-MCP@…"), one id each, as the harness
+  names it ("Claude Opus 5.5" is `claude-opus-5-5`; a note after the name,
+  "(1M context)", is not part of it): `scripts/start9-models.sh` prints the
+  line. It names on stderr, and leaves out, any other co-author (Cursor's
+  agent co-wrote some of `startos/` in 1.2.x): a person decides whether
+  that one is an AI model too. The release workflow puts the line, and
+  anything left out, in the "Send vX.Y.Z to Start9" issue; while a pull
+  request of ours is still open there, it opens an issue with the whole line
+  when the new release brings a model the line doesn't name, or left
+  something out.
 - The script finds the fork itself (Start9 may rename it, and it keeps the
   mirror's default branch unless they change it): `scripts/start9-pull.sh
   --fork` prints it. If they made a new repository instead of a fork, set

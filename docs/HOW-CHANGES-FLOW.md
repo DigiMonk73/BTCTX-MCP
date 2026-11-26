@@ -221,10 +221,14 @@ goes into `2.0` (AGENTS.md, "Releasing").
 
 1. The release opens an issue here, **"Send vX.Y.Z to Start9"**, with a
    link. Two exceptions: no issue before Start9 had their copy, and no
-   issue while a pull request of ours is still open on their copy (that
-   pull request then carries the new release too).
+   such issue while a pull request of ours is still open on their copy
+   (that pull request then carries the new release too; if the release
+   brings an AI model its `model:` line doesn't name, an issue gives the
+   whole line to put there).
 2. Open the link: GitHub shows a ready pull request from the mirror to
-   Start9's copy. Click **Create pull request**. Only Start9 can change
+   Start9's copy. Its description gets the line the issue gives,
+   `model: …`, naming the AI models that wrote it: Start9 picks its AI
+   reviewer from it. Click **Create pull request**. Only Start9 can change
    their copy, so a pull request is the only way in.
 3. Start9 reviews and merges it, then publishes it to **Community Beta**
    (`https://community-beta-registry.start9.com`).
