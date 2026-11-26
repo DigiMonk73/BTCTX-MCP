@@ -294,6 +294,13 @@ All notable changes to BitcoinTX are documented in this file.
   reset say what survives it. The action already signed every browser
   out, and an AI key kept working; its warning, in every language, and
   the Instructions now say both, and where the app revokes the AI key.
+- **A pull request to Start9 names the models that wrote it**: Start9's
+  guide (`publishing.md`, "The Pipeline", 2026-11-26) has its description
+  carry a `model:` line, which picks their AI reviewer.
+  `scripts/start9-models.sh` prints it from the `Co-Authored-By` lines of
+  the commits that changed `startos/` since the last release Start9
+  merged; the release's "Send vX.Y.Z to Start9" issue gives it, and an
+  open pull request whose line misses a new model gets an issue to add it.
 
 ### Documentation
 - **Your first tax year in six steps** (#959). A new user sees a

@@ -108,6 +108,18 @@ branch), SDK bumps and review fixes, by pull requests on their fork.
   create; or `gh pr create -R <fork> --head DigiMonk73:main`. Start9 reviews and merges it and publishes to the
   community registry. While a pull request of ours is still open there, the
   mirror push adds the new release to it, and no issue is opened.
+- **Name the models in its description** (Start9's `publishing.md`, "The
+  Pipeline", 2026-11-26): on a line of its own, `model: <model id>`, each
+  AI model that wrote any of it, comma-separated (`model: claude-opus-5-5`);
+  Start9 picks its AI reviewer from that line. The mirror's commits carry no
+  co-authors, so the models are the `Co-Authored-By` lines of this
+  repository's commits that changed `startos/` since the last release Start9
+  merged, one id each, as the harness names it ("Claude Opus 5.5" is
+  `claude-opus-5-5`): `scripts/start9-models.sh <that release's tag>` prints
+  the line. The release workflow puts it in the "Send vX.Y.Z to Start9"
+  issue; while a pull request of ours is still open there, it opens an
+  issue to update that pull request's `model:` line when the new release
+  brings a model the line doesn't name.
 - The script finds the fork itself (Start9 may rename it, and it keeps the
   mirror's default branch unless they change it): `scripts/start9-pull.sh
   --fork` prints it. If they made a new repository instead of a fork, set

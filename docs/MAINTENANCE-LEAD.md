@@ -115,7 +115,7 @@ What it can't see, so the lead looks itself:
 - **Start9's sibling packages the package builds against**
   (`mempool-startos` and `tor-startos` in `startos/package.json`).
   Dependabot ignores them, and they move only with an SDK bump
-  (`startos/UPDATING.md`, "Bumping the SDK").
+  (`docs/STARTOS-PACKAGE.md`, "Bumping the SDK").
 
 **The SDK rule** (the owner, 2026-11-14; #972, decision 2): BitcoinTX
 follows Start9's newest start-sdk once the StartOS it needs has been

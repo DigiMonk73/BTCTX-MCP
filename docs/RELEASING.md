@@ -85,8 +85,14 @@ the rules.
    run opens an issue here, "Send vX.Y.Z to Start9", with the one-click link
    and steps for the owner; or open it yourself with the owner's OK
    (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
-   `scripts/start9-pull.sh --fork`). While a pull request of ours is still
-   open there, it carries the new release too, and no issue is opened.
+   `scripts/start9-pull.sh --fork`). Its description names, on a line of
+   its own, each AI model that wrote any of it: `model: claude-opus-5-5`,
+   comma-separated, from the `Co-Authored-By` lines of the commits it
+   carries (`scripts/start9-models.sh <the last release Start9 merged>`
+   prints it; Start9's `publishing.md`, "The Pipeline"). While a pull
+   request of ours is still open there, it carries the new release too, and
+   no issue is opened, unless the release brings a model its `model:` line
+   doesn't name: then an issue asks to add it.
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made

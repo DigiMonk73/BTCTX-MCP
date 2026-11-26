@@ -379,3 +379,21 @@ def test_set_login_credentials_says_what_a_reset_leaves_valid():
     assert "signs out every browser" in warning
     assert "An AI key you created keeps working" in warning
     assert "Settings > Connect an AI Assistant" in warning
+
+
+def test_every_pull_request_to_start9_names_its_models():
+    """Start9's publishing.md, "The Pipeline" (2026-11-26): a pull request
+    to the fork names each AI model that wrote any of it, on a `model:` line.
+    Every step of ours that opens or adds to one says so."""
+    for doc in ("docs/STARTOS-PACKAGE.md", "docs/RELEASING.md"):
+        text = " ".join((ROOT / doc).read_text().split())
+        assert "gh pr create -R <fork>" in text, doc
+        assert "`model: claude-opus-5-5`" in text, doc
+        assert "scripts/start9-models.sh" in text, doc
+    release = (ROOT / ".github" / "workflows" / "release.yml").read_text()
+    mirror = release.split("\n  mirror:\n", 1)[1]
+    assert 'MODELS="$(scripts/start9-models.sh "$SINCE" "$TAG")"' in mirror
+    new_pr = mirror.split('cat > body.md <<EOF', 2)[2]
+    assert "$MODELS" in new_pr.split("\n          EOF", 1)[0]  # the "Send vX.Y.Z to Start9" issue
+    still_open = mirror.split('if [ -n "$OPEN" ]; then', 1)[1].split("\n          fi\n          COMPARE=", 1)[0]
+    assert "model:" in still_open and "gh issue create" in still_open

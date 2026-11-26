@@ -383,10 +383,32 @@ jobs:
             echo "Start9 hasn't forked the mirror yet: no pull request to open."
             exit 0
           fi
+          # Start9's publishing.md, "The Pipeline": the description names
+          # each AI model that wrote any of it (docs/STARTOS-PACKAGE.md).
+          SINCE="$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' "$TAG^" 2>/dev/null \
+            || git rev-list --max-parents=0 "$TAG" | tail -n1)"
+          MODELS="$(scripts/start9-models.sh "$SINCE" "$TAG")"
           OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number \
-            --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | "#\(.number)"')"
+            --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | .number' | head -n1)"
           if [ -n "$OPEN" ]; then
-            echo "::notice::Our pull request $OPEN on $FORK is still open; it now carries $TAG too."
+            echo "::notice::Our pull request #$OPEN on $FORK is still open; it now carries $TAG too."
+            LINE="$(gh pr view -R "$FORK" "$OPEN" --json body --jq .body | tr -d '\r' | grep -m1 '^model:' || true)"
+            MISSING=""
+            for id in $(printf '%s' "${MODELS#model: }" | tr ',' ' '); do
+              case ", ${LINE#model: }, " in *", $id, "*) ;; *) MISSING="$MISSING $id" ;; esac
+            done
+            if [ -n "$MISSING" ]; then
+              cat > body.md <<EOF
+          Our pull request on Start9's fork, $FORK#$OPEN, now carries $TAG too, which a model it doesn't name co-wrote:$MISSING. Start9 picks its AI reviewer from the description's \`model:\` line (their \`publishing.md\`, "The Pipeline").
+
+          1. Open https://github.com/$FORK/pull/$OPEN, signed in to GitHub, and edit its description (the **…** menu, **Edit**).
+          2. Make its \`model:\` line name every model, comma-separated:$( [ -n "$LINE" ] && printf ' it says `%s` now; add' "$LINE" || printf ' add the line'):$MISSING.
+          3. Close this issue.
+
+          Or ask Claude: "update the model line on the Start9 pull request".
+          EOF
+              gh issue create -R "$GITHUB_REPOSITORY" --title "$TAG to Start9: name its model on the pull request" --label start9,owner --body-file body.md
+            fi
             exit 0
           fi
           COMPARE="https://github.com/$FORK/compare/$BRANCH...DigiMonk73:BTCTX-StartOS:main?expand=1"
@@ -395,7 +417,7 @@ jobs:
           $TAG is released and the StartOS package is on our mirror. Start9's copy, **$FORK**, only gets it through a pull request: only Start9 can change it.
 
           1. Open [this link]($COMPARE), signed in to GitHub. It shows "Comparing changes" from DigiMonk73/BTCTX-StartOS \`main\` into $FORK \`$BRANCH\`.
-          2. Click **Create pull request**. Title: \`BitcoinTX $TAG\`. Description: the release notes, $NOTES
+          2. Click **Create pull request**. Title: \`BitcoinTX $TAG\`. Description: the release notes, $NOTES$( [ -n "$MODELS" ] && printf '%s' ", then, on a line of its own, \`$MODELS\` (the models that co-wrote it: Start9 picks its AI reviewer from that line)")
           3. Click **Create pull request** again. Start9 reviews it (their comments come by email), merges it and publishes it.
           4. Close this issue.
 
