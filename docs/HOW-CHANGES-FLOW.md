@@ -221,20 +221,23 @@ goes into `2.0` (AGENTS.md, "Releasing").
 
 1. The release opens an issue here, **"Send vX.Y.Z to Start9"**, with a
    link. Two exceptions: no issue before Start9 had their copy, and no
-   issue while a pull request of ours is still open on their copy (that
-   pull request then carries the new release too).
+   such issue while a pull request of ours is still open on their copy
+   (that pull request then carries the new release too; if the release
+   brings an AI model its `model:` line doesn't name, or a co-author the
+   script can't place, an issue gives the line to put there).
 2. Open the link: GitHub shows a ready pull request from the mirror to
-   Start9's copy. Click **Create pull request**. Only Start9 can change
+   Start9's copy. Its description gets the line the issue gives,
+   `model: …`, naming the AI models that wrote it: Start9 picks its AI
+   reviewer from it. Click **Create pull request**. Only Start9 can change
    their copy, so a pull request is the only way in.
 3. Start9 reviews and merges it, then publishes it to **Community Beta**
    (`https://community-beta-registry.start9.com`).
 4. The owner tests the beta on their own server, using a checklist
    Claude writes for that release on the issue that plans its promotion
    (1.2.9's: #143, section 5). BitcoinTX's Community Beta builds are
-   signed only by that registry's build key, **Github Actions**. On
-   StartOS 0.4.1.2 or later, turning it on for **Packages** under
-   **System → Trusted Keys** installs them without a warning; on an
-   earlier 0.4.1, update StartOS first.
+   signed only by that registry's build key, **Github Actions**.
+   Turning it on for **Packages** under **System → Trusted Keys**
+   installs them without a warning.
 5. When satisfied, the owner asks Start9, in an issue on their copy, to
    **promote** it to the main store (`https://community-registry.start9.com`).
    Claude drafts that request. Promotion is the owner's call.
@@ -686,7 +689,7 @@ up to date the next reviewed pull request waiting behind one that merged
 alerts), the week's Monday report issue and the open `start9` issues.
 GitHub runs a schedule only from `main`, which carries
 `monday-report.yml` since 2.0.1's release, and `start9-watch.yml`
-(startos/UPDATING.md, "Watching Start9").
+(docs/STARTOS-PACKAGE.md, "Watching Start9").
 
 Then run `make sync-check`: it brings local `main`, `develop` and `2.0`
 down from GitHub and says whether anything exists only on this computer: work not

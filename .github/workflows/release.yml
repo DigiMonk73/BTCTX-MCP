@@ -1,7 +1,7 @@
 name: Release
 
 # Push a branch named release/vX.Y.Z (matching VERSION; vX.Y.Z-N for a
-# package-only revision N, see startos/UPDATING.md) from main to publish that release:
+# package-only revision N, see docs/STARTOS-PACKAGE.md) from main to publish that release:
 # one GitHub release, tag created on that commit, notes from the
 # "## [<tag>]" section of docs/CHANGELOG.md (its summary and a link, when it
 # has one: scripts/release-notes.sh), with
@@ -24,7 +24,7 @@ name: Release
 # be current and cross-checked (scripts/price_history.py release-check)
 # before anything is built. Branch-based so a release
 # doesn't depend on being able to push tags. An existing release is left
-# alone. Setup of the two secrets: startos/UPDATING.md.
+# alone. Setup of the two secrets: docs/STARTOS-PACKAGE.md.
 #
 # A branch prerelease/vX.Y.Z-alpha.N or prerelease/vX.Y.Z-beta.N pushed from
 # 2.0 publishes a 2.0 pre-release the same way (2.0 plan 7.4, B10a; #251's
@@ -189,8 +189,8 @@ jobs:
       package: ${{ steps.pack.outputs.package }}
     env:
       # the same start-cli as ci.yml's START_CLI_VERSION and START_CLI_SHA256
-      START_CLI_VERSION: v2.7.0
-      START_CLI_SHA256: 07689176e2775fcd44f8bd0248f322898f19d8af2095970960eb27f511a92150
+      START_CLI_VERSION: v2.8.0
+      START_CLI_SHA256: 05a9a1c00207fb83c5d36eeb801655d5e02272a5a01c34d3588982c39fbca689
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -365,7 +365,7 @@ jobs:
           TAG: ${{ needs.check.outputs.tag }}
         run: |
           if [ -z "$MIRROR_TOKEN" ]; then
-            echo "::notice::MIRROR_TOKEN is not set: mirror not updated. Run scripts/sync-startos-mirror.sh --push by hand (startos/UPDATING.md)."
+            echo "::notice::MIRROR_TOKEN is not set: mirror not updated. Run scripts/sync-startos-mirror.sh --push by hand (docs/STARTOS-PACKAGE.md)."
             exit 0
           fi
           git config --global user.name "github-actions[bot]"
@@ -383,10 +383,57 @@ jobs:
             echo "Start9 hasn't forked the mirror yet: no pull request to open."
             exit 0
           fi
+          # Start9's publishing.md, "The Pipeline": the description names
+          # each AI model that wrote any of it, from our commits since the one
+          # their fork holds (scripts/start9-models.sh, docs/STARTOS-PACKAGE.md).
+          # What the script leaves out reaches the owner in the issue, never
+          # only this log.
+          if MODELS="$(START9_FORK="$FORK" START9_BRANCH="$BRANCH" scripts/start9-models.sh --fork "$TAG" 2>models.err)"; then :; else MODELS=""; fi
+          LEFT="$(tr '\n' ' ' < models.err)"
+          CHECK=""
+          if [ -n "$LEFT" ]; then
+            echo "::warning::$LEFT"
+            CHECK=" Check the \`model:\` line by hand, which Start9 needs on any pull request an AI model co-wrote: \`scripts/start9-models.sh\` said \"${LEFT% }\" (a co-author it leaves out may be an AI model too; docs/STARTOS-PACKAGE.md)."
+          fi
           OPEN="$(gh pr list -R "$FORK" --state open --json headRepositoryOwner,number \
-            --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | "#\(.number)"')"
+            --jq '.[] | select(.headRepositoryOwner.login == "DigiMonk73") | .number')"
+          OPEN="${OPEN%%$'\n'*}"   # the first; no pipe, whose failure -e wouldn't see
           if [ -n "$OPEN" ]; then
-            echo "::notice::Our pull request $OPEN on $FORK is still open; it now carries $TAG too."
+            echo "::notice::Our pull request #$OPEN on $FORK is still open; it now carries $TAG too."
+            BODY="$(gh pr view -R "$FORK" "$OPEN" --json body --jq .body)"
+            # Its model: line however written (indented, in backticks, any
+            # spacing after the commas), as words; never patterns.
+            set -f
+            HAVE="$(printf '%s\n' "$BODY" | tr -d '\r`' | grep -m1 -iE '^[[:space:]>]*model:' | sed -E 's/^[^:]*://' | tr ',' ' ')"
+            HAVE="$(printf '%s\n' $HAVE | grep -E '^[a-z0-9][a-z0-9.-]*[a-z0-9]$' | tr '\n' ' ')"  # ids only: no notes, no stray marks
+            MISSING=""
+            for id in $(printf '%s' "${MODELS#model: }" | tr ',' ' '); do
+              found=""
+              for have in $HAVE; do
+                if [ "$have" = "$id" ]; then found=1; fi
+              done
+              if [ -z "$found" ]; then MISSING="$MISSING $id"; fi
+            done
+            if [ -n "$MISSING" ] || [ -n "$LEFT" ]; then
+              NEW=""
+              if [ -n "$MISSING" ]; then NEW=" Its line leaves out$MISSING."; fi
+              ALL="$(printf '%s\n' $HAVE $MISSING | awk 'NF && !seen[$0]++' | paste -sd, - | sed 's/,/, /g')"
+              if [ -n "$ALL" ]; then
+                STEP="Make its \`model:\` line, on a line of its own, \`model: $ALL\`."
+              else
+                STEP="Give it a \`model:\` line, on a line of its own, naming each AI model that co-wrote it (\`model: claude-opus-5-5\`)."
+              fi
+              cat > body.md <<EOF
+          Our pull request on Start9's fork, $FORK#$OPEN, now carries $TAG too. Start9 picks its AI reviewer from the description's \`model:\` line, which names every AI model that co-wrote it (their \`publishing.md\`, "The Pipeline").$NEW$CHECK
+
+          1. Open https://github.com/$FORK/pull/$OPEN, signed in to GitHub, and edit its description (the **…** menu, **Edit**).
+          2. $STEP
+          3. Close this issue.
+
+          Or ask Claude: "update the model line on the Start9 pull request".
+          EOF
+              gh issue create -R "$GITHUB_REPOSITORY" --title "$TAG to Start9: the model line on the pull request" --label start9,owner --body-file body.md
+            fi
             exit 0
           fi
           COMPARE="https://github.com/$FORK/compare/$BRANCH...DigiMonk73:BTCTX-StartOS:main?expand=1"
@@ -395,7 +442,7 @@ jobs:
           $TAG is released and the StartOS package is on our mirror. Start9's copy, **$FORK**, only gets it through a pull request: only Start9 can change it.
 
           1. Open [this link]($COMPARE), signed in to GitHub. It shows "Comparing changes" from DigiMonk73/BTCTX-StartOS \`main\` into $FORK \`$BRANCH\`.
-          2. Click **Create pull request**. Title: \`BitcoinTX $TAG\`. Description: the release notes, $NOTES
+          2. Click **Create pull request**. Title: \`BitcoinTX $TAG\`. Description: the release notes, $NOTES$( [ -n "$MODELS" ] && printf '%s' ", then, on a line of its own, \`$MODELS\` (the AI models that co-wrote it: Start9 picks its AI reviewer from that line)").$CHECK
           3. Click **Create pull request** again. Start9 reviews it (their comments come by email), merges it and publishes it.
           4. Close this issue.
 

@@ -70,7 +70,7 @@ const dict = {
   'Prices are now hourly. Check who BitcoinTX asks for newer ones.': 65,
 
   // actions/setCredentials.ts, init/watchCredentials.ts, init/defaultLogin.ts
-  'This replaces your current username and password. Your transactions are not touched.': 30,
+  'This replaces your current username and password and signs out every browser. An AI key you created keeps working: revoke it in BitcoinTX Settings > Connect an AI Assistant if someone else may have it. Your transactions are not touched.': 30,
   'Login Credentials': 35,
   'Set Login Credentials': 68,
   'Generate a random password for logging in to BitcoinTX, with the username "admin". Run it again if you lose the password.': 69,

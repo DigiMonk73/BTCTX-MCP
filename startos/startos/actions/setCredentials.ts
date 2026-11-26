@@ -18,7 +18,7 @@ export const setCredentials = sdk.Action.withoutInput(
     ),
     warning: (await storeJson.read((s) => !!s.loginSet).const(effects))
       ? i18n(
-          'This replaces your current username and password. Your transactions are not touched.',
+          'This replaces your current username and password and signs out every browser. An AI key you created keeps working: revoke it in BitcoinTX Settings > Connect an AI Assistant if someone else may have it. Your transactions are not touched.',
         )
       : null,
     allowedStatuses: 'only-stopped',

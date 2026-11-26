@@ -42,9 +42,8 @@ downloadable. No dates are promised.
       CHANGELOG (`release.yml`'s version check and release notes,
       `scripts/mirror-startos-release.sh`), the pull request template, and
       the docs that say to edit it (AGENTS.md "Releasing", MAINTENANCE,
-      TESTING, `startos/UPDATING.md`), so it waited until 1.2.9 was out.
-      Its `startos/UPDATING.md` edit goes to Start9's fork with the
-      next release.
+      TESTING, `docs/STARTOS-PACKAGE.md`), so it waited until 1.2.9 was
+      out.
 
 ## Later
 

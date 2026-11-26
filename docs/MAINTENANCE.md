@@ -162,7 +162,7 @@ it changes only by pull request:
 - start-cli, which packs the StartOS package in CI and the release: a
   release and its SHA-256 from the release notes (`START_CLI_VERSION`,
   `START_CLI_SHA256` in `ci.yml` and `release.yml`), checked before it runs.
-  It follows Start9's newest (`startos/UPDATING.md`, "Bumping the SDK").
+  It follows Start9's newest (`docs/STARTOS-PACKAGE.md`, "Bumping the SDK").
 - The exception is the AI connector (`mcp_server/pyproject.toml`): it is
   installed next to other software, so its dependencies take ranges, each
   capped below the next major version (`httpx>=0.27,<1`), except `tzdata`,
@@ -254,7 +254,7 @@ hand, after the review (AGENTS.md, "Pull requests").
 - Ignored: `@playwright/test`, the deferred upgrades below (each rule
   says why; remove it when the upgrade is unblocked), and in `startos/`
   `@start9labs/start-sdk`, `mempool-startos` and `tor-startos`, which are
-  bumped by hand (`startos/UPDATING.md`, "Bumping the SDK"; the SDK brings
+  bumped by hand (`docs/STARTOS-PACKAGE.md`, "Bumping the SDK"; the SDK brings
   TypeScript and the other build tools). npm: `@types/node` majors too, since
   it moves with the Node that Docker and CI run. Docker: Python minor and major versions and Node majors, so the
   base images stay `3.13-slim` and `24-slim` and only their digests move.
@@ -395,7 +395,7 @@ WebKit) decide on Linux. The browsers each version needs come with that
 install, so nothing else pins it (cloud sessions: `docs/TESTING.md`). CI's `e2e` job runs on
 `ubuntu-latest` (26.04 since October 2026; Playwright supports it from 1.61).
 WebKit's suite runs on a Mac only from macOS 15
-(Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `startos/UPDATING.md`.
+(Playwright 1.58 and 1.59 dropped 13 and 14). start-sdk: see `docs/STARTOS-PACKAGE.md`, "Bumping the SDK".
 
 ### Deferred upgrades
 

@@ -78,7 +78,7 @@ make hooks          # installs the pre-push gate
   what Start9 changed that the StartOS package must follow: a newer start-sdk
   or start-cli, a StartOS or start-registry release, changes to their
   packaging guide or shared package workflows, a failed build on the mirror
-  or their fork, changes on their fork not taken back (startos/UPDATING.md,
+  or their fork, changes on their fork not taken back (docs/STARTOS-PACKAGE.md,
   "Watching Start9"). Hours later `monday-report.yml` writes the week's one
   issue of what needs attention (docs/MAINTENANCE.md, "Scheduled checks").
 - **Weekly, and daily in December and January:** `irs-forms-watch.yml`

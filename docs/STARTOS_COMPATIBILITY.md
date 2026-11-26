@@ -10,14 +10,15 @@
 |------|-------|----------|
 | App | `backend/`, `frontend/`, `Dockerfile` | image `ghcr.io/digimonk73/btctx-mcp:vX.Y.Z` (amd64 + arm64) |
 | macOS app | `desktop/` | `BitcoinTX-macOS.dmg` / `.zip` (a 2.0 pre-release's: `BitcoinTX-Preview-macOS.dmg` / `.zip`) |
-| StartOS package | `startos/` (start-sdk 4.0.0, StartOS 0.4.1 or later) | `btctx.s9pk`, which runs the image above |
+| StartOS package | `startos/` (start-sdk 4.1.0, StartOS 0.4.2 or later) | `btctx.s9pk`, which runs the image above |
 
 All three carry the version in `VERSION` (checked by
 `backend/tests/test_versions_agree.py`). `startos/` is self-contained and is
 mirrored as-is to [DigiMonk73/BTCTX-StartOS](https://github.com/DigiMonk73/BTCTX-StartOS),
 the repository Start9's community registry forks. How the package
-works: `startos/README.md`; how to release and bump it, and how Start9's
-changes come back here: `startos/UPDATING.md`.
+works: `startos/README.md`; how to bump it to a new app version:
+`startos/UPDATING.md`; how to release it, and how Start9's changes come
+back here: `docs/STARTOS-PACKAGE.md`.
 
 ## The Docker image
 

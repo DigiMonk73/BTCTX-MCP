@@ -178,9 +178,9 @@ names the release walk's corrections.
 ### The machine
 
 - **StartOS VM** (x86_64, 4 GB RAM or more, a second virtual disk for
-  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.1 or later:
-  from 2.0.2 (start-sdk 4.0.0, #940) the package installs on nothing
-  older. Finish StartOS setup, then
+  StartOS backups: BAK-5, UPG-5b, WAY, BETA-1), on StartOS 0.4.2 or later:
+  from 2.0.3 (start-sdk 4.1.0, #965) the package installs on nothing
+  older (2.0.2, start-sdk 4.0.0, on 0.4.1 or later). Finish StartOS setup, then
   snapshot it as `clean`. Tracks A and B each start from `clean`. A
   StartOS backup and its restore ask for the VM's StartOS password: the
   person who set up the VM types it (an agent never stores it); without
@@ -208,7 +208,7 @@ names the release walk's corrections.
   runs at full speed in UTM (QEMU backend, hypervisor on, UEFI, 4 cores,
   8 GB, a 40 GB disk, shared network). The released `btctx.s9pk` is
   universal; CI's release-candidate artifact is x86_64 only, so on this VM
-  pack an aarch64 one from the commit (`startos/UPDATING.md`, "Building
+  pack an aarch64 one from the commit (`docs/STARTOS-PACKAGE.md`, "Building
   locally").
 - The installer answers at `start.local`; the server gets a new random name
   when setup finishes. For the `clean` snapshot, stop the VM and duplicate
@@ -1654,8 +1654,10 @@ the owner's to decide. Until it is, ask the lead which way a run goes.
 - **LCK-1** With the service running, expect **Set Login Credentials**
   unavailable: it runs only while stopped.
 - **LCK-2** Stop the service, run **Set Login Credentials**. Expect its
-  warning "This replaces your current username and password. Your
-  transactions are not touched.", then "Login Credentials" with `admin`
+  warning "This replaces your current username and password and signs
+  out every browser. An AI key you created keeps working: revoke it in
+  BitcoinTX Settings > Connect an AI Assistant if someone else may have
+  it. Your transactions are not touched.", then "Login Credentials" with `admin`
   and a new password; record it. Start the service. Expect: `tester` no
   longer logs in; `admin` with the new password does; every golden figure
   is intact.

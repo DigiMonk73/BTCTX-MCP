@@ -127,7 +127,7 @@ updates:
       startos:
         update-types: [minor, patch]
     ignore:
-      # Bumped by hand (startos/UPDATING.md, "Bumping the SDK");
+      # Bumped by hand (docs/STARTOS-PACKAGE.md, "Bumping the SDK");
       # .github/workflows/start9-watch.yml opens an issue for new SDKs
       - dependency-name: "@start9labs/start-sdk"
       - dependency-name: mempool-startos

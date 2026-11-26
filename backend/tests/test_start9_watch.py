@@ -1,5 +1,5 @@
 """
-The Start9 watch (startos/UPDATING.md, "Watching Start9"; the owner,
+The Start9 watch (docs/STARTOS-PACKAGE.md, "Watching Start9"; the owner,
 2026-10-23): looking at everything the StartOS package must follow, not only
 the SDK and start-cli as the weekly check it replaces did. Written to run
 daily; weekly, on Mondays, since 2026-10-31, hours before the Monday report

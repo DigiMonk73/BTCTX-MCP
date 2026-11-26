@@ -260,10 +260,11 @@ def test_one_exact_sdk_and_siblings_at_next():
 
 
 # The pinned SDK and the oldest StartOS a package it builds installs on, from
-# its release notes: "Packages built with SDK 4.0.0 require StartOS 0.4.1 or
-# later" (#913). An SDK bump moves both, after reading its notes (UPDATING.md,
+# its release notes: "Install StartOS 0.4.2 or later before installing
+# packages built with SDK 4.1.0" (#965; 4.0.0 needed 0.4.1, #913). An SDK
+# bump moves both, after reading its notes (docs/STARTOS-PACKAGE.md,
 # "Bumping the SDK", step 1), and the docs that tell users follow.
-SDK, MIN_STARTOS = "4.0.0", "0.4.1"
+SDK, MIN_STARTOS = "4.1.0", "0.4.2"
 # Where the docs name them: the README's StartOS section tells users, the other
 # two tell us. A version is digits and dots, never ending in one.
 SDK_DOCS = {
@@ -358,3 +359,39 @@ def test_the_format_check_runs_before_the_sdks_make():
     assert job.index("npm run format:check") < job.index("make javascript/index.js")
     hook = (ROOT / ".githooks" / "pre-push").read_text()
     assert "npm run -s format:check && rm -rf javascript && make" in hook
+
+
+def test_set_login_credentials_says_what_a_reset_leaves_valid():
+    """Start9's recipe-reset-password.md (2026-11-24): a new password doesn't
+    by itself sign anyone out, so the action revokes what it can and its
+    warning says what survives. The app's set-password ends every browser's
+    session and leaves the AI key (which Settings > Connect an AI Assistant
+    revokes), so the warning says both."""
+    cli = (ROOT / "backend" / "cli.py").read_text()
+    reset = cli.split("def cmd_set_password", 1)[1].split("\ndef ", 1)[0]
+    assert "end_all_sessions(db)" in reset
+    for name in ("ai_key", "mcp_key", "HASH_KEY"):  # the key's setting (services/ai_key.py)
+        assert name not in reset, name
+    action = " ".join(read("startos/actions/setCredentials.ts").split())
+    found = re.search(r"\? i18n\( (['\"])(.+?)\1, \)", action)
+    assert found, "setCredentials.ts: no warning where this test looks"
+    warning = found.group(2)
+    assert "signs out every browser" in warning
+    assert "An AI key you created keeps working" in warning
+    assert "Settings > Connect an AI Assistant" in warning
+
+
+def test_every_pull_request_to_start9_names_its_models():
+    """Start9's publishing.md, "The Pipeline" (2026-11-26): a pull request
+    to the fork names each AI model that wrote any of it, on a `model:` line.
+    Every step of ours that opens or adds to one says so."""
+    # How the steps behave is test_start9_models.py's; here, that each says it.
+    for doc in ("docs/STARTOS-PACKAGE.md", "docs/RELEASING.md"):
+        text = " ".join((ROOT / doc).read_text().split())
+        assert "gh pr create -R <fork>" in text, doc
+        assert "`model: claude-opus-5-5`" in text, doc
+        assert "scripts/start9-models.sh" in text, doc
+    flow = " ".join((ROOT / "docs" / "HOW-CHANGES-FLOW.md").read_text().split())
+    assert "Send vX.Y.Z to Start9" in flow and "`model: …`" in flow
+    mirror = (ROOT / ".github" / "workflows" / "release.yml").read_text().split("\n  mirror:\n", 1)[1]
+    assert "scripts/start9-models.sh --fork \"$TAG\"" in mirror

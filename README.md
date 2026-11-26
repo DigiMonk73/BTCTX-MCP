@@ -274,7 +274,7 @@ and leaves `/data` as it is, so it must be that user's.
 
 ### StartOS
 
-BitcoinTX needs StartOS 0.4.1 or later: on an older StartOS,
+BitcoinTX needs StartOS 0.4.2 or later: on an older StartOS,
 [update StartOS](https://docs.start9.com/start-os/updating-startos.html)
 first. Start9 builds the package from
 [Start9-Community/BTCTX-StartOS](https://github.com/Start9-Community/BTCTX-StartOS)
@@ -288,14 +288,12 @@ once tested there, to its **Community Registry**:
    instead ([Start9's guide](https://docs.start9.com/start-os/alternative-registries.html)).
    StartOS checks who signed what it installs, and BitcoinTX's Community
    Beta builds are signed only by that registry's build key, **Github
-   Actions**. On StartOS 0.4.1.2 or later, check that it's on for
-   **Packages** under **System → Trusted Keys**
+   Actions**. Check that it's on for **Packages** under
+   **System → Trusted Keys**
    ([Start9's guide](https://docs.start9.com/start-os/0.4.1.x/trusted-keys.html)):
    adding the registry turns it on, but a server that had the registry
    before its update to 0.4.1.2 lists it off, with a notification. While
    it's off, StartOS asks you to confirm the risks before it installs.
-   An earlier 0.4.1 doesn't install it from the registry: update StartOS
-   first.
 2. Choose **BitcoinTX** and click **Install**. New versions then show in the
    **Updates** tab ([Updating](https://docs.start9.com/start-os/updating.html)).
 3. Follow BitcoinTX's **Instructions** in StartOS

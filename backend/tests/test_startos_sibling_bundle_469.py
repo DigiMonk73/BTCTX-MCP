@@ -4,22 +4,23 @@
 and LND's packages, so their code is in BitcoinTX's bundle: a lockfile change
 that moves a sibling can change what ships. Start9's maintaining-a-package.md
 ("Read the lockfile diff as code review") says to check what landed, and
-UPDATING.md's "Bumping the SDK" has each refresh do it.
+docs/STARTOS-PACKAGE.md's "Bumping the SDK" has each refresh do it.
 """
 
 import json
 import re
 from pathlib import Path
 
-PKG = Path(__file__).resolve().parents[2] / "startos"
+ROOT = Path(__file__).resolve().parents[2]
+PKG = ROOT / "startos"
 
-# The check UPDATING.md gives: every sibling module the bundler concatenated.
+# The check docs/STARTOS-PACKAGE.md gives: every sibling module the bundler concatenated.
 SIBLING_MODULES = "CONCATENATED MODULE: ./node_modules/[a-z-]*-startos"
 
 
 def refresh_step() -> str:
     """The numbered step of "Bumping the SDK" that refreshes the siblings."""
-    text = (PKG / "UPDATING.md").read_text()
+    text = (ROOT / "docs" / "STARTOS-PACKAGE.md").read_text()
     section = text.split("\n## Bumping the SDK\n", 1)[1].split("\n## ", 1)[0]
     steps = re.split(r"\n(?=\d+\. )", section)
     step = next((step for step in steps if "git-resolved" in step), "")

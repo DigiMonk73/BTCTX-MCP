@@ -13,7 +13,7 @@ map.
 ## Releasing
 
 Full steps, the package version and the signing/mirror secrets:
-`startos/UPDATING.md`. In short:
+`docs/STARTOS-PACKAGE.md`. In short:
 
 2.0's pre-releases and its release follow `docs/temp/2.0-accounts.md`,
 7.4's B10a and B10b: their version bumps go into `2.0`, not
@@ -40,10 +40,14 @@ the rules.
    Move the CHANGELOG's Unreleased section to the
    version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
    when a new tax year's forms are added. The StartOS release notes
-   (`current.ts`) repeat each `tax-figures` fix: what was wrong, which tax
-   years, what to do. Once it has merged, wait for CI on
+   (`current.ts`) follow Start9's rule (what a user observes, never how)
+   and ours in `startos/AGENTS.md`: each `tax-figures` fix, what was
+   wrong, which tax years, what to do. Once it has merged, wait for CI on
    `develop`. Run `docs/AGENT-TESTS.md` (an agent on a StartOS VM) on that
-   commit's CI artifacts; a blocker FAIL stops the release. Meanwhile a
+   commit's CI artifacts; a blocker FAIL stops the release. First the
+   start-cli that packs and installs the package is the one CI pins, and the VM runs
+   the newest StartOS the release supports (its update asks for the StartOS
+   password: the owner's; `docs/STARTOS-PACKAGE.md`, "Watching Start9"). Meanwhile a
    fresh Claude, one that didn't write the release, reads every doc
    against what it ships (owner's rule, 2026-10-10): the READMEs,
    `startos/instructions.md`, the store descriptions
@@ -81,8 +85,14 @@ the rules.
    run opens an issue here, "Send vX.Y.Z to Start9", with the one-click link
    and steps for the owner; or open it yourself with the owner's OK
    (`gh pr create -R <fork> --head DigiMonk73:main`, the fork from
-   `scripts/start9-pull.sh --fork`). While a pull request of ours is still
-   open there, it carries the new release too, and no issue is opened.
+   `scripts/start9-pull.sh --fork`). Its description names, on a line of
+   its own, each AI model that wrote any of it: `model: claude-opus-5-5`,
+   comma-separated, from the `Co-Authored-By` lines of the commits it
+   carries (`scripts/start9-models.sh` prints it; Start9's `publishing.md`,
+   "The Pipeline"; `docs/STARTOS-PACKAGE.md`). While a pull request of
+   ours is still open there, it carries the new release too, and no "Send"
+   issue is opened; if the release brings a model its `model:` line doesn't
+   name, an issue gives the whole line to put there.
 5. Check the landing page (DigiMonk73/btctx-site: `index.html`, screenshots in `img/`). Its
    download buttons, release-notes link and Docker `:latest` follow the
    release by themselves; its words don't. Update what the release made
@@ -113,7 +123,8 @@ mirror's Tag and Release ignores root-level `*.md`, so nothing is rebuilt;
 check the sync's commit lists only those files. Anything else in `startos/`
 (code, `icon.*`, `assets/`, workflows) waits for a release. Once Start9 has
 forked, such a sync also needs its pull request to their fork (or rides in
-one of ours still open), or Start9 never gets it. Before a release, bring
+one of ours still open), or Start9 never gets it; its description, or the
+open one's, names the models (`scripts/start9-models.sh`, step 4). Before a release, bring
 Start9's changes to their fork back into `startos/` with
 `scripts/start9-pull.sh` (`--apply` on a branch cut from `develop`, then a
 pull request into `develop`), or the sync undoes them;
@@ -121,4 +132,4 @@ the release workflow's first job stops if you haven't (`--check`). By hand: `scr
 if the mirror's own workflow can't release,
 `scripts/mirror-startos-release.sh vX.Y.Z <path to btctx.s9pk>`. If
 `MIRROR_TOKEN` expires, the mirror job skips with a notice (renewal:
-`startos/UPDATING.md`).
+`docs/STARTOS-PACKAGE.md`).

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # What Start9 changed that BitcoinTX's StartOS package must follow
-# (startos/UPDATING.md, "Watching Start9"; the owner, 2026-10-23: "we have to
+# (docs/STARTOS-PACKAGE.md, "Watching Start9"; the owner, 2026-10-23: "we have to
 # be aware when they push updates"). Each new thing opens one issue, labelled
 # start9, so the owner is notified, and never a second one for the same thing
 # (an issue with the same title, open or closed, counts):
@@ -97,7 +97,7 @@ check_sdk() {
 npm has \`@start9labs/start-sdk\` $latest_sdk; \`develop\`'s \`startos/package.json\` pins $pinned.
 
 - Read its release notes ($NOTES/start-sdk/v$latest_sdk; the npm package's own CHANGELOG can lag) for what it changes and its minimum StartOS.
-- Start9's Pre-Publish Checklist requires the current SDK before any pull request to their fork: bump it before the next release (startos/UPDATING.md, "Bumping the SDK").
+- Start9's Pre-Publish Checklist requires the current SDK before any pull request to their fork: bump it before the next release, once the StartOS it needs has been out four weeks (the owner's rule: docs/STARTOS-PACKAGE.md, "Bumping the SDK").
 - First look at Start9's fork (\`scripts/start9-pull.sh --fork\`): if they bumped it there, take theirs with \`scripts/start9-pull.sh\`.
 EOF
   open_once "start-sdk $latest_sdk is available" "$body"
@@ -115,7 +115,7 @@ check_start_cli() {
   read -r -d '' body <<EOF || true
 Start9 released start-cli $latest_cli; \`develop\`'s CI and release pack \`btctx.s9pk\` with $pinned (\`START_CLI_VERSION\` in \`.github/workflows/ci.yml\` and \`release.yml\`). Start9's own builds pack with the newest.
 
-Read its release notes ($NOTES/start-cli/v$latest_cli), check that a package it packs installs on the oldest StartOS the package supports (the lab VM), then bump \`START_CLI_VERSION\` and \`START_CLI_SHA256\` (\`start-cli_x86_64-linux\`) in both (startos/UPDATING.md, "Bumping the SDK", step 3). Tell Silas if the lab's own start-cli needs it (a Mac mini setup change).
+Read its release notes ($NOTES/start-cli/v$latest_cli), check that a package it packs installs on the oldest StartOS the package supports, then bump \`START_CLI_VERSION\` and \`START_CLI_SHA256\` (\`start-cli_x86_64-linux\`) in both (docs/STARTOS-PACKAGE.md, "Bumping the SDK", step 3). Tell Silas if the lab's own start-cli needs it (a Mac mini setup change).
 EOF
   open_once "start-cli $latest_cli is available" "$body"
 }
@@ -130,7 +130,7 @@ Start9 released StartOS ${v#v} ($NOTES/start-os/$v). Users update to it, so Bitc
 
 - Read the release notes for anything that touches services: install and update, tasks and actions, backups, interfaces and networking, health checks.
 - Update the lab VM (\`~/code/btctx-vm-lab\`: \`./vm.sh cli server update https://registry.start9.com --to '=${v#v}'\`; it returns at once, so wait until \`serverInfo.statusInfo.updateProgress\` is null, then shut it down and start it cold: \`docs/AGENT-TESTS.md\`, "The machine"), then install the released package fresh and update to it from the previous release (\`docs/AGENT-TESTS.md\`, INS and UPG-1 to UPG-3), and record the result here.
-- If it raises the minimum StartOS the SDK targets, the next package follows it (startos/UPDATING.md).
+- If it raises the minimum StartOS the SDK targets, the next package follows it (docs/STARTOS-PACKAGE.md).
 EOF
   open_once "StartOS ${v#v} is out: test BitcoinTX on it" "$body"
 }
@@ -225,7 +225,7 @@ check_fork() {
 $out
 \`\`\`
 
-When it lists changes Start9 made to their fork (template updates, SDK bumps, review fixes): the next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`develop\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (startos/UPDATING.md, "After Start9 forks the mirror"). When it says something else (our pull request there still open, a failed fetch), do what it says.
+When it lists changes Start9 made to their fork (template updates, SDK bumps, review fixes): the next mirror sync and the release refuse to run until they're taken back: on a branch cut from \`develop\`, \`scripts/start9-pull.sh\` shows them and \`--apply\` takes them, then a pull request (docs/STARTOS-PACKAGE.md, "After Start9 forks the mirror"). When it says something else (our pull request there still open, a failed fetch), do what it says.
 EOF
   open_once "Start9's fork needs a look ($fork at $head)" "$body"
 }
