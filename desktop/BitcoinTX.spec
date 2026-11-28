@@ -290,8 +290,8 @@ app = BUNDLE(
         "CFBundleName": APP_NAME,
         "CFBundleDisplayName": APP_NAME,
         "CFBundleIdentifier": APP_ID,
-        "CFBundleVersion": "2.0.2",
-        "CFBundleShortVersionString": "2.0.2",
+        "CFBundleVersion": "2.0.3",
+        "CFBundleShortVersionString": "2.0.3",
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "NSRequiresAquaSystemAppearance": False,  # Support dark mode

@@ -2456,13 +2456,11 @@ issues). Report these as KNOWN. Delete a line when its fix is merged into
   page "If your Form 1099-DA differs" (in a year with no sale in box G,
   H, J or K, its note on fees) says how to move its row by hand.
 
-Found in 2.0.2's time, each planned for 2.0.3 (2.0.2's CHANGELOG, Known
-issues). The golden ledger meets none of them; an exploratory step, a
-file of your own or MAP-1's real export can:
-- **#951**: the AI connector's import orders rows that share a time by
-  type, where a file import keeps the file's order, so the same rows can
-  use other coins.
-- **#952**: BitcoinTX's own CSV import drops, with no error, every row
-  after a cell whose quote is never closed.
-- **#953**: BitcoinTX's own CSV import, and River's, read a bitcoin
-  amount written "1,234" as 1234 BTC.
+Found in 2.0.3's time (2.0.3's CHANGELOG, Known issues). The golden
+ledger meets none of them; an exploratory step, a file of your own or
+MAP-1's real export can:
+- **#1015**: BitcoinTX's own CSV import reads some hand-made files
+  without a word: a column named twice takes its last value, a time that
+  a clock change skips or repeats is read as one moment, a date such as
+  05/03/2024 is read month first, and a row of only commas refuses the
+  whole file with "Date is required.".

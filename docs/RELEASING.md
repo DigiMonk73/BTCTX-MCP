@@ -38,8 +38,9 @@ the rules.
    fails until they agree), and run `make prices` (the hourly price
    history's new hours; the release refuses one more than 14 days old).
    Move the CHANGELOG's Unreleased section to the
-   version and clear the ticked items from `docs/ROADMAP.md`. Minor bump
-   when a new tax year's forms are added. The StartOS release notes
+   version and clear the ticked items from `docs/ROADMAP.md`. A new tax
+   year's forms take the next patch version, as any maintenance update
+   does (the owner, 2026-11-14, on #972). The StartOS release notes
    (`current.ts`) follow Start9's rule (what a user observes, never how)
    and ours in `startos/AGENTS.md`: each `tax-figures` fix, what was
    wrong, which tax years, what to do. Once it has merged, wait for CI on

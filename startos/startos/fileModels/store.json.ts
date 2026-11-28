@@ -13,7 +13,7 @@ const shape = z.looseObject({
   // deletes it (forgetStoredPassword in utils.ts).
   adminPassword: z.string().optional().catch(undefined),
   // Set by an update whose calculation fixes only reach existing transactions
-  // after a recalculation (from before 0.8.0, and to 1.2.8:0 and 1.2.9:0);
+  // after a recalculation (from before 0.8.0, and to 1.2.8:0, 1.2.9:0 and 2.0.3:0);
   // cleared by Recalculate Ledger.
   recalculateLedger: z.boolean().optional().catch(undefined),
   // Set once init has raised the Recalculate Ledger task for that update, so

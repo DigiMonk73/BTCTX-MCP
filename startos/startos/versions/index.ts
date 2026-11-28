@@ -9,7 +9,7 @@ import { v_0_9_0_0 } from './v0.9.0_0'
 
 /**
  * Only versions whose migration does real work are declared; any older
- * installed version (0.3.x through 1.2.9:0) reaches `current` through them.
+ * installed version (0.3.x through 2.0.2:0) reaches `current` through them.
  */
 export const versionGraph = VersionGraph.of({
   current,

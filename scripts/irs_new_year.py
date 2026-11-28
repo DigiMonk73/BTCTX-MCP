@@ -303,7 +303,7 @@ FORMS_RULE = ('It changes the tax forms, so it follows the figures rule (AGENTS.
 
 FINAL_DUE = """irs.gov has the final {year} Form 8949 and Schedule D, and this version doesn't.
 
-For Claude: `python scripts/irs_new_year.py {year}` (it checks every field the app fills, installs them and removes the {year} draft preview), then the rest of docs/IRS_ANNUAL_FORM_UPDATE.md. One pull request, then a release with a minor version bump. """ + FORMS_RULE + """ The release waits for the owner's "merge", like every release.
+For Claude: `python scripts/irs_new_year.py {year}` (it checks every field the app fills, installs them and removes the {year} draft preview), then the rest of docs/IRS_ANNUAL_FORM_UPDATE.md. One pull request, then a release with the next patch version. """ + FORMS_RULE + """ The release waits for the owner's "merge", like every release.
 
 Opened by the IRS forms watch (.github/workflows/irs-forms-watch.yml)."""
 

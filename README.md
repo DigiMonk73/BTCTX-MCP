@@ -188,7 +188,7 @@ of 2024, for a tax professional to compare with yours.
 
 ## Versions
 
-BitcoinTX 2.0.2 is the current version, a maintenance update of 2.0.
+BitcoinTX 2.0.3 is the current version, a maintenance update of 2.0.
 2.0 added multiple wallets, exchanges and bank accounts, each wallet and
 exchange with its own cost-basis lots
 ([#251](https://github.com/DigiMonk73/BTCTX-MCP/issues/251)). A release
@@ -213,8 +213,8 @@ marked **Pre-release**, and 2.0 replaces them:
   its `bitcointx-preview` entry from your AI app.
 - **StartOS:** 2.0 updates a pre-release in place. The StartOS backup you
   made under 1.x still takes you back to 1.x.
-- **Docker:** start `:v2.0.2` on the same volume.
-- **An AI:** set your AI app to `btctx-mcp==2.0.2`, and replace a
+- **Docker:** start `:v2.0.3` on the same volume.
+- **An AI:** set your AI app to `btctx-mcp==2.0.3`, and replace a
   `bitcointx-preview` entry for a server you've updated with what Settings →
   Connect an AI Assistant gives now.
 
@@ -290,7 +290,7 @@ once tested there, to its **Community Registry**:
    Beta builds are signed only by that registry's build key, **Github
    Actions**. Check that it's on for **Packages** under
    **System → Trusted Keys**
-   ([Start9's guide](https://docs.start9.com/start-os/0.4.1.x/trusted-keys.html)):
+   ([Start9's guide](https://docs.start9.com/start-os/0.4.2.x/trusted-keys.html)):
    adding the registry turns it on, but a server that had the registry
    before its update to 0.4.1.2 lists it off, with a notification. While
    it's off, StartOS asks you to confirm the risks before it installs.

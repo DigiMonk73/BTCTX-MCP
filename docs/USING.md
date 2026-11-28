@@ -259,6 +259,11 @@ entries come out right.
     value on it (or on the estate's alternate valuation date, if it chose
     one; left blank, the date of death's price). Any sale of those coins is
     long-term.
+  - Changing a saved deposit's Source between these clears **Cost Basis**
+    when the value means something else under the new source: to MyBTC,
+    Gift or N/A from a source valued from the price, Save asks for what
+    the coins cost (0 if unknown); to Income, Interest, Reward, Rebate or
+    Inherited, it's valued again from the price, unless you type a value.
 - **Withdrawal**: money leaving one of your accounts to External. A bitcoin
   withdrawal's **Purpose (BTC only)** decides how it's taxed: **Spent** is a disposal
   at its proceeds (left blank, the value at the hour's price); **Gift**,
@@ -517,6 +522,12 @@ forms yet)" too: for it, the Complete Tax Report has every figure Form
     exchange's dollars and a bank. A buy's cost and a sell's proceeds are
     recorded before the fee, with the fee apart, whichever way the exchange
     writes them.
+  - A file with a stray quote ("), a cell over more than one line, or a
+    comma in a bitcoin amount is refused, saying why (and, for a cell over
+    lines or a bitcoin amount, its row): write bitcoin
+    decimals with a point and no thousands separator, and put each cell on
+    one line. A file saved as an old Mac's "CSV (Macintosh)" reads as any
+    other. The same holds for **Import Transactions (CSV)**, below.
   - Rows dated in earlier tax years are named in the preview, and the
     import asks first ([A change to an earlier tax
     year](#a-change-to-an-earlier-tax-year)).
