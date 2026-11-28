@@ -22,8 +22,8 @@ pull request; `main` holds released code only and moves by fast-forwarding
 to `develop`.
 
 1. In a pull request of its own into `develop`, bump the version
-   everywhere it is written (the tests fail until all agree; a minor bump
-   when a new tax year's forms are added):
+   everywhere it is written (the tests fail until all agree; a new tax
+   year's forms take the next patch version):
    - `VERSION` and the two `CFBundle…Version` values in `desktop/BitcoinTX.spec`
    - `version` in `mcp_server/pyproject.toml` (the AI connector)
    - `dockerTag` in `startos/startos/manifest/index.ts`:

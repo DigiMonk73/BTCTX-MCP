@@ -4,6 +4,64 @@ All notable changes to BitcoinTX are documented in this file.
 
 ## [Unreleased]
 
+## [v2.0.3] - 2026-11-28 - A maintenance update: eight tax-figure fixes, and the coins a sale uses shown before you save
+
+**In short.** 2.0.3 is the third maintenance update of 2.0. It fixes eight
+bugs that could make a tax figure wrong: a sale on 29 February of coins
+acquired on 28 February the year before (#950); the AI connector's import
+of rows that share a time (#951); a time typed in the transaction form on
+a device with old timezone data (#964); three ways a hand-edited file lost
+rows or misread a bitcoin amount (#952, #953, #990); and two ways a
+deposit's typed value was kept when its source changed (#998, #999). Each
+entry marked "tax figures" below says who could be affected and what to
+do; most ledgers need nothing more. The Sell form now lists the coins a
+sale uses, with their gain and term, before you save (#960), and changing
+a priced deposit to My BTC or Gift asks for what the coins cost (#955). On
+StartOS, it needs StartOS 0.4.2 or later (#965). Running BitcoinTX from
+source now needs Python 3.13 (#985).
+
+**The 2026 IRS forms are still the IRS's drafts.** The IRS hasn't
+published the final 2026 Form 8949 and Schedule D yet. Until 31 December,
+Reports offers 2026's forms as a preview, the IRS's drafts marked DRAFT —
+DO NOT FILE; from 1 January (UTC) it lists 2026 as "(no IRS forms yet)"
+and asks you to update BitcoinTX. A small 2.0.4 adds the final forms the
+week the IRS publishes them (#949). The Complete Tax Report and
+Transaction History work for any year meanwhile.
+
+**Before you update, on StartOS:** update StartOS to 0.4.2 or later
+first. Until then, a server on StartOS 0.4.1.x can update BitcoinTX only
+as far as 2.0.2.
+
+**Coming from a version older than 2.0.2?** Read the notes of the
+versions in between first:
+[2.0.2's](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.2/docs/CHANGELOG.md)
+and [2.0.1's](https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.1/docs/CHANGELOG.md)
+timezone fixes (#908, #889) can ask you to correct some times. From 1.x,
+also [2.0.0's](https://github.com/DigiMonk73/BTCTX-MCP/releases/tag/v2.0.0):
+on StartOS, make a StartOS backup of BitcoinTX and keep it, as it's your
+way back to 1.x.
+
+**What to do after updating**
+
+1. **Reload BitcoinTX's page** in your browser (the Mac app does it by
+   itself).
+2. **Update the AI connector** to `btctx-mcp==2.0.3` in your AI app's
+   configuration, then restart the AI app. It carries #951's fix.
+3. Then read the entries marked "tax figures" below: they say whether
+   there's anything to do. For #950, that's Recalculate Ledger and that
+   year's forms printed again.
+
+**Known issues:** the blank row's lookup (#824, #849; Ledger Review lists
+a value saved like that, and can apply the hour's price to it) and a Form
+1099-DA that lists a transfer's or a gift's network fee, or a fee without
+its withdrawal, corrected by hand (#551), as in 2.0.2. Found since:
+BitcoinTX's own CSV import reads some hand-made files without a word: a
+column named twice takes its last value, a time that a clock change skips
+or repeats is read as one moment without a note, and a date such as
+05/03/2024 is read month first. Check the preview's rows against your
+file; BitcoinTX's own export writes none of these (#1015, its fix in a
+later update).
+
 ### Added
 
 - **The Sell form shows the coins a sale uses** (#960, the owner's go,
