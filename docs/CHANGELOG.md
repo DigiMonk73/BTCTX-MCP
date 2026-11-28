@@ -409,12 +409,15 @@ All notable changes to BitcoinTX are documented in this file.
 - **The updates before 2.0.3** (#972, the Updates lane's last run,
   2026-11-28). No security fix was waiting: `make audit-deps` and the
   frontend's `npm audit` were clean. Taken: pydantic 2.14.4 (Dependabot's
-  run of 14 November skipped it on an error of its own) with
-  pydantic-core 2.50.5; reportlab 5.1.2; the patch-level indirect
-  packages (certifi 2026.11.20 among them); hypothesis and uv; the
+  run of 14 November skipped pydantic, then 2.14.3, on an error of its
+  own) with pydantic-core 2.50.5; reportlab 5.1.2; the patch-level
+  indirect packages (certifi 2026.11.20 among them, which drops seven
+  retired roots, none used by a host BitcoinTX talks to); hypothesis and
+  uv; the
   frontend's updates inside their ranges (vite 8.4.0, react-router-dom
   7.18.7, vitest 5.1.2, eslint, typescript-eslint, @types) and
-  lucide-react 1.83.0, whose icons we use draw the same; the Docker base
+  lucide-react 1.83.0 (published that day), whose icons we use draw the
+  same; the Docker base
   images' new builds (Python 3.13.18 with Debian's updates of 24
   November; Node 24.22.3, which only builds the frontend); and
   docker/setup-docker-action v5.7.0. No figure moves: the before-and-after
