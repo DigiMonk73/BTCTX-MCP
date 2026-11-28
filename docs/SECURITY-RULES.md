@@ -239,8 +239,8 @@ map.
   it. A 422 lists its first `MAX_ERRORS_LISTED` (100) errors, then how
   many more, and no error echoes an input that is a list or an object (a
   "missing" error gives its whole row): its answer stays small, and the
-  worst body within every limit is refused in well under a second
-  (`test_json_limits.py`).
+  worst body within every limit is refused in a fraction of a second
+  (`test_json_limits.py`, which allows 5 s for a busy CI runner).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI

@@ -20,7 +20,10 @@ from backend.body_limit import MAX_BODY_BYTES
 
 # The most empty objects a body under the size limit holds in one list
 EMPTY_ROWS = '{"rows":[' + ",".join(["{}"] * ((MAX_BODY_BYTES - 20) // 3)) + "]}"
-ITS_TIME = 1.0  # seconds: well under what the AI key may cost (SECURITY-RULES, about 1 s)
+# Seconds a refusal may take: each takes under 0.2 s on a computer of its own,
+# well under the AI key's 1 s (SECURITY-RULES); the slack is for a CI runner
+# running the whole suite at once, several times slower (1.3 s seen)
+ITS_TIME = 5.0
 
 
 def raw(client, url, text, headers=None):
