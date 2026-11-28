@@ -841,8 +841,9 @@ async def recalculate_ledger(confirm: Confirm = None) -> ToolResult:
 async def backup_ledger() -> ToolResult:
     """Save a copy of the whole BitcoinTX database next to it on the user's server (in its
     backups folder), as a safety net. Offer it before a large import or before deleting or
-    changing many entries. BitcoinTX keeps the newest 3 copies (and for a week the oldest, and
-    the first copy of each day it made before you changed anything that day) and makes at most
+    changing many entries. BitcoinTX keeps the newest 3 copies (and for a week the oldest and
+    the first copy of each day it made before you changed anything that day, and for a day the
+    first copy of each hour it made before a change) and makes at most
     one a minute; only the file name comes back. Restoring a copy is done by the user, not by
     you."""
     return await _call("POST", "/api/backup/ai-copy")

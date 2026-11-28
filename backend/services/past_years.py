@@ -40,6 +40,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import scratch_copy, take_write_lock
 from backend.migrate import (
+    AI_CHANGE_COPY_LOCK,
     AI_CHANGE_LABEL,
     AI_COPIES_KEPT,
     PRE_CHANGE_COPIES_KEPT,
@@ -479,27 +480,30 @@ def _confirmed(write: PastYearWrite, db: Session, confirm: str, by_ai: bool):
     Under the write lock: the copy, then the write, then its fingerprint
     worked out again as the dry run did (the date-based one first, which
     needs no replay). Committed only if it matches; otherwise rolled back,
-    its copy removed, and the new 409.
+    its copy removed, and the new 409. With the key, the AI copies' lock is
+    held from the copy until it's kept or removed: the key's change meanwhile
+    never takes a copy that may go for its hour's (migrate.AI_CHANGE_COPY_LOCK).
     """
     if not take_write_lock(db):
         logger.warning("A confirmed past-year save: the database is busy, nothing saved")
         raise HTTPException(status_code=503, detail=BUSY)
     copy = None
-    try:
-        write.check_there(db)
-        copy = _copy(db, by_ai)
-        tz = tax_time.get_tax_timezone(db)
-        this_year = write.this_year(tz)
-        result, warning = _checked_write(write, db, confirm, by_ai, tz, this_year)
-        if warning is not None and warning["confirm"] != confirm:
-            raise _Stale(warning)
-        db.commit()
-    except BaseException as e:
-        db.rollback()
-        _remove(copy)
-        if isinstance(e, _Stale):
-            return JSONResponse(status_code=409, content=e.warning)
-        raise
+    with AI_CHANGE_COPY_LOCK if by_ai else nullcontext():
+        try:
+            write.check_there(db)
+            copy = _copy(db, by_ai)
+            tz = tax_time.get_tax_timezone(db)
+            this_year = write.this_year(tz)
+            result, warning = _checked_write(write, db, confirm, by_ai, tz, this_year)
+            if warning is not None and warning["confirm"] != confirm:
+                raise _Stale(warning)
+            db.commit()
+        except BaseException as e:
+            db.rollback()
+            _remove(copy)
+            if isinstance(e, _Stale):
+                return JSONResponse(status_code=409, content=e.warning)
+            raise
     _prune(db, copy, by_ai)
     return result
 

@@ -683,7 +683,8 @@ use; each is a way back from one kind of change:
 - before Ledger Review's prices at the hour are applied (the newest 5);
 - an AI assistant's, before its first change in an hour, before each
   change it confirms to an earlier tax year, and when it asks for one (at
-  most 11).
+  most 35: the newest 3, for a week the oldest and each day's first before
+  a change, and for a day each hour's first before a change).
 
 ## Settings
 

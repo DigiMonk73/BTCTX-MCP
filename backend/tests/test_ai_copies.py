@@ -2,9 +2,11 @@
 The AI copies in <database dir>/backups/ (kind "ai"): before the AI key's
 first change in an hour (an edit, a deletion, a recalculation, or an import
 that recalculates) BitcoinTX makes one itself, and the pruning keeps the
-newest 3 and, for the last 7 UTC days, the oldest and the first made before
-a change each day. So for a week the AI copies hold the ledger from before
-each day's changes, however many copies are asked for next. The copies the
+newest 3; for the last 7 UTC days, the oldest and the first made before a
+change each day; and for the last 24 clock hours, the first made before a
+change each hour. So for a week the AI copies hold the ledger from before
+each day's changes, and for a day from before each hour's, however many
+copies are asked for next. The copies the
 AI asks for are tested in test_ai_key.py too.
 """
 
@@ -432,7 +434,7 @@ def test_the_first_copy_of_the_day_of_a_deletion_is_kept_for_the_week(ledger):
         assert ai.put(f"/api/transactions/{ids[1]}", json={"amount": str(hour)}).status_code == 200
         copies = backup_copies(path, "ai")
         assert any({ids[0], owners} <= transaction_ids(c) for c in copies), f"after {hour} hours"
-        assert len(copies) <= 11
+        assert len(copies) <= 35
 
 
 def test_a_deletion_late_in_the_week_is_kept_however_many_copies_follow(ledger, monkeypatch):
@@ -453,7 +455,45 @@ def test_a_deletion_late_in_the_week_is_kept_however_many_copies_follow(ledger, 
             assert ai.post("/api/backup/ai-copy").status_code == 200
         copies = backup_copies(path, "ai")
         assert any({ids[0], owners} <= transaction_ids(c) for c in copies), f"after {hour} hours"
-        assert len(copies) <= 11
+        assert len(copies) <= 35
+
+
+def test_an_entry_made_between_the_ais_changes_outlives_the_copies_it_asks_for(ledger, monkeypatch):
+    """The AI deletes an entry (the day's first copy), the owner enters
+    another, and more than an hour later the AI deletes that too (the
+    hour's first copy, the only one holding it): the 3 copies the AI asks
+    for next push neither out. For the last 24 hours each hour's first copy
+    before a change is kept."""
+    path, ids, owner, ai = ledger
+    monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
+    assert ai.delete(f"/api/transactions/{ids[0]}").status_code == 204
+    owners = owner.post("/api/transactions", json=dict(DEPOSITS[0], timestamp="2024-04-15T17:00:00Z")).json()["id"]
+    pass_time(path, HOUR)
+    assert ai.delete(f"/api/transactions/{owners}").status_code == 204
+    for _ in range(3):
+        assert ai.post("/api/backup/ai-copy").status_code == 200
+    copies = backup_copies(path, "ai")
+    assert any(owners in transaction_ids(c) for c in copies), [c.name for c in copies]
+
+
+def test_a_day_of_hourly_changes_keeps_each_hours_first_copy(ledger, monkeypatch):
+    """Changed every hour, with 3 copies asked for after each change: the
+    first copy before a change of each of the last 24 hours stays, and no
+    more than 35 AI copies are kept."""
+    path, ids, owner, ai = ledger
+    monkeypatch.setattr(backup, "AI_COPY_EVERY", 0)
+    held = []  # what each hour's copy holds, oldest first
+    for hour in range(30):
+        if hour:
+            pass_time(path, HOUR)
+        assert ai.put(f"/api/transactions/{ids[1]}", json={"amount": str(hour + 1)}).status_code == 200
+        held.append(amounts(made_before_changing(path)[0])[ids[1]])
+        for _ in range(3):
+            assert ai.post("/api/backup/ai-copy").status_code == 200
+        assert len(backup_copies(path, "ai")) <= 35
+    kept = {amounts(c)[ids[1]] for c in made_before_changing(path)}
+    # The last 23 hours' whole (each copy is an hour and a second older than the next)
+    assert set(held[-23:]) <= kept
 
 
 def made_at(path, when: float) -> None:
@@ -475,7 +515,7 @@ def test_a_week_of_hourly_changes_keeps_the_first_copy_of_each_day(ledger):
         newest = made_before_changing(path)[0]
         made.append((first + hour * HOUR, amounts(newest)[ids[1]]))
         made_at(path, first + hour * HOUR)
-        assert len(backup_copies(path, "ai")) <= 11
+        assert len(backup_copies(path, "ai")) <= 35
 
     today = datetime.now(timezone.utc).date()
     first_each_day = {}

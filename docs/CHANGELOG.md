@@ -85,6 +85,24 @@ later update).
 
 ### Changed
 
+- **BitcoinTX keeps more of the copies it makes before the AI changes
+  your ledger.** Besides the newest 3, and for a week the oldest and
+  each day's first copy made before an AI change, it now keeps, for a
+  day, the first such copy of each hour: at most 35 AI copies, where it
+  kept 11. The AI's first change in each clock hour (UTC) makes its
+  copy. So for a day, an entry you make that an AI change removes or
+  changes in a later clock hour stays in a copy as you made it. They
+  stay in the database's `backups` folder, as before; your own changes
+  make none.
+
+- **A request is refused when it holds more than BitcoinTX reads**: its
+  lists more than 10,000 items in all, or an object more than 1,000
+  fields, before its fields are checked, as one nested more than 64
+  levels deep already is. A refusal lists its first 100 errors, then how
+  many more, and no longer quotes a whole row back. A file's import sends
+  at most 10,000 rows; an AI app sending more items than the limit is
+  told to send fewer at a time.
+
 - **Changing a priced deposit to MyBTC or Gift asks for what the coins
   cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
   valued from the price when it came in (income, interest, a reward, a

@@ -26,6 +26,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,15 +47,26 @@ BACKUP_DIRNAME = "backups"
 # Pre-upgrade / pre-restore copies kept in <db dir>/backups/ (newest first).
 BACKUPS_KEPT = 5
 # Copies the AI key asked for (POST /api/backup/ai-copy), or made before its
-# first change in an hour (PUT or DELETE /api/transactions/{id}, POST
+# first change in a UTC clock hour (PUT or DELETE /api/transactions/{id}, POST
 # /api/transactions/recalculate, an import that recalculates; label
-# AI_CHANGE_LABEL), kept apart: the newest 3, and for AI_DAYS_HELD days the
-# oldest of them and the first made before a change each day
-# (_ai_copies_held), so for a week they hold the ledger from before each day's
-# changes, however many copies are made after them. At most 11.
+# AI_CHANGE_LABEL), kept apart: the newest 3, for AI_DAYS_HELD days the
+# oldest of them and the first made before a change each day, and for
+# AI_HOURS_HELD hours the first made before a change each hour
+# (_ai_copies_held). So for a week they hold the ledger from before each
+# day's changes, and for a day from before each hour's, with what the owner
+# entered between the AI's changes, however many copies are made after them.
+# At most 35.
 AI_COPIES_KEPT = 3
 AI_DAYS_HELD = 7  # UTC days: today and the 6 before it
+AI_HOURS_HELD = 24  # UTC clock hours: this one and the 23 before it
 AI_CHANGE_LABEL = "before-changing"
+# The key's copies before its changes, one at a time (BitcoinTX runs one
+# server process): a change that comes while one is being written waits for
+# it, then finds it; one that comes while a confirmed past-year write's copy
+# may still be removed (past_years._confirmed: a stale or refused save)
+# waits to see whether it stays, so a copy about to go never counts as its
+# hour's (routers/transaction._copy_before_ai_changes).
+AI_CHANGE_COPY_LOCK = threading.Lock()
 # Copies before Ledger Review's hourly check is applied (#144), kept apart:
 # applying one item at a time must not push out the pre-upgrade copy.
 REVIEW_COPIES_KEPT = 5
@@ -313,15 +325,19 @@ def _copies_held(db_path: Path, copies: list[Path], kind: str) -> set[Path]:
 
 def _ai_copies_held(db_path: Path, copies: list[Path]) -> set[Path]:
     """
-    The AI copies (newest first) kept beyond the newest AI_COPIES_KEPT, from
-    the last AI_DAYS_HELD UTC days: the oldest (the ledger from before those
+    The AI copies (newest first) kept beyond the newest AI_COPIES_KEPT: from
+    the last AI_DAYS_HELD UTC days, the oldest (the ledger from before those
     days' changes) and the first made before a change each day (the ledger
     from before that day's changes, with what the owner entered the days
-    before).
+    before); and from the last AI_HOURS_HELD clock hours, the first made
+    before a change each hour (with what the owner entered since the AI's
+    changes of an earlier hour that day).
     """
     recent = _this_week(copies)
     before_changes = [p for p in recent if p.name.startswith(f"{db_path.stem}-ai-{AI_CHANGE_LABEL}-")]
-    return set(recent[-1:]) | _first_of_each_day(before_changes)
+    each_day = _first_of_each_day(before_changes)
+    each_hour = _first_of_each(_last_hours(before_changes), _utc_hour)
+    return set(recent[-1:]) | each_day | each_hour
 
 
 def _this_week(copies: list[Path]) -> list[Path]:
@@ -331,16 +347,33 @@ def _this_week(copies: list[Path]) -> list[Path]:
     return [p for p in copies if _utc_day(p) >= since]
 
 
+def _last_hours(copies: list[Path]) -> list[Path]:
+    """The copies (newest first) made in the last AI_HOURS_HELD UTC clock hours."""
+    now = datetime.datetime.now(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
+    since = now - datetime.timedelta(hours=AI_HOURS_HELD - 1)
+    return [p for p in copies if _utc_hour(p) >= since]
+
+
 def _first_of_each_day(copies: list[Path]) -> set[Path]:
     """Of copies listed newest first, each UTC day's first."""
-    first: dict[datetime.date, Path] = {}
+    return _first_of_each(copies, _utc_day)
+
+
+def _first_of_each(copies: list[Path], period) -> set[Path]:
+    """Of copies listed newest first, the first of each `period` (a UTC day or hour)."""
+    first: dict = {}
     for p in reversed(copies):
-        first.setdefault(_utc_day(p), p)
+        first.setdefault(period(p), p)
     return set(first.values())
 
 
 def _utc_day(copy: Path) -> datetime.date:
     return datetime.datetime.fromtimestamp(copy.stat().st_mtime, datetime.timezone.utc).date()
+
+
+def _utc_hour(copy: Path) -> datetime.datetime:
+    made = datetime.datetime.fromtimestamp(copy.stat().st_mtime, datetime.timezone.utc)
+    return made.replace(minute=0, second=0, microsecond=0)
 
 
 # Adopting databases created before migrations existed

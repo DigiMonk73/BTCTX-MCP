@@ -6,7 +6,6 @@ in UTC with a 'Z'.
 
 import logging
 import sqlite3
-import threading
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -25,17 +24,20 @@ from backend.services import transaction as tx_service
 from backend.services import transfer_coins, wipe
 from backend.services.account import account_book
 from backend.database import RowId, get_db
-from backend.migrate import AI_CHANGE_LABEL, AI_COPIES_KEPT, backup_copies, backup_sqlite, sqlite_file
+from backend.migrate import (
+    AI_CHANGE_COPY_LOCK,
+    AI_CHANGE_LABEL,
+    AI_COPIES_KEPT,
+    backup_copies,
+    backup_sqlite,
+    sqlite_file,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["transactions"])
 
-AI_CHANGE_COPY_EVERY = 3600  # seconds
 _now = time.time  # tests move the clock
-# One copy at a time (BitcoinTX runs one server process): a change that
-# comes while the copy is being written waits for it, then finds it.
-_ai_change_copy = threading.Lock()
 
 
 def _attach_utc_and_build_read_model(tx, db: Session, years: dict | None = None) -> TransactionRead:
@@ -250,27 +252,33 @@ def _ai_copy_first(db: Session, by_ai: bool, refused: str):
 
 
 def _made_this_hour_today(made: float) -> bool:
-    """A copy less than an hour old, made on today's UTC day: a change just
-    after midnight still gets the new day's first copy (the one
-    migrate._ai_copies_held keeps for the week)."""
-    now = _now()
-    today = datetime.fromtimestamp(now, timezone.utc).date()
-    return now - made < AI_CHANGE_COPY_EVERY and datetime.fromtimestamp(made, timezone.utc).date() == today
+    """A copy made in this UTC clock hour of today, the hours and days
+    migrate._ai_copies_held keeps each one's first copy by. Not an hour by
+    the stopwatch: a confirmed past-year write's fresh copy would restart
+    it, and the next hour's first change, made without a copy, would leave
+    an entry the owner made between the two in a copy that isn't its
+    hour's first. A change just after midnight still gets the new day's
+    first copy."""
+    return _clock_hour(made) == _clock_hour(_now())
+
+
+def _clock_hour(when: float) -> datetime:
+    return datetime.fromtimestamp(when, timezone.utc).replace(minute=0, second=0, microsecond=0)
 
 
 def _copy_before_ai_changes(db: Session, refused: str) -> None:
     """
     An AI copy before the AI key's first change in an hour (an edit, a
     deletion, a recalculation, or an import that recalculates: also
-    routers/entry_import), which the AI copies the key asks for next never
-    push out (migrate._ai_copies_held). No copy, no change: `refused` ("Not
-    changed", "Not deleted", "Not recalculated", "Not added") opens the
-    message.
+    routers/entry_import), which the AI copies made after it never push out
+    for a day, or for a week as its day's first (migrate._ai_copies_held).
+    No copy, no change: `refused` ("Not changed", "Not deleted", "Not
+    recalculated", "Not added") opens the message.
     """
     db_path = sqlite_file(db.get_bind())
     if db_path is None:
         return
-    with _ai_change_copy:
+    with AI_CHANGE_COPY_LOCK:
         newest = backup_copies(db_path, "ai", label=AI_CHANGE_LABEL)
         if newest and _made_this_hour_today(newest[0].stat().st_mtime):
             return

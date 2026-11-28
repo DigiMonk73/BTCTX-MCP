@@ -336,9 +336,10 @@ you to approve each tool call unless you tell it not to.
   Ledger, or an import holding an entry dated before your latest entry,
   which recalculates the ledger), BitcoinTX makes a copy of the database
   itself (`backups/…-ai-before-changing-…db`). Of the AI copies it keeps the
-  newest 3 and, for a week, the oldest and the first copy of each day made
-  before the AI changed anything that day (UTC days), so copies made
-  afterwards never replace those from before. A change to an earlier tax
+  newest 3; for a week, the oldest and the first copy of each day made
+  before the AI changed anything that day (UTC days); and for a day, the
+  first copy of each hour made before a change. So copies made afterwards
+  never replace those from before. A change to an earlier tax
   year that you confirm gets a fresh copy first, whatever the hour.
 
 ## Disclaimer
