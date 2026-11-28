@@ -49,7 +49,12 @@ way back to 1.x.
    itself).
 2. **Update the AI connector** to `btctx-mcp==2.0.3` in your AI app's
    configuration, then restart the AI app. It carries #951's fix.
-3. Then read the entries marked "tax figures" below: they say whether
+3. **On StartOS, Ledger Review, then Recalculate Ledger:** a task asks
+   once (#950; the owner, 2026-11-28: "Yes, show the task"). Settings >
+   Ledger Review's "Figures that Recalculate Ledger would change" lists
+   what moves; almost every ledger has nothing. Elsewhere, run Settings >
+   Account > Recalculate Ledger yourself if #950 applies to you.
+4. Then read the entries marked "tax figures" below: they say whether
    there's anything to do. For #950, that's Recalculate Ledger and that
    year's forms printed again.
 
@@ -323,6 +328,14 @@ later update).
   enough), and BitcoinTX works the figures out again.
 
 ### StartOS package
+- **A task asks once for Recalculate Ledger** (for #950; the owner,
+  2026-11-28: "Yes, show the task"). #950's holding period is stored on
+  each disposal, so a saved sale changes only when the ledger is
+  recalculated. The update to 2.0.3:0 raises the important (not critical)
+  task Recalculate Ledger once, as 1.2.8 and 1.2.9 did, and again after
+  restoring a backup on which it is still due; a fresh install doesn't
+  ask. 2.0.3:0's migration is no longer empty, so the next version keeps it
+  in a file of its own.
 - **The Instructions say how to keep BitcoinTX's login cookie to
   BitcoinTX** (for #972): Start9's guide (`interfaces.md`, "Shared Addresses and
   Browser Cookies", 2026-11-26) says services opened at the server's

@@ -1,12 +1,17 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import { makeRecalculationDue } from '../utils'
 
 const CHANGELOG =
   'https://github.com/DigiMonk73/BTCTX-MCP/blob/v2.0.3/docs/CHANGELOG.md'
 
 /**
  * 2.0.3:0, the third maintenance update of 2.0. 2.0.2:0's migration was
- * empty, so it is bumped in place (Start9's versions.md), with no migration of
- * its own. The notes cover what changed since 2.0.2:0, which the community
+ * empty, so it is bumped in place (Start9's versions.md). Its own migration
+ * isn't empty: it raises Recalculate Ledger once (init/recalculateTask.ts),
+ * since #950's holding period reaches a saved sale only through a
+ * recalculation (the owner, 2026-11-28, on #972: "Yes, show the task"). So
+ * the next version can't bump 2.0.3:0 in place: it keeps this file's
+ * migration as v2.0.3_0.ts. The notes cover what changed since 2.0.2:0, which the community
  * registry serves: what to do after updating, that 2026's IRS forms are still
  * the drafts, each tax-figures fix with what the user saw, which tax years
  * and what to do, the other fixes and the known issues. Start9's rule: what a
@@ -26,6 +31,7 @@ export const current = VersionInfo.of({
 
 - **Reload any BitcoinTX page left open** in a browser.
 - **If you use an AI connector**, update it: in your AI app's configuration, change the version after btctx-mcp== to 2.0.3, as Settings > Connect an AI Assistant gives it, then restart the AI app.
+- **Ledger Review, then Recalculate Ledger.** A task asks once. First open Settings > Ledger Review in BitcoinTX: "Figures that Recalculate Ledger would change" lists each transaction whose figures move, old and new; almost every ledger has none. Then run the StartOS action Recalculate Ledger, or Settings > Account > Recalculate Ledger in BitcoinTX.
 - Then see the fixes below: most ledgers need nothing more.
 
 **The 2026 IRS forms**
@@ -40,7 +46,7 @@ export const current = VersionInfo.of({
 **Fixes that can change a figure**
 
 - **Coins acquired on 28 February and sold on 29 February of the next year** were reported long-term, but they're short-term. The gain stays the same; the sale moves from Form 8949's Part II to Part I, and on Schedule D. This touches only a sale, spend, donation or network fee on 29 February 2012, 2016, 2020 or 2024 of coins acquired on 28 February of the year before.
-  - **What to do:** if you have such a disposal, run Recalculate Ledger (Settings > Account) and print that year's forms again. If you already filed that year with it as long-term, ask your tax preparer whether to amend.
+  - **What to do:** if you have such a disposal, Recalculate Ledger (above) moves it; then print that year's forms again. If you already filed that year with it as long-term, ask your tax preparer whether to amend.
 - **Rows that share a time, entered by the AI connector,** were put in an order by type (deposits, buys, transfers, sales, withdrawals) instead of the order given, so a sale and a move at the same time could take other coins than the same rows imported from a file: another cost basis, gain and holding period, in any tax year. That's likely when the AI enters rows by date alone, which it puts at noon.
   - **What to do:** update the AI connector (above). If an AI entered, in one request, rows of different types on the same account at the same time (or on the same day without a time), check the cost basis and term of the sales, spends and moves out of those accounts from that day on against your records. Where one took other coins than it should have, put the rows in their real order by editing a time (a minute apart is enough).
 - **A time typed in the transaction form, on a device with old timezone data,** could be saved an hour off:
@@ -82,6 +88,7 @@ export const current = VersionInfo.of({
 
 - **Vuelve a cargar cualquier página de BitcoinTX que haya quedado abierta** en un navegador.
 - **Si usas un conector de IA**, actualízalo: en la configuración de tu aplicación de IA, cambia la versión que sigue a btctx-mcp== por 2.0.3, como la da Settings > Connect an AI Assistant, y reinicia la aplicación de IA.
+- **Ledger Review y después Recalcular el libro contable.** Una tarea lo pide una vez. Primero abre Settings > Ledger Review en BitcoinTX: "Figures that Recalculate Ledger would change" muestra cada transacción cuyas cifras cambian, con las anteriores y las nuevas; casi ningún libro contable tiene alguna. Después ejecuta la acción de StartOS Recalcular el libro contable, o Settings > Account > Recalculate Ledger en BitcoinTX.
 - Después mira las correcciones de abajo: la mayoría de los libros contables no necesitan nada más.
 
 **Los formularios del IRS de 2026**
@@ -96,7 +103,7 @@ export const current = VersionInfo.of({
 **Correcciones que pueden cambiar una cifra**
 
 - **Unas monedas adquiridas el 28 de febrero y vendidas el 29 de febrero del año siguiente** se declaraban a largo plazo, pero son a corto plazo. La ganancia no cambia; la venta pasa de la parte II a la parte I del formulario 8949, y en el Schedule D. Solo afecta a una venta, un gasto, una donación o una comisión de red del 29 de febrero de 2012, 2016, 2020 o 2024 de monedas adquiridas el 28 de febrero del año anterior.
-  - **Qué hacer:** si tienes una disposición así, ejecuta Recalculate Ledger (Settings > Account) y vuelve a imprimir los formularios de ese año. Si ya presentaste ese año con ella a largo plazo, pregunta a tu asesor fiscal si debes presentar una declaración rectificativa.
+  - **Qué hacer:** si tienes una disposición así, Recalcular el libro contable (arriba) la corrige; después vuelve a imprimir los formularios de ese año. Si ya presentaste ese año con ella a largo plazo, pregunta a tu asesor fiscal si debes presentar una declaración rectificativa.
 - **Las filas que comparten una hora, añadidas por el conector de IA,** se ordenaban por tipo (depósitos, compras, transferencias, ventas, retiradas) en lugar de en el orden dado, así que una venta y un movimiento a la misma hora podían tomar otras monedas que las mismas filas importadas desde un archivo: otra base de coste, otra ganancia y otro periodo de tenencia, en cualquier año fiscal. Es probable cuando la IA añade filas solo con una fecha, que pone a mediodía.
   - **Qué hacer:** actualiza el conector de IA (arriba). Si una IA añadió, en una sola petición, filas de distintos tipos en la misma cuenta a la misma hora (o el mismo día sin hora), compara con tus registros la base de coste y el plazo de las ventas, los gastos y los movimientos de salida de esas cuentas desde ese día. Donde una tomó otras monedas de las que debía, pon las filas en su orden real editando una hora (basta un minuto de diferencia).
 - **Una hora escrita en el formulario de transacción, en un dispositivo con datos de zona horaria antiguos,** podía guardarse con una hora de diferencia:
@@ -138,6 +145,7 @@ export const current = VersionInfo.of({
 
 - **Lade jede in einem Browser offen gebliebene Seite von BitcoinTX neu.**
 - **Wenn du einen KI-Connector nutzt**, aktualisiere ihn: Ändere in der Konfiguration deiner KI-App die Version nach btctx-mcp== in 2.0.3, wie Settings > Connect an AI Assistant sie angibt, und starte die KI-App neu.
+- **Ledger Review, dann Journal neu berechnen.** Eine Aufgabe fragt einmal danach. Öffne zuerst Settings > Ledger Review in BitcoinTX: "Figures that Recalculate Ledger would change" listet jede Transaktion, deren Zahlen sich ändern, alt und neu; fast kein Journal hat eine. Führe dann die StartOS-Aktion Journal neu berechnen aus, oder Settings > Account > Recalculate Ledger in BitcoinTX.
 - Dann sieh dir die Korrekturen unten an: Die meisten Journale brauchen nichts weiter.
 
 **Die IRS-Formulare für 2026**
@@ -152,7 +160,7 @@ export const current = VersionInfo.of({
 **Korrekturen, die eine Zahl ändern können**
 
 - **Coins, die am 28. Februar erworben und am 29. Februar des nächsten Jahres verkauft wurden,** wurden als langfristig ausgewiesen, sind aber kurzfristig. Der Gewinn bleibt gleich; der Verkauf wandert von Teil II in Teil I von Formular 8949 und auf Schedule D. Das betrifft nur einen Verkauf, eine Ausgabe, eine Spende oder eine Netzwerkgebühr am 29. Februar 2012, 2016, 2020 oder 2024 von Coins, die am 28. Februar des Vorjahres erworben wurden.
-  - **Was zu tun ist:** Hast du eine solche Veräußerung, führe Recalculate Ledger aus (Settings > Account) und drucke die Formulare dieses Jahres erneut. Hast du dieses Jahr schon mit ihr als langfristig eingereicht, frage deinen Steuerberater, ob du eine berichtigte Erklärung abgeben solltest.
+  - **Was zu tun ist:** Hast du eine solche Veräußerung, korrigiert Journal neu berechnen (oben) sie; drucke dann die Formulare dieses Jahres erneut. Hast du dieses Jahr schon mit ihr als langfristig eingereicht, frage deinen Steuerberater, ob du eine berichtigte Erklärung abgeben solltest.
 - **Zeilen mit derselben Uhrzeit, vom KI-Connector eingetragen,** wurden nach Typ geordnet (Einzahlungen, Käufe, Transfers, Verkäufe, Auszahlungen) statt in der angegebenen Reihenfolge, sodass ein Verkauf und eine Übertragung zur selben Uhrzeit andere Coins nehmen konnten als dieselben Zeilen aus einer importierten Datei: eine andere Kostenbasis, ein anderer Gewinn und eine andere Haltedauer, in jedem Steuerjahr. Das ist wahrscheinlich, wenn die KI Zeilen nur mit einem Datum einträgt, die sie auf Mittag legt.
   - **Was zu tun ist:** Aktualisiere den KI-Connector (oben). Hat eine KI in einer Anfrage Zeilen verschiedener Typen auf demselben Konto zur selben Uhrzeit eingetragen (oder am selben Tag ohne Uhrzeit), prüfe Kostenbasis und Frist der Verkäufe, Ausgaben und Übertragungen aus diesen Konten ab diesem Tag anhand deiner Unterlagen. Wo eine andere Coins genommen hat als sie sollte, bringe die Zeilen in ihre echte Reihenfolge, indem du eine Uhrzeit änderst (eine Minute Abstand genügt).
 - **Eine im Transaktionsformular eingegebene Uhrzeit, auf einem Gerät mit alten Zeitzonendaten,** konnte um eine Stunde verschoben gespeichert werden:
@@ -194,6 +202,7 @@ export const current = VersionInfo.of({
 
 - **Odśwież każdą stronę BitcoinTX pozostawioną otwartą** w przeglądarce.
 - **Jeśli używasz łącznika AI**, zaktualizuj go: w konfiguracji aplikacji AI zmień wersję po btctx-mcp== na 2.0.3, tak jak podaje ją Settings > Connect an AI Assistant, i uruchom aplikację AI ponownie.
+- **Ledger Review, potem Przelicz księgę.** Zadanie poprosi o to raz. Najpierw otwórz Settings > Ledger Review w BitcoinTX: "Figures that Recalculate Ledger would change" pokazuje każdą transakcję, której wartości się zmieniają, stare i nowe; prawie żadna księga nie ma takiej. Potem uruchom akcję StartOS Przelicz księgę albo Settings > Account > Recalculate Ledger w BitcoinTX.
 - Potem przeczytaj poprawki poniżej: większość ksiąg nie potrzebuje niczego więcej.
 
 **Formularze IRS na 2026 r.**
@@ -208,7 +217,7 @@ export const current = VersionInfo.of({
 **Poprawki, które mogą zmienić wynik**
 
 - **Monety nabyte 28 lutego i sprzedane 29 lutego następnego roku** były wykazywane jako długoterminowe, a są krótkoterminowe. Zysk się nie zmienia; sprzedaż przechodzi z części II do części I formularza 8949 oraz na Schedule D. Dotyczy to tylko sprzedaży, wydatku, darowizny lub opłaty sieciowej z 29 lutego 2012, 2016, 2020 lub 2024 r. z monet nabytych 28 lutego roku poprzedniego.
-  - **Co zrobić:** jeśli masz takie zbycie, uruchom Recalculate Ledger (Settings > Account) i wydrukuj ponownie formularze z tego roku. Jeśli rozliczyłeś już ten rok z nim jako długoterminowym, zapytaj swojego doradcę podatkowego, czy złożyć korektę.
+  - **Co zrobić:** jeśli masz takie zbycie, Przelicz księgę (powyżej) je poprawi; potem wydrukuj ponownie formularze z tego roku. Jeśli rozliczyłeś już ten rok z nim jako długoterminowym, zapytaj swojego doradcę podatkowego, czy złożyć korektę.
 - **Wiersze o tej samej godzinie, wprowadzone przez łącznik AI,** były porządkowane według typu (wpłaty, zakupy, transfery, sprzedaże, wypłaty) zamiast w podanej kolejności, więc sprzedaż i przeniesienie o tej samej godzinie mogły wziąć inne monety niż te same wiersze zaimportowane z pliku: inną podstawę kosztową, inny zysk i inny okres posiadania, w każdym roku podatkowym. Jest to prawdopodobne, gdy AI wprowadza wiersze tylko z datą, którym nadaje godzinę południa.
   - **Co zrobić:** zaktualizuj łącznik AI (powyżej). Jeśli AI wprowadziła w jednym żądaniu wiersze różnych typów na tym samym koncie o tej samej godzinie (lub tego samego dnia bez godziny), porównaj ze swoimi zapisami podstawę kosztową i okres sprzedaży, wydatków i przeniesień z tych kont od tego dnia. Tam, gdzie któraś wzięła inne monety, niż powinna, ustaw wiersze w ich prawdziwej kolejności, zmieniając godzinę (wystarczy minuta różnicy).
 - **Godzina wpisana w formularzu transakcji, na urządzeniu ze starymi danymi stref czasowych,** mogła zostać zapisana z przesunięciem o godzinę:
@@ -250,6 +259,7 @@ export const current = VersionInfo.of({
 
 - **Rechargez toute page de BitcoinTX restée ouverte** dans un navigateur.
 - **Si vous utilisez un connecteur IA**, mettez-le à jour : dans la configuration de votre application d’IA, remplacez la version qui suit btctx-mcp== par 2.0.3, comme l’indique Settings > Connect an AI Assistant, puis redémarrez l’application d’IA.
+- **Ledger Review, puis Recalculer le registre.** Une tâche le demande une fois. Ouvrez d’abord Settings > Ledger Review dans BitcoinTX : "Figures that Recalculate Ledger would change" liste chaque transaction dont les chiffres changent, anciens et nouveaux ; presque aucun registre n’en a. Lancez ensuite l’action StartOS Recalculer le registre, ou Settings > Account > Recalculate Ledger dans BitcoinTX.
 - Puis lisez les corrections ci-dessous : la plupart des registres n’ont besoin de rien d’autre.
 
 **Les formulaires de l’IRS pour 2026**
@@ -264,7 +274,7 @@ export const current = VersionInfo.of({
 **Corrections qui peuvent changer un chiffre**
 
 - **Des bitcoins acquis le 28 février et vendus le 29 février de l’année suivante** étaient déclarés à long terme, mais ils sont à court terme. Le gain reste le même ; la vente passe de la partie II à la partie I du formulaire 8949, et sur le Schedule D. Cela ne touche qu’une vente, une dépense, un don ou des frais de réseau du 29 février 2012, 2016, 2020 ou 2024 portant sur des bitcoins acquis le 28 février de l’année précédente.
-  - **Que faire :** si vous avez une telle cession, lancez Recalculate Ledger (Settings > Account) et imprimez de nouveau les formulaires de cette année. Si vous avez déjà déposé cette année avec elle à long terme, demandez à votre conseiller fiscal s’il faut une déclaration rectificative.
+  - **Que faire :** si vous avez une telle cession, Recalculer le registre (ci-dessus) la corrige ; imprimez ensuite de nouveau les formulaires de cette année. Si vous avez déjà déposé cette année avec elle à long terme, demandez à votre conseiller fiscal s’il faut une déclaration rectificative.
 - **Les lignes qui partagent une heure, saisies par le connecteur IA,** étaient rangées par type (dépôts, achats, transferts, ventes, retraits) au lieu de l’ordre donné : une vente et un transfert à la même heure pouvaient donc prendre d’autres bitcoins que les mêmes lignes importées d’un fichier, avec une autre base de coût, un autre gain et une autre durée de détention, pour toute année fiscale. C’est probable quand l’IA saisit des lignes avec une date seule, qu’elle met à midi.
   - **Que faire :** mettez à jour le connecteur IA (ci-dessus). Si une IA a saisi, en une seule demande, des lignes de types différents sur le même compte à la même heure (ou le même jour sans heure), comparez avec vos relevés la base de coût et la durée des ventes, dépenses et transferts sortants de ces comptes à partir de ce jour. Là où l’une a pris d’autres bitcoins qu’elle n’aurait dû, remettez les lignes dans leur ordre réel en modifiant une heure (une minute d’écart suffit).
 - **Une heure saisie dans le formulaire de transaction, sur un appareil aux données de fuseaux horaires anciennes,** pouvait être enregistrée avec une heure d’écart :
@@ -298,7 +308,9 @@ export const current = VersionInfo.of({
 [Tout ce que contient la 2.0.3](${CHANGELOG})`,
   },
   migrations: {
-    up: async ({ effects }) => {},
+    up: async ({ effects }) => {
+      await makeRecalculationDue(effects)
+    },
     down: IMPOSSIBLE,
   },
 })
