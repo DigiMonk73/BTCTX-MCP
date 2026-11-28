@@ -270,8 +270,10 @@ All notable changes to BitcoinTX are documented in this file.
   Browser Cookies", 2026-11-26) says services opened at the server's
   shared addresses (its `.local` address and IP addresses) share browser
   cookies. Other services opened at the same address as the Web UI
-  receive its login cookie; a private domain for the Web UI, or its
-  `.local` and IP addresses switched off, keeps it to BitcoinTX.
+  receive its login cookie. Opening BitcoinTX at a private domain, or
+  switching off its `.local` and IP addresses when it is reached another
+  way, keeps the cookie to BitcoinTX, after logging out at the old
+  address.
 - **BitcoinTX on StartOS needs StartOS 0.4.2 or later** (#965; the
   owner, 2026-11-14), because the package is built with **start-sdk
   4.1.0** (from 4.0.0): Start9's current SDK, which their Pre-Publish
