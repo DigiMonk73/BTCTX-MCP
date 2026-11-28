@@ -37,6 +37,8 @@ Record deposits, withdrawals, transfers, buys and sells in each of your wallets,
 
 BitcoinTX is software, not tax, legal or financial advice. It works from the records you enter: check its figures with a tax professional before you file.
 
+If you open the **Web UI** at the server's `.local` address or one of its IP addresses, other services you open at that same address receive BitcoinTX's login cookie from your browser. To keep it to BitcoinTX, give the **Web UI** a private domain, or switch off its `.local` and IP addresses in the interface's gateway tables ([Shared Addresses and Browser Cookies](https://docs.start9.com/start-os/interfaces.html#shared-addresses-and-browser-cookies)). The **MCP API** is the same server: after switching addresses off, run **Connect an AI Assistant** again and update `BTCTX_URL` in your AI app.
+
 ### Privacy and your own node
 
 BitcoinTX sends your ledger nowhere, and it contacts nothing until you choose who it asks for newer prices, with the **Price Source & Privacy** action (or in the app, **Settings > Privacy & Network**, if you pick **Decide in BitcoinTX instead**). A choice made in the action shows read-only in the app.
