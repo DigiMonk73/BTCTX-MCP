@@ -4,7 +4,7 @@
 
 # Core framework
 fastapi==0.165.0
-pydantic==2.14.2
+pydantic==2.14.4
 starlette==1.10.0
 uvicorn==0.54.0
 
@@ -31,4 +31,4 @@ cryptography==50.0.2
 
 # PDF generation & manipulation
 pypdf==6.21.4
-reportlab==5.1.0
+reportlab==5.1.2
