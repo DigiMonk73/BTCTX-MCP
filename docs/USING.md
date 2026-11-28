@@ -523,7 +523,8 @@ forms yet)" too: for it, the Complete Tax Report has every figure Form
     recorded before the fee, with the fee apart, whichever way the exchange
     writes them.
   - A file with a stray quote ("), a cell over more than one line, or a
-    comma in a bitcoin amount is refused, saying where: write bitcoin
+    comma in a bitcoin amount is refused, saying why (and, for a cell over
+    lines or a bitcoin amount, its row): write bitcoin
     decimals with a point and no thousands separator, and put each cell on
     one line. A file saved as an old Mac's "CSV (Macintosh)" reads as any
     other. The same holds for **Import Transactions (CSV)**, below.
