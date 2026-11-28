@@ -180,17 +180,26 @@ map.
   export, file imports (CSV, River, any exchange's), delete-all, Ledger Review fixes,
   settings changes (the Mempool certificate's trust, #188, included) or
   debug.
-- Before the AI key's first change in an hour (an edit, a deletion,
+- Before the AI key's first change in a UTC clock hour (an edit, a deletion,
   Recalculate Ledger, or an import holding a row dated before the ledger's
   latest, which recalculates it: each can move stored figures, #336, #414)
   an AI copy is made (`backups/…-ai-before-changing-…db`; no copy, no
   change), never for the owner's; it is written under a temporary name and
   renamed once complete, one at a time, so a failed or unfinished copy never
-  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3 and,
-  for a week (today and the 6 UTC days before), the oldest and the first
-  copy of each day made before the AI changed anything that day
-  (`migrate._ai_copies_held`): at most 11. A confirmed past-year write
-  with the key makes a fresh one first, whatever the hour (2.0, #352).
+  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3; for a
+  week (today and the 6 UTC days before), the oldest and the first copy of
+  each day made before the AI changed anything that day; and for a day (this
+  UTC hour and the 23 before), the first copy of each hour made before a
+  change (`migrate._ai_copies_held`): at most 35. So for a day, what the
+  owner enters and an AI change removes or changes in a later clock hour
+  stays in a copy as it was, whatever the AI changes or asks for after; one
+  entered and removed or changed within the same clock hour may not. The
+  hours are clock hours, as the copies are kept by
+  (`_made_this_hour_today`), never an hour since the last copy. A confirmed
+  past-year write with the key makes a fresh one first, whatever the hour
+  (2.0, #352), and holds the AI copies' lock (`migrate.AI_CHANGE_COPY_LOCK`)
+  until that copy is kept or removed: a change meanwhile never takes a copy
+  about to go for its hour's.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. An add's
   duplicate check and its writes hold it as one (`entry_import.write_rows`;
@@ -213,13 +222,25 @@ map.
   have their own check (#210): a login or current password that isn't text
   is a wrong one; a new username or password, a 422. Form data is each
   route's own to check (a backup's password: `backup._require_text_password`).
-- A JSON body nested more than `MAX_JSON_DEPTH` (64) lists or objects deep
-  is refused, 422, before its fields are checked (`main.refuse_deep_nesting`,
-  #1000): pydantic's message for a value nested just under the parser's
-  limit recursed past Python's, a 500. It sits in `main.LOGGED_IN` beside
-  the text check, and walks a body only when it has that many brackets.
-  The login and `/api/users`, outside `LOGGED_IN`, have only text and number
-  fields, whose messages don't recurse (#954's handler): one that gains an enum needs it.
+- A JSON body past what BitcoinTX reads is refused, 422, before its fields
+  are checked (`main.refuse_json_past_its_limits`): nested more than
+  `MAX_JSON_DEPTH` (64) lists or objects deep, its lists holding more than
+  `MAX_JSON_ITEMS` (10,000) items in all, or an object more than
+  `MAX_JSON_MEMBERS` (1,000) fields. Pydantic's message for a value
+  nested just under the parser's limit recursed past Python's, a 500
+  (#1000); and it writes an error for each item or field it refuses, so a
+  refusal's cost grows with what a body holds, not only its size. A
+  file's import sends at most 10,000 flat rows, a transaction chooses
+  coins in at most 1,000 lines, the AI key sends 500 rows. It
+  sits in `main.LOGGED_IN` beside the text check, and walks a body only
+  when it has that many brackets or commas. The login and `/api/users`,
+  outside `LOGGED_IN`, have only text and number fields, whose messages
+  don't recurse (#954's handler): one that gains an enum or a list needs
+  it. A 422 lists its first `MAX_ERRORS_LISTED` (100) errors, then how
+  many more, and no error echoes an input that is a list or an object (a
+  "missing" error gives its whole row): its answer stays small, and the
+  worst body within every limit is refused in a fraction of a second
+  (`test_json_limits.py`, which allows 5 s for a busy CI runner).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI

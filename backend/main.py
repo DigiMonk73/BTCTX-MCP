@@ -157,45 +157,71 @@ async def refuse_text_that_isnt_text(request: Request) -> None:
         raise HTTPException(status_code=422, detail=refusal)
 
 
-# No BitcoinTX request nests deeper than a few levels (rows, a row, its
-# chosen coins); this leaves room, and stays far below Python's recursion limit
+# What one JSON body may hold (refuse_json_past_its_limits). No BitcoinTX
+# request nests deeper than a few levels (rows, a row, its chosen coins);
+# this leaves room, and stays far below Python's recursion limit
 MAX_JSON_DEPTH = 64
+# Items in all its lists: a file's import sends at most 10,000 rows
+# (csv_import.MAX_ROWS), a transaction chooses coins in at most 1,000
+# lines (chosen_coins.MOST_LINES); the AI connector's rows, at most 500,
+# rarely choose coins at all. Pydantic checks each: refusing 10,000
+# rows whose every field is wrong takes about 0.5 s
+MAX_JSON_ITEMS = 10_000
+# Fields in one object: a row has a few dozen, an exchange's mapping at most
+# 200 kinds. Each is an error where a model forbids other fields
+MAX_JSON_MEMBERS = 1_000
 TOO_DEEP = f"The request nests deeper than BitcoinTX reads ({MAX_JSON_DEPTH} levels of lists or objects)."
+TOO_MANY_ITEMS = f"The request's lists hold more than {MAX_JSON_ITEMS:,} items in all: send fewer at a time."
+TOO_MANY_MEMBERS = f"An object in the request has more than {MAX_JSON_MEMBERS:,} fields."
 
 
-async def refuse_deep_nesting(request: Request) -> None:
+async def refuse_json_past_its_limits(request: Request) -> None:
     """
-    A JSON body nested past MAX_JSON_DEPTH: refused with a 422 before its
-    fields are checked. Pydantic's own message for a value nested just
-    under the parser's limit (about 9,990 levels) recursed past Python's
-    limit, a 500 the 422 handler never saw (#1000). Each logged-in router
+    A JSON body past what BitcoinTX reads: nested past MAX_JSON_DEPTH, its
+    lists holding more than MAX_JSON_ITEMS items in all, or an object more
+    than MAX_JSON_MEMBERS fields. Refused with a 422 before its fields are
+    checked. Pydantic's own message for a value nested just under the
+    parser's limit (about 9,990 levels) recursed past Python's limit, a 500
+    the 422 handler never saw (#1000); and it writes an error for each item
+    or field it refuses, so what a refusal costs grows with what the body
+    holds, not only its size. Each logged-in router
     lists it after its login check, as the text check (LOGGED_IN); the
     login and /api/users, outside it, have only text and number fields,
     whose messages don't recurse (#954's handler answers for them). A body
-    can only nest that deep with that many brackets, so the walk runs only
-    then.
+    can only pass a limit with that many brackets or commas, so the walk
+    runs only then.
     """
     if not _takes_json(request):
         return
     body = await request.body()
-    if body.count(b"[") + body.count(b"{") <= MAX_JSON_DEPTH:
+    if body.count(b"[") + body.count(b"{") <= MAX_JSON_DEPTH and body.count(b",") < MAX_JSON_MEMBERS:
         return
-    if _nests_too_deep(await request.json()):
-        raise HTTPException(status_code=422, detail=TOO_DEEP)
+    refusal = _past_a_limit(await request.json())
+    if refusal is not None:
+        raise HTTPException(status_code=422, detail=refusal)
 
 
-def _nests_too_deep(body) -> bool:
-    """Whether `body` nests more than MAX_JSON_DEPTH lists or objects deep,
-    walked without recursion, as it may nest as deep as JSON allows, and
-    only until a level past the limit is found."""
+def _past_a_limit(body) -> str | None:
+    """The refusal for the first limit `body` passes, else None. Walked
+    without recursion, as it may nest as deep as JSON allows, and only until
+    a limit is passed."""
     pending = [(body, 1)] if isinstance(body, (dict, list)) else []
+    items = 0
     while pending:
         value, level = pending.pop()
         if level > MAX_JSON_DEPTH:
-            return True
-        items = value.values() if isinstance(value, dict) else value
-        pending.extend((item, level + 1) for item in items if isinstance(item, (dict, list)))
-    return False
+            return TOO_DEEP
+        if isinstance(value, dict):
+            if len(value) > MAX_JSON_MEMBERS:
+                return TOO_MANY_MEMBERS
+            inside = value.values()
+        else:
+            items += len(value)
+            if items > MAX_JSON_ITEMS:
+                return TOO_MANY_ITEMS
+            inside = value
+        pending.extend((item, level + 1) for item in inside if isinstance(item, (dict, list)))
+    return None
 
 
 def _may_hold_a_surrogate(body: bytes) -> bool:
@@ -385,18 +411,29 @@ async def spa_fallback_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
+# Errors a 422 lists: the screens and the AI connector show the first
+MAX_ERRORS_LISTED = 100
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     """
     FastAPI's 422, less any input JSON can't carry: a number such as 1e999
     is read as infinity (#218), and text can hold a lone surrogate (#210).
     Echoed back, either failed the answer with a 500; so did a body that
-    isn't UTF-8, sent without a JSON type (_without_bytes_input), and one
-    nested a thousand levels deep, whose encoding ran past Python's
-    recursion limit (#954).
+    isn't UTF-8, sent without a JSON type (_echoable), and one nested a
+    thousand levels deep, whose encoding ran past Python's recursion limit
+    (#954). The first MAX_ERRORS_LISTED errors, then how many more: each
+    is written out, and a body under the size limit can hold hundreds of
+    thousands.
     """
-    errors = [_encoded(_without_bytes_input(error)) for error in exc.errors()]
-    return _written([error if _writable(error) else _without_echo(error) for error in errors])
+    found = exc.errors()
+    errors = [_encoded(_echoable(error)) for error in found[:MAX_ERRORS_LISTED]]
+    listed = [error if _writable(error) else _without_echo(error) for error in errors]
+    if len(found) > MAX_ERRORS_LISTED:
+        listed.append({"type": "more_errors", "loc": ["body"],
+                       "msg": f"And {len(found) - MAX_ERRORS_LISTED:,} more errors."})
+    return _written(listed)
 
 
 def _encoded(error: dict) -> dict:
@@ -431,13 +468,14 @@ async def date_out_of_range_handler(request: Request, exc: DateOutOfRange):
     return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
-def _without_bytes_input(error: dict) -> dict:
-    """A body FastAPI didn't read as JSON (text/plain, text/json, no type)
-    is its `input` as bytes, which jsonable_encoder decodes as strict UTF-8:
-    one that isn't failed the answer with a 500 (#313's re-check). Left out,
-    as an input JSON can't carry is: echoed back, megabytes of it would be
-    larger still."""
-    if isinstance(error.get("input"), (bytes, bytearray)):
+def _echoable(error: dict) -> dict:
+    """An error less an input that would only echo the body: bytes, which
+    is a body FastAPI didn't read as JSON (text/plain, text/json, no type)
+    and which jsonable_encoder decodes as strict UTF-8, failing the answer
+    with a 500 when it isn't (#313's re-check); or a list or an object,
+    which a "missing" error gives whole, so a large one echoed by each error
+    made the answer many times the body. A value a field was given is kept."""
+    if isinstance(error.get("input"), (bytes, bytearray, dict, list)):
         return {key: value for key, value in error.items() if key != "input"}
     return error
 
@@ -509,9 +547,9 @@ def require_login_dependency(request: Request, db: Session = Depends(get_db)) ->
 
 from backend.routers import transaction, user, account, calculation, bitcoin, reports, backup, csv_import, river_import, exchange_import, entry_import, settings, review
 
-# Every logged-in router: the login (or the AI key), then the depth check
-# (#1000) and the text check (#313), which an anonymous request never reaches
-LOGGED_IN = [Depends(get_current_user), Depends(refuse_deep_nesting), Depends(refuse_text_that_isnt_text)]
+# Every logged-in router: the login (or the AI key), then the JSON body's
+# limits (#1000) and the text check (#313), which an anonymous request never reaches
+LOGGED_IN = [Depends(get_current_user), Depends(refuse_json_past_its_limits), Depends(refuse_text_that_isnt_text)]
 
 include(transaction.router, "/api/transactions", tags=["transactions"], dependencies=LOGGED_IN)
 include(user.router, "/api/users", tags=["users"])  # No auth — register must work
@@ -531,7 +569,7 @@ include(review.router, "/api/review", tags=["review"], dependencies=LOGGED_IN)
 try:
     from backend.routers import debug
     include(debug.router, "/api/debug", tags=["debug"],
-            dependencies=[Depends(require_login_dependency), Depends(refuse_deep_nesting), Depends(refuse_text_that_isnt_text)])
+            dependencies=[Depends(require_login_dependency), Depends(refuse_json_past_its_limits), Depends(refuse_text_that_isnt_text)])
 except ImportError:
     print(
         "WARNING: Could not import 'debug' router. If you need debug features, "
