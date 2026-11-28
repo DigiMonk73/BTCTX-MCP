@@ -408,28 +408,28 @@ All notable changes to BitcoinTX are documented in this file.
   Linux suites decide. Development only: nothing that ships changes.
 - **The updates before 2.0.3** (#972, the Updates lane's last run,
   2026-11-28). No security fix was waiting: `make audit-deps` and the
-  frontend's `npm audit` were clean. Taken: pydantic 2.14.4 (Dependabot's
-  run of 14 November skipped pydantic, then 2.14.3, on an error of its
-  own) with pydantic-core 2.50.5; reportlab 5.1.2; the patch-level
-  indirect packages (certifi 2026.11.20 among them, which drops seven
-  retired roots, none used by a host BitcoinTX talks to); hypothesis and
-  uv; the
-  frontend's updates inside their ranges (vite 8.4.0, react-router-dom
-  7.18.7, vitest 5.1.2, eslint, typescript-eslint, @types) and
-  lucide-react 1.83.0 (published that day), whose icons we use draw the
-  same; the Docker base
-  images' new builds (Python 3.13.18 with Debian's updates of 24
-  November; Node 24.22.3, which only builds the frontend); and
-  docker/setup-docker-action v5.7.0. No figure moves: the before-and-after
-  comparison in two environments found no difference. Left for
-  December's cycle: sqlalchemy 2.1 (a new minor series that removes old
-  APIs), httpx 0.29 (a 0.x minor, and every outside request goes
-  through it), pypdf 7 (a major), anyio 4.16 and pycparser 3.12 (minor,
-  indirect), jsdom 31 and TypeScript 7 (majors), docker/login-action
-  v4.8.0 (it runs only when an image is published, so no pull request
-  can check it), and `startos/`'s npm advisories (build tools only:
-  fast-xml-parser inside start-sdk, minimatch under typescript-eslint;
-  a `startos/` change waits for the owner's "merge").
+  frontend's `npm audit` were clean. Taken: pydantic 2.14.4
+  (Dependabot's run of 14 November skipped pydantic (then 2.14.3) on an
+  error of its own) with pydantic-core 2.50.5; reportlab 5.1.2; the
+  patch-level indirect packages (certifi 2026.11.20 among them, which
+  drops seven retired roots, none used by the hosts BitcoinTX asks for
+  prices, block heights and IRS forms (mempool.space not checked: it
+  didn't answer)); hypothesis and uv; the frontend's updates inside
+  their ranges (vite 8.4.0, react-router-dom 7.18.7, vitest 5.1.2,
+  eslint, typescript-eslint, @types) and lucide-react 1.83.0 (published
+  that day), whose icons we use draw the same; the Docker base images'
+  new builds (Python 3.13.18 with Debian's updates of 24 November; Node
+  24.22.3, which only builds the frontend); and
+  docker/setup-docker-action v5.7.0. No figure moves: the
+  before-and-after comparison in two environments found no difference.
+  Left for December's cycle: sqlalchemy 2.1 (a new minor series that
+  removes old APIs), httpx 0.29 (a 0.x minor, and every outside request
+  goes through it), pypdf 7 (a major), anyio 4.16 and pycparser 3.12
+  (minor, indirect), jsdom 31 and TypeScript 7 (majors),
+  docker/login-action v4.8.0 (it runs only when an image is published,
+  so no pull request can check it), and `startos/`'s npm advisories
+  (build tools only: fast-xml-parser inside start-sdk, minimatch under
+  typescript-eslint; a `startos/` change waits for the owner's "merge").
 
 ## [v2.0.2] - 2026-11-10 - A maintenance update: the AI connector on BitcoinTX's own timezone rules, StartOS 0.4.1 or later
 
