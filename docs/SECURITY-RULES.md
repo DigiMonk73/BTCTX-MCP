@@ -186,21 +186,20 @@ map.
   an AI copy is made (`backups/…-ai-before-changing-…db`; no copy, no
   change), never for the owner's; it is written under a temporary name and
   renamed once complete, one at a time, so a failed or unfinished copy never
-  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3; for
-  a week (today and the 6 UTC days before), the oldest and the first copy
-  of each day made before the AI changed anything that day; and for a day
-  (this UTC hour and the 23 before), the first copy of each hour made
-  before a change (`migrate._ai_copies_held`): at most 35. So for a day,
-  what the owner enters and an AI change removes or changes in a later
-  clock hour stays in a copy as it was, whatever the AI changes or asks
-  for after; one entered and removed or changed within the same clock hour
-  may not. The hours are clock
-  hours, as the copies are kept by (`_made_this_hour_today`), never an
-  hour since the last copy. A confirmed past-year write with the key makes
-  a fresh one first, whatever the hour (2.0, #352), and holds the AI
-  copies' lock (`migrate.AI_CHANGE_COPY_LOCK`) until that copy is kept or
-  removed: a change meanwhile never takes a copy about to go for its
-  hour's.
+  counts as the hour's. Of the AI copies BitcoinTX keeps the newest 3; for a
+  week (today and the 6 UTC days before), the oldest and the first copy of
+  each day made before the AI changed anything that day; and for a day (this
+  UTC hour and the 23 before), the first copy of each hour made before a
+  change (`migrate._ai_copies_held`): at most 35. So for a day, what the
+  owner enters and an AI change removes or changes in a later clock hour
+  stays in a copy as it was, whatever the AI changes or asks for after; one
+  entered and removed or changed within the same clock hour may not. The
+  hours are clock hours, as the copies are kept by
+  (`_made_this_hour_today`), never an hour since the last copy. A confirmed
+  past-year write with the key makes a fresh one first, whatever the hour
+  (2.0, #352), and holds the AI copies' lock (`migrate.AI_CHANGE_COPY_LOCK`)
+  until that copy is kept or removed: a change meanwhile never takes a copy
+  about to go for its hour's.
 - The JSON entry import (`routers/entry_import.py`) holds SQLite's write
   lock while it works, and the owner's saves wait only 5 s for it. An add's
   duplicate check and its writes hold it as one (`entry_import.write_rows`;
