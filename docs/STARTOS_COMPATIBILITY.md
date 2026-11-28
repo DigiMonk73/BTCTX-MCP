@@ -274,7 +274,8 @@ Change these only together with the package (`startos/`):
   (Delete All, or Create account on a ledger with transactions:
   `btctx-before-delete-all-…`), and of the AI copies (asked for, or made
   before the AI key's first change in an hour) the newest 3, plus for a
-  week the oldest and each day's first before a change (at most 11), and
+  week the oldest and each day's first before a change, and for a day each
+  hour's first before a change (at most 35), and
   the newest 5 `pre-change` copies (before a past-year change the owner
   confirmed), plus for a week each day's first, are kept in
   `/data/backups/`. The `pre-2.0` copy of a 1.x database is never pruned:

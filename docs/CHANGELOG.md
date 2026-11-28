@@ -20,6 +20,16 @@ All notable changes to BitcoinTX are documented in this file.
 
 ### Changed
 
+- **BitcoinTX keeps more of the copies it makes before the AI changes
+  your ledger.** Besides the newest 3, and for a week the oldest and
+  each day's first copy made before an AI change, it now keeps, for a
+  day, the first such copy of each hour: at most 35 AI copies, where it
+  kept 11. The AI's first change in each clock hour (UTC) makes its
+  copy. So for a day, an entry you make that an AI change removes or
+  changes in a later clock hour stays in a copy as you made it. They
+  stay in the database's `backups` folder, as before; your own changes
+  make none.
+
 - **Changing a priced deposit to My BTC or Gift asks for what the coins
   cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
   valued from the price when it came in (income, interest, a reward, a

@@ -17,8 +17,11 @@ write's date instead (the lead's decision, 2026-10-18).
 seeded.
 """
 
+import os
 import re
 import sqlite3
+import threading
+import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -367,6 +370,110 @@ def test_the_ai_key_gets_the_409_and_its_confirm_makes_a_fresh_ai_copy(ai):
     r = ai_client.put(url, json={"cost_basis_usd": "2000"}, params={"confirm": asked.json()["confirm"]})
     assert r.status_code == 200, r.text
     assert len(copies(client, "ai")) == 1 and copies(client, PRE_CHANGE_KIND) == []
+
+
+def test_the_keys_confirmed_writes_never_push_out_the_copy_holding_the_owners_entry(ai):
+    """The key deletes an entry (the day's first AI copy), the owner adds
+    one, and more than an hour later the key deletes it (the hour's first
+    copy, the only one holding it). Three confirmed past-year writes by the
+    key, each with a fresh copy, leave that copy: for the last 24 hours each
+    hour's first copy before a change is kept."""
+    headers, client, rows = ai
+    ai_client = TestClient(app, headers=headers)
+    assert ai_client.delete(f"/api/transactions/{rows['deposit 2026']}").status_code == 204
+    owners = deposit(client, "2026-03-01T12:00:00Z", amount="0.1", basis="5000")
+    for copy in copies(client, "ai"):  # an hour and a second pass
+        made_at(copy, copy.stat().st_mtime - 3601)
+    assert ai_client.delete(f"/api/transactions/{owners}").status_code == 204
+    url = f"/api/transactions/{rows['deposit 2024']}"
+    for basis in ("2000", "2001", "2002"):
+        confirmed(ai_client, url, basis)
+    assert holding_the_entry_of(client, "2026-03-01"), [c.name for c in copies(client, "ai")]
+
+
+def test_a_change_in_the_next_clock_hour_makes_its_copy_after_a_confirmed_write(ai):
+    """The review of the hourly hold: a confirmed write at the start of an
+    hour (that hour's first copy), the owner's entry, another confirmed
+    write at the hour's end (the only copy holding it). The key's deletion
+    of the entry in the next clock hour makes that hour's first copy, though
+    the last copy is under an hour old, so the confirmed writes after it
+    never leave the entry in no copy."""
+    headers, client, rows = ai
+    ai_client = TestClient(app, headers=headers)
+    hour = time.time() // 3600 * 3600
+    assert ai_client.delete(f"/api/transactions/{rows['deposit 2026']}").status_code == 204
+    made_at(copies(client, "ai")[0], hour - 3 * 3600)  # the day's first, earlier
+    url = f"/api/transactions/{rows['deposit 2024']}"
+    confirmed(ai_client, url, "2000")
+    made_at(copies(client, "ai")[0], hour - 3599)  # the last hour's first
+    owners = deposit(client, "2026-03-01T12:00:00Z", amount="0.1", basis="5000")
+    confirmed(ai_client, url, "2001")
+    made_at(copies(client, "ai")[0], hour - 1)  # the last hour's last: it holds the entry
+    assert ai_client.delete(f"/api/transactions/{owners}").status_code == 204
+    for basis in ("2002", "2003", "2004"):
+        confirmed(ai_client, url, basis)
+    assert holding_the_entry_of(client, "2026-03-01"), [c.name for c in copies(client, "ai")]
+
+
+def test_a_change_during_a_confirmed_write_that_fails_makes_its_own_copy(ai, monkeypatch):
+    """The re-check of the hourly hold: a confirmed write by the key whose
+    save goes stale removes its copy. A change by the key meanwhile, its
+    first this hour, took that copy for the hour's and made none, so the
+    entry it deleted was in no copy. It waits now until the copy is kept or
+    removed, then makes its own."""
+    headers, client, rows = ai
+    owners = deposit(client, "2026-03-01T12:00:00Z", amount="0.1", basis="5000")
+    copied, deleting = threading.Event(), threading.Event()
+    checked = past_years._checked_write
+
+    def slow_check(*args, **kwargs):
+        copied.set()  # its copy is made
+        assert deleting.wait(10)
+        time.sleep(0.5)  # the deletion reaches the copy's check meanwhile
+        return checked(*args, **kwargs)
+
+    monkeypatch.setattr(past_years, "_checked_write", slow_check)
+    answers = {}
+
+    def stale_write():
+        url = f"/api/transactions/{rows['deposit 2024']}"
+        answers["write"] = TestClient(app, headers=headers).put(
+            url, json={"cost_basis_usd": "2000"}, params={"confirm": "a fingerprint no longer right"}).status_code
+
+    writer = threading.Thread(target=stale_write)
+    writer.start()
+    assert copied.wait(10)
+    deleting.set()
+    answers["delete"] = TestClient(app, headers=headers).delete(f"/api/transactions/{owners}").status_code
+    writer.join(10)
+    assert answers == {"write": 409, "delete": 204}
+    assert holding_the_entry_of(client, "2026-03-01"), [c.name for c in copies(client, "ai")]
+
+
+def confirmed(ai_client, url: str, basis: str) -> None:
+    """A past-year write by the key, sent again with its 409's fingerprint."""
+    asked = ai_client.put(url, json={"cost_basis_usd": basis})
+    assert asked.status_code == 409, asked.text
+    r = ai_client.put(url, json={"cost_basis_usd": basis}, params={"confirm": asked.json()["confirm"]})
+    assert r.status_code == 200, r.text
+
+
+def made_at(copy: Path, when: float) -> None:
+    os.utime(copy, (when, when))
+
+
+def holding_the_entry_of(client, day: str) -> list[str]:
+    """The AI copies holding a transaction of `day`: by its day, since it
+    may take the id a deletion freed."""
+    holding = []
+    for copy in copies(client, "ai"):
+        conn = sqlite3.connect(copy)
+        try:
+            if conn.execute("SELECT 1 FROM transactions WHERE timestamp LIKE ?", (f"{day}%",)).fetchone():
+                holding.append(copy.name)
+        finally:
+            conn.close()
+    return holding
 
 
 def test_with_the_ai_key_a_change_from_a_fixed_rule_in_an_earlier_year_asks(ai):
