@@ -471,6 +471,14 @@ later update).
   Chromium's suite passes; WebKit's, on a Mac, too but for two focus
   checks that fail the same way on 1.64.1 there (`docs/TESTING.md`); CI's
   Linux suites decide. Development only: nothing that ships changes.
+- **The libraries Dependabot updated** (#969, #984, #970; checked on
+  #932, 2026-11-24). For the server: FastAPI 0.165.0 (from 0.162.0),
+  SQLAlchemy 2.0.58 (from 2.0.55) and python-multipart 0.0.34 (from
+  0.0.32). For the web app: axios 1.21.1, which requires a follow-redirects
+  with a published security fix, lucide-react, react-hook-form 7.92.0,
+  react-router-dom, vite and vitest. For development: ruff, hypothesis and
+  uv. No figure moves: SQLAlchemy's before-and-after comparison in two
+  environments found no difference.
 - **The updates before 2.0.3** (#972, the Updates lane's last run,
   2026-11-28). No security fix was waiting: `make audit-deps` and the
   frontend's `npm audit` were clean. Taken: pydantic 2.14.4
