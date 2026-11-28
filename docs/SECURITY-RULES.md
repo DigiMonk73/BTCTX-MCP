@@ -223,13 +223,25 @@ map.
   have their own check (#210): a login or current password that isn't text
   is a wrong one; a new username or password, a 422. Form data is each
   route's own to check (a backup's password: `backup._require_text_password`).
-- A JSON body nested more than `MAX_JSON_DEPTH` (64) lists or objects deep
-  is refused, 422, before its fields are checked (`main.refuse_deep_nesting`,
-  #1000): pydantic's message for a value nested just under the parser's
-  limit recursed past Python's, a 500. It sits in `main.LOGGED_IN` beside
-  the text check, and walks a body only when it has that many brackets.
-  The login and `/api/users`, outside `LOGGED_IN`, have only text and number
-  fields, whose messages don't recurse (#954's handler): one that gains an enum needs it.
+- A JSON body past what BitcoinTX reads is refused, 422, before its fields
+  are checked (`main.refuse_json_past_its_limits`): nested more than
+  `MAX_JSON_DEPTH` (64) lists or objects deep, its lists holding more than
+  `MAX_JSON_ITEMS` (10,000) items in all, or an object more than
+  `MAX_JSON_MEMBERS` (1,000) fields. Pydantic's message for a value
+  nested just under the parser's limit recursed past Python's, a 500
+  (#1000); and it writes an error for each item or field it refuses, so a
+  refusal's cost grows with what a body holds, not only its size. A
+  file's import sends at most 10,000 flat rows, a transaction chooses
+  coins in at most 1,000 lines, the AI key sends 500 rows. It
+  sits in `main.LOGGED_IN` beside the text check, and walks a body only
+  when it has that many brackets or commas. The login and `/api/users`,
+  outside `LOGGED_IN`, have only text and number fields, whose messages
+  don't recurse (#954's handler): one that gains an enum or a list needs
+  it. A 422 lists its first `MAX_ERRORS_LISTED` (100) errors, then how
+  many more, and no error echoes an input that is a list or an object (a
+  "missing" error gives its whole row): its answer stays small, and the
+  worst body within every limit is refused in well under a second
+  (`test_json_limits.py`).
 - Every request body is limited before anything reads it
   (`backend/body_limit.py`, just inside the security headers, before the
   cross-site check, sessions and routers): FastAPI

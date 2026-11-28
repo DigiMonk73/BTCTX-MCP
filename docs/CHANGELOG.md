@@ -30,6 +30,14 @@ All notable changes to BitcoinTX are documented in this file.
   stay in the database's `backups` folder, as before; your own changes
   make none.
 
+- **A request is refused when it holds more than BitcoinTX reads**: its
+  lists more than 10,000 items in all, or an object more than 1,000
+  fields, before its fields are checked, as one nested more than 64
+  levels deep already is. A refusal lists its first 100 errors, then how
+  many more, and no longer quotes a whole row back. A file's import sends
+  at most 10,000 rows; an AI app sending more items than the limit is
+  told to send fewer at a time.
+
 - **Changing a priced deposit to My BTC or Gift asks for what the coins
   cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
   valued from the price when it came in (income, interest, a reward, a
