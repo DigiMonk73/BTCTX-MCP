@@ -16,7 +16,7 @@ deposit's typed value was kept when its source changed (#998, #999). Each
 entry marked "tax figures" below says who could be affected and what to
 do; most ledgers need nothing more. The Sell form now lists the coins a
 sale uses, with their gain and term, before you save (#960), and changing
-a priced deposit to My BTC or Gift asks for what the coins cost (#955). On
+a priced deposit to MyBTC or Gift asks for what the coins cost (#955). On
 StartOS, it needs StartOS 0.4.2 or later (#965). Running BitcoinTX from
 source now needs Python 3.13 (#985).
 
@@ -78,11 +78,11 @@ later update).
 
 ### Changed
 
-- **Changing a priced deposit to My BTC or Gift asks for what the coins
+- **Changing a priced deposit to MyBTC or Gift asks for what the coins
   cost** (#955, the owner's decision, 2026-11-14). A bitcoin deposit
   valued from the price when it came in (income, interest, a reward, a
   rebate, an inheritance) kept that market value as its cost basis when
-  edited to My BTC, Gift or N/A, still marked "from the price", though the
+  edited to MyBTC, Gift or N/A, still marked "from the price", though the
   cost of your own coins, or a gift's, is what was paid for them. Such an
   edit now asks for the cost, as a new deposit of those sources does: the
   form clears the Cost Basis field and Save asks you to enter it (0 if
@@ -91,8 +91,6 @@ later update).
   deposit is valued again from the price (#998). Nothing saved changes by
   itself: a deposit changed this way before keeps its value; if it's your
   own coins or a gift, check that its cost basis is what was paid.
-
-### Python 3.13 for running from source
 
 - **BitcoinTX's server needs Python 3.13** (#985, the owner's choice,
   2026-11-23). Docker, StartOS and the Mac app already run it on 3.13;
@@ -108,10 +106,10 @@ later update).
 
 ### Fixed
 
-- **A cost typed for My BTC or Gift is no longer kept as the value
+- **A cost typed for MyBTC or Gift is no longer kept as the value
   received when the deposit is changed to income, a rebate or an
   inheritance** (#998, tax figures). A bitcoin deposit's cost basis typed
-  while its source was My BTC, Gift or N/A (what the coins cost, or the
+  while its source was MyBTC, Gift or N/A (what the coins cost, or the
   giver's cost) was kept if the deposit was later changed to a source
   valued when received (income, interest, a reward, a rebate, an
   inheritance): reported as that income, or taken as the rebate's or
@@ -122,7 +120,7 @@ later update).
   with it, other than the cost, is kept as the value you state. The form
   clears the Cost Basis field on that switch, so it's filled in from the
   price. Every earlier version has it. **What to do:** if you changed a
-  deposit from My BTC, Gift or N/A to income, interest, a reward, a rebate
+  deposit from MyBTC, Gift or N/A to income, interest, a reward, a rebate
   or an inheritance, check its value: open it and clear Cost Basis to have
   it valued from the price again.
 
@@ -278,7 +276,7 @@ later update).
   right: the only disposals that change are those on 29 February 2012,
   2016, 2020 or 2024 (next, 2028) of coins acquired on 28 February of the
   year before, by any buy or deposit but an inheritance (always
-  long-term; for a My BTC or Gift deposit with a date originally
+  long-term; for a MyBTC or Gift deposit with a date originally
   acquired, that date), network fees paid with them included. Such a sale's gain stays the same; it moves from long-term to
   short-term: from Form 8949's Part II to Part I (for 2024, box F to box
   C, or, with a broker reporting choice, box D to A or E to B) and on
@@ -324,7 +322,7 @@ later update).
 
 ### StartOS package
 - **The Instructions say how to keep BitcoinTX's login cookie to
-  BitcoinTX**: Start9's guide (`interfaces.md`, "Shared Addresses and
+  BitcoinTX** (for #972): Start9's guide (`interfaces.md`, "Shared Addresses and
   Browser Cookies", 2026-11-26) says services opened at the server's
   shared addresses (its `.local` address and IP addresses) share browser
   cookies. Other services opened at the same address as the Web UI

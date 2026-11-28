@@ -290,7 +290,7 @@ once tested there, to its **Community Registry**:
    Beta builds are signed only by that registry's build key, **Github
    Actions**. Check that it's on for **Packages** under
    **System → Trusted Keys**
-   ([Start9's guide](https://docs.start9.com/start-os/0.4.1.x/trusted-keys.html)):
+   ([Start9's guide](https://docs.start9.com/start-os/0.4.2.x/trusted-keys.html)):
    adding the registry turns it on, but a server that had the registry
    before its update to 0.4.1.2 lists it off, with a notification. While
    it's off, StartOS asks you to confirm the risks before it installs.

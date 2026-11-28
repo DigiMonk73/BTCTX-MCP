@@ -218,9 +218,9 @@ user on an older StartOS keeps the last BitcoinTX it installs on. Start9's
 Pre-Publish Checklist asks for the newest SDK before a pull request to
 their fork, so the release that follows the four weeks takes it. start-cli
 isn't bound by it (step 3). From 2.0.3, start-sdk 4.1.0: StartOS 0.4.2 or
-later, the owner's own decision (#972). 0.4.2 came out on 2026-11-09, so
-its four weeks end on 2026-12-07, before 2.0.3 is due; a release from
-`develop` before then (a security fix) asks the owner first.
+later, the owner's own decision (#972), taken before the four weeks
+(0.4.2 came out on 2026-11-09); 2.0.3 is released with it on
+2026-11-28. The four weeks apply from the next SDK.
 
 BTCTX-MCP's `scripts/start9-watch.sh` opens an issue when npm has a newer
 `@start9labs/start-sdk`, or Start9 a newer start-cli. To adopt them:
