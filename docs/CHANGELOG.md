@@ -18,7 +18,9 @@ do; most ledgers need nothing more. The Sell form now lists the coins a
 sale uses, with their gain and term, before you save (#960), and changing
 a priced deposit to MyBTC or Gift asks for what the coins cost (#955). On
 StartOS, it needs StartOS 0.4.2 or later (#965). Running BitcoinTX from
-source now needs Python 3.13 (#985).
+source now needs Python 3.13 (#985). Security: it fixes two problems in
+BitcoinTX itself, and includes the latest security fixes of the software
+it's built on.
 
 **The 2026 IRS forms are still the IRS's drafts.** The IRS hasn't
 published the final 2026 Form 8949 and Schedule D yet. Until 31 December,

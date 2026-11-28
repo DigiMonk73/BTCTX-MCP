@@ -63,7 +63,7 @@ export const current = VersionInfo.of({
 - Ledger Review's advice for a value left blank or $0 says to type the value when BitcoinTX asks no one for prices, or when only your own Mempool, not installed yet or without its backup, could price it, instead of saying to clear it.
 - A CSV file saved as an old Mac's "CSV (Macintosh)" now imports.
 - The Instructions say how to keep BitcoinTX's login cookie to BitcoinTX when other services are opened at the same address, and Set Login Credentials says what a new password leaves valid: every browser is signed out, and an AI key keeps working.
-- **Security:** BitcoinTX includes the latest security fixes of the software it's built on.
+- **Security:** fixes two problems in BitcoinTX itself, and includes the latest security fixes of the software it's built on.
 
 **Known issues**
 
@@ -119,7 +119,7 @@ export const current = VersionInfo.of({
 - El consejo de Ledger Review para un valor vacío o de $0 dice que escribas el valor cuando BitcoinTX no pide precios a nadie, o cuando solo tu propio Mempool, aún sin instalar o sin su respaldo, podría dar el precio, en lugar de decir que lo vacíes.
 - Un archivo CSV guardado como "CSV (Macintosh)" de un Mac antiguo ahora se importa.
 - Las instrucciones dicen cómo mantener la cookie de inicio de sesión de BitcoinTX solo para BitcoinTX cuando otros servicios se abren en la misma dirección, y Set Login Credentials dice qué deja válido una contraseña nueva: se cierra la sesión en todos los navegadores, y una clave de IA sigue funcionando.
-- **Seguridad:** BitcoinTX incluye las últimas correcciones de seguridad del software sobre el que está construido.
+- **Seguridad:** corrige dos problemas del propio BitcoinTX e incluye las últimas correcciones de seguridad del software sobre el que está construido.
 
 **Problemas conocidos**
 
@@ -175,7 +175,7 @@ export const current = VersionInfo.of({
 - Der Rat von Ledger Review zu einem leeren oder $0-Wert sagt, den Wert einzugeben, wenn BitcoinTX niemanden nach Preisen fragt oder nur dein eigener Mempool, noch nicht installiert oder ohne seine Absicherung, ihn bepreisen könnte, statt ihn leeren zu lassen.
 - Eine als "CSV (Macintosh)" eines alten Macs gespeicherte CSV-Datei lässt sich jetzt importieren.
 - Die Anleitung sagt, wie das Anmelde-Cookie von BitcoinTX bei BitcoinTX bleibt, wenn andere Dienste unter derselben Adresse geöffnet werden, und Set Login Credentials sagt, was ein neues Passwort gültig lässt: Jeder Browser wird abgemeldet, und ein KI-Schlüssel funktioniert weiter.
-- **Sicherheit:** BitcoinTX enthält die neuesten Sicherheitskorrekturen der Software, auf der es aufbaut.
+- **Sicherheit:** behebt zwei Probleme in BitcoinTX selbst und enthält die neuesten Sicherheitskorrekturen der Software, auf der es aufbaut.
 
 **Bekannte Probleme**
 
@@ -231,7 +231,7 @@ export const current = VersionInfo.of({
 - Rada Ledger Review dla wartości pustej lub $0 mówi, by wpisać wartość, gdy BitcoinTX nikogo nie pyta o ceny albo gdy wycenić ją mógłby tylko Twój własny Mempool, jeszcze niezainstalowany lub bez swojej kopii zapasowej, zamiast mówić, by ją wyczyścić.
 - Plik CSV zapisany jako "CSV (Macintosh)" starego Maca teraz się importuje.
 - Instrukcje mówią, jak zachować ciasteczko logowania BitcoinTX tylko dla BitcoinTX, gdy inne usługi są otwierane pod tym samym adresem, a Set Login Credentials mówi, co nowe hasło pozostawia ważne: każda przeglądarka zostaje wylogowana, a klucz AI działa dalej.
-- **Bezpieczeństwo:** BitcoinTX zawiera najnowsze poprawki bezpieczeństwa oprogramowania, na którym jest zbudowany.
+- **Bezpieczeństwo:** poprawia dwa problemy w samym BitcoinTX i zawiera najnowsze poprawki bezpieczeństwa oprogramowania, na którym jest zbudowany.
 
 **Znane problemy**
 
@@ -287,7 +287,7 @@ export const current = VersionInfo.of({
 - Le conseil de Ledger Review pour une valeur vide ou à 0 $ dit de saisir la valeur quand BitcoinTX ne demande les prix à personne, ou quand seul votre propre Mempool, pas encore installé ou sans sa solution de secours, pourrait la valoriser, au lieu de dire de la vider.
 - Un fichier CSV enregistré au format "CSV (Macintosh)" d’un ancien Mac s’importe maintenant.
 - Les instructions expliquent comment garder le cookie de connexion de BitcoinTX pour BitcoinTX seul quand d’autres services sont ouverts à la même adresse, et Set Login Credentials dit ce qu’un nouveau mot de passe laisse valable : chaque navigateur est déconnecté, et une clé IA continue de fonctionner.
-- **Sécurité :** BitcoinTX inclut les derniers correctifs de sécurité des logiciels sur lesquels il repose.
+- **Sécurité :** corrige deux problèmes de BitcoinTX lui-même, et inclut les derniers correctifs de sécurité des logiciels sur lesquels il repose.
 
 **Problèmes connus**
 
