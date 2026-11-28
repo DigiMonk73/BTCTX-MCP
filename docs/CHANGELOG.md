@@ -201,7 +201,7 @@ later update).
   settings not valid, clearing it fills nothing unless that hour's price
   is already stored, and the item stayed listed. The advice now says to
   type the value, and why, as the Edit form already does. So it does with
-  your own Mempool chosen without its backup (#1001): to type the value
+  your own Mempool chosen without public price sites to fall back on (#1001): to type the value
   while Mempool isn't installed on this server yet, and for an hour
   before your Mempool began recording. No figure changes.
 

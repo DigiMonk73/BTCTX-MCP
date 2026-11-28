@@ -66,7 +66,7 @@ export const current = VersionInfo.of({
 
 **Other fixes** (no figure changes)
 
-- Ledger Review's advice for a value left blank or $0 says to type the value when BitcoinTX asks no one for prices, or when only your own Mempool, not installed yet or without its backup, could price it, instead of saying to clear it.
+- Ledger Review's advice for a value left blank or $0 says to type the value when BitcoinTX asks no one for prices, or when only your own Mempool, not installed yet or without public price sites to fall back on, could price it, instead of saying to clear it.
 - A CSV file saved as an old Mac's "CSV (Macintosh)" now imports.
 - The Instructions say how to keep BitcoinTX's login cookie to BitcoinTX when other services are opened at the same address, and Set Login Credentials says what a new password leaves valid: every browser is signed out, and an AI key keeps working.
 - **Security:** fixes two problems in BitcoinTX itself, and includes the latest security fixes of the software it's built on.
@@ -123,7 +123,7 @@ export const current = VersionInfo.of({
 
 **Otras correcciones** (ninguna cifra cambia)
 
-- El consejo de Ledger Review para un valor vacío o de $0 dice que escribas el valor cuando BitcoinTX no pide precios a nadie, o cuando solo tu propio Mempool, aún sin instalar o sin su respaldo, podría dar el precio, en lugar de decir que lo vacíes.
+- El consejo de Ledger Review para un valor vacío o de $0 dice que escribas el valor cuando BitcoinTX no pide precios a nadie, o cuando solo tu propio Mempool, aún sin instalar o sin fuente de precios de reserva, podría dar el precio, en lugar de decir que lo vacíes.
 - Un archivo CSV guardado como "CSV (Macintosh)" de un Mac antiguo ahora se importa.
 - Las instrucciones dicen cómo mantener la cookie de inicio de sesión de BitcoinTX solo para BitcoinTX cuando otros servicios se abren en la misma dirección, y Set Login Credentials dice qué deja válido una contraseña nueva: se cierra la sesión en todos los navegadores, y una clave de IA sigue funcionando.
 - **Seguridad:** corrige dos problemas del propio BitcoinTX e incluye las últimas correcciones de seguridad del software sobre el que está construido.
